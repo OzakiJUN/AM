@@ -20,14 +20,21 @@ AM 是自建服务：下载服务器，在自己的电脑或云服务器上跑�
 2. 双击运行。右下角出现托盘图标，弹出服务器管理窗口。
 3. 用窗口里的管理员加入码在客户端注册；之后每个账号自动有 3 个邀请，把加入码或二维码发给朋友就行。
 
+## 客户端
+
+Windows 版下载 `AM-setup.exe`（安装版）或 `AM.exe`（免安装），在 [Releases](../../releases) 或 [Actions](../../actions) 的 `am-client-windows` 里。需要 WebView2（Win10/11 自带，没有时安装程序会自动下载）。
+
+第一次打开：复制朋友发来的加入码再打开客户端，会自动识别；也可以粘贴加入码，或选一张二维码图片。设置里可以换主题色、深浅色、背景图片和字体大小。安卓版之后做。
+
 ## 当前进度
 
-第一阶段已完成三批：
+第一阶段已完成四批：
 - **后端核心**：邀请码注册、登录、多设备会话、好友、私聊、发消息、划掉、断线补消息、已读位置。
 - **群与媒体**：群聊与群管理、入群审批、管理员删除（留证据和审计日志）、登录记录、图片 / 文件 / GIF 头像、图片黑名单。
 - **服务器管理面板**：单文件 exe、托盘图标、独立管理窗口（用户管理、邀请码、删除记录、操作记录、日志、设置）、加入码 / 二维码、注册自动发邀请、开机自启。
+- **Windows 客户端**：NapCatQQ 风格界面、可换主题和背景、多服务器、加入码 / 扫码注册、私聊群聊、图片文件、群管理、系统通知。
 
-现在可以用命令行测试客户端完整体验。下一批：图形界面客户端。详见 [CHANGELOG.md](CHANGELOG.md) 和 [docs/design.md](docs/design.md)。
+下一批：客户端免重装更新、Windows 版正式发布。详见 [CHANGELOG.md](CHANGELOG.md) 和 [docs/design.md](docs/design.md)。
 
 ## 目录
 
@@ -39,6 +46,7 @@ AM 是自建服务：下载服务器，在自己的电脑或云服务器上跑�
 | `server/` | Go 后端 |
 | `sdk/go/amclient` | Go 客户端库（测试客户端、测试、Go 写的 bot 都用它） |
 | `server/internal/admin/web` | 管理面板网页（纯 JS，打包进 exe） |
+| `client/` | 图形界面客户端（Tauri 2 + React），见 [client/README.md](client/README.md) |
 | `internal/connectcode` | 加入码格式（服务器和客户端共用） |
 | `tools/testclient` | 命令行测试客户端 |
 | `assets` | 图标及生成脚本 |
@@ -57,4 +65,6 @@ go test -race ./...
 AM_TEST_DATABASE_URL="postgres://user:pass@127.0.0.1:5432/am_test?sslmode=disable" go test -race ./...
 ```
 
-每次推送到 main，GitHub Actions 会跑测试并编译 Windows 版；打 `v*` 标签会自动发布 Release。
+客户端开发见 [client/README.md](client/README.md)。
+
+每次推送到 main，GitHub Actions 会跑测试并编译 Windows 版服务器和客户端；打 `v*` 标签会自动发布 Release。

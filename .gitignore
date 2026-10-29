@@ -20,3 +20,4 @@ Thumbs.db
 *.syso
 config.toml.bak
 config.toml.tmp
+/testclient

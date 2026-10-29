@@ -64,6 +64,31 @@ update the docs in the same commit.
 - Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
 
+## Client rules (`client/`)
+
+- Tauri 2 + React 19 + TS + Vite + Tailwind 4 + motion + zustand; own UI kit in
+  `client/src/ui` (no component library). Dependencies are pinned to exact
+  versions. `client/go.mod` only stops `go ./...` from walking into it.
+- In the desktop app ALL network traffic goes through Rust
+  (`src-tauri/src/net.rs`, pins the cert from the join code); the UI calls it
+  via `src/lib/transport.ts`. Media is served through the `ammedia://` scheme.
+  Browser mode (`npm run dev` / `vite preview`) exists only for development
+  and e2e: Vite proxies `/api` and `/ws` to `AM_DEV_SERVER` (tls.mode off).
+- Protocol code for TS is generated into `client/src/gen` by `buf generate`
+  (needs `npm ci` in client first); commit it, CI diffs it.
+- The join code format is implemented twice (`internal/connectcode` and
+  `client/src/lib/joincode.ts`); keep them byte-identical — the TS test uses
+  vectors printed by `AM_PRINT_VECTORS=1 go test ./internal/connectcode`.
+- UI style follows NapCatQQ: glass cards with shadow, hover lifts / press
+  sinks (`card`, `lift`, `press` utilities), non-linear easing only
+  (`--ease-out`, `--ease-spring`, motion springs). Never linear animations.
+- Personalization (theme mode, accent, background, font scale) is per device
+  in localStorage; workshop themes will set the same fields.
+- AI emotion keys and fallbacks are listed in docs/design.md §9; keep the
+  client in sync with that table.
+- Checks: `cd client && npm run typecheck && npm test && npx vite build`;
+  e2e: `client/e2e/e2e.mjs` (see client/README.md).
+
 ## Commands
 
 ```sh
@@ -75,6 +100,8 @@ go run ./server/cmd/am-server -headless   # creates config.toml on first run; pr
 go run ./server/cmd/am-server panel       # print the admin panel login URL
 go run ./server/cmd/am-server setup-db
 go run ./tools/testclient -profile alice
+cd client && npm ci && npm run dev       # client in a browser (needs AM_DEV_SERVER, see client/README.md)
+cd client && npx tauri dev               # desktop client
 ```
 
 The end-to-end tests (`server/internal/e2e`) run every scenario on SQLite and,
