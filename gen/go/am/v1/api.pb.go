@@ -655,6 +655,767 @@ func (x *OpenDMRequest) GetUserId() int64 {
 	return 0
 }
 
+// PATCH /api/v1/me   -> User
+type UpdateProfileRequest struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName *string                `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
+	// Media id of an uploaded image (GIF allowed). 0 removes the avatar.
+	AvatarMediaId *int64 `protobuf:"varint,2,opt,name=avatar_media_id,json=avatarMediaId,proto3,oneof" json:"avatar_media_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateProfileRequest) Reset() {
+	*x = UpdateProfileRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateProfileRequest) ProtoMessage() {}
+
+func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateProfileRequest.ProtoReflect.Descriptor instead.
+func (*UpdateProfileRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *UpdateProfileRequest) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
+	}
+	return ""
+}
+
+func (x *UpdateProfileRequest) GetAvatarMediaId() int64 {
+	if x != nil && x.AvatarMediaId != nil {
+		return *x.AvatarMediaId
+	}
+	return 0
+}
+
+// GET /api/v1/me/logins
+type ListLoginRecordsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Records       []*LoginRecord         `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLoginRecordsResponse) Reset() {
+	*x = ListLoginRecordsResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLoginRecordsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLoginRecordsResponse) ProtoMessage() {}
+
+func (x *ListLoginRecordsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLoginRecordsResponse.ProtoReflect.Descriptor instead.
+func (*ListLoginRecordsResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ListLoginRecordsResponse) GetRecords() []*LoginRecord {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+type LoginRecord struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "login" or "register"
+	Kind          string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Ip            string `protobuf:"bytes,2,opt,name=ip,proto3" json:"ip,omitempty"`
+	DeviceName    string `protobuf:"bytes,3,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	CreatedAt     int64  `protobuf:"varint,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LoginRecord) Reset() {
+	*x = LoginRecord{}
+	mi := &file_am_v1_api_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LoginRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LoginRecord) ProtoMessage() {}
+
+func (x *LoginRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LoginRecord.ProtoReflect.Descriptor instead.
+func (*LoginRecord) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *LoginRecord) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *LoginRecord) GetIp() string {
+	if x != nil {
+		return x.Ip
+	}
+	return ""
+}
+
+func (x *LoginRecord) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
+func (x *LoginRecord) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+// POST /api/v1/groups   -> Conversation
+// Members must be the creator's friends.
+type CreateGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	MemberIds     []int64                `protobuf:"varint,2,rep,packed,name=member_ids,json=memberIds,proto3" json:"member_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateGroupRequest) Reset() {
+	*x = CreateGroupRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateGroupRequest) ProtoMessage() {}
+
+func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateGroupRequest.ProtoReflect.Descriptor instead.
+func (*CreateGroupRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *CreateGroupRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateGroupRequest) GetMemberIds() []int64 {
+	if x != nil {
+		return x.MemberIds
+	}
+	return nil
+}
+
+// POST /api/v1/groups/{id}/members
+// Invite friends. In groups with join approval, invitations by ordinary
+// members become join requests for admins to approve.
+type InviteMembersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserIds       []int64                `protobuf:"varint,1,rep,packed,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InviteMembersRequest) Reset() {
+	*x = InviteMembersRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InviteMembersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InviteMembersRequest) ProtoMessage() {}
+
+func (x *InviteMembersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InviteMembersRequest.ProtoReflect.Descriptor instead.
+func (*InviteMembersRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *InviteMembersRequest) GetUserIds() []int64 {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+type InviteMembersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Added         []int64                `protobuf:"varint,1,rep,packed,name=added,proto3" json:"added,omitempty"`
+	Requested     []int64                `protobuf:"varint,2,rep,packed,name=requested,proto3" json:"requested,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InviteMembersResponse) Reset() {
+	*x = InviteMembersResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InviteMembersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InviteMembersResponse) ProtoMessage() {}
+
+func (x *InviteMembersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InviteMembersResponse.ProtoReflect.Descriptor instead.
+func (*InviteMembersResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *InviteMembersResponse) GetAdded() []int64 {
+	if x != nil {
+		return x.Added
+	}
+	return nil
+}
+
+func (x *InviteMembersResponse) GetRequested() []int64 {
+	if x != nil {
+		return x.Requested
+	}
+	return nil
+}
+
+// PATCH /api/v1/groups/{id}   -> Conversation
+type UpdateGroupRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// Media id of an uploaded image. 0 removes the avatar.
+	AvatarMediaId *int64  `protobuf:"varint,2,opt,name=avatar_media_id,json=avatarMediaId,proto3,oneof" json:"avatar_media_id,omitempty"`
+	Notice        *string `protobuf:"bytes,3,opt,name=notice,proto3,oneof" json:"notice,omitempty"`
+	JoinApproval  *bool   `protobuf:"varint,4,opt,name=join_approval,json=joinApproval,proto3,oneof" json:"join_approval,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateGroupRequest) Reset() {
+	*x = UpdateGroupRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateGroupRequest) ProtoMessage() {}
+
+func (x *UpdateGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateGroupRequest.ProtoReflect.Descriptor instead.
+func (*UpdateGroupRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *UpdateGroupRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateGroupRequest) GetAvatarMediaId() int64 {
+	if x != nil && x.AvatarMediaId != nil {
+		return *x.AvatarMediaId
+	}
+	return 0
+}
+
+func (x *UpdateGroupRequest) GetNotice() string {
+	if x != nil && x.Notice != nil {
+		return *x.Notice
+	}
+	return ""
+}
+
+func (x *UpdateGroupRequest) GetJoinApproval() bool {
+	if x != nil && x.JoinApproval != nil {
+		return *x.JoinApproval
+	}
+	return false
+}
+
+// POST /api/v1/groups/{id}/transfer   -> Empty   (owner only)
+type TransferGroupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransferGroupRequest) Reset() {
+	*x = TransferGroupRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransferGroupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransferGroupRequest) ProtoMessage() {}
+
+func (x *TransferGroupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransferGroupRequest.ProtoReflect.Descriptor instead.
+func (*TransferGroupRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *TransferGroupRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+// POST /api/v1/groups/{id}/mute   -> Empty
+type MuteMemberRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	UserId int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// How long to mute, in seconds. 0 = unmute.
+	DurationSeconds int64 `protobuf:"varint,2,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *MuteMemberRequest) Reset() {
+	*x = MuteMemberRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuteMemberRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuteMemberRequest) ProtoMessage() {}
+
+func (x *MuteMemberRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuteMemberRequest.ProtoReflect.Descriptor instead.
+func (*MuteMemberRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *MuteMemberRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *MuteMemberRequest) GetDurationSeconds() int64 {
+	if x != nil {
+		return x.DurationSeconds
+	}
+	return 0
+}
+
+// GET /api/v1/groups/{id}/requests
+type ListJoinRequestsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Requests      []*JoinRequestInfo     `protobuf:"bytes,1,rep,name=requests,proto3" json:"requests,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListJoinRequestsResponse) Reset() {
+	*x = ListJoinRequestsResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListJoinRequestsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListJoinRequestsResponse) ProtoMessage() {}
+
+func (x *ListJoinRequestsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListJoinRequestsResponse.ProtoReflect.Descriptor instead.
+func (*ListJoinRequestsResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ListJoinRequestsResponse) GetRequests() []*JoinRequestInfo {
+	if x != nil {
+		return x.Requests
+	}
+	return nil
+}
+
+type JoinRequestInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Inviter       *User                  `protobuf:"bytes,2,opt,name=inviter,proto3" json:"inviter,omitempty"`
+	CreatedAt     int64                  `protobuf:"varint,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinRequestInfo) Reset() {
+	*x = JoinRequestInfo{}
+	mi := &file_am_v1_api_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinRequestInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinRequestInfo) ProtoMessage() {}
+
+func (x *JoinRequestInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinRequestInfo.ProtoReflect.Descriptor instead.
+func (*JoinRequestInfo) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *JoinRequestInfo) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *JoinRequestInfo) GetInviter() *User {
+	if x != nil {
+		return x.Inviter
+	}
+	return nil
+}
+
+func (x *JoinRequestInfo) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+// POST /api/v1/events/{event_id}/delete   -> Empty
+// Group owner / admins (for messages of lower-ranked members) and site admins.
+type AdminDeleteRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Reason string                 `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Also add the image's fingerprint to the blocklist.
+	BlockMedia    bool `protobuf:"varint,2,opt,name=block_media,json=blockMedia,proto3" json:"block_media,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminDeleteRequest) Reset() {
+	*x = AdminDeleteRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminDeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminDeleteRequest) ProtoMessage() {}
+
+func (x *AdminDeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminDeleteRequest.ProtoReflect.Descriptor instead.
+func (*AdminDeleteRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *AdminDeleteRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *AdminDeleteRequest) GetBlockMedia() bool {
+	if x != nil {
+		return x.BlockMedia
+	}
+	return false
+}
+
+// POST /api/v1/media   (multipart/form-data, field "file")  -> MediaInfo
+// GET  /api/v1/media/{id}         original file
+// GET  /api/v1/media/{id}/thumb   thumbnail / static first frame (images)
+type MediaInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Mime          string                 `protobuf:"bytes,2,opt,name=mime,proto3" json:"mime,omitempty"`
+	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	Width         int32                  `protobuf:"varint,4,opt,name=width,proto3" json:"width,omitempty"`
+	Height        int32                  `protobuf:"varint,5,opt,name=height,proto3" json:"height,omitempty"`
+	Name          string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	IsImage       bool                   `protobuf:"varint,7,opt,name=is_image,json=isImage,proto3" json:"is_image,omitempty"`
+	Url           string                 `protobuf:"bytes,8,opt,name=url,proto3" json:"url,omitempty"`
+	ThumbUrl      string                 `protobuf:"bytes,9,opt,name=thumb_url,json=thumbUrl,proto3" json:"thumb_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MediaInfo) Reset() {
+	*x = MediaInfo{}
+	mi := &file_am_v1_api_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MediaInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MediaInfo) ProtoMessage() {}
+
+func (x *MediaInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MediaInfo.ProtoReflect.Descriptor instead.
+func (*MediaInfo) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *MediaInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *MediaInfo) GetMime() string {
+	if x != nil {
+		return x.Mime
+	}
+	return ""
+}
+
+func (x *MediaInfo) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *MediaInfo) GetWidth() int32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *MediaInfo) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *MediaInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *MediaInfo) GetIsImage() bool {
+	if x != nil {
+		return x.IsImage
+	}
+	return false
+}
+
+func (x *MediaInfo) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *MediaInfo) GetThumbUrl() string {
+	if x != nil {
+		return x.ThumbUrl
+	}
+	return ""
+}
+
 type Empty struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -663,7 +1424,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_am_v1_api_proto_msgTypes[11]
+	mi := &file_am_v1_api_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +1436,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[11]
+	mi := &file_am_v1_api_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +1449,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{11}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{24}
 }
 
 var File_am_v1_api_proto protoreflect.FileDescriptor
@@ -741,7 +1502,65 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fFriendAccept\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\"(\n" +
 	"\rOpenDMRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x03R\x06userId\"\a\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"\x90\x01\n" +
+	"\x14UpdateProfileRequest\x12&\n" +
+	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12+\n" +
+	"\x0favatar_media_id\x18\x02 \x01(\x03H\x01R\ravatarMediaId\x88\x01\x01B\x0f\n" +
+	"\r_display_nameB\x12\n" +
+	"\x10_avatar_media_id\"H\n" +
+	"\x18ListLoginRecordsResponse\x12,\n" +
+	"\arecords\x18\x01 \x03(\v2\x12.am.v1.LoginRecordR\arecords\"q\n" +
+	"\vLoginRecord\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x0e\n" +
+	"\x02ip\x18\x02 \x01(\tR\x02ip\x12\x1f\n" +
+	"\vdevice_name\x18\x03 \x01(\tR\n" +
+	"deviceName\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"G\n" +
+	"\x12CreateGroupRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"member_ids\x18\x02 \x03(\x03R\tmemberIds\"1\n" +
+	"\x14InviteMembersRequest\x12\x19\n" +
+	"\buser_ids\x18\x01 \x03(\x03R\auserIds\"K\n" +
+	"\x15InviteMembersResponse\x12\x14\n" +
+	"\x05added\x18\x01 \x03(\x03R\x05added\x12\x1c\n" +
+	"\trequested\x18\x02 \x03(\x03R\trequested\"\xdb\x01\n" +
+	"\x12UpdateGroupRequest\x12\x17\n" +
+	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12+\n" +
+	"\x0favatar_media_id\x18\x02 \x01(\x03H\x01R\ravatarMediaId\x88\x01\x01\x12\x1b\n" +
+	"\x06notice\x18\x03 \x01(\tH\x02R\x06notice\x88\x01\x01\x12(\n" +
+	"\rjoin_approval\x18\x04 \x01(\bH\x03R\fjoinApproval\x88\x01\x01B\a\n" +
+	"\x05_nameB\x12\n" +
+	"\x10_avatar_media_idB\t\n" +
+	"\a_noticeB\x10\n" +
+	"\x0e_join_approval\"/\n" +
+	"\x14TransferGroupRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"W\n" +
+	"\x11MuteMemberRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12)\n" +
+	"\x10duration_seconds\x18\x02 \x01(\x03R\x0fdurationSeconds\"N\n" +
+	"\x18ListJoinRequestsResponse\x122\n" +
+	"\brequests\x18\x01 \x03(\v2\x16.am.v1.JoinRequestInfoR\brequests\"x\n" +
+	"\x0fJoinRequestInfo\x12\x1f\n" +
+	"\x04user\x18\x01 \x01(\v2\v.am.v1.UserR\x04user\x12%\n" +
+	"\ainviter\x18\x02 \x01(\v2\v.am.v1.UserR\ainviter\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x03 \x01(\x03R\tcreatedAt\"M\n" +
+	"\x12AdminDeleteRequest\x12\x16\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\x12\x1f\n" +
+	"\vblock_media\x18\x02 \x01(\bR\n" +
+	"blockMedia\"\xcf\x01\n" +
+	"\tMediaInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04mime\x18\x02 \x01(\tR\x04mime\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x14\n" +
+	"\x05width\x18\x04 \x01(\x05R\x05width\x12\x16\n" +
+	"\x06height\x18\x05 \x01(\x05R\x06height\x12\x12\n" +
+	"\x04name\x18\x06 \x01(\tR\x04name\x12\x19\n" +
+	"\bis_image\x18\a \x01(\bR\aisImage\x12\x10\n" +
+	"\x03url\x18\b \x01(\tR\x03url\x12\x1b\n" +
+	"\tthumb_url\x18\t \x01(\tR\bthumbUrl\"\a\n" +
 	"\x05EmptyB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
@@ -756,34 +1575,51 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 	return file_am_v1_api_proto_rawDescData
 }
 
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_am_v1_api_proto_goTypes = []any{
-	(*RegisterRequest)(nil),      // 0: am.v1.RegisterRequest
-	(*LoginRequest)(nil),         // 1: am.v1.LoginRequest
-	(*SessionResponse)(nil),      // 2: am.v1.SessionResponse
-	(*ListSessionsResponse)(nil), // 3: am.v1.ListSessionsResponse
-	(*DeviceSession)(nil),        // 4: am.v1.DeviceSession
-	(*ListInvitesResponse)(nil),  // 5: am.v1.ListInvitesResponse
-	(*Invite)(nil),               // 6: am.v1.Invite
-	(*ListFriendsResponse)(nil),  // 7: am.v1.ListFriendsResponse
-	(*FriendRequest)(nil),        // 8: am.v1.FriendRequest
-	(*FriendAccept)(nil),         // 9: am.v1.FriendAccept
-	(*OpenDMRequest)(nil),        // 10: am.v1.OpenDMRequest
-	(*Empty)(nil),                // 11: am.v1.Empty
-	(*User)(nil),                 // 12: am.v1.User
+	(*RegisterRequest)(nil),          // 0: am.v1.RegisterRequest
+	(*LoginRequest)(nil),             // 1: am.v1.LoginRequest
+	(*SessionResponse)(nil),          // 2: am.v1.SessionResponse
+	(*ListSessionsResponse)(nil),     // 3: am.v1.ListSessionsResponse
+	(*DeviceSession)(nil),            // 4: am.v1.DeviceSession
+	(*ListInvitesResponse)(nil),      // 5: am.v1.ListInvitesResponse
+	(*Invite)(nil),                   // 6: am.v1.Invite
+	(*ListFriendsResponse)(nil),      // 7: am.v1.ListFriendsResponse
+	(*FriendRequest)(nil),            // 8: am.v1.FriendRequest
+	(*FriendAccept)(nil),             // 9: am.v1.FriendAccept
+	(*OpenDMRequest)(nil),            // 10: am.v1.OpenDMRequest
+	(*UpdateProfileRequest)(nil),     // 11: am.v1.UpdateProfileRequest
+	(*ListLoginRecordsResponse)(nil), // 12: am.v1.ListLoginRecordsResponse
+	(*LoginRecord)(nil),              // 13: am.v1.LoginRecord
+	(*CreateGroupRequest)(nil),       // 14: am.v1.CreateGroupRequest
+	(*InviteMembersRequest)(nil),     // 15: am.v1.InviteMembersRequest
+	(*InviteMembersResponse)(nil),    // 16: am.v1.InviteMembersResponse
+	(*UpdateGroupRequest)(nil),       // 17: am.v1.UpdateGroupRequest
+	(*TransferGroupRequest)(nil),     // 18: am.v1.TransferGroupRequest
+	(*MuteMemberRequest)(nil),        // 19: am.v1.MuteMemberRequest
+	(*ListJoinRequestsResponse)(nil), // 20: am.v1.ListJoinRequestsResponse
+	(*JoinRequestInfo)(nil),          // 21: am.v1.JoinRequestInfo
+	(*AdminDeleteRequest)(nil),       // 22: am.v1.AdminDeleteRequest
+	(*MediaInfo)(nil),                // 23: am.v1.MediaInfo
+	(*Empty)(nil),                    // 24: am.v1.Empty
+	(*User)(nil),                     // 25: am.v1.User
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	12, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	25, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	4,  // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
 	6,  // 2: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
-	12, // 3: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	12, // 4: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	12, // 5: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	25, // 3: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	25, // 4: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	25, // 5: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	13, // 6: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
+	21, // 7: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
+	25, // 8: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	25, // 9: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -792,13 +1628,15 @@ func file_am_v1_api_proto_init() {
 		return
 	}
 	file_am_v1_common_proto_init()
+	file_am_v1_api_proto_msgTypes[11].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -6,21 +6,28 @@
 listen = "0.0.0.0:8443"
 # Unique number per server process (0-1023). Keep 1 unless you run several.
 node_id = 1
-# Folder for generated files (TLS certificate, bootstrap invite, uploads).
+# Folder for generated files (database, TLS certificate, uploads, bootstrap invite).
 data_dir = "data"
+# Set to true ONLY if all outside traffic arrives through frp (or another proxy)
+# with proxy protocol enabled. Then the real client IP is used for login records
+# and rate limits. Headers are trusted only from local (127.0.0.1 / ::1) connections.
+proxy_protocol = false
 
 [tls]
 # "self_signed": generate a certificate on first start (clients pin its fingerprint).
 # "files":       use cert_file / key_file (e.g. a real certificate after you get a domain).
 # "off":         plain HTTP, only for local testing or behind a reverse proxy.
 mode = "self_signed"
-# Addresses written into the self-signed certificate. Add your public IP here.
+# Addresses written into the self-signed certificate. Add your public IP or domain here.
 hosts = ["127.0.0.1", "localhost"]
 cert_file = ""
 key_file = ""
 
 [database]
-# PostgreSQL connection. "am-server setup-db" creates this user and database for you.
+# "sqlite" (default): a single file in data_dir, nothing to install.
+# "postgres": for larger servers; run "am-server setup-db" once to create the database.
+driver = "sqlite"
+sqlite_file = "am.db"
 url = "postgres://am:__DB_PASSWORD__@127.0.0.1:5432/am?sslmode=disable"
 max_conns = 10
 
@@ -37,6 +44,21 @@ sync_page_size = 200
 sync_max_page_size = 500
 # Login / register attempts allowed per IP per minute.
 login_attempts_per_minute = 10
+max_group_members = 500
+# Largest upload (image or file) in MB.
+max_upload_mb = 50
+
+[retention]
+# How long admin-deleted content is kept in the evidence store before it is
+# purged automatically. Regulations expect at least 180 days.
+evidence_days = 180
+# How long login records (time, IP, device) are kept. At least 180 days.
+login_record_days = 180
+
+[media]
+# Images whose fingerprint is within this distance of a blocked image are
+# rejected (0-64; lower = stricter match). 6 catches re-saved / resized copies.
+block_distance = 6
 
 [log]
 # debug, info, warn, error

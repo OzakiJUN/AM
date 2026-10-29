@@ -72,6 +72,58 @@ func (FriendPush_Kind) EnumDescriptor() ([]byte, []int) {
 	return file_am_v1_gateway_proto_rawDescGZIP(), []int{15, 0}
 }
 
+type ConvRemovedPush_Reason int32
+
+const (
+	ConvRemovedPush_REASON_UNSPECIFIED ConvRemovedPush_Reason = 0
+	ConvRemovedPush_REASON_LEFT        ConvRemovedPush_Reason = 1
+	ConvRemovedPush_REASON_KICKED      ConvRemovedPush_Reason = 2
+	ConvRemovedPush_REASON_DISSOLVED   ConvRemovedPush_Reason = 3
+)
+
+// Enum value maps for ConvRemovedPush_Reason.
+var (
+	ConvRemovedPush_Reason_name = map[int32]string{
+		0: "REASON_UNSPECIFIED",
+		1: "REASON_LEFT",
+		2: "REASON_KICKED",
+		3: "REASON_DISSOLVED",
+	}
+	ConvRemovedPush_Reason_value = map[string]int32{
+		"REASON_UNSPECIFIED": 0,
+		"REASON_LEFT":        1,
+		"REASON_KICKED":      2,
+		"REASON_DISSOLVED":   3,
+	}
+)
+
+func (x ConvRemovedPush_Reason) Enum() *ConvRemovedPush_Reason {
+	p := new(ConvRemovedPush_Reason)
+	*p = x
+	return p
+}
+
+func (x ConvRemovedPush_Reason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConvRemovedPush_Reason) Descriptor() protoreflect.EnumDescriptor {
+	return file_am_v1_gateway_proto_enumTypes[1].Descriptor()
+}
+
+func (ConvRemovedPush_Reason) Type() protoreflect.EnumType {
+	return &file_am_v1_gateway_proto_enumTypes[1]
+}
+
+func (x ConvRemovedPush_Reason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ConvRemovedPush_Reason.Descriptor instead.
+func (ConvRemovedPush_Reason) EnumDescriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{16, 0}
+}
+
 type ClientFrame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	ReqId uint64                 `protobuf:"varint,1,opt,name=req_id,json=reqId,proto3" json:"req_id,omitempty"`
@@ -224,6 +276,8 @@ type ServerFrame struct {
 	//	*ServerFrame_Event
 	//	*ServerFrame_Conv
 	//	*ServerFrame_Friend
+	//	*ServerFrame_ConvRemoved
+	//	*ServerFrame_JoinRequest
 	Msg           isServerFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -354,6 +408,24 @@ func (x *ServerFrame) GetFriend() *FriendPush {
 	return nil
 }
 
+func (x *ServerFrame) GetConvRemoved() *ConvRemovedPush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_ConvRemoved); ok {
+			return x.ConvRemoved
+		}
+	}
+	return nil
+}
+
+func (x *ServerFrame) GetJoinRequest() *JoinRequestPush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_JoinRequest); ok {
+			return x.JoinRequest
+		}
+	}
+	return nil
+}
+
 type isServerFrame_Msg interface {
 	isServerFrame_Msg()
 }
@@ -395,6 +467,14 @@ type ServerFrame_Friend struct {
 	Friend *FriendPush `protobuf:"bytes,32,opt,name=friend,proto3,oneof"`
 }
 
+type ServerFrame_ConvRemoved struct {
+	ConvRemoved *ConvRemovedPush `protobuf:"bytes,33,opt,name=conv_removed,json=convRemoved,proto3,oneof"`
+}
+
+type ServerFrame_JoinRequest struct {
+	JoinRequest *JoinRequestPush `protobuf:"bytes,34,opt,name=join_request,json=joinRequest,proto3,oneof"`
+}
+
 func (*ServerFrame_Error) isServerFrame_Msg() {}
 
 func (*ServerFrame_Auth) isServerFrame_Msg() {}
@@ -412,6 +492,10 @@ func (*ServerFrame_Event) isServerFrame_Msg() {}
 func (*ServerFrame_Conv) isServerFrame_Msg() {}
 
 func (*ServerFrame_Friend) isServerFrame_Msg() {}
+
+func (*ServerFrame_ConvRemoved) isServerFrame_Msg() {}
+
+func (*ServerFrame_JoinRequest) isServerFrame_Msg() {}
 
 type AuthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1151,6 +1235,122 @@ func (x *FriendPush) GetUser() *User {
 	return nil
 }
 
+// You are no longer in a conversation (left, kicked, or group dissolved).
+// The client keeps the history read-only.
+type ConvRemovedPush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConvId        int64                  `protobuf:"varint,1,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	Reason        ConvRemovedPush_Reason `protobuf:"varint,2,opt,name=reason,proto3,enum=am.v1.ConvRemovedPush_Reason" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConvRemovedPush) Reset() {
+	*x = ConvRemovedPush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConvRemovedPush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConvRemovedPush) ProtoMessage() {}
+
+func (x *ConvRemovedPush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConvRemovedPush.ProtoReflect.Descriptor instead.
+func (*ConvRemovedPush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ConvRemovedPush) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *ConvRemovedPush) GetReason() ConvRemovedPush_Reason {
+	if x != nil {
+		return x.Reason
+	}
+	return ConvRemovedPush_REASON_UNSPECIFIED
+}
+
+// A member invited someone into a group that needs approval.
+// Sent to the group's owner and admins.
+type JoinRequestPush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConvId        int64                  `protobuf:"varint,1,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	User          *User                  `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	Inviter       *User                  `protobuf:"bytes,3,opt,name=inviter,proto3" json:"inviter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinRequestPush) Reset() {
+	*x = JoinRequestPush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinRequestPush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinRequestPush) ProtoMessage() {}
+
+func (x *JoinRequestPush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinRequestPush.ProtoReflect.Descriptor instead.
+func (*JoinRequestPush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *JoinRequestPush) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *JoinRequestPush) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *JoinRequestPush) GetInviter() *User {
+	if x != nil {
+		return x.Inviter
+	}
+	return nil
+}
+
 var File_am_v1_gateway_proto protoreflect.FileDescriptor
 
 const file_am_v1_gateway_proto_rawDesc = "" +
@@ -1164,7 +1364,7 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x04sync\x18\f \x01(\v2\x12.am.v1.SyncRequestH\x00R\x04sync\x125\n" +
 	"\tmark_read\x18\r \x01(\v2\x16.am.v1.MarkReadRequestH\x00R\bmarkRead\x12!\n" +
 	"\x04ping\x18\x0e \x01(\v2\v.am.v1.PingH\x00R\x04pingB\x05\n" +
-	"\x03msg\"\xab\x03\n" +
+	"\x03msg\"\xa5\x04\n" +
 	"\vServerFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12$\n" +
 	"\x05error\x18\n" +
@@ -1176,7 +1376,9 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x04pong\x18\x0f \x01(\v2\v.am.v1.PongH\x00R\x04pong\x12(\n" +
 	"\x05event\x18\x1e \x01(\v2\x10.am.v1.EventPushH\x00R\x05event\x12%\n" +
 	"\x04conv\x18\x1f \x01(\v2\x0f.am.v1.ConvPushH\x00R\x04conv\x12+\n" +
-	"\x06friend\x18  \x01(\v2\x11.am.v1.FriendPushH\x00R\x06friendB\x05\n" +
+	"\x06friend\x18  \x01(\v2\x11.am.v1.FriendPushH\x00R\x06friend\x12;\n" +
+	"\fconv_removed\x18! \x01(\v2\x16.am.v1.ConvRemovedPushH\x00R\vconvRemoved\x12;\n" +
+	"\fjoin_request\x18\" \x01(\v2\x16.am.v1.JoinRequestPushH\x00R\vjoinRequestB\x05\n" +
 	"\x03msg\"#\n" +
 	"\vAuthRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"f\n" +
@@ -1221,7 +1423,19 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x04Kind\x12\x14\n" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15KIND_REQUEST_RECEIVED\x10\x01\x12\x11\n" +
-	"\rKIND_ACCEPTED\x10\x02B*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\rKIND_ACCEPTED\x10\x02\"\xbd\x01\n" +
+	"\x0fConvRemovedPush\x12\x17\n" +
+	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x125\n" +
+	"\x06reason\x18\x02 \x01(\x0e2\x1d.am.v1.ConvRemovedPush.ReasonR\x06reason\"Z\n" +
+	"\x06Reason\x12\x16\n" +
+	"\x12REASON_UNSPECIFIED\x10\x00\x12\x0f\n" +
+	"\vREASON_LEFT\x10\x01\x12\x11\n" +
+	"\rREASON_KICKED\x10\x02\x12\x14\n" +
+	"\x10REASON_DISSOLVED\x10\x03\"r\n" +
+	"\x0fJoinRequestPush\x12\x17\n" +
+	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x12\x1f\n" +
+	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04user\x12%\n" +
+	"\ainviter\x18\x03 \x01(\v2\v.am.v1.UserR\ainviterB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_gateway_proto_rawDescOnce sync.Once
@@ -1235,68 +1449,76 @@ func file_am_v1_gateway_proto_rawDescGZIP() []byte {
 	return file_am_v1_gateway_proto_rawDescData
 }
 
-var file_am_v1_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_am_v1_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_am_v1_gateway_proto_goTypes = []any{
-	(FriendPush_Kind)(0),     // 0: am.v1.FriendPush.Kind
-	(*ClientFrame)(nil),      // 1: am.v1.ClientFrame
-	(*ServerFrame)(nil),      // 2: am.v1.ServerFrame
-	(*AuthRequest)(nil),      // 3: am.v1.AuthRequest
-	(*AuthResponse)(nil),     // 4: am.v1.AuthResponse
-	(*SendRequest)(nil),      // 5: am.v1.SendRequest
-	(*SendResponse)(nil),     // 6: am.v1.SendResponse
-	(*SyncRequest)(nil),      // 7: am.v1.SyncRequest
-	(*SyncCursor)(nil),       // 8: am.v1.SyncCursor
-	(*SyncResponse)(nil),     // 9: am.v1.SyncResponse
-	(*MarkReadRequest)(nil),  // 10: am.v1.MarkReadRequest
-	(*MarkReadResponse)(nil), // 11: am.v1.MarkReadResponse
-	(*Ping)(nil),             // 12: am.v1.Ping
-	(*Pong)(nil),             // 13: am.v1.Pong
-	(*EventPush)(nil),        // 14: am.v1.EventPush
-	(*ConvPush)(nil),         // 15: am.v1.ConvPush
-	(*FriendPush)(nil),       // 16: am.v1.FriendPush
-	(*Error)(nil),            // 17: am.v1.Error
-	(*User)(nil),             // 18: am.v1.User
-	(*Conversation)(nil),     // 19: am.v1.Conversation
-	(*TextMsg)(nil),          // 20: am.v1.TextMsg
-	(*ImageMsg)(nil),         // 21: am.v1.ImageMsg
-	(*FileMsg)(nil),          // 22: am.v1.FileMsg
-	(*StrikeAct)(nil),        // 23: am.v1.StrikeAct
-	(*Event)(nil),            // 24: am.v1.Event
+	(FriendPush_Kind)(0),        // 0: am.v1.FriendPush.Kind
+	(ConvRemovedPush_Reason)(0), // 1: am.v1.ConvRemovedPush.Reason
+	(*ClientFrame)(nil),         // 2: am.v1.ClientFrame
+	(*ServerFrame)(nil),         // 3: am.v1.ServerFrame
+	(*AuthRequest)(nil),         // 4: am.v1.AuthRequest
+	(*AuthResponse)(nil),        // 5: am.v1.AuthResponse
+	(*SendRequest)(nil),         // 6: am.v1.SendRequest
+	(*SendResponse)(nil),        // 7: am.v1.SendResponse
+	(*SyncRequest)(nil),         // 8: am.v1.SyncRequest
+	(*SyncCursor)(nil),          // 9: am.v1.SyncCursor
+	(*SyncResponse)(nil),        // 10: am.v1.SyncResponse
+	(*MarkReadRequest)(nil),     // 11: am.v1.MarkReadRequest
+	(*MarkReadResponse)(nil),    // 12: am.v1.MarkReadResponse
+	(*Ping)(nil),                // 13: am.v1.Ping
+	(*Pong)(nil),                // 14: am.v1.Pong
+	(*EventPush)(nil),           // 15: am.v1.EventPush
+	(*ConvPush)(nil),            // 16: am.v1.ConvPush
+	(*FriendPush)(nil),          // 17: am.v1.FriendPush
+	(*ConvRemovedPush)(nil),     // 18: am.v1.ConvRemovedPush
+	(*JoinRequestPush)(nil),     // 19: am.v1.JoinRequestPush
+	(*Error)(nil),               // 20: am.v1.Error
+	(*User)(nil),                // 21: am.v1.User
+	(*Conversation)(nil),        // 22: am.v1.Conversation
+	(*TextMsg)(nil),             // 23: am.v1.TextMsg
+	(*ImageMsg)(nil),            // 24: am.v1.ImageMsg
+	(*FileMsg)(nil),             // 25: am.v1.FileMsg
+	(*StrikeAct)(nil),           // 26: am.v1.StrikeAct
+	(*Event)(nil),               // 27: am.v1.Event
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
-	3,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
-	5,  // 1: am.v1.ClientFrame.send:type_name -> am.v1.SendRequest
-	7,  // 2: am.v1.ClientFrame.sync:type_name -> am.v1.SyncRequest
-	10, // 3: am.v1.ClientFrame.mark_read:type_name -> am.v1.MarkReadRequest
-	12, // 4: am.v1.ClientFrame.ping:type_name -> am.v1.Ping
-	17, // 5: am.v1.ServerFrame.error:type_name -> am.v1.Error
-	4,  // 6: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
-	6,  // 7: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
-	9,  // 8: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
-	11, // 9: am.v1.ServerFrame.mark_read:type_name -> am.v1.MarkReadResponse
-	13, // 10: am.v1.ServerFrame.pong:type_name -> am.v1.Pong
-	14, // 11: am.v1.ServerFrame.event:type_name -> am.v1.EventPush
-	15, // 12: am.v1.ServerFrame.conv:type_name -> am.v1.ConvPush
-	16, // 13: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
-	18, // 14: am.v1.AuthResponse.me:type_name -> am.v1.User
-	19, // 15: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
-	20, // 16: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
-	21, // 17: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
-	22, // 18: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
-	23, // 19: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
-	24, // 20: am.v1.SendResponse.event:type_name -> am.v1.Event
-	8,  // 21: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
-	24, // 22: am.v1.SyncResponse.events:type_name -> am.v1.Event
-	24, // 23: am.v1.EventPush.event:type_name -> am.v1.Event
-	19, // 24: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
-	0,  // 25: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
-	18, // 26: am.v1.FriendPush.user:type_name -> am.v1.User
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
+	6,  // 1: am.v1.ClientFrame.send:type_name -> am.v1.SendRequest
+	8,  // 2: am.v1.ClientFrame.sync:type_name -> am.v1.SyncRequest
+	11, // 3: am.v1.ClientFrame.mark_read:type_name -> am.v1.MarkReadRequest
+	13, // 4: am.v1.ClientFrame.ping:type_name -> am.v1.Ping
+	20, // 5: am.v1.ServerFrame.error:type_name -> am.v1.Error
+	5,  // 6: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
+	7,  // 7: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
+	10, // 8: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
+	12, // 9: am.v1.ServerFrame.mark_read:type_name -> am.v1.MarkReadResponse
+	14, // 10: am.v1.ServerFrame.pong:type_name -> am.v1.Pong
+	15, // 11: am.v1.ServerFrame.event:type_name -> am.v1.EventPush
+	16, // 12: am.v1.ServerFrame.conv:type_name -> am.v1.ConvPush
+	17, // 13: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
+	18, // 14: am.v1.ServerFrame.conv_removed:type_name -> am.v1.ConvRemovedPush
+	19, // 15: am.v1.ServerFrame.join_request:type_name -> am.v1.JoinRequestPush
+	21, // 16: am.v1.AuthResponse.me:type_name -> am.v1.User
+	22, // 17: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
+	23, // 18: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
+	24, // 19: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
+	25, // 20: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
+	26, // 21: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
+	27, // 22: am.v1.SendResponse.event:type_name -> am.v1.Event
+	9,  // 23: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
+	27, // 24: am.v1.SyncResponse.events:type_name -> am.v1.Event
+	27, // 25: am.v1.EventPush.event:type_name -> am.v1.Event
+	22, // 26: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
+	0,  // 27: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
+	21, // 28: am.v1.FriendPush.user:type_name -> am.v1.User
+	1,  // 29: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
+	21, // 30: am.v1.JoinRequestPush.user:type_name -> am.v1.User
+	21, // 31: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }
@@ -1323,6 +1545,8 @@ func file_am_v1_gateway_proto_init() {
 		(*ServerFrame_Event)(nil),
 		(*ServerFrame_Conv)(nil),
 		(*ServerFrame_Friend)(nil),
+		(*ServerFrame_ConvRemoved)(nil),
+		(*ServerFrame_JoinRequest)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[4].OneofWrappers = []any{
 		(*SendRequest_Text)(nil),
@@ -1335,8 +1559,8 @@ func file_am_v1_gateway_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_gateway_proto_rawDesc), len(file_am_v1_gateway_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   16,
+			NumEnums:      2,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -180,22 +180,35 @@ func ctx10() (context.Context, context.CancelFunc) {
 // ---- commands ----
 
 const help = `Commands:
-  register <invite> <username> <password> [display name]   create an account
-  login <username> <password>        log in
-  logout                             forget this profile's login
-  me                                 show my account
-  invites | newinvite                list / create invite codes
-  friends                            list friends and requests
-  add <username>                     send a friend request
-  accept <username>                  accept a friend request
-  dm <username>                      open a DM with a friend (becomes current)
-  convs                              list conversations with unread counts
-  open <conv id>                     switch current conversation
-  <any text>                         send to the current conversation
-  send <text>                        same as above
-  strike <event id>                  strike through one of your messages
-  history [n]                        show the last n messages (default 20)
-  sessions | kick <session id>       list / log out devices
+  Account
+    register <invite> <username> <password> [display name]   create an account
+    login <username> <password>      log in
+    logout                           forget this profile's login
+    me | name <display name>         show my account / change display name
+    avatar <image path>              set avatar (GIF works)
+    invites | newinvite              list / create invite codes
+    sessions | revoke <session id>   list / log out devices
+    logins                           my recent logins (time, IP, device)
+  Friends
+    friends | add <username> | accept <username>
+  Conversations
+    dm <username>                    open a DM with a friend (becomes current)
+    convs | open <conv id>           list / switch conversations
+    <any text>  or  send <text>      send to the current conversation
+    img <path> | file <path>         send an image / a file
+    save <event id>                  download an image/file into testclient_downloads
+    strike <event id>                strike through one of your messages
+    delete <event id> [block] <reason>   admin delete (block = also block the image)
+    history [n]                      show the last n messages (default 20)
+  Groups (act on the current conversation)
+    group <name> [username ...]      create a group with friends
+    invite <username ...>            add friends (or request, if approval is on)
+    members                          list members and roles
+    kick <username> | leave
+    admin <username> | unadmin <username> | transfer <username> | dissolve
+    mute <username> <minutes> | unmute <username>
+    rename <name> | notice <text> | approval on|off
+    requests | approve <username> | reject <username>
   quit                               exit`
 
 func (a *app) command(line string) error {
@@ -364,13 +377,84 @@ func (a *app) command(line string) error {
 			}
 			fmt.Printf("  %d  %s  last seen %s%s\n", s.Id, s.DeviceName, time.UnixMilli(s.LastSeen).Format("01-02 15:04"), mark)
 		}
-	case "kick":
+	case "revoke":
 		id, err := strconv.ParseInt(rest, 10, 64)
 		if err != nil {
-			return errors.New("usage: kick <session id>")
+			return errors.New("usage: revoke <session id>")
 		}
 		return a.cli.RevokeSession(ctx, id)
+	case "logins":
+		resp, err := a.cli.ListLogins(ctx)
+		if err != nil {
+			return err
+		}
+		for _, r := range resp.Records {
+			fmt.Printf("  %s  %-8s %-15s %s\n", time.UnixMilli(r.CreatedAt).Format("2006-01-02 15:04"), r.Kind, r.Ip, r.DeviceName)
+		}
+	case "name":
+		if rest == "" {
+			return errors.New("usage: name <display name>")
+		}
+		u, err := a.cli.UpdateProfile(ctx, &amv1.UpdateProfileRequest{DisplayName: &rest})
+		if err != nil {
+			return err
+		}
+		a.setMe(u)
+		fmt.Println("Display name changed to", u.DisplayName)
+	case "avatar":
+		info, err := a.uploadPath(rest)
+		if err != nil {
+			return err
+		}
+		u, err := a.cli.UpdateProfile(ctx, &amv1.UpdateProfileRequest{AvatarMediaId: &info.Id})
+		if err != nil {
+			return err
+		}
+		a.setMe(u)
+		fmt.Println("Avatar set.")
+	case "img", "file":
+		conn, conv := a.connAndCurrent()
+		if conn == nil || conv == 0 {
+			return errors.New("open a conversation first")
+		}
+		info, err := a.uploadPath(rest)
+		if err != nil {
+			return err
+		}
+		var ev *amv1.Event
+		if cmd == "img" {
+			ev, err = conn.SendImage(ctx, conv, info.Id)
+		} else {
+			ev, err = conn.SendFile(ctx, conv, info.Id, info.Name)
+		}
+		if err != nil {
+			return err
+		}
+		a.receive(ev, false)
+	case "save":
+		id, err := strconv.ParseInt(rest, 10, 64)
+		if err != nil {
+			return errors.New("usage: save <event id>")
+		}
+		return a.save(ctx, id)
+	case "delete":
+		if len(args) < 2 {
+			return errors.New("usage: delete <event id> [block] <reason>")
+		}
+		id, err := strconv.ParseInt(args[0], 10, 64)
+		if err != nil {
+			return errors.New("usage: delete <event id> [block] <reason>")
+		}
+		block := args[1] == "block"
+		reasonArgs := args[1:]
+		if block {
+			reasonArgs = args[2:]
+		}
+		return a.cli.AdminDelete(ctx, id, strings.Join(reasonArgs, " "), block)
 	default:
+		if handled, err := a.groupCommand(ctx, strings.ToLower(cmd), rest, args); handled {
+			return err
+		}
 		return a.sendText(ctx, line)
 	}
 	return nil
@@ -606,6 +690,29 @@ func (a *app) pushLoop(conn *amclient.Conn) {
 			a.mu.Unlock()
 			fmt.Printf("\n* Conversation available: %s (conv %d)\n", title, m.Conv.GetConversation().GetId())
 			a.prompt()
+		case *amv1.ServerFrame_ConvRemoved:
+			r := m.ConvRemoved
+			a.mu.Lock()
+			title := a.convTitleLocked(r.ConvId)
+			delete(a.convs, r.ConvId)
+			if a.current == r.ConvId {
+				a.current = 0
+			}
+			a.mu.Unlock()
+			reason := map[amv1.ConvRemovedPush_Reason]string{
+				amv1.ConvRemovedPush_REASON_LEFT: "you left", amv1.ConvRemovedPush_REASON_KICKED: "you were removed",
+				amv1.ConvRemovedPush_REASON_DISSOLVED: "the group was dissolved",
+			}[r.Reason]
+			fmt.Printf("\n* %s: %s\n", title, reason)
+			a.prompt()
+		case *amv1.ServerFrame_JoinRequest:
+			r := m.JoinRequest
+			a.mu.Lock()
+			title := a.convTitleLocked(r.ConvId)
+			a.mu.Unlock()
+			fmt.Printf("\n* %s invited %s into %s (needs approval) - open %d, then: approve %s\n",
+				r.Inviter.GetDisplayName(), r.User.GetDisplayName(), title, r.ConvId, r.User.GetUsername())
+			a.prompt()
 		case *amv1.ServerFrame_Friend:
 			u := m.Friend.GetUser()
 			a.rememberUsers([]*amv1.User{u})
@@ -635,6 +742,9 @@ func (a *app) receive(ev *amv1.Event, fromSync bool) {
 	}
 	if c := a.convs[ev.ConvId]; c != nil && ev.Seq > c.LastSeq {
 		c.LastSeq = ev.Seq
+	}
+	if (ev.GetSysMember() != nil || ev.GetSysConv() != nil) && !fromSync {
+		go a.refreshConv(ev.ConvId) // member list / roles / name changed
 	}
 	mine := a.me != nil && ev.SenderId == a.me.Id
 	if ev.ConvId == a.current {
@@ -740,8 +850,73 @@ func (a *app) formatLocked(ev *amv1.Event) string {
 		return fmt.Sprintf("%s: %s", head, text)
 	case *amv1.Event_Strike:
 		return fmt.Sprintf("%s struck through message %d", head, b.Strike.GetTargetEventId())
+	case *amv1.Event_Image:
+		mark := ""
+		if a.isStruckLocked(ev) {
+			mark = " (struck)"
+		}
+		return fmt.Sprintf("%s: [image %dx%d]%s  - type: save %d", head, b.Image.GetWidth(), b.Image.GetHeight(), mark, ev.EventId)
+	case *amv1.Event_File:
+		mark := ""
+		if a.isStruckLocked(ev) {
+			mark = " (struck)"
+		}
+		return fmt.Sprintf("%s: [file %s, %d bytes]%s  - type: save %d", head, b.File.GetName(), b.File.GetSize(), mark, ev.EventId)
+	case *amv1.Event_AdminDelete:
+		return fmt.Sprintf("%s deleted message %d (reason: %s)", head, b.AdminDelete.GetTargetEventId(), b.AdminDelete.GetReason())
+	case *amv1.Event_SysMember:
+		m := b.SysMember
+		target := a.nameLocked(m.GetTargetUserId())
+		switch m.GetAction() {
+		case amv1.SysMember_ACTION_JOIN:
+			return fmt.Sprintf("%s * %s joined (added by %s)", head, target, who)
+		case amv1.SysMember_ACTION_LEAVE:
+			return fmt.Sprintf("%s * %s left", head, target)
+		case amv1.SysMember_ACTION_KICK:
+			return fmt.Sprintf("%s * %s was removed by %s", head, target, who)
+		case amv1.SysMember_ACTION_MUTE:
+			return fmt.Sprintf("%s * %s was muted until %s", head, target, time.UnixMilli(m.GetUntil()).Format("01-02 15:04"))
+		case amv1.SysMember_ACTION_UNMUTE:
+			return fmt.Sprintf("%s * %s was unmuted", head, target)
+		case amv1.SysMember_ACTION_ROLE_CHANGE:
+			return fmt.Sprintf("%s * %s is now %s", head, target, roleName(m.GetNewRole()))
+		}
+		return fmt.Sprintf("%s * member change", head)
+	case *amv1.Event_SysConv:
+		c := b.SysConv
+		switch {
+		case c.GetCreated():
+			return fmt.Sprintf("%s * created the group %q", head, c.GetName())
+		case c.GetDissolved():
+			return fmt.Sprintf("%s * dissolved the group", head)
+		}
+		var parts []string
+		if c.Name != nil {
+			parts = append(parts, fmt.Sprintf("name -> %q", c.GetName()))
+		}
+		if c.Notice != nil {
+			parts = append(parts, fmt.Sprintf("notice -> %q", c.GetNotice()))
+		}
+		if c.Avatar != nil {
+			parts = append(parts, "avatar changed")
+		}
+		if c.JoinApproval != nil {
+			parts = append(parts, fmt.Sprintf("join approval -> %t", c.GetJoinApproval()))
+		}
+		return fmt.Sprintf("%s * changed group: %s", head, strings.Join(parts, ", "))
 	default:
 		return fmt.Sprintf("%s: (unsupported message type)", head)
+	}
+}
+
+func roleName(r amv1.MemberRole) string {
+	switch r {
+	case amv1.MemberRole_MEMBER_ROLE_OWNER:
+		return "owner"
+	case amv1.MemberRole_MEMBER_ROLE_ADMIN:
+		return "admin"
+	default:
+		return "member"
 	}
 }
 

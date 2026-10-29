@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -18,18 +19,21 @@ import (
 var defaultTOML string
 
 type Config struct {
-	Server   Server   `toml:"server"`
-	TLS      TLS      `toml:"tls"`
-	Database Database `toml:"database"`
-	Invites  Invites  `toml:"invites"`
-	Limits   Limits   `toml:"limits"`
-	Log      Log      `toml:"log"`
+	Server    Server    `toml:"server"`
+	TLS       TLS       `toml:"tls"`
+	Database  Database  `toml:"database"`
+	Invites   Invites   `toml:"invites"`
+	Limits    Limits    `toml:"limits"`
+	Retention Retention `toml:"retention"`
+	Media     Media     `toml:"media"`
+	Log       Log       `toml:"log"`
 }
 
 type Server struct {
-	Listen  string `toml:"listen"`
-	NodeID  int64  `toml:"node_id"`
-	DataDir string `toml:"data_dir"`
+	Listen        string `toml:"listen"`
+	NodeID        int64  `toml:"node_id"`
+	DataDir       string `toml:"data_dir"`
+	ProxyProtocol bool   `toml:"proxy_protocol"`
 }
 
 type TLS struct {
@@ -41,8 +45,10 @@ type TLS struct {
 }
 
 type Database struct {
-	URL      string `toml:"url"`
-	MaxConns int32  `toml:"max_conns"`
+	Driver     string `toml:"driver"`
+	SQLiteFile string `toml:"sqlite_file"`
+	URL        string `toml:"url"`
+	MaxConns   int    `toml:"max_conns"`
 }
 
 type Invites struct {
@@ -55,6 +61,17 @@ type Limits struct {
 	SyncPageSize           int `toml:"sync_page_size"`
 	SyncMaxPageSize        int `toml:"sync_max_page_size"`
 	LoginAttemptsPerMinute int `toml:"login_attempts_per_minute"`
+	MaxGroupMembers        int `toml:"max_group_members"`
+	MaxUploadMB            int `toml:"max_upload_mb"`
+}
+
+type Retention struct {
+	EvidenceDays    int `toml:"evidence_days"`
+	LoginRecordDays int `toml:"login_record_days"`
+}
+
+type Media struct {
+	BlockDistance int `toml:"block_distance"`
 }
 
 type Log struct {
@@ -94,6 +111,14 @@ func writeDefault(path string) error {
 	return os.WriteFile(path, []byte(content), 0o600)
 }
 
+// SQLitePath is the database file path (inside data_dir unless absolute).
+func (c *Config) SQLitePath() string {
+	if filepath.IsAbs(c.Database.SQLiteFile) {
+		return c.Database.SQLiteFile
+	}
+	return filepath.Join(c.Server.DataDir, c.Database.SQLiteFile)
+}
+
 // DefaultTemplate returns the commented default config, for docs/examples.
 func DefaultTemplate() string { return defaultTOML }
 
@@ -110,8 +135,26 @@ func (c *Config) validate() error {
 	if c.Server.NodeID < 0 || c.Server.NodeID > 1023 {
 		return errors.New("server.node_id must be 0-1023")
 	}
-	if c.Database.URL == "" {
-		return errors.New("database.url is empty")
+	switch c.Database.Driver {
+	case "sqlite":
+		if c.Database.SQLiteFile == "" {
+			return errors.New("database.sqlite_file is empty")
+		}
+	case "postgres":
+		if c.Database.URL == "" {
+			return errors.New("database.url is empty")
+		}
+	default:
+		return fmt.Errorf("unknown database.driver %q (use sqlite or postgres)", c.Database.Driver)
+	}
+	if c.Limits.MaxGroupMembers < 2 || c.Limits.MaxUploadMB < 1 {
+		return errors.New("limits.max_group_members must be >= 2 and limits.max_upload_mb >= 1")
+	}
+	if c.Retention.EvidenceDays < 1 || c.Retention.LoginRecordDays < 1 {
+		return errors.New("retention days must be >= 1")
+	}
+	if c.Media.BlockDistance < 0 || c.Media.BlockDistance > 64 {
+		return errors.New("media.block_distance must be 0-64")
 	}
 	if c.Invites.PerUser < 0 {
 		return errors.New("invites.per_user must be >= 0")

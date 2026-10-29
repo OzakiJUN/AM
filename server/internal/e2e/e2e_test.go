@@ -1,114 +1,24 @@
-// End-to-end test: runs the real server against a real PostgreSQL and
-// drives it with the Go client, the same way the apps will.
+// End-to-end tests: run the real server and drive it with the Go client,
+// the same way the apps will.
 //
-// Needs a throw-away database (its schema is wiped):
+// Every test runs against SQLite (always) and PostgreSQL (when
+// AM_TEST_DATABASE_URL points at a throw-away database; its schema is wiped):
 //
 //	AM_TEST_DATABASE_URL=postgres://user:pass@127.0.0.1:5432/am_test?sslmode=disable go test ./...
-//
-// Skipped when AM_TEST_DATABASE_URL is not set.
 package e2e
 
 import (
-	"context"
-	"io"
-	"log/slog"
-	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/sdk/go/amclient"
 	"github.com/OzakiJUN/am/server/internal/app"
-	"github.com/OzakiJUN/am/server/internal/config"
 )
 
-func setup(t *testing.T) (*app.App, string) {
-	t.Helper()
-	url := os.Getenv("AM_TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("AM_TEST_DATABASE_URL not set")
-	}
-	ctx := context.Background()
-	conn, err := pgx.Connect(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := conn.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`); err != nil {
-		t.Fatal(err)
-	}
-	conn.Close(ctx)
+func TestChat(t *testing.T) { forEachDB(t, testChat) }
 
-	cfg, _, err := config.Load(writeTempConfig(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Database.URL = url
-	cfg.TLS.Mode = "off"
-	cfg.Limits.LoginAttemptsPerMinute = 0
-
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	a, err := app.New(ctx, cfg, log)
-	if err != nil {
-		t.Fatal(err)
-	}
-	srv := httptest.NewServer(a.Handler)
-	t.Cleanup(func() {
-		srv.Close()
-		a.Close()
-	})
-	return a, srv.URL
-}
-
-func writeTempConfig(t *testing.T) string {
-	return t.TempDir() + "/config.toml" // Load creates the default file
-}
-
-func ctxT(t *testing.T) context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	t.Cleanup(cancel)
-	return ctx
-}
-
-// must panics on error; inside a test a panic is reported as a failure
-// with the line number. (Go cannot spread f() into must(t, f()).)
-func must[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func wantCode(t *testing.T, err error, code string) {
-	t.Helper()
-	if !amclient.IsCode(err, code) {
-		t.Fatalf("want error %q, got %v", code, err)
-	}
-}
-
-// waitPush waits for a push matching pred.
-func waitPush(t *testing.T, c *amclient.Conn, what string, pred func(*amv1.ServerFrame) bool) *amv1.ServerFrame {
-	t.Helper()
-	timeout := time.After(5 * time.Second)
-	for {
-		select {
-		case f, ok := <-c.Pushes:
-			if !ok {
-				t.Fatalf("connection closed while waiting for %s", what)
-			}
-			if pred(f) {
-				return f
-			}
-		case <-timeout:
-			t.Fatalf("timed out waiting for %s", what)
-		}
-	}
-}
-
-func TestEndToEnd(t *testing.T) {
-	a, base := setup(t)
+func testChat(t *testing.T, a *app.App, base string) {
 	ctx := ctxT(t)
 
 	// --- registration and invites ---

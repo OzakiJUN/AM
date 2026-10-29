@@ -189,8 +189,11 @@ type User struct {
 	// Owner's display name, filled by the server so clients can render
 	// "AI · owner: xx" without an extra lookup.
 	OwnerDisplayName string `protobuf:"bytes,7,opt,name=owner_display_name,json=ownerDisplayName,proto3" json:"owner_display_name,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Static (first-frame) version of the avatar. Lists and chats show this;
+	// only the profile page plays the animated `avatar`.
+	AvatarStatic  string `protobuf:"bytes,8,opt,name=avatar_static,json=avatarStatic,proto3" json:"avatar_static,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *User) Reset() {
@@ -272,6 +275,13 @@ func (x *User) GetOwnerDisplayName() string {
 	return ""
 }
 
+func (x *User) GetAvatarStatic() string {
+	if x != nil {
+		return x.AvatarStatic
+	}
+	return ""
+}
+
 // A conversation (DM or group) as seen by the current user.
 type Conversation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -285,7 +295,13 @@ type Conversation struct {
 	LastSeq int64   `protobuf:"varint,6,opt,name=last_seq,json=lastSeq,proto3" json:"last_seq,omitempty"`
 	Members []*User `protobuf:"bytes,7,rep,name=members,proto3" json:"members,omitempty"`
 	// The current user's own settings in this conversation.
-	Self          *MemberState `protobuf:"bytes,8,opt,name=self,proto3" json:"self,omitempty"`
+	Self *MemberState `protobuf:"bytes,8,opt,name=self,proto3" json:"self,omitempty"`
+	// Group announcement.
+	Notice string `protobuf:"bytes,9,opt,name=notice,proto3" json:"notice,omitempty"`
+	// Group: members' invitations need admin approval.
+	JoinApproval bool `protobuf:"varint,10,opt,name=join_approval,json=joinApproval,proto3" json:"join_approval,omitempty"`
+	// Role of each member, parallel to `members` (same order).
+	MemberRoles   []MemberRole `protobuf:"varint,11,rep,packed,name=member_roles,json=memberRoles,proto3,enum=am.v1.MemberRole" json:"member_roles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -372,6 +388,27 @@ func (x *Conversation) GetMembers() []*User {
 func (x *Conversation) GetSelf() *MemberState {
 	if x != nil {
 		return x.Self
+	}
+	return nil
+}
+
+func (x *Conversation) GetNotice() string {
+	if x != nil {
+		return x.Notice
+	}
+	return ""
+}
+
+func (x *Conversation) GetJoinApproval() bool {
+	if x != nil {
+		return x.JoinApproval
+	}
+	return false
+}
+
+func (x *Conversation) GetMemberRoles() []MemberRole {
+	if x != nil {
+		return x.MemberRoles
 	}
 	return nil
 }
@@ -516,7 +553,7 @@ var File_am_v1_common_proto protoreflect.FileDescriptor
 
 const file_am_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x12am/v1/common.proto\x12\x05am.v1\"\xed\x01\n" +
+	"\x12am/v1/common.proto\x12\x05am.v1\"\x92\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12!\n" +
@@ -524,7 +561,8 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\x06avatar\x18\x04 \x01(\tR\x06avatar\x125\n" +
 	"\faccount_type\x18\x05 \x01(\x0e2\x12.am.v1.AccountTypeR\vaccountType\x12\x19\n" +
 	"\bowner_id\x18\x06 \x01(\x03R\aownerId\x12,\n" +
-	"\x12owner_display_name\x18\a \x01(\tR\x10ownerDisplayName\"\xf4\x01\n" +
+	"\x12owner_display_name\x18\a \x01(\tR\x10ownerDisplayName\x12#\n" +
+	"\ravatar_static\x18\b \x01(\tR\favatarStatic\"\xe7\x02\n" +
 	"\fConversation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12#\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x0f.am.v1.ConvKindR\x04kind\x12\x12\n" +
@@ -533,7 +571,11 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\bowner_id\x18\x05 \x01(\x03R\aownerId\x12\x19\n" +
 	"\blast_seq\x18\x06 \x01(\x03R\alastSeq\x12%\n" +
 	"\amembers\x18\a \x03(\v2\v.am.v1.UserR\amembers\x12&\n" +
-	"\x04self\x18\b \x01(\v2\x12.am.v1.MemberStateR\x04self\"\xb0\x01\n" +
+	"\x04self\x18\b \x01(\v2\x12.am.v1.MemberStateR\x04self\x12\x16\n" +
+	"\x06notice\x18\t \x01(\tR\x06notice\x12#\n" +
+	"\rjoin_approval\x18\n" +
+	" \x01(\bR\fjoinApproval\x124\n" +
+	"\fmember_roles\x18\v \x03(\x0e2\x11.am.v1.MemberRoleR\vmemberRoles\"\xb0\x01\n" +
 	"\vMemberState\x12%\n" +
 	"\x04role\x18\x01 \x01(\x0e2\x11.am.v1.MemberRoleR\x04role\x12\x19\n" +
 	"\bread_seq\x18\x02 \x01(\x03R\areadSeq\x12!\n" +
@@ -588,12 +630,13 @@ var file_am_v1_common_proto_depIdxs = []int32{
 	1, // 1: am.v1.Conversation.kind:type_name -> am.v1.ConvKind
 	3, // 2: am.v1.Conversation.members:type_name -> am.v1.User
 	5, // 3: am.v1.Conversation.self:type_name -> am.v1.MemberState
-	2, // 4: am.v1.MemberState.role:type_name -> am.v1.MemberRole
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2, // 4: am.v1.Conversation.member_roles:type_name -> am.v1.MemberRole
+	2, // 5: am.v1.MemberState.role:type_name -> am.v1.MemberRole
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_common_proto_init() }

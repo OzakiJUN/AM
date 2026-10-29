@@ -90,4 +90,118 @@ message OpenDMRequest {
   int64 user_id = 1;
 }
 
+// GET /api/v1/conversations/{id}   -> Conversation (must be a member)
+// GET /api/v1/users/{id}           -> User
+
+// PATCH /api/v1/me   -> User
+message UpdateProfileRequest {
+  optional string display_name = 1;
+  // Media id of an uploaded image (GIF allowed). 0 removes the avatar.
+  optional int64 avatar_media_id = 2;
+}
+
+// GET /api/v1/me/logins
+message ListLoginRecordsResponse {
+  repeated LoginRecord records = 1;
+}
+
+message LoginRecord {
+  // "login" or "register"
+  string kind = 1;
+  string ip = 2;
+  string device_name = 3;
+  int64 created_at = 4;
+}
+
+// ---- groups ----
+
+// POST /api/v1/groups   -> Conversation
+// Members must be the creator's friends.
+message CreateGroupRequest {
+  string name = 1;
+  repeated int64 member_ids = 2;
+}
+
+// POST /api/v1/groups/{id}/members
+// Invite friends. In groups with join approval, invitations by ordinary
+// members become join requests for admins to approve.
+message InviteMembersRequest {
+  repeated int64 user_ids = 1;
+}
+
+message InviteMembersResponse {
+  repeated int64 added = 1;
+  repeated int64 requested = 2;
+}
+
+// DELETE /api/v1/groups/{id}/members/{user_id}   -> Empty
+// Your own id = leave; someone else's = kick.
+
+// PATCH /api/v1/groups/{id}   -> Conversation
+message UpdateGroupRequest {
+  optional string name = 1;
+  // Media id of an uploaded image. 0 removes the avatar.
+  optional int64 avatar_media_id = 2;
+  optional string notice = 3;
+  optional bool join_approval = 4;
+}
+
+// POST   /api/v1/groups/{id}/admins/{user_id}  -> Empty   (owner only)
+// DELETE /api/v1/groups/{id}/admins/{user_id}  -> Empty
+
+// POST /api/v1/groups/{id}/transfer   -> Empty   (owner only)
+message TransferGroupRequest {
+  int64 user_id = 1;
+}
+
+// DELETE /api/v1/groups/{id}   -> Empty   (owner only; dissolves the group)
+
+// POST /api/v1/groups/{id}/mute   -> Empty
+message MuteMemberRequest {
+  int64 user_id = 1;
+  // How long to mute, in seconds. 0 = unmute.
+  int64 duration_seconds = 2;
+}
+
+// GET /api/v1/groups/{id}/requests
+message ListJoinRequestsResponse {
+  repeated JoinRequestInfo requests = 1;
+}
+
+message JoinRequestInfo {
+  User user = 1;
+  User inviter = 2;
+  int64 created_at = 3;
+}
+
+// POST /api/v1/groups/{id}/requests/{user_id}/approve  -> Empty
+// POST /api/v1/groups/{id}/requests/{user_id}/reject   -> Empty
+
+// ---- moderation ----
+
+// POST /api/v1/events/{event_id}/delete   -> Empty
+// Group owner / admins (for messages of lower-ranked members) and site admins.
+message AdminDeleteRequest {
+  string reason = 1;
+  // Also add the image's fingerprint to the blocklist.
+  bool block_media = 2;
+}
+
+// ---- media ----
+
+// POST /api/v1/media   (multipart/form-data, field "file")  -> MediaInfo
+// GET  /api/v1/media/{id}         original file
+// GET  /api/v1/media/{id}/thumb   thumbnail / static first frame (images)
+message MediaInfo {
+  int64 id = 1;
+  string mime = 2;
+  int64 size = 3;
+  int32 width = 4;
+  int32 height = 5;
+  string name = 6;
+  bool is_image = 7;
+  string url = 8;
+  string thumb_url = 9;
+}
+
 message Empty {}

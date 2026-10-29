@@ -10,20 +10,23 @@ AM (AI Message) 是我和小克一起打造的新一代 AI 集成聊天工具，
 - **表情包库**：全站共享、带上传者和关键词，个人收藏夹分类（规划中）。
 - **社区 & 创意工坊**：动态广场、小游戏和插件，开了什么插件强制公示（规划中）。
 
-## 当前进度
+## 自己搭服务器
 
-第一阶段第 1 批：**后端核心**已完成 —— 邀请码注册、登录、多设备会话、好友、私聊、发消息、划掉、断线补消息、已读位置。现在可以用命令行测试客户端互相聊天。
-
-下一批：群聊与群管理、管理员删除、图片和文件。详见 [CHANGELOG.md](CHANGELOG.md) 和 [docs/design.md](docs/design.md)。
-
-## 在 Windows 服务器上运行
+AM 是自建服务：下载服务器，在自己的电脑或云服务器上跑起来，邀请朋友用客户端连接。默认使用 SQLite，**不用装数据库，解压即用**；人多了可以切换到 PostgreSQL。
 
 看 [docs/server-setup.md](docs/server-setup.md)。简单说：
 
 1. 在 [Actions](../../actions) 里下载最新的 `am-windows-amd64.zip`，解压。
-2. 双击 `1_setup_db.bat` 建数据库（需要先装好 PostgreSQL）。
-3. 双击 `2_start_server.bat` 启动服务器。
-4. 双击 `3_testclient.bat` 打开测试客户端。
+2. 双击 `1_start_server.bat`，记下打印出来的邀请码和证书指纹。
+3. 双击 `2_testclient.bat`，用邀请码注册第一个账号（站点管理员）。
+
+## 当前进度
+
+第一阶段已完成两批：
+- **后端核心**：邀请码注册、登录、多设备会话、好友、私聊、发消息、划掉、断线补消息、已读位置。
+- **群与媒体**：群聊与群管理、入群审批、管理员删除（留证据和审计日志）、登录记录、图片 / 文件 / GIF 头像、图片黑名单。
+
+现在可以用命令行测试客户端完整体验。下一批：服务器管理后台和连接码，然后是图形界面客户端。详见 [CHANGELOG.md](CHANGELOG.md) 和 [docs/design.md](docs/design.md)。
 
 ## 目录
 
@@ -43,7 +46,10 @@ AM (AI Message) 是我和小克一起打造的新一代 AI 集成聊天工具，
 # 改了 proto 之后重新生成代码
 buf generate
 
-# 运行全部测试（端到端测试需要一个可以随便清空的 PostgreSQL 数据库）
+# 运行全部测试（端到端测试默认跑 SQLite）
+go test -race ./...
+
+# 同时测 PostgreSQL（需要一个可以随便清空的数据库）
 AM_TEST_DATABASE_URL="postgres://user:pass@127.0.0.1:5432/am_test?sslmode=disable" go test -race ./...
 ```
 

@@ -736,9 +736,15 @@ type SysConv struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	OperatorId int64                  `protobuf:"varint,1,opt,name=operator_id,json=operatorId,proto3" json:"operator_id,omitempty"`
 	// Only the fields that changed are set.
-	Name          *string `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Avatar        *string `protobuf:"bytes,3,opt,name=avatar,proto3,oneof" json:"avatar,omitempty"`
-	Notice        *string `protobuf:"bytes,4,opt,name=notice,proto3,oneof" json:"notice,omitempty"`
+	Name *string `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// New avatar URL ("" = removed).
+	Avatar *string `protobuf:"bytes,3,opt,name=avatar,proto3,oneof" json:"avatar,omitempty"`
+	Notice *string `protobuf:"bytes,4,opt,name=notice,proto3,oneof" json:"notice,omitempty"`
+	// The group was dissolved; it is now read-only history.
+	Dissolved    bool  `protobuf:"varint,5,opt,name=dissolved,proto3" json:"dissolved,omitempty"`
+	JoinApproval *bool `protobuf:"varint,6,opt,name=join_approval,json=joinApproval,proto3,oneof" json:"join_approval,omitempty"`
+	// Set when the group was just created.
+	Created       bool `protobuf:"varint,7,opt,name=created,proto3" json:"created,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -799,6 +805,27 @@ func (x *SysConv) GetNotice() string {
 		return *x.Notice
 	}
 	return ""
+}
+
+func (x *SysConv) GetDissolved() bool {
+	if x != nil {
+		return x.Dissolved
+	}
+	return false
+}
+
+func (x *SysConv) GetJoinApproval() bool {
+	if x != nil && x.JoinApproval != nil {
+		return *x.JoinApproval
+	}
+	return false
+}
+
+func (x *SysConv) GetCreated() bool {
+	if x != nil {
+		return x.Created
+	}
+	return false
 }
 
 var File_am_v1_event_proto protoreflect.FileDescriptor
@@ -862,16 +889,20 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\vACTION_KICK\x10\x03\x12\x0f\n" +
 	"\vACTION_MUTE\x10\x04\x12\x11\n" +
 	"\rACTION_UNMUTE\x10\x05\x12\x16\n" +
-	"\x12ACTION_ROLE_CHANGE\x10\x06\"\x9c\x01\n" +
+	"\x12ACTION_ROLE_CHANGE\x10\x06\"\x90\x02\n" +
 	"\aSysConv\x12\x1f\n" +
 	"\voperator_id\x18\x01 \x01(\x03R\n" +
 	"operatorId\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1b\n" +
 	"\x06avatar\x18\x03 \x01(\tH\x01R\x06avatar\x88\x01\x01\x12\x1b\n" +
-	"\x06notice\x18\x04 \x01(\tH\x02R\x06notice\x88\x01\x01B\a\n" +
+	"\x06notice\x18\x04 \x01(\tH\x02R\x06notice\x88\x01\x01\x12\x1c\n" +
+	"\tdissolved\x18\x05 \x01(\bR\tdissolved\x12(\n" +
+	"\rjoin_approval\x18\x06 \x01(\bH\x03R\fjoinApproval\x88\x01\x01\x12\x18\n" +
+	"\acreated\x18\a \x01(\bR\acreatedB\a\n" +
 	"\x05_nameB\t\n" +
 	"\a_avatarB\t\n" +
-	"\a_noticeB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\a_noticeB\x10\n" +
+	"\x0e_join_approvalB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_event_proto_rawDescOnce sync.Once

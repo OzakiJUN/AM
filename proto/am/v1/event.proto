@@ -101,6 +101,12 @@ message SysConv {
   int64 operator_id = 1;
   // Only the fields that changed are set.
   optional string name = 2;
+  // New avatar URL ("" = removed).
   optional string avatar = 3;
   optional string notice = 4;
+  // The group was dissolved; it is now read-only history.
+  bool dissolved = 5;
+  optional bool join_approval = 6;
+  // Set when the group was just created.
+  bool created = 7;
 }

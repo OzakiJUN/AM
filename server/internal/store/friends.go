@@ -1,6 +1,9 @@
 package store
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 const (
 	FriendPending  = 0
@@ -16,8 +19,8 @@ type Friendship struct {
 // GetFriendship returns the row between two users in either direction.
 func (q *Queries) GetFriendship(ctx context.Context, a, b int64) (*Friendship, error) {
 	f := &Friendship{}
-	err := q.db.QueryRow(ctx, `SELECT requester, addressee, state FROM friendships
-		WHERE (requester=$1 AND addressee=$2) OR (requester=$2 AND addressee=$1)`, a, b).
+	err := q.queryRow(ctx, `SELECT requester, addressee, state FROM friendships
+		WHERE (requester=? AND addressee=?) OR (requester=? AND addressee=?)`, a, b, b, a).
 		Scan(&f.Requester, &f.Addressee, &f.State)
 	if err != nil {
 		return nil, notFound(err)
@@ -26,29 +29,22 @@ func (q *Queries) GetFriendship(ctx context.Context, a, b int64) (*Friendship, e
 }
 
 func (q *Queries) InsertFriendRequest(ctx context.Context, requester, addressee, now int64) error {
-	_, err := q.db.Exec(ctx, `INSERT INTO friendships (requester, addressee, state, created_at, updated_at)
-		VALUES ($1,$2,0,$3,$3)`, requester, addressee, now)
+	_, err := q.exec(ctx, `INSERT INTO friendships (requester, addressee, state, created_at, updated_at)
+		VALUES (?,?,0,?,?)`, requester, addressee, now, now)
 	return err
 }
 
 // AcceptFriendRequest turns a pending request into a friendship.
 // Returns ErrNotFound if there is no such pending request.
 func (q *Queries) AcceptFriendRequest(ctx context.Context, requester, addressee, now int64) error {
-	tag, err := q.db.Exec(ctx, `UPDATE friendships SET state=1, updated_at=$3
-		WHERE requester=$1 AND addressee=$2 AND state=0`, requester, addressee, now)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return affected(q.exec(ctx, `UPDATE friendships SET state=1, updated_at=?
+		WHERE requester=? AND addressee=? AND state=0`, now, requester, addressee))
 }
 
 // ListFriendships returns all rows involving the user.
 func (q *Queries) ListFriendships(ctx context.Context, userID int64) ([]*Friendship, error) {
-	rows, err := q.db.Query(ctx, `SELECT requester, addressee, state FROM friendships
-		WHERE requester=$1 OR addressee=$1 ORDER BY updated_at DESC`, userID)
+	rows, err := q.query(ctx, `SELECT requester, addressee, state FROM friendships
+		WHERE requester=? OR addressee=? ORDER BY updated_at DESC`, userID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +62,7 @@ func (q *Queries) ListFriendships(ctx context.Context, userID int64) ([]*Friends
 
 func (q *Queries) AreFriends(ctx context.Context, a, b int64) (bool, error) {
 	f, err := q.GetFriendship(ctx, a, b)
-	if err == ErrNotFound {
+	if errors.Is(err, ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {

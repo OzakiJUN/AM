@@ -20,6 +20,8 @@ import (
 	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/conv"
+	"github.com/OzakiJUN/am/server/internal/media"
+	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -31,14 +33,19 @@ var (
 )
 
 type API struct {
-	acct    *account.Service
-	conv    *conv.Service
-	log     *slog.Logger
-	limiter *ipLimiter
+	acct      *account.Service
+	conv      *conv.Service
+	msg       *message.Service
+	media     *media.Service
+	log       *slog.Logger
+	limiter   *ipLimiter
+	maxUpload int64
 }
 
-func New(acct *account.Service, cs *conv.Service, loginPerMinute int, log *slog.Logger) *API {
-	return &API{acct: acct, conv: cs, log: log, limiter: newIPLimiter(loginPerMinute)}
+func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service,
+	loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
+	return &API{acct: acct, conv: cs, msg: ms, media: md, log: log,
+		limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
 }
 
 // Register adds the API routes to mux.
@@ -58,6 +65,31 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/friends/request", a.authed(a.requestFriend))
 	mux.HandleFunc("POST /api/v1/friends/accept", a.authed(a.acceptFriend))
 	mux.HandleFunc("POST /api/v1/dm", a.authed(a.openDM))
+
+	mux.HandleFunc("GET /api/v1/conversations/{id}", a.authed(a.getConversation))
+	mux.HandleFunc("GET /api/v1/users/{id}", a.authed(a.getUser))
+
+	mux.HandleFunc("PATCH /api/v1/me", a.authed(a.updateProfile))
+	mux.HandleFunc("GET /api/v1/me/logins", a.authed(a.listLogins))
+
+	mux.HandleFunc("POST /api/v1/groups", a.authed(a.createGroup))
+	mux.HandleFunc("PATCH /api/v1/groups/{id}", a.authed(a.updateGroup))
+	mux.HandleFunc("DELETE /api/v1/groups/{id}", a.authed(a.dissolveGroup))
+	mux.HandleFunc("POST /api/v1/groups/{id}/members", a.authed(a.inviteMembers))
+	mux.HandleFunc("DELETE /api/v1/groups/{id}/members/{uid}", a.authed(a.removeMember))
+	mux.HandleFunc("POST /api/v1/groups/{id}/admins/{uid}", a.authed(a.setAdmin(true)))
+	mux.HandleFunc("DELETE /api/v1/groups/{id}/admins/{uid}", a.authed(a.setAdmin(false)))
+	mux.HandleFunc("POST /api/v1/groups/{id}/transfer", a.authed(a.transferGroup))
+	mux.HandleFunc("POST /api/v1/groups/{id}/mute", a.authed(a.muteMember))
+	mux.HandleFunc("GET /api/v1/groups/{id}/requests", a.authed(a.listJoinRequests))
+	mux.HandleFunc("POST /api/v1/groups/{id}/requests/{uid}/approve", a.authed(a.decideJoin(true)))
+	mux.HandleFunc("POST /api/v1/groups/{id}/requests/{uid}/reject", a.authed(a.decideJoin(false)))
+
+	mux.HandleFunc("POST /api/v1/events/{id}/delete", a.authed(a.adminDelete))
+
+	mux.HandleFunc("POST /api/v1/media", a.authed(a.upload))
+	mux.HandleFunc("GET /api/v1/media/{id}", a.authed(a.download(false)))
+	mux.HandleFunc("GET /api/v1/media/{id}/thumb", a.authed(a.download(true)))
 }
 
 // ---- plumbing ----
@@ -142,7 +174,7 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 	if !a.read(w, r, req) {
 		return
 	}
-	token, u, err := a.acct.Register(r.Context(), req)
+	token, u, err := a.acct.Register(r.Context(), req, account.Client{IP: clientIP(r)})
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -155,7 +187,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	if !a.read(w, r, req) {
 		return
 	}
-	token, u, err := a.acct.Login(r.Context(), req)
+	token, u, err := a.acct.Login(r.Context(), req, account.Client{IP: clientIP(r)})
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -261,9 +293,8 @@ func (a *API) openDM(w http.ResponseWriter, r *http.Request, _ *store.Session, m
 // ---- rate limiting ----
 
 // ipLimiter allows `perMinute` requests per IP per clock minute.
-// Note: behind frp every request appears to come from the frp client's
-// address, so the limit is effectively shared by everyone until real client
-// IPs are passed through (proxy protocol, a later stage).
+// Behind frp, enable server.proxy_protocol so this sees real client IPs;
+// otherwise everyone shares the frp client's address.
 type ipLimiter struct {
 	mu        sync.Mutex
 	perMinute int

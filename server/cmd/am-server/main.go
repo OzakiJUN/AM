@@ -1,7 +1,7 @@
 // am-server is the AM chat server.
 //
 //	am-server [-config config.toml]            run the server
-//	am-server setup-db [-config config.toml]   create the database user and database
+//	am-server setup-db [-config config.toml]   PostgreSQL only: create the database user and database
 //	am-server version
 package main
 
@@ -94,9 +94,13 @@ func run(args []string) error {
 
 	a, err := app.New(ctx, cfg, log)
 	if err != nil {
-		return fmt.Errorf("%w\n(if the database does not exist yet, run: am-server setup-db)", err)
+		if cfg.Database.Driver == "postgres" {
+			return fmt.Errorf("%w\n(if the database does not exist yet, run: am-server setup-db)", err)
+		}
+		return err
 	}
 	defer a.Close()
+	go a.Janitor.Run(ctx)
 
 	if code, err := a.Account.EnsureBootstrapInvite(ctx); err != nil {
 		return err
@@ -130,13 +134,20 @@ func run(args []string) error {
 		srv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
 	}
 
+	ln, err := app.Listen(cfg.Server.Listen, cfg.Server.ProxyProtocol)
+	if err != nil {
+		return err
+	}
+	if cfg.Server.ProxyProtocol {
+		log.Info("proxy protocol enabled (trusted from localhost only)")
+	}
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", cfg.Server.Listen, "tls", cfg.TLS.Mode)
+		log.Info("listening", "addr", cfg.Server.Listen, "tls", cfg.TLS.Mode, "database", cfg.Database.Driver)
 		if srv.TLSConfig != nil {
-			errCh <- srv.ListenAndServeTLS("", "")
+			errCh <- srv.ServeTLS(ln, "", "")
 		} else {
-			errCh <- srv.ListenAndServe()
+			errCh <- srv.Serve(ln)
 		}
 	}()
 
@@ -166,6 +177,10 @@ func setupDB(args []string) error {
 	cfg, err := loadConfig(*cfgPath)
 	if err != nil {
 		return err
+	}
+	if cfg.Database.Driver != "postgres" {
+		fmt.Println("database.driver is sqlite: nothing to set up, the database file is created on first start.")
+		return nil
 	}
 	target, err := pgx.ParseConfig(cfg.Database.URL)
 	if err != nil {

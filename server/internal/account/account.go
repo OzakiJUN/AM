@@ -16,6 +16,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/idgen"
+	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/push"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
@@ -31,16 +32,22 @@ type Service struct {
 	ids     *idgen.Generator
 	invites config.Invites
 	push    push.Pusher
+	media   *media.Service
 	now     func() time.Time
 }
 
-func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher) *Service {
-	return &Service{st: st, ids: ids, invites: invites, push: p, now: time.Now}
+func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
+	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now}
+}
+
+// Client describes where a request came from, for login records.
+type Client struct {
+	IP string
 }
 
 // Register creates a human account using an invite code and logs it in.
 // The account created with the bootstrap code becomes the site admin.
-func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest) (token string, u *store.User, err error) {
+func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest, cl Client) (token string, u *store.User, err error) {
 	username := strings.TrimSpace(req.GetUsername())
 	display := strings.TrimSpace(req.GetDisplayName())
 	if display == "" {
@@ -88,14 +95,14 @@ func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest) (toke
 	if err != nil {
 		return "", nil, err
 	}
-	token, err = s.newSession(ctx, u.ID, req.GetDeviceName())
+	token, err = s.newSession(ctx, u.ID, req.GetDeviceName(), "register", cl.IP)
 	if err != nil {
 		return "", nil, err
 	}
 	return token, u, nil
 }
 
-func (s *Service) Login(ctx context.Context, req *amv1.LoginRequest) (string, *store.User, error) {
+func (s *Service) Login(ctx context.Context, req *amv1.LoginRequest, cl Client) (string, *store.User, error) {
 	u, err := s.st.GetUserByUsername(ctx, strings.TrimSpace(req.GetUsername()))
 	if errors.Is(err, store.ErrNotFound) {
 		// Still spend the hashing time so response time does not reveal
@@ -119,7 +126,7 @@ func (s *Service) Login(ctx context.Context, req *amv1.LoginRequest) (string, *s
 	if u.Banned {
 		return "", nil, apperr.ErrBanned
 	}
-	token, err := s.newSession(ctx, u.ID, req.GetDeviceName())
+	token, err := s.newSession(ctx, u.ID, req.GetDeviceName(), "login", cl.IP)
 	if err != nil {
 		return "", nil, err
 	}
@@ -129,7 +136,8 @@ func (s *Service) Login(ctx context.Context, req *amv1.LoginRequest) (string, *s
 // dummyHash is a valid hash of a random password, used for timing equalisation.
 var dummyHash, _ = HashPassword("not-a-real-password-just-timing")
 
-func (s *Service) newSession(ctx context.Context, userID int64, device string) (string, error) {
+// newSession creates a device session and writes a login record.
+func (s *Service) newSession(ctx context.Context, userID int64, device, kind, ip string) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
@@ -141,10 +149,55 @@ func (s *Service) newSession(ctx context.Context, userID int64, device string) (
 		device = string([]rune(device)[:64])
 	}
 	sess := &store.Session{ID: s.ids.Next(), UserID: userID, DeviceName: device, CreatedAt: now, LastSeen: now}
-	if err := s.st.CreateSession(ctx, sess, hashToken(token)); err != nil {
+	err := s.st.InTx(ctx, func(q *store.Queries) error {
+		if err := q.CreateSession(ctx, sess, hashToken(token)); err != nil {
+			return err
+		}
+		return q.AddLoginRecord(ctx, &store.LoginRecord{
+			ID: s.ids.Next(), UserID: userID, SessionID: sess.ID, Kind: kind, IP: ip, DeviceName: device, CreatedAt: now,
+		})
+	})
+	if err != nil {
 		return "", err
 	}
 	return token, nil
+}
+
+// ListLoginRecords returns the user's recent logins (newest first).
+func (s *Service) ListLoginRecords(ctx context.Context, userID int64) (*amv1.ListLoginRecordsResponse, error) {
+	list, err := s.st.ListLoginRecords(ctx, userID, 50)
+	if err != nil {
+		return nil, err
+	}
+	out := &amv1.ListLoginRecordsResponse{}
+	for _, r := range list {
+		out.Records = append(out.Records, &amv1.LoginRecord{Kind: r.Kind, Ip: r.IP, DeviceName: r.DeviceName, CreatedAt: r.CreatedAt})
+	}
+	return out, nil
+}
+
+// UpdateProfile changes display name and/or avatar (an uploaded image, GIF allowed).
+func (s *Service) UpdateProfile(ctx context.Context, u *store.User, req *amv1.UpdateProfileRequest) (*store.User, error) {
+	display := ""
+	if req.DisplayName != nil {
+		display = strings.TrimSpace(req.GetDisplayName())
+		if n := utf8.RuneCountInString(display); n < 1 || n > 32 {
+			return nil, apperr.ErrInvalidName
+		}
+	}
+	avatar := int64(-1) // keep
+	if req.AvatarMediaId != nil {
+		avatar = req.GetAvatarMediaId()
+		if avatar != 0 {
+			if _, err := s.media.OwnUpload(ctx, u.ID, avatar, true); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := s.st.UpdateProfile(ctx, u.ID, display, avatar, ""); err != nil {
+		return nil, err
+	}
+	return s.st.GetUser(ctx, u.ID)
 }
 
 func hashToken(token string) []byte {

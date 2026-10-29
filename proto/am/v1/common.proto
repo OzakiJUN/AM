@@ -25,6 +25,9 @@ message User {
   // Owner's display name, filled by the server so clients can render
   // "AI · owner: xx" without an extra lookup.
   string owner_display_name = 7;
+  // Static (first-frame) version of the avatar. Lists and chats show this;
+  // only the profile page plays the animated `avatar`.
+  string avatar_static = 8;
 }
 
 enum ConvKind {
@@ -53,6 +56,12 @@ message Conversation {
   repeated User members = 7;
   // The current user's own settings in this conversation.
   MemberState self = 8;
+  // Group announcement.
+  string notice = 9;
+  // Group: members' invitations need admin approval.
+  bool join_approval = 10;
+  // Role of each member, parallel to `members` (same order).
+  repeated MemberRole member_roles = 11;
 }
 
 // Per-user settings and state inside one conversation.

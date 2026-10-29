@@ -54,4 +54,13 @@ var (
 	ErrAlreadyStruck   = New(http.StatusConflict, "already_struck", "message is already struck")
 	ErrNotImplemented  = New(http.StatusNotImplemented, "not_implemented", "not implemented yet")
 	ErrRateLimited     = New(http.StatusTooManyRequests, "rate_limited", "too many attempts, try again later")
+
+	ErrNoPermission     = New(http.StatusForbidden, "no_permission", "you do not have permission to do this")
+	ErrNotGroup         = New(http.StatusBadRequest, "not_group", "this conversation is not a group")
+	ErrInvalidGroupName = New(http.StatusBadRequest, "invalid_group_name", "group name must be 1-32 characters")
+	ErrNoticeTooLong    = New(http.StatusBadRequest, "notice_too_long", "group notice must be at most 1000 characters")
+	ErrOwnerCannotLeave = New(http.StatusBadRequest, "owner_cannot_leave", "transfer the group or dissolve it first")
+	ErrGroupFull        = New(http.StatusForbidden, "group_full", "the group is full")
+	ErrNoJoinRequest    = New(http.StatusNotFound, "no_join_request", "no pending join request for this user")
+	ErrNotInGroup       = New(http.StatusNotFound, "not_in_group", "that user is not in this group")
 )
