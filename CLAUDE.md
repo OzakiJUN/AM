@@ -33,8 +33,13 @@ update the docs in the same commit.
   Generated code in `gen/` is committed and CI checks it is current.
   Only add fields; never renumber or reuse field numbers.
 - Events are append-only. "Strike" and "admin delete" are new events that
-  point at the target. Users can never delete; admins can, which purges the
-  content but keeps a record.
+  point at the target. Users can never delete. Admin delete hides the content
+  from all users but moves it into an admin-only evidence store, kept for a
+  configurable period (default 6 months) and then purged automatically —
+  required so deletions never destroy evidence (see docs/design.md §14).
+- Login records (time, IP, device) are kept at least 6 months.
+- No "overseas mode" switch in the client. An international version, if ever,
+  is a fully separate deployment.
 - Account type (human / bot / ai) and owner are set by the server only.
 
 ## Commands
