@@ -6,7 +6,7 @@
 
 | 用途 | 方式 | 编码 |
 | --- | --- | --- |
-| 登录、好友、群管理、上传等 | HTTP `/api/v1/...` | protojson（字段名小驼峰，64 位整数是字符串） |
+| 登录、成员、频道管理、上传等 | HTTP `/api/v1/...` | protojson（字段名小驼峰，64 位整数是字符串） |
 | 实时消息、同步 | WebSocket `/ws` | 二进制 protobuf，一条 WebSocket 消息 = 一个 `ClientFrame` / `ServerFrame` |
 
 服务器默认 `https://<IP>:8443`。使用自签证书时，客户端必须固定（pin）服务器启动时打印的 SHA-256 指纹，而不是信任系统 CA。
@@ -55,26 +55,32 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | GET | `/api/v1/me/logins` | — | `ListLoginRecordsResponse`（最近 50 条） |
 | GET | `/api/v1/users/{id}` | — | `User` |
 
-### 好友与会话
+### 成员与私信
+
+没有好友（第一阶段第 4 批取消）：同一个服务器上的人都能直接私信，类似 Discord。原来的 `/api/v1/friends...` 接口和 `friend` 推送已删除。
 
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
-| GET | `/api/v1/friends` | — | `ListFriendsResponse` |
-| POST | `/api/v1/friends/request` | `FriendRequest` | `Empty` |
-| POST | `/api/v1/friends/accept` | `FriendAccept` | `Empty` |
-| POST | `/api/v1/dm` | `OpenDMRequest` | `Conversation` |
+| GET | `/api/v1/users?query=&after=&limit=` | — | `ListUsersResponse`：服务器上所有没被封的账号，按 id 排序；`query` 匹配用户名或昵称；翻页时 `after` 填上一页的 `next_after`（0 = 没有了）；`limit` 默认 50，最大 200 |
+| POST | `/api/v1/dm` | `OpenDMRequest` | `Conversation`：和任何人的私信（已有就返回原来的）；有一方屏蔽了另一方时 `blocked` |
 | GET | `/api/v1/conversations/{id}` | — | `Conversation`（须是成员） |
+| GET | `/api/v1/blocks` | — | `ListBlocksResponse`：我屏蔽的人，新的在前 |
+| POST / DELETE | `/api/v1/blocks/{uid}` | — | `Empty`：屏蔽 / 取消屏蔽 |
 
-向已经向你发过申请的人发好友申请，等于直接接受。
+屏蔽对双方都生效：被屏蔽后两人都不能再发私信（打开私信和发消息都返回 `blocked`），但划掉自己以前的消息仍可以。频道里不受影响。
 
-### 群
+### 频道（协议里叫 group）
+
+客户端把群叫"频道"。**公开频道**：服务器上所有人都能看到和加入，新注册的账号自动加入所有公开频道，只有站点管理员能建。**私密频道**：邀请才能进（就是原来的群）。第一个管理员账号注册时，服务器自动建一个公开频道（`server.default_channel`，默认"大厅"，留空不建）。
 
 | 方法 | 路径 | 请求 | 响应 | 权限 |
 | --- | --- | --- | --- | --- |
-| POST | `/api/v1/groups` | `CreateGroupRequest` | `Conversation` | 成员须是好友 |
+| POST | `/api/v1/groups` | `CreateGroupRequest` | `Conversation` | 任何人建私密频道（`member_ids` 须是存在且没被封的账号）；`public = true` 只有站点管理员，所有人自动加入 |
+| GET | `/api/v1/channels` | — | `ListChannelsResponse`：所有公开频道（人数、我是否已加入） | 登录即可 |
+| POST | `/api/v1/channels/{id}/join` | — | `Conversation` | 只能加入公开频道，否则 `not_public`；已在里面直接返回 |
 | PATCH | `/api/v1/groups/{id}` | `UpdateGroupRequest` | `Conversation` | 管理员 / 群主 |
 | DELETE | `/api/v1/groups/{id}` | — | `Empty`（解散） | 群主 |
-| POST | `/api/v1/groups/{id}/members` | `InviteMembersRequest` | `InviteMembersResponse` | 成员，只能拉好友 |
+| POST | `/api/v1/groups/{id}/members` | `InviteMembersRequest` | `InviteMembersResponse` | 成员，可以拉服务器上任何人 |
 | DELETE | `/api/v1/groups/{id}/members/{uid}` | — | `Empty` | 自己 = 退群；他人 = 踢人（角色须更高） |
 | POST / DELETE | `/api/v1/groups/{id}/admins/{uid}` | — | `Empty` | 群主 |
 | POST | `/api/v1/groups/{id}/transfer` | `TransferGroupRequest` | `Empty` | 群主（原群主变成员） |
@@ -82,7 +88,7 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | GET | `/api/v1/groups/{id}/requests` | — | `ListJoinRequestsResponse` | 管理员 / 群主 |
 | POST | `/api/v1/groups/{id}/requests/{uid}/approve` 或 `/reject` | — | `Empty` | 管理员 / 群主 |
 
-开了入群审批的群，普通成员拉人会变成入群申请，管理员同意后才进群；管理员和群主拉人直接进。群主不能直接退群，要先转让或解散。
+`Conversation.public` 标明是不是公开频道。开了入群审批的私密频道，普通成员拉人会变成入群申请，管理员同意后才进群；管理员和群主拉人直接进。群主不能直接退群，要先转让或解散。
 
 ### 管理员删除
 
@@ -108,13 +114,12 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 ## WebSocket 流程
 
 1. 连接 `/ws`，**第一帧**必须是 `ClientFrame{auth}`，10 秒内不发就断开。
-2. 服务器回 `ServerFrame{auth}`：自己的资料 + 所有会话（带 `last_seq`、成员和角色、自己的 `self` 状态）。token 无效时先回 `error`（`unauthorized`）再断开。
+2. 服务器回 `ServerFrame{auth}`：自己的资料 + 所有会话（带 `last_seq`、成员和角色、自己的 `self` 状态）+ `is_site_admin`（能不能建公开频道）。token 无效时先回 `error`（`unauthorized`）再断开。
 3. 客户端对比本地每个会话已有的最大 seq 和 `last_seq`，用 `sync` 补齐缺的事件；`has_more` 里的会话还要继续拉下一页。
 4. 之后服务器推送（`req_id = 0`）：
    - `event`：会话里有新事件（含系统事件）。
    - `conv`：你加入了新会话（新会话会先于它的事件推送）。
    - `conv_removed`：你离开了某个会话（退群、被踢、群解散），客户端保留只读历史。
-   - `friend`：收到好友申请 / 申请被接受。
    - `join_request`：有人被邀请进需要审批的群（发给群主和管理员）。
 5. 请求带客户端自定的 `req_id`，响应带同一个 `req_id`。
 
@@ -162,9 +167,8 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | `invite_limit` | 403 | 邀请码已用完 |
 | `user_not_found` | 404 | 用户不存在 |
 | `self` | 400 | 不能对自己操作 |
-| `already_friends` | 409 | 已经是好友 |
-| `no_request` | 404 | 没有这个人的待处理好友申请 |
-| `not_friends` | 403 | 不是好友 |
+| `blocked` | 403 | 有一方屏蔽了另一方，不能私信 |
+| `not_public` | 403 | 不是公开频道，不能自己加入 |
 | `not_found` | 404 | 目标不存在 |
 | `not_member` | 403 | 不在这个会话里 |
 | `muted` | 403 | 在这个会话里被禁言 |
@@ -192,6 +196,8 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | `rate_limited` | 429 | 尝试太频繁 |
 | `already_authenticated` | 400 | 已登录的连接又发了 auth |
 | `internal_error` | 500 | 服务器内部错误（看服务器日志） |
+
+已停用的错误码（随好友一起取消，不再返回，也不会挪作他用）：`already_friends`、`no_request`、`not_friends`。
 
 ## 兼容性规则
 

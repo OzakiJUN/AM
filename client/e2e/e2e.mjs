@@ -12,12 +12,14 @@ if (!JOIN || !IMAGE) {
 }
 const shot = (p, n) => p.screenshot({ path: `${OUT}/e2e-${n}.png` });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const pages = [];
 (async () => {
   const b = await chromium.launch();
   const mk = async (scheme) => {
     const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: scheme || 'light' });
     await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
     const p = await ctx.newPage();
+    pages.push(p);
     p.on('pageerror', (e) => console.log('pageerror', e.message));
     p.on('console', (m) => { if (m.type() === 'error') console.log('console', m.text()); });
     return p;
@@ -58,47 +60,58 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await B.click('button:has-text("注册并进入")');
   await B.waitForSelector('text=已连接');
 
-  // B adds A as friend, A accepts.
-  await B.click('button[aria-label="联系人"]');
-  await B.click('button:has-text("加好友")');
-  await B.fill('input[placeholder="例如 xiaoke"]', 'weiqi');
-  await B.click('button:has-text("发送申请")');
-  await wait(800);
-  await A.click('button[aria-label="联系人"]');
-  await A.click('button[role="radio"]:has-text("新朋友")');
-  await A.waitForSelector('text=想加你为好友');
-  await shot(A, '05-request');
-  await A.click('button:has-text("同意")');
-  await wait(500);
-  await A.click('button[role="radio"]:has-text("好友")');
-  await A.click('button[aria-label="和 小克 聊天"]');
-  await A.waitForSelector('textarea[aria-label="消息"]');
-  await A.fill('textarea[aria-label="消息"]', '你好小克！新客户端能用了吗');
+  // Both are in the default public channel 大厅 (created for the first admin).
+  await B.waitForSelector('aside button:has-text("大厅")');
+  await A.click('button[aria-label="频道"]');
+  await A.click('aside button:has-text("大厅")');
+  await A.waitForSelector('text=小克 加入了频道');
+  await A.fill('textarea[aria-label="消息"]', '欢迎来到大厅～');
   await A.press('textarea[aria-label="消息"]', 'Enter');
-  await wait(800);
+  await B.click('aside button:has-text("大厅")');
+  await B.waitForSelector('text=欢迎来到大厅～');
+  await shot(B, '05-hall-dark');
 
-  // B sees the conversation and replies.
-  await B.click('button[aria-label="消息"]');
-  await B.waitForSelector('text=你好小克！新客户端能用了吗');
-  await B.click('text=Weiqi >> nth=0');
+  // No friends: B finds A in the member list and sends a DM.
+  await B.click('button[aria-label="私信"]');
+  await B.click('button[aria-label="服务器成员"]');
+  await B.waitForSelector('div[role="dialog"] >> text=@weiqi');
+  await shot(B, '06-members-dark');
+  await B.click('button[aria-label="私信 Weiqi"]');
+  await B.waitForSelector('textarea[aria-label="消息"]');
   await B.fill('textarea[aria-label="消息"]', '能用！加入码粘贴一下就进来了，二维码也能扫');
   await B.press('textarea[aria-label="消息"]', 'Enter');
+  await A.click('button[aria-label="私信"]');
+  await A.click('aside button:has-text("小克")');
   await A.waitForSelector('text=加入码粘贴一下就进来了');
+  await A.fill('textarea[aria-label="消息"]', '你好小克！新客户端能用了吗');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
   // A sends an image.
   await A.setInputFiles('input[accept="image/*"][multiple]', IMAGE);
   await wait(1500);
   await B.waitForSelector('button[aria-label="查看图片"]');
   await wait(800);
-  await shot(B, '06-dm-dark');
+  await shot(B, '07-dm-dark');
 
-  // A creates a group with B.
-  await A.click('button[aria-label="联系人"]');
-  await A.click('button:has-text("建群")');
-  await A.fill('input[placeholder="给群起个名字"]', 'AM 内测群');
+  // Block: B blocks A, A can no longer send; then unblock.
+  await B.click('header button[aria-label="屏蔽"]');
+  await B.click('div[role="dialog"] button:has-text("屏蔽")');
+  await B.waitForSelector('textarea[placeholder^="你屏蔽了对方"]');
+  await A.fill('textarea[aria-label="消息"]', '在吗');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
+  await A.waitForSelector('button[aria-label="发送失败"]');
+  await B.click('header button[aria-label="取消屏蔽"]');
+  await B.click('div[role="dialog"] button:has-text("取消屏蔽")');
+  await B.waitForSelector('textarea[placeholder^="说点什么"]');
+
+  // A creates a private channel with B.
+  await A.click('button[aria-label="频道"]');
+  await A.click('button[aria-label="新建频道"]');
+  await A.fill('input[placeholder="给频道起个名字"]', 'AM 内测');
+  await A.fill('div[role="dialog"] input[aria-label="搜索成员"]', 'xiao');
   await A.click('div[role="dialog"] button:has-text("小克")');
-  await A.click('div[role="dialog"] button:has-text("建群（")');
-  await A.waitForSelector('text=创建了群聊');
-  await A.fill('textarea[aria-label="消息"]', '欢迎来到内测群，有 bug 直接说');
+  await A.click('div[role="dialog"] button:has-text("新建")');
+  await A.waitForSelector('text=创建了频道');
+  await A.fill('textarea[aria-label="消息"]', '欢迎来到内测频道，有 bug 直接说');
   await A.press('textarea[aria-label="消息"]', 'Enter');
   await A.fill('textarea[aria-label="消息"]', '这周六晚上八点开黑');
   await A.press('textarea[aria-label="消息"]', 'Enter');
@@ -110,17 +123,28 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(400);
   await A.fill('textarea[aria-label="消息"]', '改成周日晚上八点');
   await A.press('textarea[aria-label="消息"]', 'Enter');
-  await B.click('text=AM 内测群 >> nth=0');
+  await B.click('button[aria-label="频道"]');
+  await B.click('aside button:has-text("AM 内测")');
   await B.fill('textarea[aria-label="消息"]', '收到～');
   await B.press('textarea[aria-label="消息"]', 'Enter');
   await wait(1200);
-  await shot(A, '07-group');
-  await A.hover('button:has-text("AM 内测群")');
+  await shot(A, '08-channel');
+  await A.hover('aside button:has-text("大厅")');
   await wait(400);
-  await shot(A, '08-hover');
+  await shot(A, '09-hover');
+
+  // Browse public channels.
+  await A.click('button[aria-label="浏览公开频道"]');
+  await A.waitForSelector('div[role="dialog"] >> text=2 人');
+  await shot(A, '10-browse');
+  await A.keyboard.press('Escape');
   await A.click('button[aria-label="设置"]');
   await wait(700);
-  await shot(A, '09-settings');
+  await shot(A, '11-settings');
   await b.close();
   console.log('E2E OK');
-})().catch((e) => { console.error('E2E FAIL', e); process.exit(1); });
+})().catch(async (e) => {
+  console.error('E2E FAIL', e);
+  await Promise.all(pages.map((p, i) => p.screenshot({ path: `${OUT}/e2e-fail-${i}.png` }).catch(() => {})));
+  process.exit(1);
+});

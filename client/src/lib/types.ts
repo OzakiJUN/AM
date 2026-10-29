@@ -34,6 +34,8 @@ export interface Conversation {
   members: Member[];
   notice: string;
   joinApproval: boolean;
+  /** Channel (group) open to everyone on the server. */
+  public: boolean;
   lastSeq: number;
   readSeq: number;
   myRole: MemberRole;
@@ -91,4 +93,14 @@ export interface JoinRequest {
   user: User;
   inviter: User;
   time: number;
+}
+
+/** A public channel in "browse channels". */
+export interface ChannelInfo {
+  id: string;
+  name: string;
+  avatar?: string;
+  notice: string;
+  memberCount: number;
+  joined: boolean;
 }

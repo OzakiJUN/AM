@@ -5,7 +5,9 @@ import { Session, previewText, type ServerRecord, type SessionView } from './ses
 import { notify } from './platform';
 import type { Conversation, User } from './types';
 
-export type Page = 'chats' | 'contacts' | 'ai' | 'me' | 'settings';
+export type Page = 'channels' | 'dms' | 'ai' | 'me' | 'settings';
+/** Pages that list conversations: channels, direct messages, AI chats. */
+export type ConvPage = 'channels' | 'dms' | 'ai';
 
 const STORE_KEY = 'am-servers';
 const CURRENT_KEY = 'am-current-server';
@@ -32,22 +34,19 @@ interface AppState {
   servers: ServerRecord[];
   currentId: string | null;
   sessions: Record<string, SessionView>;
-  /** Open conversation per server (消息 page). */
-  convId: Record<string, string | null>;
-  /** Open bot / AI conversation per server (AI page). */
-  aiConvId: Record<string, string | null>;
+  /** Open conversation per page and server, keyed by openKey(). */
+  openConvs: Record<string, string | null>;
   showMembers: boolean;
   set: (patch: Partial<AppState>) => void;
 }
 
 export const useApp = create<AppState>((set) => ({
   view: 'welcome',
-  page: 'chats',
+  page: 'channels',
   servers: [],
   currentId: null,
   sessions: {},
-  convId: {},
-  aiConvId: {},
+  openConvs: {},
   showMembers: true,
   set: (patch) => set(patch),
 }));
@@ -76,7 +75,7 @@ function attach(rec: ServerRecord): Session {
     },
     (convId, m) => {
       const st = useApp.getState();
-      const open = st.page === 'chats' ? st.convId[rec.id] : st.page === 'ai' ? st.aiConvId[rec.id] : null;
+      const open = st.openConvs[openKey(st.page as ConvPage, rec.id)];
       const focused = document.hasFocus() && st.currentId === rec.id && open === convId;
       if (focused) return;
       const v = s.view;
@@ -135,22 +134,37 @@ export function removeServer(id: string) {
   useApp.setState({ servers: list, sessions, currentId, view: list.length ? useApp.getState().view : 'welcome' });
 }
 
-/** DMs with bot / AI accounts live on the AI page, not in the message list. */
+export const openKey = (page: ConvPage, serverId: string) => `${page}:${serverId}`;
+
+/** DMs with bot / AI accounts live on the AI page, not with the other DMs. */
 export function isBotConv(c: Conversation, users: Record<string, User>) {
   if (c.kind !== 'dm' || !c.peerId) return false;
   const t = users[c.peerId]?.type;
   return t === 'bot' || t === 'ai';
 }
 
-/** Opens a conversation on the page it belongs to (AI page for bot / AI DMs). */
-export function openConv(convId: string | null) {
+/** Which page lists a conversation: channels, DMs, or the AI page. */
+export function convPage(c: Conversation, users: Record<string, User>): ConvPage {
+  if (c.kind === 'group') return 'channels';
+  return isBotConv(c, users) ? 'ai' : 'dms';
+}
+
+/** The conversation open on a page of a server. */
+export function useOpenConv(page: ConvPage, serverId: string) {
+  return useApp((st) => st.openConvs[openKey(page, serverId)] ?? null);
+}
+
+/** Opens a conversation on the page it belongs to and switches to that page. */
+export function openConv(convId: string) {
   const st = useApp.getState();
   const id = st.currentId;
-  if (!id) return;
-  const v = st.sessions[id];
-  const c = convId && v ? v.convs[convId] : undefined;
-  if (c && v && isBotConv(c, v.users)) useApp.setState({ aiConvId: { ...st.aiConvId, [id]: convId }, page: 'ai' });
-  else useApp.setState({ convId: { ...st.convId, [id]: convId }, page: 'chats' });
+  // The live session view: the store's copy can lag right after a change
+  // (e.g. a channel created a moment ago).
+  const v = id ? live.get(id)?.view : undefined;
+  const c = v?.convs[convId];
+  if (!id || !v || !c) return;
+  const page = convPage(c, v.users);
+  useApp.setState({ openConvs: { ...st.openConvs, [openKey(page, id)]: convId }, page });
 }
 
 /** View of the server on screen. */

@@ -62,6 +62,9 @@ message Conversation {
   bool join_approval = 10;
   // Role of each member, parallel to `members` (same order).
   repeated MemberRole member_roles = 11;
+  // Group: public channel. Every member of the server can see and join it,
+  // and new accounts join it automatically. False = private (invite only).
+  bool public = 12;
 }
 
 // Per-user settings and state inside one conversation.
@@ -79,7 +82,7 @@ message MemberState {
 
 // Standard error body, used both by HTTP responses and WebSocket frames.
 message Error {
-  // Stable machine-readable code, e.g. "invalid_invite", "not_friends".
+  // Stable machine-readable code, e.g. "invalid_invite", "blocked".
   string code = 1;
   // Human-readable message (English) for logs and debugging.
   string message = 2;

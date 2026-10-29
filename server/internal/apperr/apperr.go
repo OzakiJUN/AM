@@ -41,9 +41,7 @@ var (
 	ErrInviteLimit     = New(http.StatusForbidden, "invite_limit", "no invite codes left")
 	ErrUserNotFound    = New(http.StatusNotFound, "user_not_found", "user not found")
 	ErrSelf            = New(http.StatusBadRequest, "self", "cannot do this to yourself")
-	ErrAlreadyFriends  = New(http.StatusConflict, "already_friends", "already friends")
-	ErrNoRequest       = New(http.StatusNotFound, "no_request", "no pending friend request from this user")
-	ErrNotFriends      = New(http.StatusForbidden, "not_friends", "you are not friends")
+	ErrBlocked         = New(http.StatusForbidden, "blocked", "one of you has blocked the other")
 	ErrNotFound        = New(http.StatusNotFound, "not_found", "not found")
 	ErrNotMember       = New(http.StatusForbidden, "not_member", "you are not in this conversation")
 	ErrMuted           = New(http.StatusForbidden, "muted", "you are muted in this conversation")
@@ -63,6 +61,7 @@ var (
 	ErrGroupFull        = New(http.StatusForbidden, "group_full", "the group is full")
 	ErrNoJoinRequest    = New(http.StatusNotFound, "no_join_request", "no pending join request for this user")
 	ErrNotInGroup       = New(http.StatusNotFound, "not_in_group", "that user is not in this group")
+	ErrNotPublic        = New(http.StatusForbidden, "not_public", "this channel is not public")
 
 	ErrReasonRequired = New(http.StatusBadRequest, "reason_required", "a reason is required")
 	ErrNoPassword     = New(http.StatusBadRequest, "no_password", "this account does not use a password")

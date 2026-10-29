@@ -40,6 +40,7 @@ message ServerFrame {
     // Pushes (req_id = 0).
     EventPush event = 30;
     ConvPush conv = 31;
+    // Removed with friends; never sent.
     FriendPush friend = 32;
     ConvRemovedPush conv_removed = 33;
     JoinRequestPush join_request = 34;
@@ -56,6 +57,8 @@ message AuthResponse {
   // All conversations the user is in, with their own state. The client
   // compares each last_seq with what it has locally and then syncs.
   repeated Conversation conversations = 2;
+  // Site admin of this server: may create public channels.
+  bool is_site_admin = 3;
 }
 
 message SendRequest {
@@ -114,7 +117,8 @@ message ConvPush {
   Conversation conversation = 1;
 }
 
-// Something changed in the friend list.
+// Removed with friends (stage 1 batch 4); never sent. Kept so field
+// number 32 is never reused.
 message FriendPush {
   enum Kind {
     KIND_UNSPECIFIED = 0;

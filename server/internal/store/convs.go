@@ -13,7 +13,9 @@ type Conversation struct {
 	LastSeq      int64
 	JoinApproval bool
 	Dissolved    bool
-	CreatedAt    int64
+	// Public channel (groups only): open to everyone on the server.
+	Public    bool
+	CreatedAt int64
 }
 
 type Member struct {
@@ -35,8 +37,8 @@ type ConvWithSelf struct {
 
 func (q *Queries) CreateConversation(ctx context.Context, c *Conversation, dmKey string) error {
 	_, err := q.exec(ctx, `INSERT INTO conversations (id, kind, name, avatar, notice, owner_id, last_seq, dm_key,
-		join_approval, dissolved, created_at) VALUES (?,?,?,?,?,?,0,?,?,?,?)`,
-		c.ID, c.Kind, c.Name, c.Avatar, c.Notice, nullInt(c.OwnerID), nullStr(dmKey), c.JoinApproval, false, c.CreatedAt)
+		join_approval, dissolved, is_public, created_at) VALUES (?,?,?,?,?,?,0,?,?,?,?,?)`,
+		c.ID, c.Kind, c.Name, c.Avatar, c.Notice, nullInt(c.OwnerID), nullStr(dmKey), c.JoinApproval, false, c.Public, c.CreatedAt)
 	return err
 }
 
@@ -47,12 +49,12 @@ func (q *Queries) GetConvIDByDMKey(ctx context.Context, dmKey string) (int64, er
 }
 
 const convCols = `c.id, c.kind, c.name, c.avatar, COALESCE(c.avatar_media_id, 0), c.notice, COALESCE(c.owner_id, 0),
-	c.last_seq, c.join_approval, c.dissolved, c.created_at`
+	c.last_seq, c.join_approval, c.dissolved, c.is_public, c.created_at`
 
 func scanConv(row scanner) (*Conversation, error) {
 	c := &Conversation{}
 	err := row.Scan(&c.ID, &c.Kind, &c.Name, &c.Avatar, &c.AvatarMedia, &c.Notice, &c.OwnerID, &c.LastSeq,
-		&c.JoinApproval, &c.Dissolved, &c.CreatedAt)
+		&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -157,7 +159,7 @@ const convSelfCols = convCols + `,
 func scanConvSelf(row scanner) (*ConvWithSelf, error) {
 	c := &ConvWithSelf{}
 	err := row.Scan(&c.ID, &c.Kind, &c.Name, &c.Avatar, &c.AvatarMedia, &c.Notice, &c.OwnerID, &c.LastSeq,
-		&c.JoinApproval, &c.Dissolved, &c.CreatedAt,
+		&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt,
 		&c.Self.ConvID, &c.Self.UserID, &c.Self.Role, &c.Self.ReadSeq, &c.Self.PinnedOrder,
 		&c.Self.DndUntil, &c.Self.MutedUntil, &c.Self.JoinedAt)
 	if err != nil {

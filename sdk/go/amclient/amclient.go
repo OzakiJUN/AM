@@ -145,19 +145,6 @@ func (c *Client) CreateInvite(ctx context.Context) (*amv1.Invite, error) {
 	return out, c.call(ctx, http.MethodPost, "/api/v1/invites", nil, out)
 }
 
-func (c *Client) ListFriends(ctx context.Context) (*amv1.ListFriendsResponse, error) {
-	out := &amv1.ListFriendsResponse{}
-	return out, c.call(ctx, http.MethodGet, "/api/v1/friends", nil, out)
-}
-
-func (c *Client) RequestFriend(ctx context.Context, username string) error {
-	return c.call(ctx, http.MethodPost, "/api/v1/friends/request", &amv1.FriendRequest{Username: username}, nil)
-}
-
-func (c *Client) AcceptFriend(ctx context.Context, userID int64) error {
-	return c.call(ctx, http.MethodPost, "/api/v1/friends/accept", &amv1.FriendAccept{UserId: userID}, nil)
-}
-
 func (c *Client) OpenDM(ctx context.Context, userID int64) (*amv1.Conversation, error) {
 	out := &amv1.Conversation{}
 	return out, c.call(ctx, http.MethodPost, "/api/v1/dm", &amv1.OpenDMRequest{UserId: userID}, out)
@@ -169,8 +156,8 @@ func (c *Client) OpenDM(ctx context.Context, userID int64) (*amv1.Conversation, 
 type Conn struct {
 	// Auth is the server's answer to the auth frame (profile + conversations).
 	Auth *amv1.AuthResponse
-	// Pushes receives server-initiated frames (events, conversation and
-	// friend changes). It is closed when the connection ends.
+	// Pushes receives server-initiated frames (events, conversation
+	// changes, join requests). It is closed when the connection ends.
 	Pushes <-chan *amv1.ServerFrame
 
 	ws      *websocket.Conn

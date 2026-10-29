@@ -125,11 +125,11 @@ func (a *app) groupCommand(ctx context.Context, cmd, rest string, args []string)
 	switch cmd {
 	case "group":
 		if len(args) < 1 {
-			return true, errors.New("usage: group <name> [username ...]")
+			return true, errors.New("usage: group <name> [username ...]   (private channel)")
 		}
 		var ids []int64
 		for _, name := range args[1:] {
-			id, err := a.findUser(ctx, name, false)
+			id, err := a.findUser(ctx, name)
 			if err != nil {
 				return true, err
 			}
@@ -143,7 +143,7 @@ func (a *app) groupCommand(ctx context.Context, cmd, rest string, args []string)
 		a.addConvLocked(c)
 		a.current = c.Id
 		a.mu.Unlock()
-		fmt.Printf("Created group %q (conv %d).\n", c.Name, c.Id)
+		fmt.Printf("Created private channel %q (conv %d).\n", c.Name, c.Id)
 	case "invite":
 		conv, err := a.currentConv()
 		if err != nil {
@@ -151,7 +151,7 @@ func (a *app) groupCommand(ctx context.Context, cmd, rest string, args []string)
 		}
 		var ids []int64
 		for _, name := range args {
-			id, err := a.findUser(ctx, name, false)
+			id, err := a.findUser(ctx, name)
 			if err != nil {
 				return true, err
 			}

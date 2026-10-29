@@ -136,16 +136,21 @@ func testGroups(t *testing.T, a *app.App, base string) {
 	_, err = owner.cli.InviteMembers(ctx, dm.Id, carol.me.Id)
 	wantCode(t, err, "not_group")
 
-	// Only friends can be added.
+	// Anyone on the server can be added (no friends); unknown ids cannot.
 	g2 := must(owner.cli.CreateGroup(ctx, "g2"))
 	stranger := registerStranger(t, owner, base)
-	_, err = owner.cli.InviteMembers(ctx, g2.Id, stranger.me.Id)
-	wantCode(t, err, "not_friends")
+	if r := must(owner.cli.InviteMembers(ctx, g2.Id, stranger.me.Id)); len(r.Added) != 1 {
+		t.Fatalf("invite stranger: %v", r)
+	}
+	_, err = owner.cli.InviteMembers(ctx, g2.Id, 12345)
+	wantCode(t, err, "user_not_found")
+	_, err = owner.cli.CreateGroup(ctx, "g3", 12345)
+	wantCode(t, err, "user_not_found")
 }
 
 func ptr[T any](v T) *T { return &v }
 
-// registerStranger creates a user who is nobody's friend.
+// registerStranger creates one more user, invited by inviter.
 func registerStranger(t *testing.T, inviter *user, base string) *user {
 	ctx := ctxT(t)
 	code := unusedInvite(t, inviter)

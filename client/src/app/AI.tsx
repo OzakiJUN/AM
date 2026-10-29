@@ -2,20 +2,20 @@ import { useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Sparkles } from 'lucide-react';
 import { listTime } from '@/lib/format';
-import { isBotConv, openConv, useApp } from '@/lib/store';
+import { isBotConv, openConv, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, User } from '@/lib/types';
 import { IdentityChip, cx, spring } from '@/ui';
 import { ChatView } from './Chat';
 import { UserAvatar } from './media';
-import { ServerSwitcher } from './Shell';
+import { ServerSwitcher } from './ServerSwitcher';
 
 /** AI page: nav | your AIs and the ones you added | chat with the portrait on top. */
 export function AIPage({ v }: { v: SessionView }) {
   return (
     <>
       <AIList v={v} />
-      <ChatView v={v} ai />
+      <ChatView v={v} page="ai" />
     </>
   );
 }
@@ -26,7 +26,7 @@ interface Row {
 }
 
 function AIList({ v }: { v: SessionView }) {
-  const convId = useApp((s) => s.aiConvId[v.id] ?? null);
+  const convId = useOpenConv('ai', v.id);
   const { mine, added } = useMemo(() => {
     const rows: Row[] = Object.values(v.convs)
       .filter((c) => isBotConv(c, v.users))

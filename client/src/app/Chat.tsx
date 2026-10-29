@@ -1,102 +1,81 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, Copy, Sparkles, Download, FileText, ImagePlus, Megaphone, MessageCircle, Paperclip, PanelRight, RotateCw, SendHorizontal,
-  Settings2, Smile, Strikethrough, Trash2, Upload, UserPlus,
+  AlertCircle, Ban, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Paperclip, PanelRight, RotateCw,
+  SendHorizontal, Settings2, Smile, Sparkles, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
-import { current, useApp } from '@/lib/store';
+import { current, useApp, useOpenConv, type ConvPage } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
-import type { Conversation, MemberRole, Message, User } from '@/lib/types';
+import type { Conversation, MemberRole, Message } from '@/lib/types';
 import { copyText } from '@/lib/platform';
-import { Avatar, Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
+import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
+import { toggleBlock } from './People';
+import { PortraitBand, PortraitCorner } from './Portrait';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
-/**
- * Upper half of an AI chat: the AI's portrait. Until portrait packs (one
- * image per emotion, docs/design.md §9) arrive in stage 2, it shows the
- * avatar large; offline AIs are shown greyed out, like the `offline` state.
- */
-function PortraitStage({ user }: { user: User }) {
-  const url = useMediaUrl(user.avatar);
-  const offline = user.online === false;
-  return (
-    <div className="relative flex h-[42%] min-h-[180px] shrink-0 items-end justify-center overflow-hidden border-b border-black/5 dark:border-white/5">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-100/80 via-white/30 to-transparent dark:from-accent/15 dark:via-transparent" />
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute bottom-[-30%] h-[90%] w-[60%] rounded-full bg-accent/25 blur-3xl dark:bg-accent/20"
-        animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <motion.div
-        className={cx('relative mb-6 transition-[filter] duration-700', offline && 'grayscale opacity-70')}
-        initial={{ opacity: 0, y: 24, scale: 0.92 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={spring}
-      >
-        <motion.div animate={offline ? { y: 0 } : { y: [0, -6, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}>
-          <Avatar src={url} name={user.name} size={168} square className="drop-shadow-[0_18px_30px_rgb(30_25_50/0.18)]" />
-        </motion.div>
-      </motion.div>
-      {offline && (
-        <span className="absolute top-3 right-4 rounded-full bg-black/5 px-2.5 py-1 text-[0.75rem] text-ink-soft dark:bg-white/10 dark:text-white/60">主人不在线，暂时不会回复</span>
-      )}
-    </div>
-  );
-}
+const EMPTY = {
+  channels: { Icon: Hash, title: '选一个频道', text: '左边是你加入的频道。点 + 新建，或者浏览公开频道。' },
+  dms: { Icon: MessageCircle, title: '选一个私信', text: '服务器里的人都能直接私信，点左边的成员按钮找人。' },
+  ai: { Icon: Sparkles, title: '选一个 AI 开始聊天', text: '左边是你自己的 AI 和你添加的别人的 AI。' },
+};
 
 /**
- * One conversation. On the AI page (`ai`), the upper half of the window
- * belongs to the AI's portrait; the message list and composer sit below it.
+ * One conversation on a page (频道 / 私信 / AI). On the AI page the AI's
+ * portrait floats in the upper part (Portrait.tsx), above the messages.
  */
-export function ChatView({ v, ai }: { v: SessionView; ai?: boolean }) {
-  const convId = useApp((s) => (ai ? s.aiConvId[v.id] : s.convId[v.id]) ?? null);
+export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
+  const convId = useOpenConv(page, v.id);
   const showMembers = useApp((s) => s.showMembers);
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const conv = convId ? v.convs[convId] : undefined;
   if (!conv) {
+    const { Icon, title, text } = EMPTY[page];
     return (
       <section className="glass flex flex-1 flex-col rounded-3xl">
-        {ai ? (
-          <Empty icon={<Sparkles size={28} />} title="选一个 AI 开始聊天" text="左边是你自己的 AI 和你添加的别人的 AI。" />
-        ) : (
-          <Empty icon={<MessageCircle size={28} />} title="选一个会话开始聊天" text="左边是你的会话。还没有的话，去联系人里加好友或者建个群。" />
-        )}
+        <Empty icon={<Icon size={28} />} title={title} text={text} />
       </section>
     );
   }
   const group = conv.kind === 'group';
   const peer = conv.peerId ? v.users[conv.peerId] : undefined;
+  const blocked = !!peer && v.blocked.includes(peer.id);
+  const ai = page === 'ai';
   return (
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b border-black/5 px-5 dark:border-white/5">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
+              {group && (conv.public ? <Hash size={17} className="shrink-0 text-ink-soft" /> : <Lock size={15} className="shrink-0 text-ink-soft" aria-label="私密频道" />)}
               <h2 className="truncate text-[1.1rem] font-semibold">{conv.name}</h2>
               <IdentityChip user={peer} />
             </div>
             <div className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">
-              {group ? `${conv.members.length} 位成员` : peer ? `@${peer.username}` : ''}
-              {conv.left && ' · 你已不在这个群里'}
+              {group ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人` : peer ? `@${peer.username}` : ''}
+              {conv.left && ' · 你已不在这个频道里'}
+              {blocked && ' · 已屏蔽'}
             </div>
           </div>
           {group && !conv.left && (
             <>
-              <IconButton label="邀请好友进群" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
-              <IconButton label="群设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
-              <IconButton label="群成员" active={showMembers} onClick={() => useApp.setState({ showMembers: !showMembers })}><PanelRight size={19} /></IconButton>
+              <IconButton label="邀请成员" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
+              <IconButton label="频道设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
+              <IconButton label="成员列表" active={showMembers} onClick={() => useApp.setState({ showMembers: !showMembers })}><PanelRight size={19} /></IconButton>
             </>
           )}
+          {!group && peer && (
+            <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
+          )}
+          {ai && peer && <PortraitCorner user={peer} />}
         </header>
-        {ai && peer && <PortraitStage key={peer.id} user={peer} />}
-        <MessageList key={conv.id} v={v} conv={conv} />
-        <Composer v={v} conv={conv} />
+        {ai && peer && <PortraitBand user={peer} />}
+        <MessageList key={conv.id} v={v} conv={conv} fadeTop={ai} />
+        <Composer v={v} conv={conv} blocked={blocked} />
       </section>
       <AnimatePresence initial={false}>
         {group && showMembers && !conv.left && (
@@ -120,7 +99,8 @@ export function ChatView({ v, ai }: { v: SessionView; ai?: boolean }) {
 
 // ---------- messages ----------
 
-function MessageList({ v, conv }: { v: SessionView; conv: Conversation }) {
+/** fadeTop: soften the top edge (under the AI portrait) so messages fade out instead of being cut. */
+function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation; fadeTop?: boolean }) {
   const list = v.messages[conv.id] ?? [];
   const ref = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -172,12 +152,12 @@ function MessageList({ v, conv }: { v: SessionView; conv: Conversation }) {
     items.push(<MessageItem key={m.id} v={v} conv={conv} msg={m} grouped={grouped} animate={m.time > mountedAt.current} onView={setViewer} />);
   }
   return (
-    <div ref={ref} onScroll={onScroll} className="selectable relative flex-1 overflow-y-auto px-5 py-4">
+    <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fadeTop && '[mask-image:linear-gradient(to_bottom,transparent,black_28px)]')}>
       {v.hasOlder[conv.id] && <div className="flex justify-center py-2 text-ink-soft"><Spinner size={16} /></div>}
       {conv.notice && (
         <div className="mx-auto mb-3 flex max-w-xl items-start gap-2 rounded-2xl bg-amber-50/80 px-4 py-2.5 text-[0.85rem] text-amber-800 shadow-[var(--shadow-card)] dark:bg-amber-400/10 dark:text-amber-200">
           <Megaphone size={16} className="mt-0.5 shrink-0" />
-          <span className="whitespace-pre-wrap">群公告：{conv.notice}</span>
+          <span className="whitespace-pre-wrap">频道公告：{conv.notice}</span>
         </div>
       )}
       {!list.length && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
@@ -368,7 +348,7 @@ function ImageViewer({ mediaId, onClose }: { mediaId: string | null; onClose: ()
 
 const EMOJI = '😀😂🤣😊😍🥰😘😎🤔😅😭😡🥺😴🤯👍👎👏🙏💪🎉❤️🔥✨💯🤝👀🫡🥳😇😋🤗😏😬🙄😱🤤'.match(/\p{Extended_Pictographic}️?/gu)!;
 
-function Composer({ v, conv }: { v: SessionView; conv: Conversation }) {
+function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; blocked: boolean }) {
   const [text, setText] = useState('');
   const [emoji, setEmoji] = useState(false);
   const [drag, setDrag] = useState(false);
@@ -377,7 +357,7 @@ function Composer({ v, conv }: { v: SessionView; conv: Conversation }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const muted = conv.mutedUntil > Date.now();
-  const disabled = !!conv.left || muted || v.status !== 'online';
+  const disabled = !!conv.left || muted || blocked || v.status !== 'online';
 
   const submit = () => {
     const t = text.trim();
@@ -440,7 +420,7 @@ function Composer({ v, conv }: { v: SessionView; conv: Conversation }) {
     ta.style.height = Math.min(160, Math.max(52, ta.scrollHeight)) + 'px';
   }, [text]);
 
-  const placeholder = conv.left ? '你已经不在这个群里了' : muted ? '你被禁言了' : v.status !== 'online' ? '正在连接服务器…' : '说点什么…（Enter 发送，Shift+Enter 换行）';
+  const placeholder = conv.left ? '你已经不在这个频道里了' : muted ? '你被禁言了' : blocked ? '你屏蔽了对方，取消屏蔽后才能发消息' : v.status !== 'online' ? '正在连接服务器…' : '说点什么…（Enter 发送，Shift+Enter 换行）';
   return (
     <div className="relative shrink-0 px-4 pb-4">
       <AnimatePresence>

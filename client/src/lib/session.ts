@@ -8,7 +8,7 @@ import * as gw from '@/gen/am/v1/gateway_pb';
 import { ApiError, errorFromBody } from './errors';
 import { encodeJoinCode, joinUrl } from './joincode';
 import { createTransport, type Endpoint, type Socket, type Transport } from './transport';
-import type { Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, SysEvent, User } from './types';
+import type { ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, SysEvent, User } from './types';
 
 export interface ServerRecord {
   id: string;
@@ -31,9 +31,10 @@ export interface SessionView {
   messages: Record<string, Message[]>;
   /** Conversations whose older history can still be loaded. */
   hasOlder: Record<string, boolean>;
-  friends: User[];
-  incoming: User[];
-  outgoing: User[];
+  /** Site admin of this server (may create public channels). */
+  isAdmin: boolean;
+  /** Ids of people I blocked. */
+  blocked: string[];
   joinRequests: Record<string, JoinRequest[]>;
   downloadUrl: string;
 }
@@ -110,22 +111,22 @@ function toBody(e: ev.Event): MessageBody | null {
 /** Text for a system event, with the current names. */
 export function systemText(sys: SysEvent, name: (id: string) => string): string {
   switch (sys.t) {
-    case 'created': return `${name(sys.op)} 创建了群聊`;
-    case 'name': return `${name(sys.op)} 把群名改为「${sys.name}」`;
-    case 'notice': return `${name(sys.op)} 修改了群公告`;
-    case 'avatar': return `${name(sys.op)} 更换了群头像`;
-    case 'approval': return `${name(sys.op)} ${sys.on ? '开启' : '关闭'}了入群审批`;
-    case 'dissolved': return `${name(sys.op)} 解散了群聊`;
-    case 'join': return sys.op === sys.target ? `${name(sys.target)} 加入了群聊` : `${name(sys.op)} 邀请 ${name(sys.target)} 加入了群聊`;
-    case 'leave': return `${name(sys.target)} 退出了群聊`;
-    case 'kick': return `${name(sys.op)} 把 ${name(sys.target)} 移出了群聊`;
+    case 'created': return `${name(sys.op)} 创建了频道`;
+    case 'name': return `${name(sys.op)} 把频道名改为「${sys.name}」`;
+    case 'notice': return `${name(sys.op)} 修改了频道公告`;
+    case 'avatar': return `${name(sys.op)} 更换了频道头像`;
+    case 'approval': return `${name(sys.op)} ${sys.on ? '开启' : '关闭'}了加入审批`;
+    case 'dissolved': return `${name(sys.op)} 解散了频道`;
+    case 'join': return sys.op === sys.target ? `${name(sys.target)} 加入了频道` : `${name(sys.op)} 邀请 ${name(sys.target)} 加入了频道`;
+    case 'leave': return `${name(sys.target)} 退出了频道`;
+    case 'kick': return `${name(sys.op)} 把 ${name(sys.target)} 移出了频道`;
     case 'mute': {
       const d = new Date(sys.until);
       return `${name(sys.op)} 禁言了 ${name(sys.target)}，到 ${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
     case 'unmute': return `${name(sys.op)} 解除了 ${name(sys.target)} 的禁言`;
     case 'role':
-      if (sys.role === 'owner') return `${name(sys.target)} 成为了群主`;
+      if (sys.role === 'owner') return `${name(sys.target)} 成为了频道主`;
       if (sys.role === 'admin') return `${name(sys.op)} 把 ${name(sys.target)} 设为了管理员`;
       return `${name(sys.target)} 现在是普通成员`;
   }
@@ -172,7 +173,7 @@ export class Session {
     this.t = createTransport(record.id, record.endpoint);
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
-      users: {}, convs: {}, messages: {}, hasOlder: {}, friends: [], incoming: [], outgoing: [], joinRequests: {}, downloadUrl: '',
+      users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '',
     };
   }
 
@@ -290,7 +291,7 @@ export class Session {
       this.retry = 0;
       await this.onAuth(f.msg.value);
       this.patch({ status: 'online', error: undefined });
-      this.loadFriends().catch(() => {});
+      this.loadBlocks().catch(() => {});
     } catch (e) {
       if (e instanceof ApiError && (e.code === 'unauthorized' || e.code === 'banned')) this.loggedOut(e.message);
       else this.socket?.close();
@@ -372,9 +373,6 @@ export class Session {
         this.emit();
         break;
       }
-      case 'friend':
-        this.loadFriends().catch(() => {});
-        break;
       case 'joinRequest': {
         const jr = f.msg.value;
         const id = s(jr.convId);
@@ -404,6 +402,7 @@ export class Session {
       members,
       notice: c.notice,
       joinApproval: c.joinApproval,
+      public: c.public,
       lastSeq: Number(c.lastSeq),
       readSeq: Math.max(Number(c.self?.readSeq ?? 0n), prev?.readSeq ?? 0),
       myRole: role(c.self?.role ?? common.MemberRole.MEMBER),
@@ -427,6 +426,7 @@ export class Session {
       this.addUsers([a.me]);
       this.view.me = toUser(a.me);
     }
+    this.view.isAdmin = a.isSiteAdmin;
     const convs: Record<string, Conversation> = {};
     for (const c of a.conversations) {
       const id = s(c.id);
@@ -627,22 +627,28 @@ export class Session {
     this.request({ case: 'markRead', value: create(gw.MarkReadRequestSchema, { convId: BigInt(convId), seq: BigInt(c.lastSeq) }) }).catch(() => {});
   }
 
-  // ---- friends ----
+  // ---- people (no friends: anyone on the server can be messaged) ----
 
-  async loadFriends() {
-    const r = await this.call('GET', '/api/v1/friends', api.ListFriendsResponseSchema);
-    this.addUsers([...r.friends, ...r.incoming, ...r.outgoing]);
-    this.patch({ friends: r.friends.map(toUser), incoming: r.incoming.map(toUser), outgoing: r.outgoing.map(toUser) });
+  /** One page of the server's member directory. */
+  async listUsers(query = '', after = '') {
+    const qs = new URLSearchParams({ limit: '50' });
+    if (query) qs.set('query', query);
+    if (after) qs.set('after', after);
+    const r = await this.call('GET', `/api/v1/users?${qs}`, api.ListUsersResponseSchema);
+    this.addUsers(r.users);
+    this.emit();
+    return { users: r.users.map(toUser), nextAfter: s(r.nextAfter) };
   }
 
-  async requestFriend(username: string) {
-    await this.call('POST', '/api/v1/friends/request', null, { schema: api.FriendRequestSchema, value: { username } });
-    await this.loadFriends();
+  async loadBlocks() {
+    const r = await this.call('GET', '/api/v1/blocks', api.ListBlocksResponseSchema);
+    this.addUsers(r.users);
+    this.patch({ blocked: r.users.map((u) => s(u.id)) });
   }
 
-  async acceptFriend(userId: string) {
-    await this.call('POST', '/api/v1/friends/accept', null, { schema: api.FriendAcceptSchema, value: { userId: BigInt(userId) } });
-    await this.loadFriends();
+  async setBlocked(userId: string, on: boolean) {
+    await this.call(on ? 'POST' : 'DELETE', `/api/v1/blocks/${userId}`, null);
+    this.patch({ blocked: on ? [userId, ...this.view.blocked.filter((x) => x !== userId)] : this.view.blocked.filter((x) => x !== userId) });
   }
 
   async openDM(userId: string) {
@@ -651,14 +657,28 @@ export class Session {
     return s(c.id);
   }
 
-  // ---- groups ----
+  // ---- channels (protocol name: groups) ----
 
-  async createGroup(name: string, memberIds: string[]) {
+  /** Creates a channel: private with the given members, or public (site admins; everyone joins). */
+  async createGroup(name: string, memberIds: string[], isPublic = false) {
     const c = await this.call('POST', '/api/v1/groups', common.ConversationSchema, {
-      schema: api.CreateGroupRequestSchema, value: { name, memberIds: memberIds.map(BigInt) },
+      schema: api.CreateGroupRequestSchema, value: { name, memberIds: memberIds.map(BigInt), public: isPublic },
     });
     this.upsertConv(c);
     return s(c.id);
+  }
+
+  /** All public channels ("browse channels"). */
+  async listChannels(): Promise<ChannelInfo[]> {
+    const r = await this.call('GET', '/api/v1/channels', api.ListChannelsResponseSchema);
+    return r.channels.map((c) => ({
+      id: s(c.id), name: c.name, avatar: c.avatar || undefined, notice: c.notice, memberCount: c.memberCount, joined: c.joined,
+    }));
+  }
+
+  async joinChannel(convId: string) {
+    this.upsertConv(await this.call('POST', `/api/v1/channels/${convId}/join`, common.ConversationSchema));
+    return convId;
   }
 
   async refreshConv(convId: string) {

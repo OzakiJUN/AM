@@ -1,14 +1,18 @@
-// Package conv handles friends, conversations (DMs and groups) and members.
+// Package conv handles conversations (DMs and channels), members, the
+// people directory and blocks. There are no friends: everyone on a server
+// can message everyone else (Discord-style).
 //
-//	conv.go     service, conversation views, DMs
-//	friends.go  friend requests
-//	groups.go   group creation and management
+//	conv.go      service, conversation views, DMs
+//	people.go    people directory, blocks
+//	channels.go  public channels: browse, join, new accounts
+//	groups.go    channel (group) creation and management
 package conv
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
@@ -29,11 +33,16 @@ type Service struct {
 	msg    *message.Service
 	media  *media.Service
 	limits config.Limits
-	now    func() time.Time
+	// Name of the public channel created for the first admin ("" = none).
+	defaultChannel string
+	log            *slog.Logger
+	now            func() time.Time
 }
 
-func New(st *store.Store, ids *idgen.Generator, p push.Pusher, ms *message.Service, md *media.Service, limits config.Limits) *Service {
-	return &Service{st: st, ids: ids, push: p, msg: ms, media: md, limits: limits, now: time.Now}
+func New(st *store.Store, ids *idgen.Generator, p push.Pusher, ms *message.Service, md *media.Service,
+	limits config.Limits, defaultChannel string, log *slog.Logger) *Service {
+	return &Service{st: st, ids: ids, push: p, msg: ms, media: md, limits: limits,
+		defaultChannel: defaultChannel, log: log, now: time.Now}
 }
 
 // usersView loads users and their bot owners and converts them to protocol users.
@@ -152,17 +161,24 @@ func (s *Service) pushConv(ctx context.Context, convID int64, userIDs []int64) {
 
 // ---- DMs ----
 
-// OpenDM returns the DM with a friend, creating it on first use.
+// OpenDM returns the DM with anyone on the server, creating it on first use.
 func (s *Service) OpenDM(ctx context.Context, me *store.User, peerID int64) (*amv1.Conversation, error) {
 	if peerID == me.ID {
 		return nil, apperr.ErrSelf
 	}
-	ok, err := s.st.AreFriends(ctx, me.ID, peerID)
+	peer, err := s.st.GetUser(ctx, peerID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && peer.Banned) {
+		return nil, apperr.ErrUserNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		return nil, apperr.ErrNotFriends
+	blocked, err := s.st.BlockedEither(ctx, me.ID, peerID)
+	if err != nil {
+		return nil, err
+	}
+	if blocked {
+		return nil, apperr.ErrBlocked
 	}
 	a, b := me.ID, peerID
 	if a > b {

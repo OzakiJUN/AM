@@ -1,19 +1,21 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Sun, Trash2, Type } from 'lucide-react';
+import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Shield, Sun, Trash2, Type } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ACCENTS, imageFileToDataURL, useTheme } from '@/lib/theme';
-import { removeServer, switchServer, useApp } from '@/lib/store';
+import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/store';
+import { usePrefs } from '@/lib/prefs';
 import { openUrl } from '@/lib/platform';
-import { Button, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
-import { ServerAvatar } from './media';
+import { Button, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
+import { ServerAvatar, UserAvatar } from './media';
 
-type Tab = 'appearance' | 'servers' | 'notify' | 'about';
+type Tab = 'appearance' | 'servers' | 'privacy' | 'notify' | 'about';
 
 export function SettingsPage() {
   const [tab, setTab] = useState<Tab>('appearance');
   const tabs: { id: Tab; label: string; Icon: typeof Palette }[] = [
     { id: 'appearance', label: '外观', Icon: Palette },
     { id: 'servers', label: '服务器', Icon: Server },
+    { id: 'privacy', label: '隐私', Icon: Shield },
     { id: 'notify', label: '通知', Icon: Bell },
     { id: 'about', label: '关于', Icon: Info },
   ];
@@ -39,6 +41,7 @@ export function SettingsPage() {
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}>
           {tab === 'appearance' && <Appearance />}
           {tab === 'servers' && <Servers />}
+          {tab === 'privacy' && <Privacy />}
           {tab === 'notify' && <Notify />}
           {tab === 'about' && <About />}
         </motion.div>
@@ -157,11 +160,62 @@ function Appearance() {
           </>
         )}
 
+        <PortraitRow />
+
         <Row title="字体大小">
           <Type size={14} className="text-ink-soft" />
           <div className="w-48"><Slider label="字体大小" value={t.fontScale} min={0.85} max={1.25} step={0.05} onChange={(fontScale) => t.set({ fontScale })} /></div>
           <Type size={20} className="text-ink-soft" />
         </Row>
+      </div>
+    </div>
+  );
+}
+
+function PortraitRow() {
+  const pos = usePrefs((s) => s.portrait);
+  const set = usePrefs((s) => s.setPortrait);
+  return (
+    <Row title="AI 立绘位置" desc="AI 聊天里立绘放在哪；收起后在右上角，点一下展开">
+      <Segmented
+        id="portrait-pos"
+        value={pos}
+        onChange={set}
+        options={[
+          { value: 'left', label: '靠左' },
+          { value: 'center', label: '居中' },
+          { value: 'right', label: '靠右' },
+          { value: 'corner', label: '收起' },
+        ]}
+      />
+    </Row>
+  );
+}
+
+/** People I blocked on the current server. */
+function Privacy() {
+  const v = useCurrent();
+  return (
+    <div className="max-w-3xl">
+      <h2 className="text-[1.4rem] font-semibold">隐私</h2>
+      <p className="mt-1 text-ink-soft dark:text-white/55">
+        服务器里的人都能直接私信你。屏蔽某人后你们互相发不了私信，频道里不受影响。下面是「{v?.name ?? '当前服务器'}」上你屏蔽的人。
+      </p>
+      <div className="mt-6 space-y-2">
+        {v?.blocked.map((id) => {
+          const u = v.users[id];
+          return (
+            <div key={id} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-3 dark:bg-white/[0.06]">
+              <UserAvatar user={u} size={40} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5"><span className="truncate font-medium">{u?.name ?? '…'}</span><IdentityChip user={u} short /></div>
+                <div className="text-[0.82rem] text-ink-soft dark:text-white/50">@{u?.username}</div>
+              </div>
+              <Button size="sm" variant="soft" onClick={() => current().setBlocked(id, false)}>取消屏蔽</Button>
+            </div>
+          );
+        })}
+        {!v?.blocked.length && <Empty icon={<Shield size={26} />} title="没有屏蔽任何人" text="在成员列表或私信顶部可以屏蔽别人。" />}
       </div>
     </div>
   );

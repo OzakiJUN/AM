@@ -63,6 +63,12 @@ update the docs in the same commit.
   whitelisted in `admin/api.go` and written with `config.Apply` (keeps comments).
 - Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
+- Discord-style servers: there are NO friends. Anyone on a server can DM
+  anyone (unless blocked; blocks stop DMs both ways). Groups are "channels"
+  in the UI: public (site admins create; everyone joins, new accounts join
+  automatically via `conv.Welcome`) or private (invite only). The first
+  admin gets `server.default_channel`. Friend messages stay in the proto only
+  so their numbers are never reused.
 
 ## Client rules (`client/`)
 
@@ -86,8 +92,14 @@ update the docs in the same commit.
   clicked twice: return the promise from `Button` / `IconButton` onClick,
   `Toggle` onChange or a `MenuItem` (give menu items a `key` with the target);
   use `ask({ run })` for confirm-then-act; `loading` prop for form submits.
-- DMs with bot / ai accounts live on the AI page, never in the message list
-  (`isBotConv`, `openConv` routes them).
+- Pages: 频道 (groups), 私信 (DMs), AI (DMs with bot / ai accounts).
+  `convPage()` decides where a conversation lives; `openConv()` routes to it.
+  Dialogs render through a portal (glass panels' backdrop-filter would trap
+  fixed overlays).
+- AI portraits: packs map emotion keys to images (`lib/portraits.ts`, pure
+  and unit-tested; default pack in `assets/portraits/default`). The portrait
+  floats in the AI chat without covering messages; position is a per-device
+  pref (`lib/prefs.ts`).
 - Personalization (theme mode, accent, background, font scale) is per device
   in localStorage; workshop themes will set the same fields.
 - AI emotion keys and fallbacks are listed in docs/design.md §9; keep the

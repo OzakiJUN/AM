@@ -18,6 +18,10 @@ data_dir = "data"
 # with proxy protocol enabled. Then the real client IP is used for login records
 # and rate limits. Headers are trusted only from local (127.0.0.1 / ::1) connections.
 proxy_protocol = false
+# Public channel created automatically when the first (admin) account
+# registers, so a new server is not empty. Everyone joins public channels
+# automatically. Leave empty to not create one.
+default_channel = "大厅"
 
 [tls]
 # "self_signed": generate a certificate on first start (clients pin its fingerprint).

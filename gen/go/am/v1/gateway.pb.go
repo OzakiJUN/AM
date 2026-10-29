@@ -464,6 +464,7 @@ type ServerFrame_Conv struct {
 }
 
 type ServerFrame_Friend struct {
+	// Removed with friends; never sent.
 	Friend *FriendPush `protobuf:"bytes,32,opt,name=friend,proto3,oneof"`
 }
 
@@ -548,6 +549,8 @@ type AuthResponse struct {
 	// All conversations the user is in, with their own state. The client
 	// compares each last_seq with what it has locally and then syncs.
 	Conversations []*Conversation `protobuf:"bytes,2,rep,name=conversations,proto3" json:"conversations,omitempty"`
+	// Site admin of this server: may create public channels.
+	IsSiteAdmin   bool `protobuf:"varint,3,opt,name=is_site_admin,json=isSiteAdmin,proto3" json:"is_site_admin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -594,6 +597,13 @@ func (x *AuthResponse) GetConversations() []*Conversation {
 		return x.Conversations
 	}
 	return nil
+}
+
+func (x *AuthResponse) GetIsSiteAdmin() bool {
+	if x != nil {
+		return x.IsSiteAdmin
+	}
+	return false
 }
 
 type SendRequest struct {
@@ -1182,7 +1192,8 @@ func (x *ConvPush) GetConversation() *Conversation {
 	return nil
 }
 
-// Something changed in the friend list.
+// Removed with friends (stage 1 batch 4); never sent. Kept so field
+// number 32 is never reused.
 type FriendPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          FriendPush_Kind        `protobuf:"varint,1,opt,name=kind,proto3,enum=am.v1.FriendPush_Kind" json:"kind,omitempty"`
@@ -1381,10 +1392,11 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\fjoin_request\x18\" \x01(\v2\x16.am.v1.JoinRequestPushH\x00R\vjoinRequestB\x05\n" +
 	"\x03msg\"#\n" +
 	"\vAuthRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"f\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x8a\x01\n" +
 	"\fAuthResponse\x12\x1b\n" +
 	"\x02me\x18\x01 \x01(\v2\v.am.v1.UserR\x02me\x129\n" +
-	"\rconversations\x18\x02 \x03(\v2\x13.am.v1.ConversationR\rconversations\"\xf3\x01\n" +
+	"\rconversations\x18\x02 \x03(\v2\x13.am.v1.ConversationR\rconversations\x12\"\n" +
+	"\ris_site_admin\x18\x03 \x01(\bR\visSiteAdmin\"\xf3\x01\n" +
 	"\vSendRequest\x12\x17\n" +
 	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x12\"\n" +
 	"\rclient_msg_id\x18\x02 \x01(\tR\vclientMsgId\x12$\n" +

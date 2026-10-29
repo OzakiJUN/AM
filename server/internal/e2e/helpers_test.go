@@ -18,22 +18,23 @@ import (
 	"github.com/OzakiJUN/am/server/internal/config"
 )
 
-// forEachDB runs fn once per available database.
-func forEachDB(t *testing.T, fn func(t *testing.T, a *app.App, base string)) {
+// forEachDB runs fn once per available database. opts adjust the config
+// (tests start without the default channel unless an opt sets one).
+func forEachDB(t *testing.T, fn func(t *testing.T, a *app.App, base string), opts ...func(*config.Config)) {
 	t.Run("sqlite", func(t *testing.T) {
-		a, base := setup(t, "sqlite")
+		a, base := setup(t, "sqlite", opts...)
 		fn(t, a, base)
 	})
 	t.Run("postgres", func(t *testing.T) {
 		if os.Getenv("AM_TEST_DATABASE_URL") == "" {
 			t.Skip("AM_TEST_DATABASE_URL not set")
 		}
-		a, base := setup(t, "postgres")
+		a, base := setup(t, "postgres", opts...)
 		fn(t, a, base)
 	})
 }
 
-func setup(t *testing.T, driver string) (*app.App, string) {
+func setup(t *testing.T, driver string, opts ...func(*config.Config)) (*app.App, string) {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -45,6 +46,10 @@ func setup(t *testing.T, driver string) (*app.App, string) {
 	cfg.Database.Driver = driver
 	cfg.TLS.Mode = "off"
 	cfg.Limits.LoginAttemptsPerMinute = 0
+	cfg.Server.DefaultChannel = ""
+	for _, o := range opts {
+		o(cfg)
+	}
 	if driver == "postgres" {
 		url := os.Getenv("AM_TEST_DATABASE_URL")
 		conn, err := pgx.Connect(ctx, url)
@@ -119,7 +124,7 @@ type user struct {
 }
 
 // newServerUsers registers an admin (with the bootstrap code) and more users
-// invited by the admin. All users are made friends with each other.
+// invited by the admin.
 func newServerUsers(t *testing.T, a *app.App, base string, names ...string) []*user {
 	t.Helper()
 	ctx := ctxT(t)
@@ -132,16 +137,6 @@ func newServerUsers(t *testing.T, a *app.App, base string, names ...string) []*u
 		}
 		resp := must(c.Register(ctx, &amv1.RegisterRequest{InviteCode: code, Username: name, Password: "password-" + name, DeviceName: "test"}))
 		users = append(users, &user{cli: c, me: resp.Me})
-	}
-	for i := range users {
-		for j := i + 1; j < len(users); j++ {
-			if err := users[i].cli.RequestFriend(ctx, users[j].me.Username); err != nil {
-				t.Fatal(err)
-			}
-			if err := users[j].cli.AcceptFriend(ctx, users[i].me.Id); err != nil {
-				t.Fatal(err)
-			}
-		}
 	}
 	return users
 }

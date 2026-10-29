@@ -8,8 +8,9 @@ Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS 4。先做 Windows，安�
 | 路径 | 内容 |
 | --- | --- |
 | `src/ui` | 自己写的界面组件（按钮、输入框、弹窗、菜单、提示……）和动画参数 |
-| `src/app` | 各个页面：欢迎 / 注册、会话、聊天、群、联系人、我、设置 |
-| `src/lib` | 会话与同步（`session.ts`）、全局状态（`store.ts`）、联网（`transport.ts`）、加入码、主题 |
+| `src/app` | 各个页面：欢迎 / 注册、频道和私信列表（`ConvList`）、聊天、频道管理（`Group`、`Channels`）、成员和屏蔽（`People`）、AI 栏和立绘（`AI`、`Portrait`）、我、设置 |
+| `src/lib` | 会话与同步（`session.ts`）、全局状态和页面路由（`store.ts`）、联网（`transport.ts`）、加入码、主题、AI 立绘包（`portraits.ts`）、本机偏好（`prefs.ts`） |
+| `src/assets/portraits/default` | 默认 AI 立绘包（每种情绪一张 WebP，文件名 = 情绪名） |
 | `src/gen` | `buf generate` 生成的协议代码，不要手改 |
 | `src-tauri` | Rust 外壳：联网与证书指纹校验（`src/net.rs`）、`ammedia://` 媒体协议、命令 |
 | `e2e` | 双用户端到端测试脚本（Playwright） |
@@ -44,7 +45,7 @@ npx tauri build --bundles nsis   # 打包：src-tauri/target/release/am-client.e
 
 ```sh
 npm run typecheck
-npm test          # 加入码编解码，和 Go 版用同一组测试向量
+npm test          # 加入码编解码（和 Go 版同一组测试向量）、立绘包的情绪替代规则
 npx vite build
 cd src-tauri && cargo test
 ```
@@ -63,4 +64,4 @@ npx vite build && AM_DEV_SERVER=127.0.0.1:8443 npx vite preview --port 4173 &
 AM_E2E_JOIN=<管理员加入码> AM_E2E_IMAGE=任意图片.png AM_E2E_OUT=/tmp node e2e/e2e.mjs
 ```
 
-脚本用两个账号走一遍：加入码注册、剪贴板识别、加好友、私聊文字和图片、建群、划掉，每步截图到 `AM_E2E_OUT`，最后打印 `E2E OK`。
+脚本用两个账号走一遍：加入码注册、剪贴板识别、默认频道「大厅」、成员列表发私信、私信文字和图片、屏蔽 / 取消屏蔽、建私密频道、划掉、浏览公开频道，每步截图到 `AM_E2E_OUT`，失败时截 `e2e-fail-*.png`，最后打印 `E2E OK`。

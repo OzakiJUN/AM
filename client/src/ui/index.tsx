@@ -1,6 +1,7 @@
 // Small UI kit on top of Tailwind and the theme tokens in styles.css
 // (accent colour, glass, card / lift / press motion).
 import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, type Transition } from 'motion/react';
 import { create } from 'zustand';
 import { X } from 'lucide-react';
@@ -316,7 +317,9 @@ export function Dialog({ open, onClose, title, children, width = 440 }: {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-  return (
+  // Portal to <body>: a parent with backdrop-filter (the glass panels) would
+  // otherwise become the containing block and trap the fixed overlay inside it.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -347,7 +350,8 @@ export function Dialog({ open, onClose, title, children, width = 440 }: {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

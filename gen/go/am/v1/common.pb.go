@@ -301,7 +301,10 @@ type Conversation struct {
 	// Group: members' invitations need admin approval.
 	JoinApproval bool `protobuf:"varint,10,opt,name=join_approval,json=joinApproval,proto3" json:"join_approval,omitempty"`
 	// Role of each member, parallel to `members` (same order).
-	MemberRoles   []MemberRole `protobuf:"varint,11,rep,packed,name=member_roles,json=memberRoles,proto3,enum=am.v1.MemberRole" json:"member_roles,omitempty"`
+	MemberRoles []MemberRole `protobuf:"varint,11,rep,packed,name=member_roles,json=memberRoles,proto3,enum=am.v1.MemberRole" json:"member_roles,omitempty"`
+	// Group: public channel. Every member of the server can see and join it,
+	// and new accounts join it automatically. False = private (invite only).
+	Public        bool `protobuf:"varint,12,opt,name=public,proto3" json:"public,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -413,6 +416,13 @@ func (x *Conversation) GetMemberRoles() []MemberRole {
 	return nil
 }
 
+func (x *Conversation) GetPublic() bool {
+	if x != nil {
+		return x.Public
+	}
+	return false
+}
+
 // Per-user settings and state inside one conversation.
 type MemberState struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -497,7 +507,7 @@ func (x *MemberState) GetMutedUntil() int64 {
 // Standard error body, used both by HTTP responses and WebSocket frames.
 type Error struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Stable machine-readable code, e.g. "invalid_invite", "not_friends".
+	// Stable machine-readable code, e.g. "invalid_invite", "blocked".
 	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
 	// Human-readable message (English) for logs and debugging.
 	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
@@ -562,7 +572,7 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\faccount_type\x18\x05 \x01(\x0e2\x12.am.v1.AccountTypeR\vaccountType\x12\x19\n" +
 	"\bowner_id\x18\x06 \x01(\x03R\aownerId\x12,\n" +
 	"\x12owner_display_name\x18\a \x01(\tR\x10ownerDisplayName\x12#\n" +
-	"\ravatar_static\x18\b \x01(\tR\favatarStatic\"\xe7\x02\n" +
+	"\ravatar_static\x18\b \x01(\tR\favatarStatic\"\xff\x02\n" +
 	"\fConversation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12#\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x0f.am.v1.ConvKindR\x04kind\x12\x12\n" +
@@ -575,7 +585,8 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\x06notice\x18\t \x01(\tR\x06notice\x12#\n" +
 	"\rjoin_approval\x18\n" +
 	" \x01(\bR\fjoinApproval\x124\n" +
-	"\fmember_roles\x18\v \x03(\x0e2\x11.am.v1.MemberRoleR\vmemberRoles\"\xb0\x01\n" +
+	"\fmember_roles\x18\v \x03(\x0e2\x11.am.v1.MemberRoleR\vmemberRoles\x12\x16\n" +
+	"\x06public\x18\f \x01(\bR\x06public\"\xb0\x01\n" +
 	"\vMemberState\x12%\n" +
 	"\x04role\x18\x01 \x01(\x0e2\x11.am.v1.MemberRoleR\x04role\x12\x19\n" +
 	"\bread_seq\x18\x02 \x01(\x03R\areadSeq\x12!\n" +

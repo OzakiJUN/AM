@@ -103,28 +103,16 @@ func testChat(t *testing.T, a *app.App, base string) {
 	_, err = bad.Connect(ctx)
 	wantCode(t, err, "unauthorized")
 
-	// --- friends ---
-	_, err = alice.OpenDM(ctx, bobMe.Id)
-	wantCode(t, err, "not_friends")
-	if err := alice.RequestFriend(ctx, "bob"); err != nil {
-		t.Fatal(err)
+	// --- people: no friends, anyone can be found and messaged ---
+	people := must(alice.ListUsers(ctx, "bo", 0, 0))
+	if len(people.Users) != 1 || people.Users[0].Id != bobMe.Id {
+		t.Fatalf("ListUsers(bo) = %v", people.Users)
 	}
-	waitPush(t, bobWS, "friend request push", func(f *amv1.ServerFrame) bool {
-		p := f.GetFriend()
-		return p != nil && p.Kind == amv1.FriendPush_KIND_REQUEST_RECEIVED && p.User.Id == aliceMe.Id
-	})
-	fl := must(bob.ListFriends(ctx))
-	if len(fl.Incoming) != 1 || fl.Incoming[0].Id != aliceMe.Id {
-		t.Fatalf("bob incoming = %v", fl.Incoming)
+	if u := must(alice.FindUser(ctx, "BOB")); u.Id != bobMe.Id {
+		t.Fatal("FindUser is not case-insensitive")
 	}
-	if err := bob.AcceptFriend(ctx, aliceMe.Id); err != nil {
-		t.Fatal(err)
-	}
-	waitPush(t, aliceWS, "friend accepted push", func(f *amv1.ServerFrame) bool {
-		p := f.GetFriend()
-		return p != nil && p.Kind == amv1.FriendPush_KIND_ACCEPTED
-	})
-	wantCode(t, alice.RequestFriend(ctx, "bob"), "already_friends")
+	_, err = alice.OpenDM(ctx, aliceMe.Id)
+	wantCode(t, err, "self")
 
 	// --- DM ---
 	dm := must(alice.OpenDM(ctx, bobMe.Id))
@@ -233,6 +221,6 @@ func testChat(t *testing.T, a *app.App, base string) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("revoked session was not disconnected")
 	}
-	_, err = bob.ListFriends(ctx)
+	_, err = bob.ListBlocks(ctx)
 	wantCode(t, err, "unauthorized")
 }

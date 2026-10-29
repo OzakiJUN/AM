@@ -81,27 +81,52 @@ message ServerInfo {
   string download_url = 3;
 }
 
-// GET /api/v1/friends
+// ---- friends (removed) ----
+// There are no friends any more (stage 1 batch 4): everyone on a server can
+// message everyone else. These messages and endpoints are gone; the
+// messages stay only so their names and field numbers are never reused.
+
+// Removed: GET /api/v1/friends
 message ListFriendsResponse {
   repeated User friends = 1;
   repeated User incoming = 2;
   repeated User outgoing = 3;
 }
 
-// POST /api/v1/friends/request
+// Removed: POST /api/v1/friends/request
 message FriendRequest {
   string username = 1;
 }
 
-// POST /api/v1/friends/accept
+// Removed: POST /api/v1/friends/accept
 message FriendAccept {
   int64 user_id = 1;
 }
 
+// ---- people ----
+
 // POST /api/v1/dm   -> Conversation
-// Opens (or returns the existing) DM with a friend.
+// Opens (or returns the existing) DM with anyone on the server, unless one
+// of the two has blocked the other ("blocked").
 message OpenDMRequest {
   int64 user_id = 1;
+}
+
+// GET /api/v1/users?query=&after=&limit=   -> ListUsersResponse
+// Everyone on the server (not banned), ordered by id. `query` matches
+// username or display name. Page with `after` = last id of the previous page.
+message ListUsersResponse {
+  repeated User users = 1;
+  // Pass as `after` for the next page; 0 = no more.
+  int64 next_after = 2;
+}
+
+// GET    /api/v1/blocks             -> ListBlocksResponse
+// POST   /api/v1/blocks/{user_id}   -> Empty
+// DELETE /api/v1/blocks/{user_id}   -> Empty
+// A block stops direct messages both ways; channels are not affected.
+message ListBlocksResponse {
+  repeated User users = 1;
 }
 
 // GET /api/v1/conversations/{id}   -> Conversation (must be a member)
@@ -127,17 +152,40 @@ message LoginRecord {
   int64 created_at = 4;
 }
 
-// ---- groups ----
+// ---- channels (groups) ----
+// Clients call groups "channels". Public channels are open to everyone on
+// the server; private ones are invite only (the old groups).
 
 // POST /api/v1/groups   -> Conversation
-// Members must be the creator's friends.
 message CreateGroupRequest {
   string name = 1;
   repeated int64 member_ids = 2;
+  // Public channel: only site admins may create one. Every account on the
+  // server becomes a member (member_ids is ignored).
+  bool public = 3;
 }
 
+// GET /api/v1/channels   -> ListChannelsResponse
+// All public channels, for the "browse channels" list.
+message ListChannelsResponse {
+  repeated ChannelInfo channels = 1;
+}
+
+message ChannelInfo {
+  int64 id = 1;
+  string name = 2;
+  string avatar = 3;
+  string notice = 4;
+  int32 member_count = 5;
+  // The caller is a member.
+  bool joined = 6;
+}
+
+// POST /api/v1/channels/{id}/join   -> Conversation
+// Join a public channel (e.g. after leaving it).
+
 // POST /api/v1/groups/{id}/members
-// Invite friends. In groups with join approval, invitations by ordinary
+// Invite people. In groups with join approval, invitations by ordinary
 // members become join requests for admins to approve.
 message InviteMembersRequest {
   repeated int64 user_ids = 1;

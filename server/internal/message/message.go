@@ -128,6 +128,12 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 	default:
 		return nil, apperr.ErrEmptyMessage
 	}
+	// Blocks stop new direct messages (striking your own old ones still works).
+	if kind != KindStrike && conv.Kind == int16(amv1.ConvKind_CONV_KIND_DM) {
+		if err := s.checkDMBlock(ctx, conv.ID, me.ID); err != nil {
+			return nil, err
+		}
+	}
 
 	payload, err := proto.Marshal(body)
 	if err != nil {
@@ -169,6 +175,22 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 
 	s.FanOut(ctx, row, nil, connID)
 	return ToProto(row, me.ID)
+}
+
+// checkDMBlock fails with ErrBlocked when either side of a DM blocked the other.
+func (s *Service) checkDMBlock(ctx context.Context, convID, me int64) error {
+	peer, err := s.st.DMPeer(ctx, convID, me)
+	if err != nil {
+		return err
+	}
+	blocked, err := s.st.BlockedEither(ctx, me, peer)
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return apperr.ErrBlocked
+	}
+	return nil
 }
 
 func (s *Service) checkStrike(ctx context.Context, me, convID, target int64) error {

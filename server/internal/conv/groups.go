@@ -84,30 +84,54 @@ func dedupe(ids []int64, exclude int64) []int64 {
 	return out
 }
 
-// CreateGroup creates a group with the creator as owner and friends as members.
+// checkUsers fails with ErrUserNotFound unless every id is an account that is not banned.
+func checkUsers(ctx context.Context, q *store.Queries, ids []int64) error {
+	users, err := q.GetUsers(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if u := users[id]; u == nil || u.Banned {
+			return apperr.ErrUserNotFound
+		}
+	}
+	return nil
+}
+
+// CreateGroup creates a channel with the creator as owner. A private channel
+// gets the listed members; a public one (site admins only) gets everyone.
 func (s *Service) CreateGroup(ctx context.Context, me *store.User, req *amv1.CreateGroupRequest) (*amv1.Conversation, error) {
-	name, err := validGroupName(req.GetName())
+	if req.GetPublic() && !me.IsSiteAdmin {
+		return nil, apperr.ErrNoPermission
+	}
+	return s.createGroup(ctx, me, req.GetName(), req.GetMemberIds(), req.GetPublic())
+}
+
+func (s *Service) createGroup(ctx context.Context, me *store.User, rawName string, memberIDs []int64, public bool) (*amv1.Conversation, error) {
+	name, err := validGroupName(rawName)
 	if err != nil {
 		return nil, err
 	}
-	ids := dedupe(req.GetMemberIds(), me.ID)
-	if len(ids)+1 > s.limits.MaxGroupMembers {
+	ids := dedupe(memberIDs, me.ID)
+	if !public && len(ids)+1 > s.limits.MaxGroupMembers {
 		return nil, apperr.ErrGroupFull
 	}
 	convID := s.ids.Next()
 	now := s.now().UnixMilli()
 	var rows []*store.Event
 	err = s.st.InTx(ctx, func(q *store.Queries) error {
-		for _, id := range ids {
-			ok, err := q.AreFriends(ctx, me.ID, id)
+		if public {
+			// Everyone on the server; no "X joined" line per person.
+			all, err := q.ActiveUserIDs(ctx)
 			if err != nil {
 				return err
 			}
-			if !ok {
-				return apperr.ErrNotFriends
-			}
+			ids = dedupe(all, me.ID)
+		} else if err := checkUsers(ctx, q, ids); err != nil {
+			return err
 		}
-		c := &store.Conversation{ID: convID, Kind: int16(amv1.ConvKind_CONV_KIND_GROUP), Name: name, OwnerID: me.ID, CreatedAt: now}
+		c := &store.Conversation{ID: convID, Kind: int16(amv1.ConvKind_CONV_KIND_GROUP), Name: name, OwnerID: me.ID,
+			Public: public, CreatedAt: now}
 		if err := q.CreateConversation(ctx, c, ""); err != nil {
 			return err
 		}
@@ -124,6 +148,9 @@ func (s *Service) CreateGroup(ctx context.Context, me *store.User, req *amv1.Cre
 		for _, id := range ids {
 			if err := q.AddMember(ctx, &store.Member{ConvID: convID, UserID: id, Role: roleMember, JoinedAt: now}); err != nil {
 				return err
+			}
+			if public {
+				continue
 			}
 			row, err := s.msg.AppendSystem(ctx, q, convID, me.ID, sysMember(amv1.SysMember_ACTION_JOIN, id, me.ID))
 			if err != nil {
@@ -142,8 +169,8 @@ func (s *Service) CreateGroup(ctx context.Context, me *store.User, req *amv1.Cre
 	return s.ConvView(ctx, convID, me.ID)
 }
 
-// InviteMembers adds friends to a group, or files join requests when the
-// group needs approval and the inviter is not an admin.
+// InviteMembers adds people to a channel, or files join requests when the
+// channel needs approval and the inviter is not an admin.
 func (s *Service) InviteMembers(ctx context.Context, me *store.User, convID int64, userIDs []int64) (*amv1.InviteMembersResponse, error) {
 	ids := dedupe(userIDs, me.ID)
 	out := &amv1.InviteMembersResponse{}
@@ -155,7 +182,12 @@ func (s *Service) InviteMembers(ctx context.Context, me *store.User, convID int6
 		if err != nil {
 			return err
 		}
-		needsApproval = c.JoinApproval && m.Role < roleAdmin
+		// Anyone may join a public channel anyway, so no approval there.
+		needsApproval = !c.Public && c.JoinApproval && m.Role < roleAdmin
+		public := c.Public
+		if err := checkUsers(ctx, q, ids); err != nil {
+			return err
+		}
 		count, err := q.CountMembers(ctx, convID)
 		if err != nil {
 			return err
@@ -166,13 +198,6 @@ func (s *Service) InviteMembers(ctx context.Context, me *store.User, convID int6
 			} else if !errors.Is(err, store.ErrNotFound) {
 				return err
 			}
-			ok, err := q.AreFriends(ctx, me.ID, id)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				return apperr.ErrNotFriends
-			}
 			if needsApproval {
 				if err := q.UpsertJoinRequest(ctx, &store.JoinRequest{ConvID: convID, UserID: id, InviterID: me.ID, CreatedAt: now}); err != nil {
 					return err
@@ -180,7 +205,7 @@ func (s *Service) InviteMembers(ctx context.Context, me *store.User, convID int6
 				out.Requested = append(out.Requested, id)
 				continue
 			}
-			if count >= s.limits.MaxGroupMembers {
+			if !public && count >= s.limits.MaxGroupMembers {
 				return apperr.ErrGroupFull
 			}
 			if err := q.AddMember(ctx, &store.Member{ConvID: convID, UserID: id, Role: roleMember, JoinedAt: now}); err != nil {

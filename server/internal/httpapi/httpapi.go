@@ -62,10 +62,13 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/server", func(w http.ResponseWriter, r *http.Request) { a.ok(w, a.acct.ServerInfo()) })
 	mux.HandleFunc("GET /api/v1/invites", a.authed(a.listInvites))
 	mux.HandleFunc("POST /api/v1/invites", a.authed(a.createInvite))
-	mux.HandleFunc("GET /api/v1/friends", a.authed(a.listFriends))
-	mux.HandleFunc("POST /api/v1/friends/request", a.authed(a.requestFriend))
-	mux.HandleFunc("POST /api/v1/friends/accept", a.authed(a.acceptFriend))
 	mux.HandleFunc("POST /api/v1/dm", a.authed(a.openDM))
+	mux.HandleFunc("GET /api/v1/users", a.authed(a.listUsers))
+	mux.HandleFunc("GET /api/v1/blocks", a.authed(a.listBlocks))
+	mux.HandleFunc("POST /api/v1/blocks/{uid}", a.authed(a.block(true)))
+	mux.HandleFunc("DELETE /api/v1/blocks/{uid}", a.authed(a.block(false)))
+	mux.HandleFunc("GET /api/v1/channels", a.authed(a.listChannels))
+	mux.HandleFunc("POST /api/v1/channels/{id}/join", a.authed(a.joinChannel))
 
 	mux.HandleFunc("GET /api/v1/conversations/{id}", a.authed(a.getConversation))
 	mux.HandleFunc("GET /api/v1/users/{id}", a.authed(a.getUser))
@@ -243,39 +246,6 @@ func (a *API) createInvite(w http.ResponseWriter, r *http.Request, _ *store.Sess
 		return
 	}
 	a.ok(w, inv)
-}
-
-func (a *API) listFriends(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
-	resp, err := a.conv.ListFriends(r.Context(), me)
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	a.ok(w, resp)
-}
-
-func (a *API) requestFriend(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
-	req := &amv1.FriendRequest{}
-	if !a.read(w, r, req) {
-		return
-	}
-	if err := a.conv.RequestFriend(r.Context(), me, strings.TrimSpace(req.GetUsername())); err != nil {
-		a.fail(w, err)
-		return
-	}
-	a.ok(w, &amv1.Empty{})
-}
-
-func (a *API) acceptFriend(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
-	req := &amv1.FriendAccept{}
-	if !a.read(w, r, req) {
-		return
-	}
-	if err := a.conv.AcceptFriend(r.Context(), me, req.GetUserId()); err != nil {
-		a.fail(w, err)
-		return
-	}
-	a.ok(w, &amv1.Empty{})
 }
 
 func (a *API) openDM(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {

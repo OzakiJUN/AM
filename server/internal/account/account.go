@@ -36,7 +36,13 @@ type Service struct {
 	media   *media.Service
 	now     func() time.Time
 	meta    serverMeta
+	// Called after an account is created (outside the transaction).
+	onRegistered func(ctx context.Context, u *store.User)
 }
+
+// OnRegistered sets a hook that runs after each new account is created
+// (conv uses it to put new accounts into the public channels).
+func (s *Service) OnRegistered(fn func(ctx context.Context, u *store.User)) { s.onRegistered = fn }
 
 func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
 	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now}
@@ -102,6 +108,9 @@ func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest, cl Cl
 	})
 	if err != nil {
 		return "", nil, err
+	}
+	if s.onRegistered != nil {
+		s.onRegistered(ctx, u)
 	}
 	token, err = s.newSession(ctx, u.ID, req.GetDeviceName(), "register", cl.IP)
 	if err != nil {

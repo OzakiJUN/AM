@@ -57,7 +57,8 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	}
 	acct := account.New(st, ids, cfg.Invites, hub, md)
 	ms := message.New(st, ids, hub, md, cfg.Limits, cfg.Retention)
-	cs := conv.New(st, ids, hub, ms, md, cfg.Limits)
+	cs := conv.New(st, ids, hub, ms, md, cfg.Limits, cfg.Server.DefaultChannel, log)
+	acct.OnRegistered(cs.Welcome)
 
 	mux := http.NewServeMux()
 	httpapi.New(acct, cs, ms, md, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)

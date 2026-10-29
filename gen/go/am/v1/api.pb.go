@@ -540,7 +540,7 @@ func (x *ServerInfo) GetDownloadUrl() string {
 	return ""
 }
 
-// GET /api/v1/friends
+// Removed: GET /api/v1/friends
 type ListFriendsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Friends       []*User                `protobuf:"bytes,1,rep,name=friends,proto3" json:"friends,omitempty"`
@@ -601,7 +601,7 @@ func (x *ListFriendsResponse) GetOutgoing() []*User {
 	return nil
 }
 
-// POST /api/v1/friends/request
+// Removed: POST /api/v1/friends/request
 type FriendRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
@@ -646,7 +646,7 @@ func (x *FriendRequest) GetUsername() string {
 	return ""
 }
 
-// POST /api/v1/friends/accept
+// Removed: POST /api/v1/friends/accept
 type FriendAccept struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -692,7 +692,8 @@ func (x *FriendAccept) GetUserId() int64 {
 }
 
 // POST /api/v1/dm   -> Conversation
-// Opens (or returns the existing) DM with a friend.
+// Opens (or returns the existing) DM with anyone on the server, unless one
+// of the two has blocked the other ("blocked").
 type OpenDMRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -737,6 +738,110 @@ func (x *OpenDMRequest) GetUserId() int64 {
 	return 0
 }
 
+// GET /api/v1/users?query=&after=&limit=   -> ListUsersResponse
+// Everyone on the server (not banned), ordered by id. `query` matches
+// username or display name. Page with `after` = last id of the previous page.
+type ListUsersResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Users []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	// Pass as `after` for the next page; 0 = no more.
+	NextAfter     int64 `protobuf:"varint,2,opt,name=next_after,json=nextAfter,proto3" json:"next_after,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersResponse) Reset() {
+	*x = ListUsersResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersResponse) ProtoMessage() {}
+
+func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
+func (*ListUsersResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ListUsersResponse) GetUsers() []*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+func (x *ListUsersResponse) GetNextAfter() int64 {
+	if x != nil {
+		return x.NextAfter
+	}
+	return 0
+}
+
+// GET    /api/v1/blocks             -> ListBlocksResponse
+// POST   /api/v1/blocks/{user_id}   -> Empty
+// DELETE /api/v1/blocks/{user_id}   -> Empty
+// A block stops direct messages both ways; channels are not affected.
+type ListBlocksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBlocksResponse) Reset() {
+	*x = ListBlocksResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBlocksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBlocksResponse) ProtoMessage() {}
+
+func (x *ListBlocksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBlocksResponse.ProtoReflect.Descriptor instead.
+func (*ListBlocksResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ListBlocksResponse) GetUsers() []*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
 // PATCH /api/v1/me   -> User
 type UpdateProfileRequest struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
@@ -749,7 +854,7 @@ type UpdateProfileRequest struct {
 
 func (x *UpdateProfileRequest) Reset() {
 	*x = UpdateProfileRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[12]
+	mi := &file_am_v1_api_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -761,7 +866,7 @@ func (x *UpdateProfileRequest) String() string {
 func (*UpdateProfileRequest) ProtoMessage() {}
 
 func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[12]
+	mi := &file_am_v1_api_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -774,7 +879,7 @@ func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProfileRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProfileRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{12}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *UpdateProfileRequest) GetDisplayName() string {
@@ -801,7 +906,7 @@ type ListLoginRecordsResponse struct {
 
 func (x *ListLoginRecordsResponse) Reset() {
 	*x = ListLoginRecordsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[13]
+	mi := &file_am_v1_api_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -813,7 +918,7 @@ func (x *ListLoginRecordsResponse) String() string {
 func (*ListLoginRecordsResponse) ProtoMessage() {}
 
 func (x *ListLoginRecordsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[13]
+	mi := &file_am_v1_api_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -826,7 +931,7 @@ func (x *ListLoginRecordsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLoginRecordsResponse.ProtoReflect.Descriptor instead.
 func (*ListLoginRecordsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{13}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListLoginRecordsResponse) GetRecords() []*LoginRecord {
@@ -849,7 +954,7 @@ type LoginRecord struct {
 
 func (x *LoginRecord) Reset() {
 	*x = LoginRecord{}
-	mi := &file_am_v1_api_proto_msgTypes[14]
+	mi := &file_am_v1_api_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -861,7 +966,7 @@ func (x *LoginRecord) String() string {
 func (*LoginRecord) ProtoMessage() {}
 
 func (x *LoginRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[14]
+	mi := &file_am_v1_api_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -874,7 +979,7 @@ func (x *LoginRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginRecord.ProtoReflect.Descriptor instead.
 func (*LoginRecord) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{14}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *LoginRecord) GetKind() string {
@@ -906,18 +1011,20 @@ func (x *LoginRecord) GetCreatedAt() int64 {
 }
 
 // POST /api/v1/groups   -> Conversation
-// Members must be the creator's friends.
 type CreateGroupRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	MemberIds     []int64                `protobuf:"varint,2,rep,packed,name=member_ids,json=memberIds,proto3" json:"member_ids,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Name      string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	MemberIds []int64                `protobuf:"varint,2,rep,packed,name=member_ids,json=memberIds,proto3" json:"member_ids,omitempty"`
+	// Public channel: only site admins may create one. Every account on the
+	// server becomes a member (member_ids is ignored).
+	Public        bool `protobuf:"varint,3,opt,name=public,proto3" json:"public,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateGroupRequest) Reset() {
 	*x = CreateGroupRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[15]
+	mi := &file_am_v1_api_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -929,7 +1036,7 @@ func (x *CreateGroupRequest) String() string {
 func (*CreateGroupRequest) ProtoMessage() {}
 
 func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[15]
+	mi := &file_am_v1_api_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -942,7 +1049,7 @@ func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGroupRequest.ProtoReflect.Descriptor instead.
 func (*CreateGroupRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{15}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CreateGroupRequest) GetName() string {
@@ -959,8 +1066,146 @@ func (x *CreateGroupRequest) GetMemberIds() []int64 {
 	return nil
 }
 
+func (x *CreateGroupRequest) GetPublic() bool {
+	if x != nil {
+		return x.Public
+	}
+	return false
+}
+
+// GET /api/v1/channels   -> ListChannelsResponse
+// All public channels, for the "browse channels" list.
+type ListChannelsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Channels      []*ChannelInfo         `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListChannelsResponse) Reset() {
+	*x = ListChannelsResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListChannelsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListChannelsResponse) ProtoMessage() {}
+
+func (x *ListChannelsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListChannelsResponse.ProtoReflect.Descriptor instead.
+func (*ListChannelsResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListChannelsResponse) GetChannels() []*ChannelInfo {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
+type ChannelInfo struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name        string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Avatar      string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`
+	Notice      string                 `protobuf:"bytes,4,opt,name=notice,proto3" json:"notice,omitempty"`
+	MemberCount int32                  `protobuf:"varint,5,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`
+	// The caller is a member.
+	Joined        bool `protobuf:"varint,6,opt,name=joined,proto3" json:"joined,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChannelInfo) Reset() {
+	*x = ChannelInfo{}
+	mi := &file_am_v1_api_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChannelInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChannelInfo) ProtoMessage() {}
+
+func (x *ChannelInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChannelInfo.ProtoReflect.Descriptor instead.
+func (*ChannelInfo) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ChannelInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ChannelInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ChannelInfo) GetAvatar() string {
+	if x != nil {
+		return x.Avatar
+	}
+	return ""
+}
+
+func (x *ChannelInfo) GetNotice() string {
+	if x != nil {
+		return x.Notice
+	}
+	return ""
+}
+
+func (x *ChannelInfo) GetMemberCount() int32 {
+	if x != nil {
+		return x.MemberCount
+	}
+	return 0
+}
+
+func (x *ChannelInfo) GetJoined() bool {
+	if x != nil {
+		return x.Joined
+	}
+	return false
+}
+
 // POST /api/v1/groups/{id}/members
-// Invite friends. In groups with join approval, invitations by ordinary
+// Invite people. In groups with join approval, invitations by ordinary
 // members become join requests for admins to approve.
 type InviteMembersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -971,7 +1216,7 @@ type InviteMembersRequest struct {
 
 func (x *InviteMembersRequest) Reset() {
 	*x = InviteMembersRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[16]
+	mi := &file_am_v1_api_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -983,7 +1228,7 @@ func (x *InviteMembersRequest) String() string {
 func (*InviteMembersRequest) ProtoMessage() {}
 
 func (x *InviteMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[16]
+	mi := &file_am_v1_api_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -996,7 +1241,7 @@ func (x *InviteMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteMembersRequest.ProtoReflect.Descriptor instead.
 func (*InviteMembersRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{16}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *InviteMembersRequest) GetUserIds() []int64 {
@@ -1016,7 +1261,7 @@ type InviteMembersResponse struct {
 
 func (x *InviteMembersResponse) Reset() {
 	*x = InviteMembersResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[17]
+	mi := &file_am_v1_api_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1028,7 +1273,7 @@ func (x *InviteMembersResponse) String() string {
 func (*InviteMembersResponse) ProtoMessage() {}
 
 func (x *InviteMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[17]
+	mi := &file_am_v1_api_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1041,7 +1286,7 @@ func (x *InviteMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteMembersResponse.ProtoReflect.Descriptor instead.
 func (*InviteMembersResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{17}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *InviteMembersResponse) GetAdded() []int64 {
@@ -1072,7 +1317,7 @@ type UpdateGroupRequest struct {
 
 func (x *UpdateGroupRequest) Reset() {
 	*x = UpdateGroupRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[18]
+	mi := &file_am_v1_api_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1084,7 +1329,7 @@ func (x *UpdateGroupRequest) String() string {
 func (*UpdateGroupRequest) ProtoMessage() {}
 
 func (x *UpdateGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[18]
+	mi := &file_am_v1_api_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1342,7 @@ func (x *UpdateGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGroupRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGroupRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{18}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpdateGroupRequest) GetName() string {
@@ -1138,7 +1383,7 @@ type TransferGroupRequest struct {
 
 func (x *TransferGroupRequest) Reset() {
 	*x = TransferGroupRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[19]
+	mi := &file_am_v1_api_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1150,7 +1395,7 @@ func (x *TransferGroupRequest) String() string {
 func (*TransferGroupRequest) ProtoMessage() {}
 
 func (x *TransferGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[19]
+	mi := &file_am_v1_api_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1163,7 +1408,7 @@ func (x *TransferGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferGroupRequest.ProtoReflect.Descriptor instead.
 func (*TransferGroupRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{19}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *TransferGroupRequest) GetUserId() int64 {
@@ -1185,7 +1430,7 @@ type MuteMemberRequest struct {
 
 func (x *MuteMemberRequest) Reset() {
 	*x = MuteMemberRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[20]
+	mi := &file_am_v1_api_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1197,7 +1442,7 @@ func (x *MuteMemberRequest) String() string {
 func (*MuteMemberRequest) ProtoMessage() {}
 
 func (x *MuteMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[20]
+	mi := &file_am_v1_api_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1210,7 +1455,7 @@ func (x *MuteMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuteMemberRequest.ProtoReflect.Descriptor instead.
 func (*MuteMemberRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{20}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *MuteMemberRequest) GetUserId() int64 {
@@ -1237,7 +1482,7 @@ type ListJoinRequestsResponse struct {
 
 func (x *ListJoinRequestsResponse) Reset() {
 	*x = ListJoinRequestsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[21]
+	mi := &file_am_v1_api_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1249,7 +1494,7 @@ func (x *ListJoinRequestsResponse) String() string {
 func (*ListJoinRequestsResponse) ProtoMessage() {}
 
 func (x *ListJoinRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[21]
+	mi := &file_am_v1_api_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1262,7 +1507,7 @@ func (x *ListJoinRequestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJoinRequestsResponse.ProtoReflect.Descriptor instead.
 func (*ListJoinRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{21}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListJoinRequestsResponse) GetRequests() []*JoinRequestInfo {
@@ -1283,7 +1528,7 @@ type JoinRequestInfo struct {
 
 func (x *JoinRequestInfo) Reset() {
 	*x = JoinRequestInfo{}
-	mi := &file_am_v1_api_proto_msgTypes[22]
+	mi := &file_am_v1_api_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1295,7 +1540,7 @@ func (x *JoinRequestInfo) String() string {
 func (*JoinRequestInfo) ProtoMessage() {}
 
 func (x *JoinRequestInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[22]
+	mi := &file_am_v1_api_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1308,7 +1553,7 @@ func (x *JoinRequestInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinRequestInfo.ProtoReflect.Descriptor instead.
 func (*JoinRequestInfo) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{22}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *JoinRequestInfo) GetUser() *User {
@@ -1345,7 +1590,7 @@ type AdminDeleteRequest struct {
 
 func (x *AdminDeleteRequest) Reset() {
 	*x = AdminDeleteRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[23]
+	mi := &file_am_v1_api_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1357,7 +1602,7 @@ func (x *AdminDeleteRequest) String() string {
 func (*AdminDeleteRequest) ProtoMessage() {}
 
 func (x *AdminDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[23]
+	mi := &file_am_v1_api_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1370,7 +1615,7 @@ func (x *AdminDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{23}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *AdminDeleteRequest) GetReason() string {
@@ -1407,7 +1652,7 @@ type MediaInfo struct {
 
 func (x *MediaInfo) Reset() {
 	*x = MediaInfo{}
-	mi := &file_am_v1_api_proto_msgTypes[24]
+	mi := &file_am_v1_api_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1419,7 +1664,7 @@ func (x *MediaInfo) String() string {
 func (*MediaInfo) ProtoMessage() {}
 
 func (x *MediaInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[24]
+	mi := &file_am_v1_api_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1432,7 +1677,7 @@ func (x *MediaInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaInfo.ProtoReflect.Descriptor instead.
 func (*MediaInfo) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{24}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MediaInfo) GetId() int64 {
@@ -1506,7 +1751,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_am_v1_api_proto_msgTypes[25]
+	mi := &file_am_v1_api_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1518,7 +1763,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[25]
+	mi := &file_am_v1_api_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1531,7 +1776,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{25}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{29}
 }
 
 var File_am_v1_api_proto protoreflect.FileDescriptor
@@ -1591,7 +1836,13 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fFriendAccept\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\"(\n" +
 	"\rOpenDMRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x03R\x06userId\"\x90\x01\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"U\n" +
+	"\x11ListUsersResponse\x12!\n" +
+	"\x05users\x18\x01 \x03(\v2\v.am.v1.UserR\x05users\x12\x1d\n" +
+	"\n" +
+	"next_after\x18\x02 \x01(\x03R\tnextAfter\"7\n" +
+	"\x12ListBlocksResponse\x12!\n" +
+	"\x05users\x18\x01 \x03(\v2\v.am.v1.UserR\x05users\"\x90\x01\n" +
 	"\x14UpdateProfileRequest\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12+\n" +
 	"\x0favatar_media_id\x18\x02 \x01(\x03H\x01R\ravatarMediaId\x88\x01\x01B\x0f\n" +
@@ -1605,11 +1856,21 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\vdevice_name\x18\x03 \x01(\tR\n" +
 	"deviceName\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"G\n" +
+	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"_\n" +
 	"\x12CreateGroupRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
-	"member_ids\x18\x02 \x03(\x03R\tmemberIds\"1\n" +
+	"member_ids\x18\x02 \x03(\x03R\tmemberIds\x12\x16\n" +
+	"\x06public\x18\x03 \x01(\bR\x06public\"F\n" +
+	"\x14ListChannelsResponse\x12.\n" +
+	"\bchannels\x18\x01 \x03(\v2\x12.am.v1.ChannelInfoR\bchannels\"\x9c\x01\n" +
+	"\vChannelInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06avatar\x18\x03 \x01(\tR\x06avatar\x12\x16\n" +
+	"\x06notice\x18\x04 \x01(\tR\x06notice\x12!\n" +
+	"\fmember_count\x18\x05 \x01(\x05R\vmemberCount\x12\x16\n" +
+	"\x06joined\x18\x06 \x01(\bR\x06joined\"1\n" +
 	"\x14InviteMembersRequest\x12\x19\n" +
 	"\buser_ids\x18\x01 \x03(\x03R\auserIds\"K\n" +
 	"\x15InviteMembersResponse\x12\x14\n" +
@@ -1664,7 +1925,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 	return file_am_v1_api_proto_rawDescData
 }
 
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_am_v1_api_proto_goTypes = []any{
 	(*RegisterRequest)(nil),          // 0: am.v1.RegisterRequest
 	(*LoginRequest)(nil),             // 1: am.v1.LoginRequest
@@ -1678,38 +1939,45 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*FriendRequest)(nil),            // 9: am.v1.FriendRequest
 	(*FriendAccept)(nil),             // 10: am.v1.FriendAccept
 	(*OpenDMRequest)(nil),            // 11: am.v1.OpenDMRequest
-	(*UpdateProfileRequest)(nil),     // 12: am.v1.UpdateProfileRequest
-	(*ListLoginRecordsResponse)(nil), // 13: am.v1.ListLoginRecordsResponse
-	(*LoginRecord)(nil),              // 14: am.v1.LoginRecord
-	(*CreateGroupRequest)(nil),       // 15: am.v1.CreateGroupRequest
-	(*InviteMembersRequest)(nil),     // 16: am.v1.InviteMembersRequest
-	(*InviteMembersResponse)(nil),    // 17: am.v1.InviteMembersResponse
-	(*UpdateGroupRequest)(nil),       // 18: am.v1.UpdateGroupRequest
-	(*TransferGroupRequest)(nil),     // 19: am.v1.TransferGroupRequest
-	(*MuteMemberRequest)(nil),        // 20: am.v1.MuteMemberRequest
-	(*ListJoinRequestsResponse)(nil), // 21: am.v1.ListJoinRequestsResponse
-	(*JoinRequestInfo)(nil),          // 22: am.v1.JoinRequestInfo
-	(*AdminDeleteRequest)(nil),       // 23: am.v1.AdminDeleteRequest
-	(*MediaInfo)(nil),                // 24: am.v1.MediaInfo
-	(*Empty)(nil),                    // 25: am.v1.Empty
-	(*User)(nil),                     // 26: am.v1.User
+	(*ListUsersResponse)(nil),        // 12: am.v1.ListUsersResponse
+	(*ListBlocksResponse)(nil),       // 13: am.v1.ListBlocksResponse
+	(*UpdateProfileRequest)(nil),     // 14: am.v1.UpdateProfileRequest
+	(*ListLoginRecordsResponse)(nil), // 15: am.v1.ListLoginRecordsResponse
+	(*LoginRecord)(nil),              // 16: am.v1.LoginRecord
+	(*CreateGroupRequest)(nil),       // 17: am.v1.CreateGroupRequest
+	(*ListChannelsResponse)(nil),     // 18: am.v1.ListChannelsResponse
+	(*ChannelInfo)(nil),              // 19: am.v1.ChannelInfo
+	(*InviteMembersRequest)(nil),     // 20: am.v1.InviteMembersRequest
+	(*InviteMembersResponse)(nil),    // 21: am.v1.InviteMembersResponse
+	(*UpdateGroupRequest)(nil),       // 22: am.v1.UpdateGroupRequest
+	(*TransferGroupRequest)(nil),     // 23: am.v1.TransferGroupRequest
+	(*MuteMemberRequest)(nil),        // 24: am.v1.MuteMemberRequest
+	(*ListJoinRequestsResponse)(nil), // 25: am.v1.ListJoinRequestsResponse
+	(*JoinRequestInfo)(nil),          // 26: am.v1.JoinRequestInfo
+	(*AdminDeleteRequest)(nil),       // 27: am.v1.AdminDeleteRequest
+	(*MediaInfo)(nil),                // 28: am.v1.MediaInfo
+	(*Empty)(nil),                    // 29: am.v1.Empty
+	(*User)(nil),                     // 30: am.v1.User
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	26, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	30, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	4,  // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
 	6,  // 2: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
-	26, // 3: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	26, // 4: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	26, // 5: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	14, // 6: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
-	22, // 7: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	26, // 8: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	26, // 9: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	30, // 3: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	30, // 4: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	30, // 5: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	30, // 6: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	30, // 7: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	16, // 8: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
+	19, // 9: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
+	26, // 10: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
+	30, // 11: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	30, // 12: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -1718,15 +1986,15 @@ func file_am_v1_api_proto_init() {
 		return
 	}
 	file_am_v1_common_proto_init()
-	file_am_v1_api_proto_msgTypes[12].OneofWrappers = []any{}
-	file_am_v1_api_proto_msgTypes[18].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[14].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[22].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   26,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

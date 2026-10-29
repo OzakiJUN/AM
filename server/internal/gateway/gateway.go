@@ -250,7 +250,7 @@ func (g *Gateway) authResponse(ctx context.Context, c *Conn, req *amv1.ClientFra
 		return nil, err
 	}
 	return proto.Marshal(&amv1.ServerFrame{ReqId: req.GetReqId(), Msg: &amv1.ServerFrame_Auth{
-		Auth: &amv1.AuthResponse{Me: me, Conversations: convs},
+		Auth: &amv1.AuthResponse{Me: me, Conversations: convs, IsSiteAdmin: c.user.IsSiteAdmin},
 	}})
 }
 

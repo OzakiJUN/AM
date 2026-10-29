@@ -245,10 +245,11 @@ const help = `Commands:
     newinvite                        admins only: one more invite code
     sessions | revoke <session id>   list / log out devices
     logins                           my recent logins (time, IP, device)
-  Friends
-    friends | add <username> | accept <username>
+  People (no friends: anyone on the server can be messaged)
+    users [search]                   list people on this server
+    block <username> | unblock <username> | blocks
   Conversations
-    dm <username>                    open a DM with a friend (becomes current)
+    dm <username>                    open a DM with anyone (becomes current)
     convs | open <conv id>           list / switch conversations
     <any text>  or  send <text>      send to the current conversation
     img <path> | file <path>         send an image / a file
@@ -256,9 +257,13 @@ const help = `Commands:
     strike <event id>                strike through one of your messages
     delete <event id> [block] <reason>   admin delete (block = also block the image)
     history [n]                      show the last n messages (default 20)
-  Groups (act on the current conversation)
-    group <name> [username ...]      create a group with friends
-    invite <username ...>            add friends (or request, if approval is on)
+  Channels
+    channels                         public channels (browse)
+    join <conv id>                   join a public channel
+    channel <name>                   admins only: create a public channel (everyone joins)
+    group <name> [username ...]      create a private channel
+  Channel management (act on the current conversation)
+    invite <username ...>            add people (or request, if approval is on)
     members                          list members and roles
     kick <username> | leave
     admin <username> | unadmin <username> | transfer <username> | dissolve
@@ -353,40 +358,87 @@ func (a *app) command(line string) error {
 			return err
 		}
 		fmt.Println("New invite code:", inv.Code)
-	case "friends":
-		resp, err := a.cli.ListFriends(ctx)
+	case "users":
+		resp, err := a.cli.ListUsers(ctx, rest, 0, 200)
 		if err != nil {
 			return err
 		}
-		a.rememberUsers(resp.Friends, resp.Incoming, resp.Outgoing)
-		printUsers("Friends", resp.Friends)
-		printUsers("Requests to you (accept <username>)", resp.Incoming)
-		printUsers("Your pending requests", resp.Outgoing)
-	case "add":
+		a.rememberUsers(resp.Users)
+		printUsers("People", resp.Users)
+		if resp.NextAfter != 0 {
+			fmt.Println("  (more - narrow it down: users <search>)")
+		}
+	case "block", "unblock":
 		if len(args) != 1 {
-			return errors.New("usage: add <username>")
+			return fmt.Errorf("usage: %s <username>", cmd)
 		}
-		if err := a.cli.RequestFriend(ctx, args[0]); err != nil {
-			return err
-		}
-		fmt.Println("Friend request sent.")
-	case "accept":
-		if len(args) != 1 {
-			return errors.New("usage: accept <username>")
-		}
-		id, err := a.findUser(ctx, args[0], true)
+		id, err := a.findUser(ctx, args[0])
 		if err != nil {
 			return err
 		}
-		if err := a.cli.AcceptFriend(ctx, id); err != nil {
+		if strings.EqualFold(cmd, "block") {
+			err = a.cli.Block(ctx, id)
+		} else {
+			err = a.cli.Unblock(ctx, id)
+		}
+		if err != nil {
 			return err
 		}
-		fmt.Println("Accepted.")
+		fmt.Println("Done.")
+	case "blocks":
+		resp, err := a.cli.ListBlocks(ctx)
+		if err != nil {
+			return err
+		}
+		printUsers("Blocked", resp.Users)
+	case "channels":
+		resp, err := a.cli.ListChannels(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Public channels:")
+		for _, c := range resp.Channels {
+			joined := ""
+			if c.Joined {
+				joined = "  (joined)"
+			}
+			fmt.Printf("  %d  %s  - %d members%s\n", c.Id, c.Name, c.MemberCount, joined)
+		}
+	case "join":
+		if len(args) != 1 {
+			return errors.New("usage: join <conv id>")
+		}
+		id, err := strconv.ParseInt(args[0], 10, 64)
+		if err != nil {
+			return errors.New("usage: join <conv id>")
+		}
+		c, err := a.cli.JoinChannel(ctx, id)
+		if err != nil {
+			return err
+		}
+		a.mu.Lock()
+		a.addConvLocked(c)
+		a.current = c.Id
+		a.mu.Unlock()
+		fmt.Printf("Joined %q.\n", c.Name)
+	case "channel":
+		if rest == "" {
+			return errors.New("usage: channel <name>")
+		}
+		c, err := a.cli.CreatePublicChannel(ctx, rest)
+		if err != nil {
+			return err
+		}
+		a.mu.Lock()
+		a.addConvLocked(c)
+		a.current = c.Id
+		a.mu.Unlock()
+		fmt.Printf("Created public channel %q (conv %d).\n", c.Name, c.Id)
 	case "dm":
 		if len(args) != 1 {
 			return errors.New("usage: dm <username>")
 		}
-		id, err := a.findUser(ctx, args[0], false)
+		id, err := a.findUser(ctx, args[0])
 		if err != nil {
 			return err
 		}
@@ -559,26 +611,14 @@ func (a *app) loggedIn(resp *amv1.SessionResponse) error {
 	return a.connect()
 }
 
-// findUser resolves a username via the friend list (incoming requests too).
-func (a *app) findUser(ctx context.Context, name string, includeIncoming bool) (int64, error) {
-	resp, err := a.cli.ListFriends(ctx)
+// findUser resolves a username to an account id.
+func (a *app) findUser(ctx context.Context, name string) (int64, error) {
+	u, err := a.cli.FindUser(ctx, name)
 	if err != nil {
 		return 0, err
 	}
-	a.rememberUsers(resp.Friends, resp.Incoming, resp.Outgoing)
-	list := resp.Friends
-	if includeIncoming {
-		list = resp.Incoming
-	}
-	for _, u := range list {
-		if strings.EqualFold(u.Username, name) {
-			return u.Id, nil
-		}
-	}
-	if includeIncoming {
-		return 0, fmt.Errorf("no friend request from %s", name)
-	}
-	return 0, fmt.Errorf("%s is not your friend", name)
+	a.rememberUsers([]*amv1.User{u})
+	return u.Id, nil
 }
 
 func (a *app) rememberUsers(lists ...[]*amv1.User) {
@@ -786,15 +826,6 @@ func (a *app) pushLoop(conn *amclient.Conn) {
 			a.mu.Unlock()
 			fmt.Printf("\n* %s invited %s into %s (needs approval) - open %d, then: approve %s\n",
 				r.Inviter.GetDisplayName(), r.User.GetDisplayName(), title, r.ConvId, r.User.GetUsername())
-			a.prompt()
-		case *amv1.ServerFrame_Friend:
-			u := m.Friend.GetUser()
-			a.rememberUsers([]*amv1.User{u})
-			if m.Friend.Kind == amv1.FriendPush_KIND_REQUEST_RECEIVED {
-				fmt.Printf("\n* Friend request from %s (@%s) - type: accept %s\n", u.DisplayName, u.Username, u.Username)
-			} else {
-				fmt.Printf("\n* %s accepted your friend request - type: dm %s\n", u.DisplayName, u.Username)
-			}
 			a.prompt()
 		}
 	}

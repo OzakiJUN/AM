@@ -39,6 +39,8 @@ type Server struct {
 	NodeID        int64  `toml:"node_id"`
 	DataDir       string `toml:"data_dir"`
 	ProxyProtocol bool   `toml:"proxy_protocol"`
+	// Public channel created for the first (admin) account. Empty = none.
+	DefaultChannel string `toml:"default_channel"`
 }
 
 type TLS struct {
