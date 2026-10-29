@@ -32,8 +32,15 @@
   /* Motion: everything eases out (fast start, soft landing); "spring" overshoots a little. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
-  --shadow-card: 0 1px 2px rgb(42 36 64 / 0.06), 0 4px 14px -6px rgb(42 36 64 / 0.12);
-  --shadow-lift: 0 2px 4px rgb(42 36 64 / 0.06), 0 14px 32px -12px color-mix(in oklab, var(--accent) 38%, rgb(42 36 64 / 0.3));
+  /* Soft, wide, all-round shadows (no hard edge): a near-white card floats
+     a little above the page at rest and further when hovered. */
+  --shadow-card: 0 1px 2px rgb(30 25 50 / 0.04), 0 3px 10px rgb(30 25 50 / 0.04), 0 10px 30px rgb(30 25 50 / 0.07);
+  --shadow-lift: 0 2px 4px rgb(30 25 50 / 0.04), 0 8px 20px rgb(30 25 50 / 0.07),
+    0 22px 50px color-mix(in oklab, var(--accent) 14%, rgb(30 25 50 / 0.12));
+  --shadow-panel: 0 1px 2px rgb(30 25 50 / 0.03), 0 6px 20px rgb(30 25 50 / 0.05), 0 20px 56px -8px rgb(30 25 50 / 0.08);
+  --shadow-card-dark: 0 1px 2px rgb(0 0 0 / 0.25), 0 4px 12px rgb(0 0 0 / 0.2), 0 12px 32px rgb(0 0 0 / 0.3);
+  --shadow-lift-dark: 0 2px 4px rgb(0 0 0 / 0.25), 0 10px 24px rgb(0 0 0 / 0.3),
+    0 24px 56px color-mix(in oklab, var(--accent) 22%, rgb(0 0 0 / 0.45));
 }
 
 html {
@@ -66,20 +73,14 @@ textarea {
 
 /* Frosted glass panels sitting on the backdrop, with a layered edge shadow. */
 @utility glass {
-  background: rgb(255 255 255 / 0.5);
+  background: rgb(255 255 255 / 0.74);
   backdrop-filter: blur(22px) saturate(1.4);
-  border: 1px solid rgb(255 255 255 / 0.7);
-  box-shadow:
-    0 1px 1px rgb(42 36 64 / 0.04),
-    0 10px 30px -10px color-mix(in oklab, var(--accent) 22%, rgb(42 36 64 / 0.18)),
-    inset 0 1px 0 rgb(255 255 255 / 0.6);
+  border: 1px solid rgb(255 255 255 / 0.85);
+  box-shadow: var(--shadow-panel), inset 0 1px 0 rgb(255 255 255 / 0.7);
   .dark & {
-    background: rgb(30 27 54 / 0.55);
+    background: rgb(30 27 54 / 0.7);
     border-color: rgb(255 255 255 / 0.08);
-    box-shadow:
-      0 1px 1px rgb(0 0 0 / 0.2),
-      0 12px 32px -12px rgb(0 0 0 / 0.6),
-      inset 0 1px 0 rgb(255 255 255 / 0.05);
+    box-shadow: var(--shadow-card-dark), inset 0 1px 0 rgb(255 255 255 / 0.05);
   }
 }
 
@@ -94,7 +95,7 @@ textarea {
     box-shadow 320ms var(--ease-out),
     background-color 200ms var(--ease-out);
   &:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-lift);
   }
   &:active {
@@ -103,10 +104,13 @@ textarea {
     transition-duration: 120ms;
   }
   .dark & {
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 16px -8px rgb(0 0 0 / 0.5);
+    box-shadow: var(--shadow-card-dark);
   }
   .dark &:hover {
-    box-shadow: 0 2px 4px rgb(0 0 0 / 0.3), 0 16px 36px -14px color-mix(in oklab, var(--accent) 45%, black);
+    box-shadow: var(--shadow-lift-dark);
+  }
+  .dark &:active {
+    box-shadow: var(--shadow-card-dark);
   }
 }
 
@@ -124,6 +128,9 @@ textarea {
     transform: scale(0.98);
     transition-duration: 110ms;
   }
+  .dark &:hover {
+    box-shadow: var(--shadow-card-dark);
+  }
 }
 
 /* Buttons: press feedback. */
@@ -139,7 +146,7 @@ textarea {
   }
 }
 @utility glass-strong {
-  background: rgb(255 255 255 / 0.82);
+  background: rgb(255 255 255 / 0.9);
   backdrop-filter: blur(26px) saturate(1.4);
   border: 1px solid rgb(255 255 255 / 0.8);
   .dark & {

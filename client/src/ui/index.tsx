@@ -1,6 +1,6 @@
 // Small UI kit on top of Tailwind and the theme tokens in styles.css
 // (accent colour, glass, card / lift / press motion).
-import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { AnimatePresence, motion, type Transition } from 'motion/react';
 import { create } from 'zustand';
 import { X } from 'lucide-react';
@@ -62,18 +62,72 @@ export function Avatar({ src, name, size = 40, status, square, className }: {
 
 // ---------- buttons ----------
 
-type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+function isThenable(v: unknown): v is PromiseLike<unknown> {
+  return !!v && typeof (v as PromiseLike<unknown>).then === 'function';
+}
+
+/**
+ * Every button that talks to the server shows a spinner and ignores clicks
+ * until the request is done: if onClick returns a promise, the button is busy
+ * until it settles (a rejection becomes an error toast). Callers just return
+ * the promise; nothing else to wire up.
+ */
+export function useBusy() {
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const run = (r: unknown) => {
+    if (!isThenable(r)) return;
+    running.current = true;
+    setBusy(true);
+    Promise.resolve(r)
+      .catch(toastError)
+      .finally(() => {
+        running.current = false;
+        if (alive.current) setBusy(false);
+      });
+  };
+  return { busy, running, run };
+}
+
+type AsyncClick = (e: MouseEvent<HTMLButtonElement>) => unknown;
+
+function useBusyClick(onClick: AsyncClick | undefined) {
+  const { busy, running, run } = useBusy();
+  const handler = onClick
+    ? (e: MouseEvent<HTMLButtonElement>) => {
+        if (running.current) return;
+        run(onClick(e));
+      }
+    : undefined;
+  return { busy, handler };
+}
+
+type BtnProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> & {
   variant?: 'primary' | 'soft' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
+  /** Busy from outside (e.g. a form's onSubmit). Returning a promise from onClick does this automatically. */
+  loading?: boolean;
+  onClick?: AsyncClick;
 };
 
-export const Button = forwardRef<HTMLButtonElement, BtnProps>(function Button({ variant = 'soft', size = 'md', className, ...rest }, ref) {
+export const Button = forwardRef<HTMLButtonElement, BtnProps>(function Button({ variant = 'soft', size = 'md', className, loading, onClick, disabled, children, ...rest }, ref) {
+  const { busy: clicking, handler } = useBusyClick(onClick);
+  const busy = clicking || !!loading;
   return (
     <button
       ref={ref}
       className={cx(
-        'press inline-flex items-center justify-center gap-2 rounded-xl font-medium whitespace-nowrap',
-        'disabled:cursor-default disabled:opacity-50',
+        'press relative inline-flex items-center justify-center rounded-xl font-medium whitespace-nowrap',
+        'disabled:cursor-default',
+        !busy && 'disabled:opacity-50',
+        busy && 'cursor-progress',
         size === 'sm' && 'h-8 px-3 text-[0.85rem]',
         size === 'md' && 'h-10 px-4',
         size === 'lg' && 'h-12 px-6 text-[1.05rem]',
@@ -83,26 +137,49 @@ export const Button = forwardRef<HTMLButtonElement, BtnProps>(function Button({ 
         variant === 'danger' && 'bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:hover:bg-rose-500/25',
         className,
       )}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      onClick={handler}
       {...rest}
-    />
+    >
+      <span className={cx('inline-flex items-center gap-2 transition-opacity duration-200', busy && 'opacity-0')}>{children}</span>
+      <AnimatePresence>
+        {busy && (
+          <motion.span
+            className="absolute inset-0 flex items-center justify-center"
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={spring}
+          >
+            <Spinner size={size === 'sm' ? 14 : 17} />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </button>
   );
 });
 
-export function IconButton({ label, active, className, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }) {
+export function IconButton({ label, active, className, children, onClick, disabled, ...rest }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> & { label: string; active?: boolean; onClick?: AsyncClick }) {
+  const { busy, handler } = useBusyClick(onClick);
   return (
     <button
       aria-label={label}
       title={label}
       className={cx(
         'press inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+        busy && 'cursor-progress',
         active
           ? 'bg-accent text-white shadow-[0_6px_16px_-8px_var(--accent)]'
           : 'text-ink-soft hover:bg-black/5 hover:text-ink dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white',
         className,
       )}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      onClick={handler}
       {...rest}
     >
-      {children}
+      {busy ? <Spinner size={15} /> : children}
     </button>
   );
 }
@@ -129,16 +206,26 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
   );
 }
 
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+/** onChange may return a promise (a server call): the switch is locked and shows a spinner until it settles. */
+export function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => unknown; label: string; disabled?: boolean }) {
+  const { busy, running, run } = useBusy();
   return (
     <button
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cx('relative h-6 w-11 shrink-0 rounded-full transition-colors duration-300', checked ? 'bg-accent' : 'bg-black/15 dark:bg-white/15')}
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
+      onClick={() => !running.current && run(onChange(!checked))}
+      className={cx(
+        'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-300 disabled:cursor-default',
+        checked ? 'bg-accent' : 'bg-black/15 dark:bg-white/15',
+        disabled && !busy && 'opacity-50',
+      )}
     >
-      <motion.span layout transition={spring} className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow', checked ? 'right-0.5' : 'left-0.5')} />
+      <motion.span layout transition={spring} className={cx('absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-accent shadow', checked ? 'right-0.5' : 'left-0.5')}>
+        {busy && <Spinner size={11} />}
+      </motion.span>
     </button>
   );
 }
@@ -264,9 +351,18 @@ export function Dialog({ open, onClose, title, children, width = 440 }: {
   );
 }
 
-/** Ask for confirmation, optionally with a text input. Resolves to the input (or '') or null. */
+/**
+ * Ask for confirmation, optionally with a text input. Resolves to the input
+ * (or '') or null. With `run`, the confirm button stays busy while it runs
+ * and the dialog closes only when it succeeds (errors are shown as a toast
+ * and the dialog stays open).
+ */
 interface AskState {
-  req: { title: string; text?: string; ok: string; danger?: boolean; input?: { label: string; placeholder?: string; required?: boolean } } | null;
+  req: {
+    title: string; text?: string; ok: string; danger?: boolean;
+    input?: { label: string; placeholder?: string; required?: boolean };
+    run?: (value: string) => Promise<unknown>;
+  } | null;
   resolve: ((v: string | null) => void) | null;
 }
 const useAsk = create<AskState>(() => ({ req: null, resolve: null }));
@@ -276,31 +372,48 @@ export function ask(req: NonNullable<AskState['req']>): Promise<string | null> {
 export function AskHost() {
   const { req, resolve } = useAsk();
   const [value, setValue] = useState('');
-  useEffect(() => setValue(''), [req]);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setValue('');
+    setBusy(false);
+  }, [req]);
   const done = (v: string | null) => {
     resolve?.(v);
     useAsk.setState({ req: null, resolve: null });
   };
+  const confirm = async () => {
+    if (!req || busy) return;
+    if (req.input?.required && !value.trim()) return;
+    const v = value.trim();
+    if (!req.run) return done(v);
+    setBusy(true);
+    try {
+      await req.run(v);
+      done(v);
+    } catch (e) {
+      toastError(e);
+      setBusy(false);
+    }
+  };
   return (
-    <Dialog open={!!req} onClose={() => done(null)} title={req?.title}>
+    <Dialog open={!!req} onClose={() => !busy && done(null)} title={req?.title}>
       {req && (
         <form
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (req.input?.required && !value.trim()) return;
-            done(value.trim());
+            confirm();
           }}
         >
           {req.text && <p className="text-ink-soft dark:text-white/60">{req.text}</p>}
           {req.input && (
             <Field label={req.input.label}>
-              <Input autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder={req.input.placeholder} maxLength={200} />
+              <Input autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder={req.input.placeholder} maxLength={200} disabled={busy} />
             </Field>
           )}
           <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="ghost" onClick={() => done(null)}>取消</Button>
-            <Button type="submit" variant={req.danger ? 'danger' : 'primary'} autoFocus={!req.input}>{req.ok}</Button>
+            <Button type="button" variant="ghost" onClick={() => done(null)} disabled={busy}>取消</Button>
+            <Button type="submit" variant={req.danger ? 'danger' : 'primary'} autoFocus={!req.input} loading={busy}>{req.ok}</Button>
           </div>
         </form>
       )}
@@ -314,7 +427,22 @@ export interface MenuItem {
   label: string;
   icon?: ReactNode;
   danger?: boolean;
-  onClick: () => void;
+  /** May return a promise (server call): the same action can't run twice at once; errors become a toast. */
+  onClick: () => unknown;
+  /** Identifies the action for the double-run guard (default: label). Include the target, e.g. `mute:123`. */
+  key?: string;
+}
+
+const inflight = new Set<string>();
+function runMenuItem(it: MenuItem) {
+  const key = it.key ?? it.label;
+  if (inflight.has(key)) return;
+  const r = it.onClick();
+  if (!isThenable(r)) return;
+  inflight.add(key);
+  Promise.resolve(r)
+    .catch(toastError)
+    .finally(() => inflight.delete(key));
 }
 
 const useMenu = create<{ at: { x: number; y: number } | null; items: MenuItem[] }>(() => ({ at: null, items: [] }));
@@ -364,7 +492,7 @@ export function MenuHost() {
               role="menuitem"
               onClick={() => {
                 useMenu.setState({ at: null });
-                it.onClick();
+                runMenuItem(it);
               }}
               className={cx(
                 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[0.9rem] transition-colors',

@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { Session, previewText, type ServerRecord, type SessionView } from './session';
 import { notify } from './platform';
+import type { Conversation, User } from './types';
 
 export type Page = 'chats' | 'contacts' | 'ai' | 'me' | 'settings';
 
@@ -31,8 +32,10 @@ interface AppState {
   servers: ServerRecord[];
   currentId: string | null;
   sessions: Record<string, SessionView>;
-  /** Open conversation per server. */
+  /** Open conversation per server (消息 page). */
   convId: Record<string, string | null>;
+  /** Open bot / AI conversation per server (AI page). */
+  aiConvId: Record<string, string | null>;
   showMembers: boolean;
   set: (patch: Partial<AppState>) => void;
 }
@@ -44,6 +47,7 @@ export const useApp = create<AppState>((set) => ({
   currentId: null,
   sessions: {},
   convId: {},
+  aiConvId: {},
   showMembers: true,
   set: (patch) => set(patch),
 }));
@@ -72,7 +76,8 @@ function attach(rec: ServerRecord): Session {
     },
     (convId, m) => {
       const st = useApp.getState();
-      const focused = document.hasFocus() && st.currentId === rec.id && st.convId[rec.id] === convId && st.page === 'chats';
+      const open = st.page === 'chats' ? st.convId[rec.id] : st.page === 'ai' ? st.aiConvId[rec.id] : null;
+      const focused = document.hasFocus() && st.currentId === rec.id && open === convId;
       if (focused) return;
       const v = s.view;
       const conv = v.convs[convId];
@@ -130,10 +135,22 @@ export function removeServer(id: string) {
   useApp.setState({ servers: list, sessions, currentId, view: list.length ? useApp.getState().view : 'welcome' });
 }
 
+/** DMs with bot / AI accounts live on the AI page, not in the message list. */
+export function isBotConv(c: Conversation, users: Record<string, User>) {
+  if (c.kind !== 'dm' || !c.peerId) return false;
+  const t = users[c.peerId]?.type;
+  return t === 'bot' || t === 'ai';
+}
+
+/** Opens a conversation on the page it belongs to (AI page for bot / AI DMs). */
 export function openConv(convId: string | null) {
-  const id = useApp.getState().currentId;
+  const st = useApp.getState();
+  const id = st.currentId;
   if (!id) return;
-  useApp.setState((st) => ({ convId: { ...st.convId, [id]: convId }, page: 'chats' }));
+  const v = st.sessions[id];
+  const c = convId && v ? v.convs[convId] : undefined;
+  if (c && v && isBotConv(c, v.users)) useApp.setState({ aiConvId: { ...st.aiConvId, [id]: convId }, page: 'ai' });
+  else useApp.setState({ convId: { ...st.convId, [id]: convId }, page: 'chats' });
 }
 
 /** View of the server on screen. */

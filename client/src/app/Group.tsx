@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { current, openConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, User } from '@/lib/types';
-import { Button, Dialog, Field, IconButton, IdentityChip, Input, RoleChip, Toggle, ask, cx, inputClass, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
+import { Button, Dialog, Field, IconButton, IdentityChip, Input, RoleChip, Spinner, Toggle, ask, cx, inputClass, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { ConvAvatar, UserAvatar } from './media';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
@@ -24,27 +24,26 @@ export function MemberPanel({ v, conv, onInvite }: { v: SessionView; conv: Conve
     const isFriend = v.friends.some((f) => f.id === userId);
     const mine = RANK[conv.myRole];
     const items: MenuItem[] = [];
-    if (isFriend) items.push({ label: '发消息', icon: <MessageCircle size={16} />, onClick: () => s.openDM(userId).then(openConv).catch(toastError) });
+    if (isFriend) items.push({ label: '发消息', key: `dm:${userId}`, icon: <MessageCircle size={16} />, onClick: () => s.openDM(userId).then(openConv).catch(toastError) });
     if (conv.myRole === 'owner') {
       items.push(role === 'admin'
-        ? { label: '取消管理员', icon: <ShieldOff size={16} />, onClick: () => s.setAdmin(conv.id, userId, false).catch(toastError) }
-        : { label: '设为管理员', icon: <Shield size={16} />, onClick: () => s.setAdmin(conv.id, userId, true).catch(toastError) });
+        ? { label: '取消管理员', key: `admin:${userId}`, icon: <ShieldOff size={16} />, onClick: () => s.setAdmin(conv.id, userId, false).catch(toastError) }
+        : { label: '设为管理员', key: `admin:${userId}`, icon: <Shield size={16} />, onClick: () => s.setAdmin(conv.id, userId, true).catch(toastError) });
     }
     if (mine > RANK[role]) {
       for (const [label, sec] of [['禁言 10 分钟', 600], ['禁言 1 小时', 3600], ['禁言 1 天', 86400]] as const) {
-        items.push({ label, icon: <Ban size={16} />, onClick: () => s.mute(conv.id, userId, sec).then(() => toast(`已${label}`)).catch(toastError) });
+        items.push({ label, key: `mute:${userId}`, icon: <Ban size={16} />, onClick: () => s.mute(conv.id, userId, sec).then(() => toast(`已${label}`)).catch(toastError) });
       }
-      items.push({ label: '解除禁言', icon: <Volume2 size={16} />, onClick: () => s.mute(conv.id, userId, 0).then(() => toast('已解除禁言')).catch(toastError) });
+      items.push({ label: '解除禁言', key: `mute:${userId}`, icon: <Volume2 size={16} />, onClick: () => s.mute(conv.id, userId, 0).then(() => toast('已解除禁言')).catch(toastError) });
       items.push({
         label: '移出群聊', icon: <UserMinus size={16} />, danger: true,
-        onClick: async () => (await ask({ title: `把 ${name} 移出群聊？`, ok: '移出', danger: true })) !== null && s.removeMember(conv.id, userId).catch(toastError),
+        onClick: () => ask({ title: `把 ${name} 移出群聊？`, ok: '移出', danger: true, run: () => s.removeMember(conv.id, userId) }),
       });
     }
     if (conv.myRole === 'owner') {
       items.push({
         label: '转让群主', icon: <Crown size={16} />, danger: true,
-        onClick: async () => (await ask({ title: `把群主转让给 ${name}？`, text: '转让后你会变成普通成员。', ok: '转让', danger: true })) !== null &&
-          s.transfer(conv.id, userId).catch(toastError),
+        onClick: () => ask({ title: `把群主转让给 ${name}？`, text: '转让后你会变成普通成员。', ok: '转让', danger: true, run: () => s.transfer(conv.id, userId) }),
       });
     }
     openMenu(e, items);
@@ -123,33 +122,34 @@ export function GroupDialog({ open, onClose, v, conv }: { open: boolean; onClose
       setBusy(false);
     }
   };
+  const [uploading, setUploading] = useState(false);
   const avatar = async (f: File) => {
+    setUploading(true);
     try {
       const info = await current().upload(f);
       await current().updateGroup(conv.id, { avatarMediaId: info.id });
       toast('群头像已更新');
     } catch (e) {
       toastError(e);
+    } finally {
+      setUploading(false);
     }
   };
   const leave = async () => {
     const s = current();
-    if (conv.myRole === 'owner') {
-      if ((await ask({ title: `解散「${conv.name}」？`, text: '所有成员都会被移出，聊天记录保留但不能再发消息。不能撤销。', ok: '解散', danger: true })) === null) return;
-      await s.dissolve(conv.id).catch(toastError);
-    } else {
-      if ((await ask({ title: `退出「${conv.name}」？`, ok: '退出', danger: true })) === null) return;
-      await s.removeMember(conv.id, v.me!.id).catch(toastError);
-    }
-    onClose();
+    const ok = conv.myRole === 'owner'
+      ? await ask({ title: `解散「${conv.name}」？`, text: '所有成员都会被移出，聊天记录保留但不能再发消息。不能撤销。', ok: '解散', danger: true, run: () => s.dissolve(conv.id) })
+      : await ask({ title: `退出「${conv.name}」？`, ok: '退出', danger: true, run: () => s.removeMember(conv.id, v.me!.id) });
+    if (ok !== null) onClose();
   };
 
   return (
     <Dialog open={open} onClose={onClose} title="群设置" width={480}>
       <div className="space-y-5">
         <div className="flex items-center gap-4">
-          <button className="press relative" disabled={!canManage} onClick={() => fileRef.current?.click()} aria-label="更换群头像">
+          <button className="press relative" disabled={!canManage || uploading} onClick={() => fileRef.current?.click()} aria-label="更换群头像" aria-busy={uploading || undefined}>
             <ConvAvatar conv={conv} size={64} />
+            {uploading && <span className="absolute inset-0 flex items-center justify-center rounded-[30%] bg-black/40 text-white"><Spinner size={20} /></span>}
             {canManage && <span className="absolute -right-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-white shadow"><ImageUp size={13} /></span>}
           </button>
           <div className="min-w-0 flex-1">
@@ -177,7 +177,7 @@ export function GroupDialog({ open, onClose, v, conv }: { open: boolean; onClose
           <Button variant="danger" onClick={leave}><LogOut size={16} />{conv.myRole === 'owner' ? '解散群聊' : '退出群聊'}</Button>
           <div className="flex-1" />
           <Button variant="ghost" onClick={onClose}>取消</Button>
-          {canManage && <Button variant="primary" onClick={save} disabled={busy}>保存</Button>}
+          {canManage && <Button variant="primary" onClick={save} loading={busy}>保存</Button>}
         </div>
       </div>
     </Dialog>

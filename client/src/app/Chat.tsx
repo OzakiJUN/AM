@@ -1,22 +1,60 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, Copy, Download, FileText, ImagePlus, Megaphone, MessageCircle, Paperclip, PanelRight, RotateCw, SendHorizontal,
+  AlertCircle, Copy, Sparkles, Download, FileText, ImagePlus, Megaphone, MessageCircle, Paperclip, PanelRight, RotateCw, SendHorizontal,
   Settings2, Smile, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
 import { current, useApp } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
-import type { Conversation, MemberRole, Message } from '@/lib/types';
+import type { Conversation, MemberRole, Message, User } from '@/lib/types';
 import { copyText } from '@/lib/platform';
-import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
+import { Avatar, Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
-export function ChatView({ v }: { v: SessionView }) {
-  const convId = useApp((s) => s.convId[v.id] ?? null);
+/**
+ * Upper half of an AI chat: the AI's portrait. Until portrait packs (one
+ * image per emotion, docs/design.md §9) arrive in stage 2, it shows the
+ * avatar large; offline AIs are shown greyed out, like the `offline` state.
+ */
+function PortraitStage({ user }: { user: User }) {
+  const url = useMediaUrl(user.avatar);
+  const offline = user.online === false;
+  return (
+    <div className="relative flex h-[42%] min-h-[180px] shrink-0 items-end justify-center overflow-hidden border-b border-black/5 dark:border-white/5">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent-100/80 via-white/30 to-transparent dark:from-accent/15 dark:via-transparent" />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute bottom-[-30%] h-[90%] w-[60%] rounded-full bg-accent/25 blur-3xl dark:bg-accent/20"
+        animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className={cx('relative mb-6 transition-[filter] duration-700', offline && 'grayscale opacity-70')}
+        initial={{ opacity: 0, y: 24, scale: 0.92 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={spring}
+      >
+        <motion.div animate={offline ? { y: 0 } : { y: [0, -6, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}>
+          <Avatar src={url} name={user.name} size={168} square className="drop-shadow-[0_18px_30px_rgb(30_25_50/0.18)]" />
+        </motion.div>
+      </motion.div>
+      {offline && (
+        <span className="absolute top-3 right-4 rounded-full bg-black/5 px-2.5 py-1 text-[0.75rem] text-ink-soft dark:bg-white/10 dark:text-white/60">主人不在线，暂时不会回复</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One conversation. On the AI page (`ai`), the upper half of the window
+ * belongs to the AI's portrait; the message list and composer sit below it.
+ */
+export function ChatView({ v, ai }: { v: SessionView; ai?: boolean }) {
+  const convId = useApp((s) => (ai ? s.aiConvId[v.id] : s.convId[v.id]) ?? null);
   const showMembers = useApp((s) => s.showMembers);
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -24,7 +62,11 @@ export function ChatView({ v }: { v: SessionView }) {
   if (!conv) {
     return (
       <section className="glass flex flex-1 flex-col rounded-3xl">
-        <Empty icon={<MessageCircle size={28} />} title="选一个会话开始聊天" text="左边是你的会话。还没有的话，去联系人里加好友或者建个群。" />
+        {ai ? (
+          <Empty icon={<Sparkles size={28} />} title="选一个 AI 开始聊天" text="左边是你自己的 AI 和你添加的别人的 AI。" />
+        ) : (
+          <Empty icon={<MessageCircle size={28} />} title="选一个会话开始聊天" text="左边是你的会话。还没有的话，去联系人里加好友或者建个群。" />
+        )}
       </section>
     );
   }
@@ -52,6 +94,7 @@ export function ChatView({ v }: { v: SessionView }) {
             </>
           )}
         </header>
+        {ai && peer && <PortraitStage key={peer.id} user={peer} />}
         <MessageList key={conv.id} v={v} conv={conv} />
         <Composer v={v} conv={conv} />
       </section>
@@ -176,7 +219,7 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
     if (b.kind === 'image') items.push({ label: '查看原图', icon: <ImagePlus size={16} />, onClick: () => onView(b.mediaId) });
     if (b.kind === 'image' || b.kind === 'file') {
       items.push({
-        label: b.kind === 'image' ? '保存图片' : '下载文件', icon: <Download size={16} />,
+        label: b.kind === 'image' ? '保存图片' : '下载文件', icon: <Download size={16} />, key: `dl:${b.mediaId}`,
         onClick: () => s.t.download(mediaPath(b.mediaId), b.kind === 'file' ? b.name : `image-${b.mediaId}.png`).catch(toastError),
       });
     }
@@ -187,23 +230,18 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
       if (mine && !msg.struck && !conv.left) {
         items.push({
           label: '划掉', icon: <Strikethrough size={16} />,
-          onClick: async () => {
-            const ok = await ask({ title: '划掉这条消息？', text: '消息会加上删除线，大家仍然能看到原文。划掉后不能撤销。', ok: '划掉' });
-            if (ok !== null) s.strike(conv.id, msg.id).catch(toastError);
-          },
+          onClick: () => ask({ title: '划掉这条消息？', text: '消息会加上删除线，大家仍然能看到原文。划掉后不能撤销。', ok: '划掉', run: () => s.strike(conv.id, msg.id) }),
         });
       }
       const myRank = RANK[conv.myRole];
       if (conv.kind === 'group' && !mine && myRank >= 2 && myRank > RANK[role ?? 'member'] && !conv.left) {
         items.push({
           label: '删除（管理员）', icon: <Trash2 size={16} />, danger: true,
-          onClick: async () => {
-            const reason = await ask({
-              title: '删除这条消息', text: '所有人都会看不到它，原位置留下删除记录。原内容会作为证据交给服主保管。', ok: '删除', danger: true,
-              input: { label: '原因', placeholder: '例如：广告、刷屏', required: true },
-            });
-            if (reason) s.adminDelete(msg.id, reason).then(() => toast('已删除')).catch(toastError);
-          },
+          onClick: () => ask({
+            title: '删除这条消息', text: '所有人都会看不到它，原位置留下删除记录。原内容会作为证据交给服主保管。', ok: '删除', danger: true,
+            input: { label: '原因', placeholder: '例如：广告、刷屏', required: true },
+            run: (reason) => s.adminDelete(msg.id, reason).then(() => toast('已删除')),
+          }),
         });
       }
     }
@@ -420,7 +458,7 @@ function Composer({ v, conv }: { v: SessionView; conv: Conversation }) {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className={cx('rounded-2xl border border-black/5 bg-white/75 p-2 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-300 focus-within:border-accent-300 focus-within:shadow-[var(--shadow-lift)] dark:border-white/10 dark:bg-white/5', disabled && 'opacity-70')}>
+      <div className={cx('rounded-2xl border border-black/5 bg-white/95 p-2 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-300 focus-within:border-accent-300 focus-within:shadow-[var(--shadow-lift)] dark:border-white/10 dark:bg-white/5', disabled && 'opacity-70')}>
         <div className="relative flex items-center gap-0.5 px-1">
           <IconButton label="表情" active={emoji} onClick={() => setEmoji(!emoji)} disabled={disabled}><Smile size={19} /></IconButton>
           <IconButton label="发送图片" onClick={() => imgRef.current?.click()} disabled={disabled}><ImagePlus size={19} /></IconButton>

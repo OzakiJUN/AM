@@ -2,10 +2,11 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, ChevronDown, LogIn, MessageCircle, Plus, RefreshCw, Search, Settings, Sparkles, Users, WifiOff } from 'lucide-react';
 import { listTime } from '@/lib/format';
-import { current, openConv, session, switchServer, useApp, useCurrent, type Page } from '@/lib/store';
+import { current, isBotConv, openConv, session, switchServer, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
 import { Button, Empty, Field, IdentityChip, Input, Spinner, cx, ease, spring } from '@/ui';
+import { AIPage } from './AI';
 import { ChatView } from './Chat';
 import { ContactsPage } from './Contacts';
 import { ConvAvatar, ServerAvatar, UserAvatar } from './media';
@@ -22,7 +23,7 @@ export function Shell() {
   else if (v.status === 'logged_out' && page !== 'settings') content = <LoginAgain v={v} />;
   else if (page === 'chats') content = <><ConversationList v={v} /><ChatView v={v} /></>;
   else if (page === 'contacts') content = <ContactsPage v={v} />;
-  else if (page === 'ai') content = <AIPlaceholder />;
+  else if (page === 'ai') content = <AIPage v={v} />;
   else if (page === 'me') content = <MePage v={v} />;
   else content = <SettingsPage />;
   return (
@@ -44,9 +45,13 @@ export function Shell() {
   );
 }
 
-function unread(v?: SessionView) {
+/** Unread count; `which` limits it to the message list or the AI page. */
+function unread(v?: SessionView, which?: 'chats' | 'ai') {
   if (!v) return 0;
-  return Object.values(v.convs).reduce((n, c) => n + (c.left ? 0 : Math.max(0, c.lastSeq - c.readSeq)), 0);
+  return Object.values(v.convs).reduce((n, c) => {
+    if (which && isBotConv(c, v.users) !== (which === 'ai')) return n;
+    return n + (c.left ? 0 : Math.max(0, c.lastSeq - c.readSeq));
+  }, 0);
 }
 
 function NavBar({ v }: { v?: SessionView }) {
@@ -84,9 +89,9 @@ function NavBar({ v }: { v?: SessionView }) {
   return (
     <nav className="glass flex w-[72px] shrink-0 flex-col items-center gap-2 rounded-3xl py-4">
       <img src={logo} alt="AM" className="mb-3 h-9 w-9" draggable={false} />
-      {item('chats', '消息', MessageCircle, unread(v))}
+      {item('chats', '消息', MessageCircle, unread(v, 'chats'))}
       {item('contacts', '联系人', Users, v?.incoming.length)}
-      {item('ai', 'AI', Sparkles)}
+      {item('ai', 'AI', Sparkles, unread(v, 'ai'))}
       <div className="flex-1" />
       {item('settings', '设置', Settings)}
       <button onClick={() => set({ page: 'me' })} aria-label="我" title="我" className="press mt-1 rounded-full">
@@ -98,7 +103,7 @@ function NavBar({ v }: { v?: SessionView }) {
 
 const STATUS_TEXT = { connecting: '连接中…', online: '已连接', offline: '已断开', logged_out: '需要登录' };
 
-function ServerSwitcher({ v }: { v: SessionView }) {
+export function ServerSwitcher({ v }: { v: SessionView }) {
   const servers = useApp((s) => s.servers);
   const sessions = useApp((s) => s.sessions);
   const [open, setOpen] = useState(false);
@@ -171,9 +176,10 @@ function ConversationList({ v }: { v: SessionView }) {
   const list = useMemo(
     () =>
       Object.values(v.convs)
+        .filter((c) => !isBotConv(c, v.users))
         .filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()))
         .sort((a, b) => Number(!!a.left) - Number(!!b.left) || b.lastTime - a.lastTime || b.lastSeq - a.lastSeq),
-    [v.convs, q],
+    [v.convs, v.users, q],
   );
   return (
     <aside className="glass flex w-[300px] shrink-0 flex-col rounded-3xl p-3">
@@ -290,16 +296,8 @@ function LoginAgain({ v }: { v: SessionView }) {
         <Field label="用户名"><Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required autoFocus /></Field>
         <Field label="密码"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></Field>
         {error && <p className="text-[0.85rem] text-rose-500" role="alert">{error}</p>}
-        <Button type="submit" variant="primary" size="lg" className="w-full" disabled={busy}>{busy ? '请稍候…' : '登录'}</Button>
+        <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>登录</Button>
       </form>
-    </section>
-  );
-}
-
-function AIPlaceholder() {
-  return (
-    <section className="glass flex flex-1 flex-col rounded-3xl">
-      <Empty icon={<Sparkles size={28} />} title="AI 对话栏 · 即将推出" text="填上自己的 API key 就能和各家模型聊天，AI 形象会随情绪变化，还能拉进群、和朋友共用。" />
     </section>
   );
 }

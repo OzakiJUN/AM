@@ -42,7 +42,7 @@ export function ContactsPage({ v }: { v: SessionView }) {
               groups.length ? (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
                   {groups.map((g) => (
-                    <button key={g.id} onClick={() => openConv(g.id)} className="card flex items-center gap-3 rounded-2xl bg-white/80 p-3 text-left dark:bg-white/[0.06]">
+                    <button key={g.id} onClick={() => openConv(g.id)} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-3 text-left dark:bg-white/[0.06]">
                       <ConvAvatar conv={g} size={44} />
                       <div className="min-w-0">
                         <div className="truncate font-medium">{g.name}</div>
@@ -66,7 +66,7 @@ function Grid({ users }: { users: User[] }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
       {users.map((u) => (
-        <div key={u.id} className="card flex items-center gap-3 rounded-2xl bg-white/80 p-3 dark:bg-white/[0.06]">
+        <div key={u.id} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-3 dark:bg-white/[0.06]">
           <UserAvatar user={u} size={44} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5"><span className="truncate font-medium">{u.name}</span><IdentityChip user={u} short /></div>
@@ -90,7 +90,7 @@ function Requests({ v }: { v: SessionView }) {
           <h3 className="mb-3 text-[0.9rem] font-medium text-ink-soft dark:text-white/55">收到的申请</h3>
           <div className="space-y-2">
             {v.incoming.map((u) => (
-              <div key={u.id} className="card flex items-center gap-3 rounded-2xl bg-white/80 p-3 dark:bg-white/[0.06]">
+              <div key={u.id} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-3 dark:bg-white/[0.06]">
                 <UserAvatar user={u} size={44} />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{u.name}</div>
@@ -147,7 +147,7 @@ function AddFriend({ open, onClose }: { open: boolean; onClose: () => void }) {
         </Field>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>取消</Button>
-          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>发送申请</Button>
+          <Button type="submit" variant="primary" loading={busy} disabled={!name.trim()}>发送申请</Button>
         </div>
       </form>
     </Dialog>
@@ -182,7 +182,7 @@ function CreateGroup({ open, onClose, v }: { open: boolean; onClose: () => void;
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>取消</Button>
-          <Button variant="primary" disabled={busy || !name.trim()} onClick={go}>建群{sel.size ? `（${sel.size + 1} 人）` : ''}</Button>
+          <Button variant="primary" loading={busy} disabled={!name.trim()} onClick={go}>建群{sel.size ? `（${sel.size + 1} 人）` : ''}</Button>
         </div>
       </div>
     </Dialog>

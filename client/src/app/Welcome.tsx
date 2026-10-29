@@ -186,8 +186,8 @@ function Start({ onFound }: { onFound: (f: Found) => void }) {
             </motion.p>
           )}
         </AnimatePresence>
-        <Button type="submit" variant="primary" size="lg" className="w-full" disabled={busy || !text.trim()}>
-          {busy ? '正在连接服务器…' : '下一步'}
+        <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} disabled={!text.trim()}>
+          下一步
         </Button>
       </form>
 
@@ -263,8 +263,8 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
             </motion.p>
           )}
         </AnimatePresence>
-        <Button type="submit" variant="primary" size="lg" className="w-full" disabled={busy}>
-          {busy ? '请稍候…' : mode === 'register' ? '注册并进入' : '登录'}
+        <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>
+          {mode === 'register' ? '注册并进入' : '登录'}
         </Button>
         {onSwitch && (
           <button type="button" onClick={onSwitch} className="w-full text-center text-[0.85rem] text-accent-700 hover:underline dark:text-accent-200">

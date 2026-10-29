@@ -82,6 +82,12 @@ update the docs in the same commit.
 - UI style follows NapCatQQ: glass cards with shadow, hover lifts / press
   sinks (`card`, `lift`, `press` utilities), non-linear easing only
   (`--ease-out`, `--ease-spring`, motion springs). Never linear animations.
+- Every action that waits for the server shows a loading state and can't be
+  clicked twice: return the promise from `Button` / `IconButton` onClick,
+  `Toggle` onChange or a `MenuItem` (give menu items a `key` with the target);
+  use `ask({ run })` for confirm-then-act; `loading` prop for form submits.
+- DMs with bot / ai accounts live on the AI page, never in the message list
+  (`isBotConv`, `openConv` routes them).
 - Personalization (theme mode, accent, background, font scale) is per device
   in localStorage; workshop themes will set the same fields.
 - AI emotion keys and fallbacks are listed in docs/design.md §9; keep the

@@ -36,27 +36,37 @@ function Profile({ v }: { v: SessionView }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(v.me?.name ?? '');
   const fileRef = useRef<HTMLInputElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const saveName = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       if (name.trim() && name.trim() !== v.me?.name) await current().updateProfile({ displayName: name.trim() });
       setEditing(false);
     } catch (e) {
       toastError(e);
+    } finally {
+      setSaving(false);
     }
   };
   const avatar = async (f: File) => {
+    setUploading(true);
     try {
       const info = await current().upload(f);
       await current().updateProfile({ avatarMediaId: info.id });
       toast('头像已更新');
     } catch (e) {
       toastError(e);
+    } finally {
+      setUploading(false);
     }
   };
   return (
     <div className="flex items-center gap-5">
-      <button onClick={() => fileRef.current?.click()} className="press group relative rounded-full" aria-label="更换头像">
+      <button onClick={() => fileRef.current?.click()} disabled={uploading} aria-busy={uploading || undefined} className="press group relative rounded-full" aria-label="更换头像">
         <UserAvatar user={v.me} size={84} animated />
+        {uploading && <span className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-black/45 text-white"><Spinner size={24} /></span>}
         <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           <ImageUp size={22} />
         </span>
@@ -65,8 +75,8 @@ function Profile({ v }: { v: SessionView }) {
       <div className="min-w-0 flex-1">
         {editing ? (
           <form onSubmit={(e) => { e.preventDefault(); saveName(); }} className="flex max-w-sm gap-2">
-            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={32} autoFocus />
-            <Button type="submit" variant="primary"><Check size={16} /></Button>
+            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={32} autoFocus disabled={saving} />
+            <Button type="submit" variant="primary" loading={saving} aria-label="保存"><Check size={16} /></Button>
           </form>
         ) : (
           <h2 className="flex items-center gap-2 text-[1.6rem] font-bold">
@@ -81,7 +91,7 @@ function Profile({ v }: { v: SessionView }) {
       </div>
       <Button
         variant="ghost"
-        onClick={async () => (await ask({ title: '退出登录？', text: `退出「${v.name}」的账号。之后可以用用户名和密码重新登录。`, ok: '退出', danger: true })) !== null && current().logout()}
+        onClick={() => ask({ title: '退出登录？', text: `退出「${v.name}」的账号。之后可以用用户名和密码重新登录。`, ok: '退出', danger: true, run: () => current().logout() })}
       >
         <LogOut size={16} /> 退出登录
       </Button>
@@ -182,7 +192,7 @@ function Devices() {
   return (
     <div className="max-w-2xl space-y-2">
       {list.map((d) => (
-        <div key={String(d.id)} className="card flex items-center gap-3 rounded-2xl bg-white/80 p-4 dark:bg-white/[0.06]">
+        <div key={String(d.id)} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-4 dark:bg-white/[0.06]">
           <Monitor size={20} className="text-ink-soft" />
           <div className="min-w-0 flex-1">
             <div className="font-medium">{d.deviceName || '未知设备'} {d.current && <span className="ml-1 rounded-md bg-emerald-100 px-1.5 text-[0.75rem] text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300">本机</span>}</div>
@@ -204,7 +214,7 @@ function Logins() {
   }, []);
   if (!list) return <div className="py-10 text-center text-ink-soft"><Spinner /></div>;
   return (
-    <div className="max-w-2xl overflow-hidden rounded-2xl bg-white/70 shadow-[var(--shadow-card)] dark:bg-white/[0.05]">
+    <div className="max-w-2xl overflow-hidden rounded-2xl bg-white/95 shadow-[var(--shadow-card)] dark:bg-white/[0.05]">
       {list.map((r, i) => (
         <div key={i} className="flex items-center gap-4 border-b border-black/5 px-4 py-3 text-[0.9rem] last:border-0 dark:border-white/5">
           <span className="w-36 shrink-0 text-ink-soft dark:text-white/55">{chatTime(Number(r.createdAt))}</span>
