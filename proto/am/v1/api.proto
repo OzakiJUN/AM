@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package am.v1;
+
+option go_package = "github.com/OzakiJUN/am/gen/go/am/v1;amv1";
+
+import "am/v1/common.proto";
+
+// HTTP API messages.
+//
+// HTTP bodies are these messages encoded as protobuf JSON (protojson):
+// field names in lowerCamelCase, 64-bit integers as strings.
+// Authenticated endpoints need the header `Authorization: Bearer <token>`.
+// Errors return a non-2xx status with an `Error` body.
+
+// POST /api/v1/register
+message RegisterRequest {
+  string invite_code = 1;
+  string username = 2;
+  string password = 3;
+  string display_name = 4;
+  string device_name = 5;
+}
+
+// POST /api/v1/login
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+  string device_name = 3;
+}
+
+// Response of register and login.
+message SessionResponse {
+  string token = 1;
+  User me = 2;
+}
+
+// GET /api/v1/sessions
+message ListSessionsResponse {
+  repeated DeviceSession sessions = 1;
+}
+
+message DeviceSession {
+  int64 id = 1;
+  string device_name = 2;
+  int64 created_at = 3;
+  int64 last_seen = 4;
+  // True for the session making this request.
+  bool current = 5;
+}
+
+// DELETE /api/v1/sessions/{id} -> Empty
+
+// GET /api/v1/invites   (list my codes)
+// POST /api/v1/invites  (create one, if under the per-user limit)
+message ListInvitesResponse {
+  repeated Invite invites = 1;
+  // How many more codes this user can still create.
+  int32 remaining = 2;
+}
+
+message Invite {
+  string code = 1;
+  int64 created_at = 2;
+  // 0 = unused.
+  int64 used_by = 3;
+  string used_by_name = 4;
+}
+
+// GET /api/v1/friends
+message ListFriendsResponse {
+  repeated User friends = 1;
+  repeated User incoming = 2;
+  repeated User outgoing = 3;
+}
+
+// POST /api/v1/friends/request
+message FriendRequest {
+  string username = 1;
+}
+
+// POST /api/v1/friends/accept
+message FriendAccept {
+  int64 user_id = 1;
+}
+
+// POST /api/v1/dm   -> Conversation
+// Opens (or returns the existing) DM with a friend.
+message OpenDMRequest {
+  int64 user_id = 1;
+}
+
+message Empty {}

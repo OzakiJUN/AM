@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package am.v1;
+
+option go_package = "github.com/OzakiJUN/am/gen/go/am/v1;amv1";
+
+// Account type is fixed by the server when the account is created.
+// Clients only display it; they can never set or change it.
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_HUMAN = 1;
+  ACCOUNT_TYPE_BOT = 2;
+  ACCOUNT_TYPE_AI = 3;
+}
+
+// Public profile of an account.
+message User {
+  int64 id = 1;
+  string username = 2;
+  string display_name = 3;
+  string avatar = 4;
+  AccountType account_type = 5;
+  // Owner account for bot / ai accounts. 0 for humans.
+  int64 owner_id = 6;
+  // Owner's display name, filled by the server so clients can render
+  // "AI · owner: xx" without an extra lookup.
+  string owner_display_name = 7;
+}
+
+enum ConvKind {
+  CONV_KIND_UNSPECIFIED = 0;
+  CONV_KIND_DM = 1;
+  CONV_KIND_GROUP = 2;
+}
+
+enum MemberRole {
+  MEMBER_ROLE_UNSPECIFIED = 0;
+  MEMBER_ROLE_MEMBER = 1;
+  MEMBER_ROLE_ADMIN = 2;
+  MEMBER_ROLE_OWNER = 3;
+}
+
+// A conversation (DM or group) as seen by the current user.
+message Conversation {
+  int64 id = 1;
+  ConvKind kind = 2;
+  // Group name. Empty for DMs (clients show the peer's name).
+  string name = 3;
+  string avatar = 4;
+  int64 owner_id = 5;
+  // Highest seq in this conversation.
+  int64 last_seq = 6;
+  repeated User members = 7;
+  // The current user's own settings in this conversation.
+  MemberState self = 8;
+}
+
+// Per-user settings and state inside one conversation.
+message MemberState {
+  MemberRole role = 1;
+  // Last seq this user has read.
+  int64 read_seq = 2;
+  // 0 = not pinned; larger number = higher in the list.
+  int64 pinned_order = 3;
+  // Do-not-disturb until this unix time in ms. 0 = off.
+  int64 dnd_until = 4;
+  // Muted by an admin until this unix time in ms. 0 = not muted.
+  int64 muted_until = 5;
+}
+
+// Standard error body, used both by HTTP responses and WebSocket frames.
+message Error {
+  // Stable machine-readable code, e.g. "invalid_invite", "not_friends".
+  string code = 1;
+  // Human-readable message (English) for logs and debugging.
+  string message = 2;
+}

@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package am.v1;
+
+option go_package = "github.com/OzakiJUN/am/gen/go/am/v1;amv1";
+
+import "am/v1/common.proto";
+import "am/v1/event.proto";
+
+// WebSocket protocol.
+//
+// One binary WebSocket message = one encoded ClientFrame / ServerFrame.
+// The first frame a client sends must be `auth`; anything else before a
+// successful auth closes the connection.
+//
+// Requests carry a client-chosen req_id; the server answers with the same
+// req_id. Server-initiated pushes use req_id = 0.
+
+message ClientFrame {
+  uint64 req_id = 1;
+  oneof msg {
+    AuthRequest auth = 10;
+    SendRequest send = 11;
+    SyncRequest sync = 12;
+    MarkReadRequest mark_read = 13;
+    Ping ping = 14;
+  }
+}
+
+message ServerFrame {
+  uint64 req_id = 1;
+  oneof msg {
+    Error error = 10;
+    AuthResponse auth = 11;
+    SendResponse send = 12;
+    SyncResponse sync = 13;
+    MarkReadResponse mark_read = 14;
+    Pong pong = 15;
+
+    // Pushes (req_id = 0).
+    EventPush event = 30;
+    ConvPush conv = 31;
+    FriendPush friend = 32;
+  }
+}
+
+message AuthRequest {
+  // Session token from /api/v1/login or /api/v1/register.
+  string token = 1;
+}
+
+message AuthResponse {
+  User me = 1;
+  // All conversations the user is in, with their own state. The client
+  // compares each last_seq with what it has locally and then syncs.
+  repeated Conversation conversations = 2;
+}
+
+message SendRequest {
+  int64 conv_id = 1;
+  // Required. A random id from the client; resending with the same id
+  // returns the original event instead of creating a second one.
+  string client_msg_id = 2;
+  oneof body {
+    TextMsg text = 10;
+    ImageMsg image = 11;
+    FileMsg file = 12;
+    StrikeAct strike = 20;
+  }
+}
+
+message SendResponse {
+  Event event = 1;
+}
+
+message SyncRequest {
+  repeated SyncCursor cursors = 1;
+  // Max events per conversation in this response. Server caps it.
+  int32 limit = 2;
+}
+
+message SyncCursor {
+  int64 conv_id = 1;
+  // Return events with seq > after_seq.
+  int64 after_seq = 2;
+}
+
+message SyncResponse {
+  // Ordered by conv_id, then seq.
+  repeated Event events = 1;
+  // Conversations that still have more events after this page.
+  repeated int64 has_more = 2;
+}
+
+message MarkReadRequest {
+  int64 conv_id = 1;
+  int64 seq = 2;
+}
+
+message MarkReadResponse {}
+
+message Ping {}
+message Pong {}
+
+// A new event in one of the user's conversations.
+message EventPush {
+  Event event = 1;
+}
+
+// A conversation was created or its info / member list changed.
+message ConvPush {
+  Conversation conversation = 1;
+}
+
+// Something changed in the friend list.
+message FriendPush {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    // Someone sent you a friend request.
+    KIND_REQUEST_RECEIVED = 1;
+    // Someone accepted your request.
+    KIND_ACCEPTED = 2;
+  }
+  Kind kind = 1;
+  User user = 2;
+}

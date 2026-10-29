@@ -1,0 +1,43 @@
+# AM server configuration.
+# This file was generated automatically. Edit values here; never edit code.
+
+[server]
+# Address and port the server listens on.
+listen = "0.0.0.0:8443"
+# Unique number per server process (0-1023). Keep 1 unless you run several.
+node_id = 1
+# Folder for generated files (TLS certificate, bootstrap invite, uploads).
+data_dir = "data"
+
+[tls]
+# "self_signed": generate a certificate on first start (clients pin its fingerprint).
+# "files":       use cert_file / key_file (e.g. a real certificate after you get a domain).
+# "off":         plain HTTP, only for local testing or behind a reverse proxy.
+mode = "self_signed"
+# Addresses written into the self-signed certificate. Add your public IP here.
+hosts = ["127.0.0.1", "localhost"]
+cert_file = ""
+key_file = ""
+
+[database]
+# PostgreSQL connection. "am-server setup-db" creates this user and database for you.
+url = "postgres://am:__DB_PASSWORD__@127.0.0.1:5432/am?sslmode=disable"
+max_conns = 10
+
+[invites]
+# How many invite codes each user can create in total.
+per_user = 3
+# Site admins (the first registered user) can create unlimited codes.
+admin_unlimited = true
+
+[limits]
+max_text_length = 5000
+# Events returned per conversation in one sync page.
+sync_page_size = 200
+sync_max_page_size = 500
+# Login / register attempts allowed per IP per minute.
+login_attempts_per_minute = 10
+
+[log]
+# debug, info, warn, error
+level = "info"

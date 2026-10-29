@@ -1,0 +1,17 @@
+# Local runtime files
+config.toml
+testclient.toml
+testclient_*.json
+data/
+dist/
+
+# Built binaries
+/am-server
+/am-testclient
+*.exe
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
