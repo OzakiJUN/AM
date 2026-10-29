@@ -55,13 +55,20 @@ func testChat(t *testing.T, a *app.App, base string) {
 	})
 	wantCode(t, err, "invalid_invite")
 
-	// Normal users get exactly 3 codes.
+	// Normal users get exactly 3 codes, automatically at registration.
 	var bobCodes []string
-	for i := 0; i < 3; i++ {
-		bobCodes = append(bobCodes, must(bob.CreateInvite(ctx)).Code)
+	bobList := must(bob.ListInvites(ctx))
+	for _, inv := range bobList.Invites {
+		bobCodes = append(bobCodes, inv.Code)
+	}
+	if len(bobCodes) != 3 || bobList.Remaining != 0 {
+		t.Fatalf("bob's automatic invites: %v remaining=%d", bobCodes, bobList.Remaining)
 	}
 	_, err = bob.CreateInvite(ctx)
 	wantCode(t, err, "invite_limit")
+	if again := must(bob.ListInvites(ctx)); len(again.Invites) != 3 {
+		t.Fatalf("listing again created more codes: %d", len(again.Invites))
+	}
 
 	// Username uniqueness ignores case; failed attempt must not burn the code.
 	_, err = amclient.New(base, nil).Register(ctx, &amv1.RegisterRequest{

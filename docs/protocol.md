@@ -11,23 +11,27 @@
 
 服务器默认 `https://<IP>:8443`。使用自签证书时，客户端必须固定（pin）服务器启动时打印的 SHA-256 指纹，而不是信任系统 CA。
 
-### 连接码
+### 加入码
 
-服务器管理面板生成的连接码，客户端粘贴或扫二维码即可添加服务器：
+服务器地址、证书指纹和邀请码合在一起的码，客户端粘贴或扫二维码即可加入服务器并注册：
 
 ```
-am://connect?v=1&addr=47.1.2.3:7000&fp=<证书 SHA-256，base64url 无填充>&name=<服务器名>
+AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 ```
 
-| 参数 | 含义 |
-| --- | --- |
-| `v` | 格式版本，目前是 `1`；客户端遇到更大的版本要提示更新 |
-| `addr` | `主机:端口`，客户端从外面能连到的地址（IPv6 用 `[::1]:8443`） |
-| `fp` | 自签证书的 SHA-256。有它就固定指纹、不查 CA；没有则按系统 CA 正常校验（正式证书）。也接受带冒号的十六进制 |
-| `tls=off` | 服务器没开 TLS（只用于本机调试），用 `http://` |
-| `name` | 服务器显示名，可选 |
+- 不带邀请码的叫"服务器码"，用于已有账号在新设备上添加服务器。
+- 文本：`AM1-` + base32（字母表 `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`，无填充），每 4 个字符一个 `-`。解析时忽略大小写、空格和 `-`。
+- 二进制：`版本(1)=1 | salt(2) | flags(1) | 主机 | 端口(2, 大端) | pin(16, 有则) | 邀请码(7, 有则) | 校验(2)`。
+  - flags：bit0 未开 TLS（用 `http://`），bit1 有 pin，bit2 有邀请码，bit4–5 主机类型（0 IPv4 四字节、1 IPv6 十六字节、2 域名：长度字节 + 内容）。
+  - pin：证书 SHA-256 的前 16 字节。有 pin 时客户端只认这张证书，不查 CA；没有则按系统 CA 校验（正式证书）。
+  - 邀请码：10 个字符按字母表序号每个 5 位，共 50 位，存 7 字节。
+  - 校验：前面所有字节的 SHA-256 前 2 字节。
+  - salt 之后的所有字节与密钥流异或：密钥流 = SHA-256("AM join code v1" + salt)，每 32 字节再对上一段做一次 SHA-256。salt = SHA-256("AM join salt" + flags 之后的明文) 的前 2 字节，所以同样内容总是同一个码。
+  - 这只是不让地址明文出现，不是加密：客户端必须能解开才能连接。
+- 二维码内容：`<下载页>#join=<加入码>`（下载页默认 `https://github.com/OzakiJUN/AM/releases/latest`，服务器 `invites.download_url` 可改）。客户端解析时找 `join=` 后面的部分。
+- 服务器知道公网地址时，`GET /api/v1/invites` 里每个未使用的邀请码带 `join_code` / `join_url`；为空时客户端用自己连接的地址和 pin 拼出来。
 
-解析和生成见 `internal/connectcode`，Go SDK 里是 `amclient.ParseConnectCode` / `amclient.NewFromCode`。
+实现见 `internal/connectcode`，Go SDK 里是 `amclient.ParseJoinCode`、`amclient.NewFromJoinCode`、`(*Client).JoinCodeFor`。
 
 管理面板本身的 `/api/...`（在 `admin.listen` 上）是面板内部接口，会跟着面板改，不属于客户端协议。
 
@@ -40,12 +44,13 @@ am://connect?v=1&addr=47.1.2.3:7000&fp=<证书 SHA-256，base64url 无填充>&na
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | — | `{"ok":true}`（无需登录） |
+| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页（无需登录） |
 | POST | `/api/v1/register` | `RegisterRequest` | `SessionResponse`（无需登录） |
 | POST | `/api/v1/login` | `LoginRequest` | `SessionResponse`（无需登录） |
 | GET | `/api/v1/sessions` | — | `ListSessionsResponse` |
 | DELETE | `/api/v1/sessions/{id}` | — | `Empty`（立即断开该设备） |
-| GET | `/api/v1/invites` | — | `ListInvitesResponse`（`remaining = -1` 表示不限） |
-| POST | `/api/v1/invites` | — | `Invite` |
+| GET | `/api/v1/invites` | — | `ListInvitesResponse`：注册时自动发的邀请码（不够 `invites.per_user` 个会补齐），未使用的带加入码；`remaining = -1` 表示站点管理员可以再要 |
+| POST | `/api/v1/invites` | — | `Invite`（只有站点管理员能超出自动发放的数量，其他人返回 `invite_limit`） |
 | PATCH | `/api/v1/me` | `UpdateProfileRequest` | `User` |
 | GET | `/api/v1/me/logins` | — | `ListLoginRecordsResponse`（最近 50 条） |
 | GET | `/api/v1/users/{id}` | — | `User` |

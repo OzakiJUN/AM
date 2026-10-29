@@ -58,7 +58,7 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 		out["proxy_protocol"] = c.Server.ProxyProtocol
 	}
 	if len(snap.Fingerprint) > 0 {
-		out["fingerprint"] = (&connectcode.Info{Fingerprint: snap.Fingerprint}).FingerprintHex()
+		out["fingerprint"] = connectcode.FingerprintHex(snap.Fingerprint)
 	}
 	if a := snap.App; a != nil {
 		out["started_at"] = snap.StartedAt.UnixMilli()
@@ -84,12 +84,14 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
-// ---- connection code ----
+// ---- join codes ----
 
 type connectEntry struct {
-	Label   string `json:"label"`
-	Address string `json:"address"`
-	Code    string `json:"code"`
+	Label      string `json:"label"`
+	Address    string `json:"address"`
+	ServerCode string `json:"server_code"` // join code without invite (log in on a new device)
+	JoinCode   string `json:"join_code"`   // with the bootstrap invite, while nobody has registered
+	JoinURL    string `json:"join_url"`    // QR content for JoinCode (or ServerCode)
 }
 
 func (h *handler) connect(w http.ResponseWriter, r *http.Request) {
@@ -98,22 +100,44 @@ func (h *handler) connect(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "not_running", "服务器还没有成功启动过")
 		return
 	}
-	// Name and public address come from the file as it is now, so a newly
-	// saved public address shows up without a restart (it only affects the code).
-	name, public := snap.Config.Server.Name, snap.Config.Server.PublicAddress
+	// Name, public address and download page come from the file as it is
+	// now, so a newly saved public address shows up here right away.
+	cur := snap.Config
 	if text, err := os.ReadFile(snap.ConfigPath); err == nil {
 		if c, err := config.Parse(string(text)); err == nil {
-			name, public = c.Server.Name, c.Server.PublicAddress
+			cur = c
 		}
 	}
 	_, port, _ := net.SplitHostPort(snap.Config.Server.Listen)
-	mk := func(label, addr string) connectEntry {
-		info := &connectcode.Info{Name: name, Address: addr, Fingerprint: snap.Fingerprint, Plain: snap.Config.TLS.Mode == "off"}
-		return connectEntry{Label: label, Address: addr, Code: info.String()}
+	boot := ""
+	if snap.App != nil && snap.BootstrapInvite != "" {
+		if n, err := snap.App.Store.CountUsers(r.Context()); err == nil && n == 0 {
+			boot = snap.BootstrapInvite
+		}
 	}
-	out := map[string]any{"name": name, "port": port, "tls_mode": snap.Config.TLS.Mode}
-	if public != "" {
-		out["public"] = mk("公网", public)
+	mk := func(label, addr string) connectEntry {
+		j := connectcode.Join{Address: addr, Plain: snap.Config.TLS.Mode == "off"}
+		if len(snap.Fingerprint) >= connectcode.PinSize {
+			j.Pin = snap.Fingerprint[:connectcode.PinSize]
+		}
+		e := connectEntry{Label: label, Address: addr}
+		e.ServerCode, _ = j.Encode()
+		qrCode := e.ServerCode
+		if boot != "" {
+			j.Invite = boot
+			e.JoinCode, _ = j.Encode()
+			qrCode = e.JoinCode
+		}
+		e.JoinURL = connectcode.URL(cur.Invites.DownloadURL, qrCode)
+		if e.JoinURL == "" {
+			e.JoinURL = qrCode
+		}
+		return e
+	}
+	out := map[string]any{"name": cur.Server.Name, "port": port, "tls_mode": snap.Config.TLS.Mode,
+		"bootstrap": boot != "", "per_user": cur.Invites.PerUser}
+	if cur.Server.PublicAddress != "" {
+		out["public"] = mk("公网", cur.Server.PublicAddress)
 	}
 	var lan []connectEntry
 	for _, ip := range lanIPs() {
@@ -121,9 +145,6 @@ func (h *handler) connect(w http.ResponseWriter, r *http.Request) {
 	}
 	lan = append(lan, mk("本机", net.JoinHostPort("127.0.0.1", port)))
 	out["lan"] = lan
-	if len(snap.Fingerprint) > 0 {
-		out["fingerprint"] = (&connectcode.Info{Fingerprint: snap.Fingerprint}).FingerprintHex()
-	}
 	writeJSON(w, out)
 }
 
@@ -206,38 +227,6 @@ func (h *handler) listInvites(w http.ResponseWriter, r *http.Request) {
 		out = append(out, toInviteJSON(i))
 	}
 	writeJSON(w, map[string]any{"invites": out, "more": more})
-}
-
-func (h *handler) createInvites(w http.ResponseWriter, r *http.Request) {
-	a, _, okk := h.running(w)
-	if !okk {
-		return
-	}
-	var req struct {
-		Count      int    `json:"count"`
-		MakesAdmin bool   `json:"makes_admin"`
-		Note       string `json:"note"`
-	}
-	if err := readJSON(r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-	if req.Count < 1 {
-		req.Count = 1
-	}
-	if req.Count > 20 {
-		req.Count = 20
-	}
-	out := []inviteJSON{}
-	for i := 0; i < req.Count; i++ {
-		inv, err := a.Account.CreatePanelInvite(r.Context(), req.MakesAdmin, req.Note)
-		if err != nil {
-			h.fail(w, err)
-			return
-		}
-		out = append(out, toInviteJSON(inv))
-	}
-	writeJSON(w, map[string]any{"invites": out})
 }
 
 func (h *handler) deleteInvite(w http.ResponseWriter, r *http.Request) {
@@ -477,12 +466,12 @@ func (h *handler) logs(w http.ResponseWriter, r *http.Request) {
 var settingKinds = map[string]string{
 	"server.name": "string", "server.public_address": "string", "server.listen": "string",
 	"server.proxy_protocol": "bool",
-	"invites.per_user":      "int", "invites.admin_unlimited": "bool",
+	"invites.per_user":      "int", "invites.admin_unlimited": "bool", "invites.download_url": "string",
 	"limits.max_text_length": "int", "limits.max_group_members": "int", "limits.max_upload_mb": "int",
 	"limits.login_attempts_per_minute": "int",
 	"retention.evidence_days":          "int", "retention.login_record_days": "int",
 	"media.block_distance": "int",
-	"admin.open_browser":   "bool", "admin.tray": "bool", "admin.listen": "string",
+	"admin.open_browser":   "bool", "admin.tray": "bool", "admin.listen": "string", "admin.window": "bool",
 	"log.level": "string",
 }
 
@@ -491,12 +480,14 @@ func settingValues(c *config.Config) map[string]any {
 		"server.name": c.Server.Name, "server.public_address": c.Server.PublicAddress, "server.listen": c.Server.Listen,
 		"server.proxy_protocol": c.Server.ProxyProtocol,
 		"invites.per_user":      c.Invites.PerUser, "invites.admin_unlimited": c.Invites.AdminUnlimited,
+		"invites.download_url":   c.Invites.DownloadURL,
 		"limits.max_text_length": c.Limits.MaxTextLength, "limits.max_group_members": c.Limits.MaxGroupMembers,
 		"limits.max_upload_mb": c.Limits.MaxUploadMB, "limits.login_attempts_per_minute": c.Limits.LoginAttemptsPerMinute,
 		"retention.evidence_days": c.Retention.EvidenceDays, "retention.login_record_days": c.Retention.LoginRecordDays,
 		"media.block_distance": c.Media.BlockDistance,
 		"admin.open_browser":   c.Admin.OpenBrowser, "admin.tray": c.Admin.Tray, "admin.listen": c.Admin.Listen,
-		"log.level": c.Log.Level,
+		"admin.window": c.Admin.Window,
+		"log.level":    c.Log.Level,
 	}
 }
 

@@ -132,7 +132,6 @@ func (h *handler) routes() {
 	api("GET /api/connect", h.connect)
 	api("GET /api/connect/qr.png", h.qr)
 	api("GET /api/invites", h.listInvites)
-	api("POST /api/invites", h.createInvites)
 	api("DELETE /api/invites/{code}", h.deleteInvite)
 	api("GET /api/users", h.listUsers)
 	api("POST /api/users/{id}/ban", h.banUser)

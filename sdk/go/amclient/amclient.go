@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
+	"github.com/OzakiJUN/am/internal/connectcode"
 )
 
 // APIError is an error returned by the server.
@@ -45,7 +46,11 @@ type Client struct {
 	BaseURL string // e.g. "https://1.2.3.4:8443"
 	Token   string
 	HTTP    *http.Client
+
+	server *connectcode.Join // set by NewFromJoinCode
 }
+
+var errNoServer = errors.New("client was not created from a join code")
 
 // New creates a client. tlsCfg may be nil (system roots / plain http).
 func New(baseURL string, tlsCfg *tls.Config) *Client {
@@ -127,6 +132,12 @@ func (c *Client) RevokeSession(ctx context.Context, id int64) error {
 func (c *Client) ListInvites(ctx context.Context) (*amv1.ListInvitesResponse, error) {
 	out := &amv1.ListInvitesResponse{}
 	return out, c.call(ctx, http.MethodGet, "/api/v1/invites", nil, out)
+}
+
+// ServerInfo returns the server's name and version (no login needed).
+func (c *Client) ServerInfo(ctx context.Context) (*amv1.ServerInfo, error) {
+	out := &amv1.ServerInfo{}
+	return out, c.call(ctx, http.MethodGet, "/api/v1/server", nil, out)
 }
 
 func (c *Client) CreateInvite(ctx context.Context) (*amv1.Invite, error) {

@@ -57,8 +57,9 @@ type Database struct {
 }
 
 type Invites struct {
-	PerUser        int  `toml:"per_user"`
-	AdminUnlimited bool `toml:"admin_unlimited"`
+	PerUser        int    `toml:"per_user"`
+	AdminUnlimited bool   `toml:"admin_unlimited"`
+	DownloadURL    string `toml:"download_url"`
 }
 
 type Limits struct {
@@ -81,7 +82,8 @@ type Media struct {
 
 type Admin struct {
 	Listen      string `toml:"listen"`
-	OpenBrowser bool   `toml:"open_browser"`
+	OpenBrowser bool   `toml:"open_browser"` // open the panel at start (name kept for old configs)
+	Window      bool   `toml:"window"`
 	Tray        bool   `toml:"tray"`
 }
 
@@ -242,8 +244,11 @@ func (c *Config) validate() error {
 	if c.Media.BlockDistance < 0 || c.Media.BlockDistance > 64 {
 		return errors.New("media.block_distance must be 0-64")
 	}
-	if c.Invites.PerUser < 0 {
-		return errors.New("invites.per_user must be >= 0")
+	if c.Invites.PerUser < 0 || c.Invites.PerUser > 100 {
+		return errors.New("invites.per_user must be 0-100")
+	}
+	if u := c.Invites.DownloadURL; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		return errors.New("invites.download_url must start with https://")
 	}
 	if c.Limits.SyncPageSize <= 0 || c.Limits.SyncMaxPageSize < c.Limits.SyncPageSize {
 		return errors.New("limits.sync_page_size must be > 0 and <= sync_max_page_size")

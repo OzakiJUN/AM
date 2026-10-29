@@ -23,9 +23,10 @@ import (
 )
 
 const defaultConfig = `# AM test client settings.
-# Easiest: paste the connection code from the server's admin panel here.
-# When it is set, server and fingerprint below are ignored.
-connect_code = ""
+# Easiest: paste a join code (AM1-...) here. You get one from a friend's
+# invite, or from the server window. When it is set, server and fingerprint
+# below are ignored.
+join_code = ""
 # Or set the server by hand. Use https:// with the server's IP and port.
 server = "https://127.0.0.1:8443"
 # Certificate fingerprint printed by am-server at startup
@@ -35,7 +36,7 @@ fingerprint = ""
 `
 
 type fileConfig struct {
-	ConnectCode string `toml:"connect_code"`
+	JoinCode    string `toml:"join_code"`
 	Server      string `toml:"server"`
 	Fingerprint string `toml:"fingerprint"`
 }
@@ -62,28 +63,29 @@ type app struct {
 	current     int64
 	stopReconn  chan struct{}
 	reconnectOn bool
+	joinInvite  string // invite code from the join code, used by "register"
 }
 
 func main() {
 	cfgPath := flag.String("config", "testclient.toml", "client config file")
 	profile := flag.String("profile", "", "profile name (keeps separate logins, e.g. alice / bob)")
-	code := flag.String("code", "", "connection code from the server admin panel (saved to the config file)")
+	code := flag.String("join", "", "join code AM1-... (saved to the config file)")
 	flag.Parse()
 
 	in := bufio.NewReader(os.Stdin)
 	if *code == "" {
 		if _, err := os.Stat(*cfgPath); errors.Is(err, os.ErrNotExist) {
-			fmt.Println("First start. Paste the connection code from the server admin panel")
-			fmt.Print("(starts with am://connect?, or press Enter to edit " + *cfgPath + " by hand): ")
+			fmt.Println("First start. Paste the join code you were given")
+			fmt.Print("(starts with AM1-, or press Enter to edit " + *cfgPath + " by hand): ")
 			line, _ := in.ReadString('\n')
 			*code = strings.TrimSpace(line)
 		}
 	}
 	if *code != "" {
-		if _, err := amclient.ParseConnectCode(*code); err != nil {
+		if _, err := amclient.ParseJoinCode(*code); err != nil {
 			fatal(err)
 		}
-		if err := saveConnectCode(*cfgPath, *code); err != nil {
+		if err := saveJoinCode(*cfgPath, *code); err != nil {
 			fatal(err)
 		}
 	}
@@ -107,14 +109,15 @@ func main() {
 		convs:     map[int64]*amv1.Conversation{},
 		history:   map[int64][]*amv1.Event{},
 	}
-	if cfg.ConnectCode != "" {
-		cli, info, err := amclient.NewFromCode(cfg.ConnectCode)
+	if cfg.JoinCode != "" {
+		cli, j, err := amclient.NewFromJoinCode(cfg.JoinCode)
 		if err != nil {
-			fatal(fmt.Errorf("%s: connect_code: %w", *cfgPath, err))
+			fatal(fmt.Errorf("%s: join_code: %w", *cfgPath, err))
 		}
-		a.cli, cfg.Server = cli, info.BaseURL()
-		if info.Name != "" {
-			cfg.Server += " (" + info.Name + ")"
+		a.cli, a.joinInvite = cli, j.Invite
+		cfg.Server = "(from join code)"
+		if info, err := cli.ServerInfo(context.Background()); err == nil && info.Name != "" {
+			cfg.Server = info.Name
 		}
 	} else if strings.HasPrefix(cfg.Server, "https://") {
 		if cfg.Fingerprint == "" {
@@ -133,7 +136,11 @@ func main() {
 			fmt.Println("Saved login did not work:", err)
 		}
 	} else {
-		fmt.Println("Not logged in. Use: register <invite> <username> <password>   or   login <username> <password>")
+		if a.joinInvite != "" {
+			fmt.Println("Not logged in. The join code has an invite: register <username> <password>   or   login <username> <password>")
+		} else {
+			fmt.Println("Not logged in. Use: register <invite> <username> <password>   or   login <username> <password>")
+		}
 	}
 
 	for {
@@ -168,7 +175,7 @@ func loadConfig(path string) (*fileConfig, error) {
 		if err := os.WriteFile(path, []byte(defaultConfig), 0o644); err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("created %s - fill in connect_code (or server and fingerprint), then start again", path)
+		return nil, fmt.Errorf("created %s - fill in join_code (or server and fingerprint), then start again", path)
 	}
 	cfg := &fileConfig{}
 	if _, err := toml.DecodeFile(path, cfg); err != nil {
@@ -178,16 +185,16 @@ func loadConfig(path string) (*fileConfig, error) {
 	return cfg, nil
 }
 
-// saveConnectCode writes the code into the config file (creating it if needed).
-func saveConnectCode(path, code string) error {
+// saveJoinCode writes the code into the config file (creating it if needed).
+func saveJoinCode(path, code string) error {
 	text := defaultConfig
 	if b, err := os.ReadFile(path); err == nil {
 		text = string(b)
 	}
-	line := "connect_code = " + strconv.Quote(code)
+	line := "join_code = " + strconv.Quote(strings.TrimSpace(code))
 	lines := strings.Split(text, "\n")
 	for i, l := range lines {
-		if strings.HasPrefix(strings.TrimSpace(l), "connect_code") {
+		if strings.HasPrefix(strings.TrimSpace(l), "join_code") {
 			lines[i] = line
 			return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
 		}
@@ -228,12 +235,14 @@ func ctx10() (context.Context, context.CancelFunc) {
 
 const help = `Commands:
   Account
-    register <invite> <username> <password> [display name]   create an account
+    register <username> <password> [display name]   create an account (invite from the join code)
+    register <invite> <username> <password> [name]  same, with an invite code typed in
     login <username> <password>      log in
     logout                           forget this profile's login
     me | name <display name>         show my account / change display name
     avatar <image path>              set avatar (GIF works)
-    invites | newinvite              list / create invite codes
+    invites                          my invite codes and their join codes (to send to friends)
+    newinvite                        admins only: one more invite code
     sessions | revoke <session id>   list / log out devices
     logins                           my recent logins (time, IP, device)
   Friends
@@ -269,12 +278,23 @@ func (a *app) command(line string) error {
 	case "help", "?":
 		fmt.Println(help)
 	case "register":
-		if len(args) < 3 {
-			return errors.New("usage: register <invite> <username> <password> [display name]")
+		// register <username> <password> [display name]   (invite from the join code)
+		// register <invite or join code> <username> <password> [display name]
+		invite := a.joinInvite
+		if len(args) >= 3 && (len(args[0]) == 10 || strings.HasPrefix(strings.ToUpper(args[0]), "AM1")) {
+			invite = args[0]
+			if j, err := amclient.ParseJoinCode(invite); err == nil {
+				invite = j.Invite
+			}
+			args = args[1:]
 		}
-		display := strings.Join(args[3:], " ")
-		resp, err := a.cli.Register(ctx, &amv1.RegisterRequest{InviteCode: args[0], Username: args[1],
-			Password: args[2], DisplayName: display, DeviceName: "testclient-" + a.profile})
+		if len(args) < 2 || invite == "" {
+			return errors.New("usage: register <username> <password> [display name]   (needs a join code with an invite)\n" +
+				"   or: register <invite code> <username> <password> [display name]")
+		}
+		display := strings.Join(args[2:], " ")
+		resp, err := a.cli.Register(ctx, &amv1.RegisterRequest{InviteCode: invite, Username: args[0],
+			Password: args[1], DisplayName: display, DeviceName: "testclient-" + a.profile})
 		if err != nil {
 			return err
 		}
@@ -308,17 +328,24 @@ func (a *app) command(line string) error {
 		if err != nil {
 			return err
 		}
+		fmt.Println("  Send a friend one join code (it contains the server address and the invite):")
 		for _, inv := range resp.Invites {
-			status := "unused"
 			if inv.UsedBy != 0 {
-				status = "used by " + inv.UsedByName
+				fmt.Printf("  %s  used by %s\n", inv.Code, inv.UsedByName)
+				continue
 			}
-			fmt.Printf("  %s  %s\n", inv.Code, status)
+			jc := inv.JoinCode
+			if jc == "" {
+				jc, _ = a.cli.JoinCodeFor(inv.Code)
+			}
+			if jc == "" {
+				fmt.Printf("  %s  unused (no join code: server has no public address and this client has no join code)\n", inv.Code)
+			} else {
+				fmt.Printf("  %s  unused  join code: %s\n", inv.Code, jc)
+			}
 		}
 		if resp.Remaining < 0 {
-			fmt.Println("  You can create unlimited codes (admin).")
-		} else {
-			fmt.Printf("  You can create %d more.\n", resp.Remaining)
+			fmt.Println("  You are an admin: \"newinvite\" makes more.")
 		}
 	case "newinvite":
 		inv, err := a.cli.CreateInvite(ctx)

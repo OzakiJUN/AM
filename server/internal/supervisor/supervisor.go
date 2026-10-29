@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OzakiJUN/am/internal/connectcode"
+	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/admin"
 	"github.com/OzakiJUN/am/server/internal/app"
 	"github.com/OzakiJUN/am/server/internal/config"
@@ -242,10 +244,11 @@ func (s *Supervisor) startServer(ctx context.Context) (stop func()) {
 		if cfg.TLS.Mode == "self_signed" {
 			sum := sha256.Sum256(cert.Certificate[0])
 			fp = sum[:]
-			s.log.Info("TLS self-signed certificate - clients pin this fingerprint (it is in the connection code)",
+			s.log.Info("TLS self-signed certificate - clients pin this fingerprint (it is in the join codes)",
 				"fingerprint", tlsutil.Fingerprint(cert))
 		}
 	}
+	a.Account.SetServer(ServerMeta(cfg, s.opts.Version, fp))
 
 	ln, err := app.Listen(cfg.Server.Listen, cfg.Server.ProxyProtocol)
 	if err != nil {
@@ -291,6 +294,19 @@ func (s *Supervisor) startServer(ctx context.Context) (stop func()) {
 		s.setState(admin.StateStopped, "")
 		s.log.Info("server stopped")
 	}
+}
+
+// ServerMeta describes the server for clients and join codes. Join codes
+// need the public address; without it they are left empty.
+func ServerMeta(cfg *config.Config, version string, fp []byte) account.ServerMeta {
+	m := account.ServerMeta{Name: cfg.Server.Name, Version: version, DownloadURL: cfg.Invites.DownloadURL}
+	if cfg.Server.PublicAddress != "" {
+		m.Join = &connectcode.Join{Address: cfg.Server.PublicAddress, Plain: cfg.TLS.Mode == "off"}
+		if len(fp) > 0 {
+			m.Join.Pin = fp[:connectcode.PinSize]
+		}
+	}
+	return m
 }
 
 func (s *Supervisor) fail(err error) {

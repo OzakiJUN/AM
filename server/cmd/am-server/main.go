@@ -22,10 +22,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -54,6 +56,8 @@ func main() {
 			err = setupDB(args)
 		case "panel":
 			err = printPanel(args)
+		case "window":
+			runWindow()
 		case "version":
 			fmt.Println(version)
 		default:
@@ -136,14 +140,17 @@ func run(args []string) error {
 	}
 
 	desktopMode := !*headless && (runtime.GOOS == "windows" || os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != "")
-	wantBrowser := desktopMode && boot.Admin.OpenBrowser && !*autostart
+	wantPanel := desktopMode && boot.Admin.OpenBrowser && !*autostart
+	panel := &panelOpener{window: boot.Admin.Window}
+	defer panel.close()
 
 	// Only one am-server per config: if one is already running, open its panel.
 	if alreadyRunning(boot.Admin.Listen) {
 		key, _ := supervisor.AdminKey(boot.Server.DataDir)
 		url := supervisor.PanelURL(boot.Admin.Listen, key)
 		if desktopMode {
-			_ = desktop.OpenBrowser(url)
+			panel.open(url)
+			panel.detach() // the window stays open after this process exits
 		}
 		if hasConsole {
 			fmt.Println("am-server is already running. Admin panel:", url)
@@ -166,8 +173,8 @@ func run(args []string) error {
 			}
 		},
 		OnAdminReady: func(url string) {
-			if wantBrowser {
-				_ = desktop.OpenBrowser(url)
+			if wantPanel {
+				panel.open(url)
 			}
 			if hasConsole {
 				fmt.Println("Admin panel:", url)
@@ -185,12 +192,87 @@ func run(args []string) error {
 	if wantTray {
 		desktop.RunTray(desktop.TrayMenu{
 			Tooltip:   "AM 服务器",
-			OnOpen:    func() { _ = desktop.OpenBrowser(sup.AdminURL()) },
+			OnOpen:    func() { panel.open(sup.AdminURL()) },
 			OnRestart: sup.Restart,
 			OnQuit:    stop,
 		}, nil)
 	}
 	return <-done
+}
+
+// panelOpener opens the admin panel: in its own window (a child am-server
+// process running the "window" command, Windows only) or in the browser.
+type panelOpener struct {
+	window bool
+	mu     sync.Mutex
+	child  *os.Process
+}
+
+func (p *panelOpener) open(url string) {
+	if url == "" {
+		return
+	}
+	if !p.window || !desktop.WindowSupported() {
+		_ = desktop.OpenBrowser(url)
+		return
+	}
+	if desktop.FocusPanelWindow() {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.child != nil {
+		return // still starting up
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		_ = desktop.OpenBrowser(url)
+		return
+	}
+	cmd := exec.Command(exe, "window")
+	cmd.Env = append(os.Environ(), "AM_PANEL_URL="+url) // not on the command line, other users can't read it
+	if err := cmd.Start(); err != nil {
+		_ = desktop.OpenBrowser(url)
+		return
+	}
+	p.child = cmd.Process
+	go func() {
+		_ = cmd.Wait()
+		p.mu.Lock()
+		if p.child == cmd.Process {
+			p.child = nil
+		}
+		p.mu.Unlock()
+	}()
+}
+
+// detach forgets the child so close() leaves it running.
+func (p *panelOpener) detach() {
+	p.mu.Lock()
+	p.child = nil
+	p.mu.Unlock()
+}
+
+// close shuts the panel window when am-server exits.
+func (p *panelOpener) close() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.child != nil {
+		_ = p.child.Kill()
+		p.child = nil
+	}
+}
+
+// runWindow is the "window" command: show the panel window until it is
+// closed. Falls back to the browser when WebView2 is missing.
+func runWindow() {
+	url := os.Getenv("AM_PANEL_URL")
+	if url == "" {
+		fatal(errors.New("the window command is started by am-server itself"))
+	}
+	if err := desktop.RunPanelWindow(url); err != nil {
+		_ = desktop.OpenBrowser(url)
+	}
 }
 
 func trayText(st admin.State) string {

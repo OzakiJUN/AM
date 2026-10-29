@@ -12,31 +12,11 @@ import (
 )
 
 // Site administration. Used by the server admin panel (actorID 0) and later
-// by site admins from the client.
+// by site admins from the client. Invite codes are not made here: every
+// account gets its own automatically (see topUpInvites).
 
 // PanelActor is the audit-log actor id for actions done in the admin panel.
 const PanelActor int64 = 0
-
-// CreatePanelInvite creates an invite code that belongs to nobody (it does
-// not count against anyone's quota). makesAdmin makes the new account a site admin.
-func (s *Service) CreatePanelInvite(ctx context.Context, makesAdmin bool, note string) (*store.Invite, error) {
-	note = strings.TrimSpace(note)
-	if utf8.RuneCountInString(note) > 100 {
-		return nil, apperr.ErrBadRequest
-	}
-	inv := &store.Invite{Code: newInviteCode(), MakesAdmin: makesAdmin, Note: note, CreatedAt: s.now().UnixMilli()}
-	err := s.st.InTx(ctx, func(q *store.Queries) error {
-		if err := q.CreateInvite(ctx, inv); err != nil {
-			return err
-		}
-		detail := "note=" + note
-		if makesAdmin {
-			detail += " makes_admin"
-		}
-		return s.audit(ctx, q, PanelActor, "invite_create", 0, detail)
-	})
-	return inv, err
-}
 
 // DeleteInvite removes an unused invite code (anyone's).
 func (s *Service) DeleteInvite(ctx context.Context, actorID int64, code string) error {

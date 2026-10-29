@@ -348,67 +348,52 @@ async function renderOverview(root, page) {
       el('p', { class: 'muted' }, status.state === 'starting' ? '服务器正在启动…' : '服务器现在没有运行，上面有原因。改好设置后点「重试」。')));
     return;
   }
-  let conn, invites;
-  try {
-    [conn, invites] = await Promise.all([api('GET', 'connect'), api('GET', 'invites?filter=unused')]);
-  } catch (e) { fail(e); return; }
+  let conn;
+  try { conn = await api('GET', 'connect'); } catch (e) { fail(e); return; }
   if (currentPage !== page) return;
 
   const s = status;
   const users = s.stats.users;
-  const bootstrap = s.bootstrap_invite;
+  const bootstrap = conn.bootstrap;
   const addrs = [...(conn.public ? [conn.public] : []), ...conn.lan];
   if (overviewAddr >= addrs.length) overviewAddr = 0;
   const entry = addrs[overviewAddr];
-  const invite = bootstrap
-    ? { code: bootstrap, makes_admin: true }
-    : invites.invites.find((i) => !i.created_by && !i.makes_admin);
+  const code = bootstrap ? entry.join_code : entry.server_code;
 
-  root.append(head('概览', bootstrap ? '服务器已经跑起来了。先用下面的邀请码注册你自己的账号。' : null));
+  root.append(head('概览', bootstrap ? '服务器已经跑起来了。先用下面的加入码注册你自己的账号。' : null));
 
-  // The ticket: everything a friend needs, in one place.
+  // The ticket. Before anyone registered: the admin's join code. After:
+  // the server code (log in on a new device); invites live in the clients.
   const inviteText = () => [
     '来 AM 找我聊天！',
-    '1. 下载 AM 客户端：https://github.com/OzakiJUN/AM/releases',
-    '2. 打开客户端，用连接码添加服务器：',
-    entry.code,
-    invite ? '3. 注册时填邀请码：' + invite.code : '',
-  ].filter(Boolean).join('\n');
+    '1. 下载 AM 客户端：' + (entry.join_url.startsWith('http') ? entry.join_url.split('#')[0] : 'https://github.com/OzakiJUN/AM/releases/latest'),
+    '2. 打开客户端，粘贴加入码（或扫二维码）注册：',
+    code,
+  ].join('\n');
 
-  const newInvite = async () => {
-    try { await api('POST', 'invites', { count: 1 }); route(); } catch (e) { fail(e); }
-  };
-
-  const qr = el('img', { src: 'api/connect/qr.png?text=' + encodeURIComponent(entry.code), alt: '连接码二维码' });
-  const ticket = el('section', { class: 'ticket', 'aria-label': '邀请朋友' },
-    el('div', { class: 'stub' }, qr, el('p', { class: 'cap' }, '客户端扫码添加服务器')),
+  const qr = el('img', { src: 'api/connect/qr.png?text=' + encodeURIComponent(entry.join_url), alt: '加入码二维码' });
+  const ticket = el('section', { class: 'ticket', 'aria-label': bootstrap ? '注册站点管理员' : '服务器码' },
+    el('div', { class: 'stub' }, qr, el('p', { class: 'cap' }, bootstrap ? 'AM 客户端扫码注册' : 'AM 客户端扫码添加服务器')),
     el('div', { class: 'body' },
       el('div', { class: 'title' },
-        el('h2', {}, bootstrap ? '注册站点管理员' : '邀请朋友加入「' + (conn.name || 'AM 服务器') + '」'),
+        el('h2', {}, bootstrap ? '注册站点管理员' : '「' + (conn.name || 'AM 服务器') + '」的服务器码'),
         el('p', {}, bootstrap
-          ? '在客户端用连接码添加服务器，然后用这个邀请码注册。第一个注册的账号是站点管理员，这个码只能用一次。'
-          : '把连接码和邀请码发给朋友。每个邀请码只能注册一个账号。')),
+          ? '在客户端里粘贴这个加入码（或扫二维码）注册。里面已经带了服务器地址和邀请码，第一个注册的账号是站点管理员，只能用一次。'
+          : '已经有账号的人在新设备上用它添加服务器后登录。邀请新朋友不用这个：每个账号注册后自动有 ' + conn.per_user +
+            ' 个邀请，在客户端里把加入码或二维码发给朋友就行。')),
       addrs.length > 1 && el('div', {},
-        el('div', { class: 'field-label' }, '朋友从哪里连'),
+        el('div', { class: 'field-label' }, '从哪里连'),
         el('div', { class: 'seg', role: 'tablist' }, addrs.map((a, i) => el('button', {
           class: i === overviewAddr ? 'on' : '', role: 'tab', 'aria-selected': String(i === overviewAddr),
           onclick: () => { overviewAddr = i; route(); },
         }, a.label + ' ' + a.address)))),
       el('div', {},
-        el('div', { class: 'field-label' }, '连接码'),
-        el('div', { class: 'code-line' }, el('code', { title: entry.code }, entry.code),
-          el('button', { class: 'btn small', onclick: () => copy(entry.code, '连接码') }, '复制'))),
-      el('div', {},
-        el('div', { class: 'field-label' }, bootstrap ? '管理员邀请码' : '邀请码'),
-        invite
-          ? el('div', { class: 'row' }, el('span', { class: 'invite-code' }, groupCode(invite.code)),
-            el('button', { class: 'btn small', onclick: () => copy(invite.code, '邀请码') }, '复制'),
-            !bootstrap && el('button', { class: 'btn small ghost', onclick: newInvite }, '再生成一个'))
-          : el('div', { class: 'row' }, el('span', { class: 'muted' }, '没有可用的邀请码'),
-            el('button', { class: 'btn small', onclick: newInvite }, '生成邀请码'))),
+        el('div', { class: 'field-label' }, bootstrap ? '管理员加入码' : '服务器码'),
+        el('div', { class: 'code-line' }, el('code', { title: code }, code),
+          el('button', { class: 'btn small', onclick: () => copy(code, bootstrap ? '加入码' : '服务器码') }, '复制'))),
       el('div', { class: 'row' },
-        el('button', { class: 'btn primary', onclick: () => copy(inviteText(), '邀请文字') }, '复制整段邀请文字'),
-        el('a', { class: 'btn', href: qr.src, download: 'am-connect.png' }, '保存二维码')),
+        bootstrap && el('button', { class: 'btn primary', onclick: () => copy(inviteText(), '注册说明') }, '复制注册说明'),
+        el('a', { class: 'btn', href: qr.src, download: bootstrap ? 'am-admin-join.png' : 'am-server-code.png' }, '保存二维码')),
       !conn.public && addressFixer()));
   root.append(ticket);
 
@@ -424,8 +409,8 @@ async function renderOverview(root, page) {
   // First-run checklist, only until it is done.
   const steps = [
     { done: !!conn.public, text: '填写公网地址，让外面的朋友能连进来（只在局域网里玩可以跳过）' },
-    { done: users > 0, text: '用管理员邀请码注册你自己的账号' },
-    { done: users > 1, text: '把连接码和邀请码发给朋友' },
+    { done: users > 0, text: '用管理员加入码注册你自己的账号' },
+    { done: users > 1, text: '在客户端里把你的加入码发给朋友' },
   ];
   if (steps.some((x) => !x.done)) {
     root.append(el('section', { class: 'panel', 'aria-label': '开始使用' },
@@ -433,7 +418,7 @@ async function renderOverview(root, page) {
       el('ol', { class: 'steps' }, steps.map((x) => el('li', { class: x.done ? 'done' : '' }, x.text)))));
   }
 
-  const tlsText = { self_signed: '自签证书（连接码里带指纹，客户端会核对）', files: '证书文件', off: '未加密，只能本机测试用' };
+  const tlsText = { self_signed: '自签证书（加入码里带指纹，客户端会核对）', files: '证书文件', off: '未加密，只能本机测试用' };
   root.append(el('section', { class: 'panel', 'aria-label': '服务器信息' },
     el('h2', {}, '服务器信息'),
     el('dl', { class: 'info' },
@@ -466,7 +451,7 @@ function addressFixer() {
     } catch (err) { fail(err); }
   };
   return el('form', { class: 'addr-fix', onsubmit: save },
-    el('p', { class: 'hint' }, '朋友不在同一个网络里？填上公网地址（IP 或域名加端口；用 frp 就填中转服务器的 IP 和远程端口），连接码会跟着变。'),
+    el('p', { class: 'hint' }, '朋友不在同一个网络里？填上公网地址（IP 或域名加端口；用 frp 就填中转服务器的 IP 和远程端口）。填了之后，客户端里的邀请才会带上这个地址。'),
     el('div', { class: 'row' }, input, el('button', { class: 'btn', type: 'submit' }, '保存')));
 }
 
@@ -584,32 +569,13 @@ let inviteFilter = 'unused';
 
 async function renderInvites(root, page) {
   root.append(stateBanner() || '');
-  root.append(head('邀请码', '注册必须有邀请码。在这里生成的码不占任何人的名额。用户也能在客户端里自己生成，每人几个在设置里改。'));
-  const count = el('select', { 'aria-label': '数量' }, [1, 3, 5, 10].map((n) => el('option', { value: n }, n + ' 个')));
-  const note = el('input', { type: 'text', placeholder: '备注（可选），例如：给小明', maxlength: 100, 'aria-label': '备注' });
-  const admin = el('input', { type: 'checkbox' });
-  const create = async (e) => {
-    e.preventDefault();
-    if (admin.checked && !await confirmDialog({
-      title: '生成管理员邀请码？', text: '用这个码注册的账号直接成为站点管理员，能删除任何消息、查看违规证据。只发给你完全信任的人。', ok: '生成',
-    })) return;
-    try {
-      const r = await api('POST', 'invites', { count: Number(count.value), note: note.value, makes_admin: admin.checked });
-      toast('已生成 ' + r.invites.length + ' 个邀请码');
-      note.value = '';
-      admin.checked = false;
-      load();
-    } catch (err) { fail(err); }
-  };
-  root.append(el('form', { class: 'panel stack', onsubmit: create },
-    el('h2', {}, '生成邀请码'),
-    el('div', { class: 'row' }, el('div', {}, count), el('div', { class: 'spacer' }, note),
-      el('button', { class: 'btn primary', type: 'submit' }, '生成')),
-    el('label', { class: 'check' }, admin, el('span', {}, '注册后成为站点管理员', el('span', { class: 'hint' }, '（慎用）')))));
+  const per = await api('GET', 'settings').then((r) => r.values['invites.per_user']).catch(() => null);
+  root.append(head('邀请码', '每个账号注册后自动获得' + (per != null ? ' ' + per + ' 个' : '') +
+    '邀请码，由用户自己在客户端里把加入码发给朋友。这里能看到每个码被谁用了，也可以作废没用过的码。'));
 
   const seg = el('div', { class: 'seg', role: 'tablist' });
   const box = el('div');
-  root.append(el('div', { class: 'row list-head' }, el('h2', {}, '列表'), el('span', { class: 'spacer' }), seg), box);
+  root.append(el('div', { class: 'row list-head' }, el('span', { class: 'spacer' }), seg), box);
 
   let pageNo = 1;
   function drawSeg() {
@@ -625,7 +591,7 @@ async function renderInvites(root, page) {
     try { data = await api('GET', 'invites?filter=' + inviteFilter + '&page=' + pageNo); } catch (e) { fail(e); return; }
     if (currentPage !== page) return;
     if (!data.invites.length) {
-      box.replaceChildren(el('div', { class: 'table-wrap' }, el('p', { class: 'empty' }, '没有未使用的邀请码。上面生成一个吧。')));
+      box.replaceChildren(el('div', { class: 'table-wrap' }, el('p', { class: 'empty' }, inviteFilter === 'unused' ? '现在没有未使用的邀请码。' : '还没有邀请码。')));
       return;
     }
     box.replaceChildren(el('div', { class: 'table-wrap' }, el('table', {},
@@ -633,7 +599,7 @@ async function renderInvites(root, page) {
       el('tbody', {}, data.invites.map((i) => el('tr', {},
         el('td', {}, el('code', { class: 'mono' }, groupCode(i.code)), i.makes_admin && el('span', { class: 'tag warn' }, '管理员'),
           i.note && el('span', { class: 'sub' }, i.note)),
-        el('td', {}, i.created_by ? i.created_by_name : (i.note === 'bootstrap' ? '首次启动' : '管理面板'),
+        el('td', {}, i.created_by ? i.created_by_name : (i.makes_admin ? '首次启动（管理员）' : '管理面板'),
           el('span', { class: 'sub' }, fmtTime(i.created_at))),
         el('td', {}, i.used_by ? ['已被 ', el('b', {}, i.used_by_name), ' 使用', el('span', { class: 'sub' }, fmtTime(i.used_at))]
           : el('span', { class: 'muted' }, '未使用')),
@@ -770,14 +736,15 @@ async function renderLogs(root, page) {
 
 const SETTINGS = [
   { title: '基本', items: [
-    { k: 'server.name', label: '服务器名称', help: '显示在客户端和连接码里', type: 'text', max: 32 },
+    { k: 'server.name', label: '服务器名称', help: '显示在客户端里', type: 'text', max: 32 },
     { k: 'server.public_address', label: '公网地址', help: '外面的朋友连接用的 IP 或域名加端口。用 frp 时填中转服务器的 IP 和远程端口。', type: 'text', placeholder: '47.1.2.3:7000' },
     { k: 'server.listen', label: '监听地址', help: '本机监听的地址和端口，一般不用改', type: 'text' },
     { k: 'server.proxy_protocol', label: '读取真实 IP（proxy protocol）', help: '只有所有外部连接都经过 frp 且 frp 开了 proxy protocol 时才打开，否则别人连不上。', type: 'bool' },
   ] },
   { title: '邀请', items: [
-    { k: 'invites.per_user', label: '每人可生成的邀请码', help: '用户在客户端里自己能生成的总数', type: 'int', min: 0 },
-    { k: 'invites.admin_unlimited', label: '站点管理员不限数量', type: 'bool' },
+    { k: 'invites.per_user', label: '每个账号的邀请码数量', help: '注册后自动发放，用户在客户端里发给朋友', type: 'int', min: 0, max: 100 },
+    { k: 'invites.admin_unlimited', label: '站点管理员可以额外要邀请码', type: 'bool' },
+    { k: 'invites.download_url', label: '客户端下载页', help: '二维码指向这里。别的软件扫码会打开这个页面，AM 客户端扫码直接读出加入码。', type: 'text' },
   ] },
   { title: '限制', items: [
     { k: 'limits.max_text_length', label: '单条消息最多字数', type: 'int', min: 1 },
@@ -794,6 +761,7 @@ const SETTINGS = [
   ] },
   { title: '管理面板', items: [
     { k: 'admin.open_browser', label: '启动时打开管理面板', type: 'bool' },
+    { k: 'admin.window', label: '用独立窗口打开', help: 'Windows 上在单独的窗口里打开面板，不用浏览器。关掉窗口服务器照样运行。', type: 'bool' },
     { k: 'admin.tray', label: '显示任务栏图标', help: 'Windows 右下角的 AM 图标', type: 'bool' },
     { k: 'admin.listen', label: '面板地址', help: '改了要退出 am-server 再打开才生效。保持 127.0.0.1 只允许本机打开。', type: 'text' },
     { k: 'log.level', label: '日志详细程度', type: 'select', options: [['debug', '调试（最详细）'], ['info', '普通'], ['warn', '只看警告'], ['error', '只看错误']] },
@@ -910,7 +878,7 @@ async function quitServer() {
     await api('POST', 'quit');
     clearInterval(statusTimer);
     document.getElementById('app').replaceChildren(el('div', { class: 'login' }, el('div', { class: 'panel' },
-      el('h1', {}, 'am-server 已退出'), el('p', { class: 'muted' }, '可以关掉这个页面了。要再用的话，双击 am-server.exe。'))));
+      el('h1', {}, 'am-server 已退出'), el('p', { class: 'muted' }, '要再用的话，双击 am-server.exe。'))));
   } catch (e) { fail(e); }
 }
 

@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
+	"github.com/OzakiJUN/am/internal/connectcode"
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/idgen"
@@ -34,6 +35,7 @@ type Service struct {
 	push    push.Pusher
 	media   *media.Service
 	now     func() time.Time
+	meta    serverMeta
 }
 
 func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
@@ -91,7 +93,12 @@ func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest, cl Cl
 			}
 			return err
 		}
-		return q.MarkInviteUsed(ctx, code, u.ID, now)
+		if err := q.MarkInviteUsed(ctx, code, u.ID, now); err != nil {
+			return err
+		}
+		// Every new account gets its invite codes right away.
+		_, err = s.topUpInvites(ctx, q, u.ID, 0)
+		return err
 	})
 	if err != nil {
 		return "", nil, err
@@ -268,16 +275,43 @@ func (s *Service) remainingInvites(u *store.User, used int) int {
 	return 0
 }
 
+// topUpInvites creates codes until the user has created invites.per_user in
+// total (have = how many they already created). Returns how many it made.
+func (s *Service) topUpInvites(ctx context.Context, q *store.Queries, userID int64, have int) (int, error) {
+	made := 0
+	for ; have+made < s.invites.PerUser; made++ {
+		if err := q.CreateInvite(ctx, &store.Invite{Code: newInviteCode(), CreatedBy: userID, CreatedAt: s.now().UnixMilli()}); err != nil {
+			return made, err
+		}
+	}
+	return made, nil
+}
+
+// ListInvites returns the user's codes with join codes filled in. Accounts
+// made before automatic invites (or after per_user was raised) are topped up.
 func (s *Service) ListInvites(ctx context.Context, u *store.User) (*amv1.ListInvitesResponse, error) {
-	list, err := s.st.ListInvitesBy(ctx, u.ID)
+	var list []*store.Invite
+	err := s.st.InTx(ctx, func(q *store.Queries) error {
+		n, err := q.CountInvitesBy(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if _, err := s.topUpInvites(ctx, q, u.ID, n); err != nil {
+			return err
+		}
+		list, err = q.ListInvitesBy(ctx, u.ID)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
 	out := &amv1.ListInvitesResponse{Remaining: int32(s.remainingInvites(u, len(list)))}
 	for _, inv := range list {
-		out.Invites = append(out.Invites, &amv1.Invite{
-			Code: inv.Code, CreatedAt: inv.CreatedAt, UsedBy: inv.UsedBy, UsedByName: inv.UsedByName,
-		})
+		pi := &amv1.Invite{Code: inv.Code, CreatedAt: inv.CreatedAt, UsedBy: inv.UsedBy, UsedByName: inv.UsedByName}
+		if inv.UsedBy == 0 {
+			pi.JoinCode, pi.JoinUrl = s.JoinCode(inv.Code)
+		}
+		out.Invites = append(out.Invites, pi)
 	}
 	return out, nil
 }
@@ -298,7 +332,9 @@ func (s *Service) CreateInvite(ctx context.Context, u *store.User) (*amv1.Invite
 	if err != nil {
 		return nil, err
 	}
-	return &amv1.Invite{Code: code, CreatedAt: s.now().UnixMilli()}, nil
+	inv := &amv1.Invite{Code: code, CreatedAt: s.now().UnixMilli()}
+	inv.JoinCode, inv.JoinUrl = s.JoinCode(code)
+	return inv, nil
 }
 
 // EnsureBootstrapInvite makes sure a fresh server has a way in: when there
@@ -320,8 +356,9 @@ func (s *Service) EnsureBootstrapInvite(ctx context.Context) (string, error) {
 	return code, s.st.CreateInvite(ctx, &store.Invite{Code: code, MakesAdmin: true, Note: "bootstrap", CreatedAt: s.now().UnixMilli()})
 }
 
-// Invite codes: 10 characters from an alphabet without look-alike letters.
-const inviteAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+// Invite codes: 10 characters from an alphabet without look-alike letters
+// (the same alphabet join codes use, so they can be packed into them).
+const inviteAlphabet = connectcode.Alphabet
 
 func newInviteCode() string {
 	b := make([]byte, 10)

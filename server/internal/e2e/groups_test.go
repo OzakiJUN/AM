@@ -148,8 +148,20 @@ func ptr[T any](v T) *T { return &v }
 // registerStranger creates a user who is nobody's friend.
 func registerStranger(t *testing.T, inviter *user, base string) *user {
 	ctx := ctxT(t)
-	code := must(inviter.cli.CreateInvite(ctx)).Code
+	code := unusedInvite(t, inviter)
 	c := amclient.New(base, nil)
 	resp := must(c.Register(ctx, &amv1.RegisterRequest{InviteCode: code, Username: "stranger", Password: "password-s"}))
 	return &user{cli: c, me: resp.Me}
+}
+
+// unusedInvite returns one of the user's automatic invite codes.
+func unusedInvite(t *testing.T, u *user) string {
+	t.Helper()
+	for _, inv := range must(u.cli.ListInvites(ctxT(t))).Invites {
+		if inv.UsedBy == 0 {
+			return inv.Code
+		}
+	}
+	t.Fatal("no unused invite left")
+	return ""
 }

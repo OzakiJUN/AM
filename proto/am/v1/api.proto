@@ -65,6 +65,20 @@ message Invite {
   // 0 = unused.
   int64 used_by = 3;
   string used_by_name = 4;
+  // Join code: server address + certificate pin + this invite code in one
+  // obfuscated string (see docs/protocol.md). Empty when the server has no
+  // public address set; clients then build it from the address they use.
+  string join_code = 5;
+  // URL for a QR code: the client download page with "#join=<join_code>".
+  string join_url = 6;
+}
+
+// GET /api/v1/server (no login needed)
+message ServerInfo {
+  string name = 1;
+  string version = 2;
+  // Client download page; QR codes point here.
+  string download_url = 3;
 }
 
 // GET /api/v1/friends

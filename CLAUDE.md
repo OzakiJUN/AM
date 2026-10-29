@@ -53,7 +53,7 @@ update the docs in the same commit.
 - `am-server` = `supervisor` (restartable chat-server loop, the admin panel
   stays up even when the server fails to start) + `admin` (embedded panel on
   `admin.listen`, loopback by default, key in `data/admin_key.txt`) +
-  `desktop` (tray, browser, autostart, message box; Windows-only code behind
+  `desktop` (tray, panel window, browser, autostart, message box; Windows-only code behind
   build tags, no cgo). The Windows build uses `-H=windowsgui`; output goes to
   the log sink (file + panel ring), and to the console only when one exists.
 - The admin panel UI is plain HTML/CSS/JS in `server/internal/admin/web`
@@ -61,7 +61,7 @@ update the docs in the same commit.
   never `innerHTML` with server data. Panel JSON sends int64 ids as strings.
   The panel API is internal (not in protocol.md); settings it may edit are
   whitelisted in `admin/api.go` and written with `config.Apply` (keeps comments).
-- Site-admin actions (ban, reset password, panel invites) live in
+- Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
 
 ## Commands
@@ -91,16 +91,22 @@ schema. Never point it at a real database.
 - The owner's own server runs on his Windows PC (i5-13600) behind CGNAT,
   exposed through frp on an Alibaba Cloud 5 Mbps relay; frp sends proxy
   protocol v2, `server.proxy_protocol = true` (trusted from localhost only).
-- Stage 1 uses a bare IP + self-signed certificate; clients pin the SHA-256
-  fingerprint printed at startup. A domain needs ICP filing (备案) in
-  mainland China, planned later; switching only changes client config and
-  `tls.mode = "files"`.
+- Servers use a bare IP + self-signed certificate; clients pin it (the pin
+  is in the join code). A real certificate (`tls.mode = "files"`) is
+  optional for self-hosters; nothing in the plan depends on a domain.
 - No Redis in stage 1 (single server, Windows). Add it when there is more
   than one gateway.
 - Relative paths in config.toml resolve against the config file's folder
   (am-server chdirs there). On Windows the default config is next to the exe.
-- Connection codes (`am://connect?...`) are defined in `internal/connectcode`
-  and documented in docs/protocol.md.
+- Join codes (`AM1-...`: address + cert pin + optional invite, obfuscated;
+  QR = `<download_url>#join=<code>`) are defined in `internal/connectcode`
+  and documented in docs/protocol.md. Every account gets `invites.per_user`
+  invite codes automatically at registration; the admin panel never creates
+  invites (view / revoke only).
+- No official server, no ICP filing: we only distribute tools. The workshop
+  will live on GitHub (index repo + authors' releases). No pure web client.
+- The admin panel opens in its own window: a child `am-server window`
+  process using WebView2 (`desktop.RunPanelWindow`), browser as fallback.
 - Uploaded media lives under `data/media` (content-addressed by SHA-256);
   all file access goes through the `media` package so moving to object
   storage + CDN later touches only that package.

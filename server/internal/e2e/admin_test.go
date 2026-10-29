@@ -15,7 +15,9 @@ import (
 	"time"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
+	"github.com/OzakiJUN/am/internal/connectcode"
 	"github.com/OzakiJUN/am/sdk/go/amclient"
+	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/admin"
 	"github.com/OzakiJUN/am/server/internal/app"
 	"github.com/OzakiJUN/am/server/internal/config"
@@ -31,12 +33,13 @@ type fakeRuntime struct {
 	cfgPath  string
 	ring     *logx.Ring
 	restarts int
+	boot     string
 }
 
 func (f *fakeRuntime) Snapshot() admin.Snapshot {
 	return admin.Snapshot{
 		State: admin.StateRunning, Version: "test", ConfigPath: f.cfgPath, Config: f.cfg, App: f.a,
-		Fingerprint: bytes.Repeat([]byte{7}, 32), StartedAt: time.Now(), Logs: f.ring,
+		Fingerprint: bytes.Repeat([]byte{7}, 32), StartedAt: time.Now(), Logs: f.ring, BootstrapInvite: f.boot,
 	}
 }
 func (f *fakeRuntime) Restart()        { f.restarts++ }
@@ -117,6 +120,31 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 		t.Fatalf("form post: %d restarts=%d", resp.StatusCode, rt.restarts)
 	}
 
+	// Before anyone registered, the panel shows the admin join code with the
+	// bootstrap invite in it.
+	boot := must(a.Account.EnsureBootstrapInvite(ctx))
+	rt.boot = boot
+	var cc struct {
+		Bootstrap bool `json:"bootstrap"`
+		Lan       []struct {
+			ServerCode string `json:"server_code"`
+			JoinCode   string `json:"join_code"`
+			JoinURL    string `json:"join_url"`
+		} `json:"lan"`
+	}
+	pc.do("GET", "/api/connect", nil, &cc)
+	local := cc.Lan[len(cc.Lan)-1]
+	bj := must(amclient.ParseJoinCode(local.JoinURL)) // the QR URL works too
+	if !cc.Bootstrap || bj.Invite != boot || !bytes.Equal(bj.Pin, bytes.Repeat([]byte{7}, 16)) ||
+		!strings.HasPrefix(local.JoinURL, cfg.Invites.DownloadURL+"#join=AM1-") {
+		t.Fatalf("bootstrap join code: %+v %+v", cc, bj)
+	}
+
+	// The server knows its public address: invites come with join codes.
+	host := strings.TrimPrefix(base, "http://")
+	a.Account.SetServer(account.ServerMeta{Name: "测试服", Version: "test", DownloadURL: cfg.Invites.DownloadURL,
+		Join: &connectcode.Join{Address: host, Plain: true}})
+
 	// First account via the bootstrap code is a site admin.
 	us := newServerUsers(t, a, base, "owner", "bob")
 	owner, bob := us[0], us[1]
@@ -124,37 +152,41 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 	if !isAdmin(owner.me.Id) || isAdmin(bob.me.Id) {
 		t.Fatal("bootstrap admin flags wrong")
 	}
-
-	// Panel invites: a normal one and an admin one.
-	var inv struct {
-		Invites []struct {
-			Code       string `json:"code"`
-			MakesAdmin bool   `json:"makes_admin"`
-			CreatedBy  string `json:"created_by"`
-		} `json:"invites"`
+	if info := must(bob.cli.ServerInfo(ctx)); info.Name != "测试服" {
+		t.Fatalf("server info: %v", info)
 	}
-	pc.do("POST", "/api/invites", map[string]any{"count": 2, "note": "朋友"}, &inv)
-	if len(inv.Invites) != 2 || inv.Invites[0].MakesAdmin || inv.Invites[0].CreatedBy != "" {
-		t.Fatalf("panel invites: %+v", inv)
-	}
-	normal, spare := inv.Invites[0].Code, inv.Invites[1].Code
-	pc.do("POST", "/api/invites", map[string]any{"count": 1, "makes_admin": true}, &inv)
-	adminCode := inv.Invites[0].Code
 
-	carolCli := amclient.New(base, nil)
-	carol := must(carolCli.Register(ctx, &amv1.RegisterRequest{InviteCode: normal, Username: "carol", Password: "password-carol"}))
+	// Every account got 3 invites automatically, each with a join code.
+	bobInv := must(bob.cli.ListInvites(ctx))
+	if len(bobInv.Invites) != 3 || bobInv.Invites[0].JoinCode == "" || !strings.Contains(bobInv.Invites[0].JoinUrl, "#join=") {
+		t.Fatalf("bob's invites: %v", bobInv)
+	}
+	// A friend registers with nothing but the join code.
+	carolCli, cj := must2(amclient.NewFromJoinCode(bobInv.Invites[0].JoinCode))
+	carol := must(carolCli.Register(ctx, &amv1.RegisterRequest{InviteCode: cj.Invite, Username: "carol", Password: "password-carol"}))
+	if isAdmin(carol.Me.Id) {
+		t.Fatal("carol should not be admin")
+	}
+	// A client can also build join codes itself from its own server address.
+	built := must(carolCli.JoinCodeFor("ABCDEFGH23"))
+	if j := must(amclient.ParseJoinCode(built)); j.Address != host || j.Invite != "ABCDEFGH23" {
+		t.Fatalf("client-built join code: %+v", j)
+	}
 	daveCli := amclient.New(base, nil)
-	dave := must(daveCli.Register(ctx, &amv1.RegisterRequest{InviteCode: adminCode, Username: "dave", Password: "password-dave"}))
-	if isAdmin(carol.Me.Id) || !isAdmin(dave.Me.Id) {
-		t.Fatal("panel invite admin flags wrong")
+	dave := must(daveCli.Register(ctx, &amv1.RegisterRequest{InviteCode: bobInv.Invites[1].Code, Username: "dave", Password: "password-dave"}))
+	pc.do("POST", "/api/users/"+itoa(dave.Me.Id)+"/admin", map[string]bool{"admin": true}, nil)
+
+	// The panel cannot create invites any more; it can revoke unused ones.
+	if code := pc.do("POST", "/api/invites", map[string]any{"count": 1}, nil); code != 405 && code != 404 {
+		t.Fatalf("panel invite creation still works: %d", code)
 	}
-	// Panel codes don't use up anyone's quota; unused ones can be revoked.
+	spare := bobInv.Invites[2].Code
 	if code := pc.do("DELETE", "/api/invites/"+spare, nil, nil); code != 200 {
 		t.Fatalf("delete invite: %d", code)
 	}
 	_, err := amclient.New(base, nil).Register(ctx, &amv1.RegisterRequest{InviteCode: spare, Username: "eve", Password: "password-eve"})
 	wantCode(t, err, "invalid_invite")
-	if code := pc.do("DELETE", "/api/invites/"+normal, nil, nil); code != 404 {
+	if code := pc.do("DELETE", "/api/invites/"+bobInv.Invites[0].Code, nil, nil); code != 404 {
 		t.Fatalf("deleting a used invite: %d", code)
 	}
 
@@ -247,7 +279,7 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 	for _, it := range al.Items {
 		seen[it.Action] = true
 	}
-	for _, want := range []string{"ban", "unban", "password_reset", "site_admin_grant", "invite_create", "invite_delete", "admin_delete"} {
+	for _, want := range []string{"ban", "unban", "password_reset", "site_admin_grant", "invite_delete", "admin_delete"} {
 		if !seen[want] {
 			t.Errorf("audit log missing %s: %+v", want, al.Items)
 		}
@@ -260,16 +292,11 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 		t.Fatalf("stats: %v", stats)
 	}
 
-	// Connection code.
-	var cc struct {
-		Lan []struct {
-			Code string `json:"code"`
-		} `json:"lan"`
-	}
+	// After registration the panel shows the server code (no invite).
 	pc.do("GET", "/api/connect", nil, &cc)
-	info := must(amclient.ParseConnectCode(cc.Lan[len(cc.Lan)-1].Code))
-	if !bytes.Equal(info.Fingerprint, bytes.Repeat([]byte{7}, 32)) || info.Name != cfg.Server.Name {
-		t.Fatalf("connect code: %+v", info)
+	sc := must(amclient.ParseJoinCode(cc.Lan[len(cc.Lan)-1].ServerCode))
+	if cc.Bootstrap || sc.Invite != "" || !bytes.Equal(sc.Pin, bytes.Repeat([]byte{7}, 16)) {
+		t.Fatalf("server code: %+v %+v", cc, sc)
 	}
 
 	// Settings: invalid values are rejected and the file is untouched.

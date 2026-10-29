@@ -38,10 +38,13 @@ url = "postgres://am:__DB_PASSWORD__@127.0.0.1:5432/am?sslmode=disable"
 max_conns = 10
 
 [invites]
-# How many invite codes each user can create in total.
+# Every account gets this many invite codes automatically when it registers.
 per_user = 3
-# Site admins (the first registered user) can create unlimited codes.
+# Site admins can ask for more codes beyond per_user.
 admin_unlimited = true
+# Client download page. QR codes point here (with the join code after "#join="):
+# other scanner apps open this page, the AM client reads the code.
+download_url = "https://github.com/OzakiJUN/AM/releases/latest"
 
 [limits]
 max_text_length = 5000
@@ -71,8 +74,11 @@ block_distance = 6
 # only this computer can open it. On a headless Linux server, reach it through
 # an SSH tunnel (ssh -L 8444:127.0.0.1:8444 server) instead of opening it up.
 listen = "127.0.0.1:8444"
-# Open the admin panel in the browser when the server starts (desktop only).
+# Open the admin panel when the server starts (desktop only).
 open_browser = true
+# Windows: show the panel in its own window instead of the browser
+# (needs the WebView2 runtime, which Windows 10/11 already have).
+window = true
 # Show an icon in the Windows notification area (tray).
 tray = true
 
