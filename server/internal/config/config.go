@@ -1,5 +1,6 @@
 // Package config loads config.toml. Every tunable lives here so nobody has
-// to edit code to change a setting.
+// to edit code to change a setting. The admin panel edits the file through
+// Apply / WriteFile, which keep the comments and the user's layout.
 package config
 
 import (
@@ -8,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,11 +28,14 @@ type Config struct {
 	Limits    Limits    `toml:"limits"`
 	Retention Retention `toml:"retention"`
 	Media     Media     `toml:"media"`
+	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
 
 type Server struct {
+	Name          string `toml:"name"`
 	Listen        string `toml:"listen"`
+	PublicAddress string `toml:"public_address"`
 	NodeID        int64  `toml:"node_id"`
 	DataDir       string `toml:"data_dir"`
 	ProxyProtocol bool   `toml:"proxy_protocol"`
@@ -74,8 +79,16 @@ type Media struct {
 	BlockDistance int `toml:"block_distance"`
 }
 
+type Admin struct {
+	Listen      string `toml:"listen"`
+	OpenBrowser bool   `toml:"open_browser"`
+	Tray        bool   `toml:"tray"`
+}
+
 type Log struct {
-	Level string `toml:"level"`
+	Level     string `toml:"level"`
+	File      string `toml:"file"`
+	MaxSizeMB int    `toml:"max_size_mb"`
 }
 
 // Load reads the config file. If it does not exist, a default one is
@@ -88,18 +101,37 @@ func Load(path string) (cfg *Config, created bool, err error) {
 		}
 		created = true
 	}
-	cfg = &Config{}
-	// Defaults first, then the file on top.
-	if _, err := toml.Decode(strings.Replace(defaultTOML, "__DB_PASSWORD__", "x", 1), cfg); err != nil {
-		return nil, false, fmt.Errorf("parse built-in defaults: %w", err)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false, err
 	}
-	if _, err := toml.DecodeFile(path, cfg); err != nil {
-		return nil, false, fmt.Errorf("parse %s: %w", path, err)
-	}
-	if err := cfg.validate(); err != nil {
+	cfg, err = Parse(string(data))
+	if err != nil {
 		return nil, false, fmt.Errorf("%s: %w", path, err)
 	}
 	return cfg, created, nil
+}
+
+// Defaults returns the built-in default settings.
+func Defaults() *Config {
+	cfg := &Config{}
+	if _, err := toml.Decode(strings.Replace(defaultTOML, "__DB_PASSWORD__", "x", 1), cfg); err != nil {
+		panic("config: built-in defaults do not parse: " + err.Error())
+	}
+	return cfg
+}
+
+// Parse decodes config text on top of the defaults (so keys missing from an
+// older file get their default value) and validates it.
+func Parse(text string) (*Config, error) {
+	cfg := Defaults()
+	if _, err := toml.Decode(text, cfg); err != nil {
+		return nil, err
+	}
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func writeDefault(path string) error {
@@ -108,15 +140,49 @@ func writeDefault(path string) error {
 		return err
 	}
 	content := strings.Replace(defaultTOML, "__DB_PASSWORD__", hex.EncodeToString(buf), 1)
+	if dir := filepath.Dir(path); dir != "" {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+	}
 	return os.WriteFile(path, []byte(content), 0o600)
 }
 
-// SQLitePath is the database file path (inside data_dir unless absolute).
-func (c *Config) SQLitePath() string {
-	if filepath.IsAbs(c.Database.SQLiteFile) {
-		return c.Database.SQLiteFile
+// WriteFile validates text and replaces the config file with it. The
+// previous version is kept as <path>.bak.
+func WriteFile(path, text string) error {
+	if _, err := Parse(text); err != nil {
+		return err
 	}
-	return filepath.Join(c.Server.DataDir, c.Database.SQLiteFile)
+	if old, err := os.ReadFile(path); err == nil {
+		if err := os.WriteFile(path+".bak", old, 0o600); err != nil {
+			return err
+		}
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(text), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// SQLitePath is the database file path (inside data_dir unless absolute).
+func (c *Config) SQLitePath() string { return c.InDataDir(c.Database.SQLiteFile) }
+
+// LogPath is the log file path, "" if file logging is off.
+func (c *Config) LogPath() string {
+	if c.Log.File == "" {
+		return ""
+	}
+	return c.InDataDir(c.Log.File)
+}
+
+// InDataDir resolves a path relative to data_dir (absolute paths stay).
+func (c *Config) InDataDir(p string) string {
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(c.Server.DataDir, p)
 }
 
 // DefaultTemplate returns the commented default config, for docs/examples.
@@ -131,6 +197,20 @@ func (c *Config) validate() error {
 		}
 	default:
 		return fmt.Errorf("unknown tls.mode %q", c.TLS.Mode)
+	}
+	if _, _, err := net.SplitHostPort(c.Server.Listen); err != nil {
+		return fmt.Errorf("server.listen %q: %v", c.Server.Listen, err)
+	}
+	if _, _, err := net.SplitHostPort(c.Admin.Listen); err != nil {
+		return fmt.Errorf("admin.listen %q: %v", c.Admin.Listen, err)
+	}
+	if c.Server.PublicAddress != "" {
+		if host, port, err := net.SplitHostPort(c.Server.PublicAddress); err != nil || host == "" || port == "" {
+			return fmt.Errorf("server.public_address %q must look like 47.1.2.3:7000 or example.com:8443", c.Server.PublicAddress)
+		}
+	}
+	if len([]rune(c.Server.Name)) > 32 {
+		return errors.New("server.name must be at most 32 characters")
 	}
 	if c.Server.NodeID < 0 || c.Server.NodeID > 1023 {
 		return errors.New("server.node_id must be 0-1023")
@@ -150,6 +230,12 @@ func (c *Config) validate() error {
 	if c.Limits.MaxGroupMembers < 2 || c.Limits.MaxUploadMB < 1 {
 		return errors.New("limits.max_group_members must be >= 2 and limits.max_upload_mb >= 1")
 	}
+	if c.Limits.MaxTextLength < 1 {
+		return errors.New("limits.max_text_length must be >= 1")
+	}
+	if c.Limits.LoginAttemptsPerMinute < 0 {
+		return errors.New("limits.login_attempts_per_minute must be >= 0")
+	}
 	if c.Retention.EvidenceDays < 1 || c.Retention.LoginRecordDays < 1 {
 		return errors.New("retention days must be >= 1")
 	}
@@ -161,6 +247,14 @@ func (c *Config) validate() error {
 	}
 	if c.Limits.SyncPageSize <= 0 || c.Limits.SyncMaxPageSize < c.Limits.SyncPageSize {
 		return errors.New("limits.sync_page_size must be > 0 and <= sync_max_page_size")
+	}
+	switch strings.ToLower(c.Log.Level) {
+	case "debug", "info", "warn", "error":
+	default:
+		return fmt.Errorf("log.level %q: use debug, info, warn or error", c.Log.Level)
+	}
+	if c.Log.MaxSizeMB < 1 {
+		return errors.New("log.max_size_mb must be >= 1")
 	}
 	return nil
 }

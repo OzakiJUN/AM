@@ -23,7 +23,10 @@ import (
 )
 
 const defaultConfig = `# AM test client settings.
-# Server address. Use https:// with the server's IP and port.
+# Easiest: paste the connection code from the server's admin panel here.
+# When it is set, server and fingerprint below are ignored.
+connect_code = ""
+# Or set the server by hand. Use https:// with the server's IP and port.
 server = "https://127.0.0.1:8443"
 # Certificate fingerprint printed by am-server at startup
 # ("TLS self-signed certificate ... fingerprint=AB:CD:...").
@@ -32,6 +35,7 @@ fingerprint = ""
 `
 
 type fileConfig struct {
+	ConnectCode string `toml:"connect_code"`
 	Server      string `toml:"server"`
 	Fingerprint string `toml:"fingerprint"`
 }
@@ -63,13 +67,30 @@ type app struct {
 func main() {
 	cfgPath := flag.String("config", "testclient.toml", "client config file")
 	profile := flag.String("profile", "", "profile name (keeps separate logins, e.g. alice / bob)")
+	code := flag.String("code", "", "connection code from the server admin panel (saved to the config file)")
 	flag.Parse()
 
+	in := bufio.NewReader(os.Stdin)
+	if *code == "" {
+		if _, err := os.Stat(*cfgPath); errors.Is(err, os.ErrNotExist) {
+			fmt.Println("First start. Paste the connection code from the server admin panel")
+			fmt.Print("(starts with am://connect?, or press Enter to edit " + *cfgPath + " by hand): ")
+			line, _ := in.ReadString('\n')
+			*code = strings.TrimSpace(line)
+		}
+	}
+	if *code != "" {
+		if _, err := amclient.ParseConnectCode(*code); err != nil {
+			fatal(err)
+		}
+		if err := saveConnectCode(*cfgPath, *code); err != nil {
+			fatal(err)
+		}
+	}
 	cfg, err := loadConfig(*cfgPath)
 	if err != nil {
 		fatal(err)
 	}
-	in := bufio.NewReader(os.Stdin)
 	if *profile == "" {
 		fmt.Print("Profile name (e.g. alice): ")
 		line, _ := in.ReadString('\n')
@@ -86,7 +107,16 @@ func main() {
 		convs:     map[int64]*amv1.Conversation{},
 		history:   map[int64][]*amv1.Event{},
 	}
-	if strings.HasPrefix(cfg.Server, "https://") {
+	if cfg.ConnectCode != "" {
+		cli, info, err := amclient.NewFromCode(cfg.ConnectCode)
+		if err != nil {
+			fatal(fmt.Errorf("%s: connect_code: %w", *cfgPath, err))
+		}
+		a.cli, cfg.Server = cli, info.BaseURL()
+		if info.Name != "" {
+			cfg.Server += " (" + info.Name + ")"
+		}
+	} else if strings.HasPrefix(cfg.Server, "https://") {
 		if cfg.Fingerprint == "" {
 			fatal(fmt.Errorf("%s: fingerprint is empty; copy it from the am-server startup log", *cfgPath))
 		}
@@ -138,7 +168,7 @@ func loadConfig(path string) (*fileConfig, error) {
 		if err := os.WriteFile(path, []byte(defaultConfig), 0o644); err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("created %s - fill in server and fingerprint, then start again", path)
+		return nil, fmt.Errorf("created %s - fill in connect_code (or server and fingerprint), then start again", path)
 	}
 	cfg := &fileConfig{}
 	if _, err := toml.DecodeFile(path, cfg); err != nil {
@@ -146,6 +176,23 @@ func loadConfig(path string) (*fileConfig, error) {
 	}
 	cfg.Server = strings.TrimRight(strings.TrimSpace(cfg.Server), "/")
 	return cfg, nil
+}
+
+// saveConnectCode writes the code into the config file (creating it if needed).
+func saveConnectCode(path, code string) error {
+	text := defaultConfig
+	if b, err := os.ReadFile(path); err == nil {
+		text = string(b)
+	}
+	line := "connect_code = " + strconv.Quote(code)
+	lines := strings.Split(text, "\n")
+	for i, l := range lines {
+		if strings.HasPrefix(strings.TrimSpace(l), "connect_code") {
+			lines[i] = line
+			return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+		}
+	}
+	return os.WriteFile(path, []byte(line+"\n"+text), 0o644)
 }
 
 func (a *app) loadState() {

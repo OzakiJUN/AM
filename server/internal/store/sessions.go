@@ -61,3 +61,27 @@ func (q *Queries) ListSessions(ctx context.Context, userID int64) ([]*Session, e
 func (q *Queries) DeleteSession(ctx context.Context, userID, sessionID int64) error {
 	return affected(q.exec(ctx, `DELETE FROM sessions WHERE id=? AND user_id=?`, sessionID, userID))
 }
+
+// DeleteUserSessions logs a user out everywhere and returns the removed
+// session ids so their live connections can be closed.
+func (q *Queries) DeleteUserSessions(ctx context.Context, userID int64) ([]int64, error) {
+	rows, err := q.query(ctx, `SELECT id FROM sessions WHERE user_id=?`, userID)
+	if err != nil {
+		return nil, err
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	_, err = q.exec(ctx, `DELETE FROM sessions WHERE user_id=?`, userID)
+	return ids, err
+}

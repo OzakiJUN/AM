@@ -15,3 +15,8 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Generated in CI (Windows exe icon)
+*.syso
+config.toml.bak
+config.toml.tmp

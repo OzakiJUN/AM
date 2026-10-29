@@ -11,6 +11,26 @@
 
 服务器默认 `https://<IP>:8443`。使用自签证书时，客户端必须固定（pin）服务器启动时打印的 SHA-256 指纹，而不是信任系统 CA。
 
+### 连接码
+
+服务器管理面板生成的连接码，客户端粘贴或扫二维码即可添加服务器：
+
+```
+am://connect?v=1&addr=47.1.2.3:7000&fp=<证书 SHA-256，base64url 无填充>&name=<服务器名>
+```
+
+| 参数 | 含义 |
+| --- | --- |
+| `v` | 格式版本，目前是 `1`；客户端遇到更大的版本要提示更新 |
+| `addr` | `主机:端口`，客户端从外面能连到的地址（IPv6 用 `[::1]:8443`） |
+| `fp` | 自签证书的 SHA-256。有它就固定指纹、不查 CA；没有则按系统 CA 正常校验（正式证书）。也接受带冒号的十六进制 |
+| `tls=off` | 服务器没开 TLS（只用于本机调试），用 `http://` |
+| `name` | 服务器显示名，可选 |
+
+解析和生成见 `internal/connectcode`，Go SDK 里是 `amclient.ParseConnectCode` / `amclient.NewFromCode`。
+
+管理面板本身的 `/api/...`（在 `admin.listen` 上）是面板内部接口，会跟着面板改，不属于客户端协议。
+
 需要登录的 HTTP 接口带请求头 `Authorization: Bearer <token>`；媒体下载也一样（客户端用 fetch 取回后显示）。
 
 ## HTTP 接口
@@ -156,7 +176,8 @@
 | `group_full` | 403 | 群已满（`limits.max_group_members`） |
 | `no_join_request` | 404 | 没有这个人的入群申请 |
 | `not_in_group` | 404 | 对方不在群里 |
-| `reason_required` | 400 | 管理员删除必须写原因 |
+| `reason_required` | 400 | 管理员删除 / 封禁必须写原因 |
+| `no_password` | 400 | 这个账号不用密码登录（bot / AI），不能重置密码 |
 | `already_deleted` | 409 | 已被删除 |
 | `too_large` | 413 | 文件超过 `limits.max_upload_mb` |
 | `blocked_media` | 403 | 图片在黑名单里 |

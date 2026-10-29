@@ -38,7 +38,7 @@ const maxClientMsgIDLen = 64
 
 var (
 	ErrAlreadyDeleted = apperr.New(http.StatusConflict, "already_deleted", "message is already deleted")
-	ErrReasonRequired = apperr.New(http.StatusBadRequest, "reason_required", "a reason is required")
+	ErrReasonRequired = apperr.ErrReasonRequired
 )
 
 type Service struct {

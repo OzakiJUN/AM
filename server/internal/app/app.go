@@ -23,6 +23,7 @@ type App struct {
 	Store   *store.Store
 	Hub     *gateway.Hub
 	Account *account.Service
+	Media   *media.Service
 	Janitor *janitor.Janitor
 	Handler http.Handler
 }
@@ -66,6 +67,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Store:   st,
 		Hub:     hub,
 		Account: acct,
+		Media:   md,
 		Janitor: janitor.New(st, md, cfg.Retention, log),
 		Handler: mux,
 	}, nil

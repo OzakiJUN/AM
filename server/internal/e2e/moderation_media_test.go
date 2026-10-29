@@ -107,7 +107,10 @@ func testModerationAndMedia(t *testing.T, a *app.App, base string) {
 	if len(ev.Payload) == 0 || ev.PurgeAfter <= time.Now().UnixMilli() || ev.Reason != "违规" {
 		t.Fatalf("evidence: %+v", ev)
 	}
-	audit := must(a.Store.ListAudit(ctx, 20))
+	audit, _, auditErr := a.Store.ListAudit(ctx, 20, 0)
+	if auditErr != nil {
+		t.Fatal(auditErr)
+	}
 	found := false
 	for _, e := range audit {
 		if e.Action == "admin_delete" && e.TargetID == bad.EventId {

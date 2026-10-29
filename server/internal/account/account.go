@@ -46,7 +46,8 @@ type Client struct {
 }
 
 // Register creates a human account using an invite code and logs it in.
-// The account created with the bootstrap code becomes the site admin.
+// Accounts created with the bootstrap code (or an admin-panel code marked
+// "makes admin") become site admins.
 func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest, cl Client) (token string, u *store.User, err error) {
 	username := strings.TrimSpace(req.GetUsername())
 	display := strings.TrimSpace(req.GetDisplayName())
@@ -83,7 +84,7 @@ func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest, cl Cl
 		if err != nil {
 			return err
 		}
-		u.IsSiteAdmin = inv.CreatedBy == 0
+		u.IsSiteAdmin = inv.MakesAdmin
 		if err := q.CreateUser(ctx, u); err != nil {
 			if store.IsUniqueViolation(err) {
 				return apperr.ErrUsernameTaken
@@ -292,7 +293,7 @@ func (s *Service) CreateInvite(ctx context.Context, u *store.User) (*amv1.Invite
 			return apperr.ErrInviteLimit
 		}
 		code = newInviteCode()
-		return q.CreateInvite(ctx, code, u.ID, s.now().UnixMilli())
+		return q.CreateInvite(ctx, &store.Invite{Code: code, CreatedBy: u.ID, CreatedAt: s.now().UnixMilli()})
 	})
 	if err != nil {
 		return nil, err
@@ -316,7 +317,7 @@ func (s *Service) EnsureBootstrapInvite(ctx context.Context) (string, error) {
 		return "", err
 	}
 	code = newInviteCode()
-	return code, s.st.CreateInvite(ctx, code, 0, s.now().UnixMilli())
+	return code, s.st.CreateInvite(ctx, &store.Invite{Code: code, MakesAdmin: true, Note: "bootstrap", CreatedAt: s.now().UnixMilli()})
 }
 
 // Invite codes: 10 characters from an alphabet without look-alike letters.

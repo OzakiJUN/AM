@@ -95,6 +95,29 @@ func (h *Hub) CloseSession(sessionID int64) {
 	}
 }
 
+// CloseAll disconnects every client (server restart / shutdown). Clients
+// reconnect on their own.
+func (h *Hub) CloseAll() {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, m := range h.byUser {
+		for _, c := range m {
+			c.close(websocket.StatusServiceRestart, "server restarting")
+		}
+	}
+}
+
+// OnlineUsers returns the ids of users with at least one open connection.
+func (h *Hub) OnlineUsers() map[int64]bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	out := make(map[int64]bool, len(h.byUser))
+	for uid := range h.byUser {
+		out[uid] = true
+	}
+	return out
+}
+
 // OnlineCount returns the number of open connections (for logs / tests).
 func (h *Hub) OnlineCount() int {
 	h.mu.RLock()

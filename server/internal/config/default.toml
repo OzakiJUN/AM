@@ -2,8 +2,14 @@
 # This file was generated automatically. Edit values here; never edit code.
 
 [server]
+# Server name shown in clients and in the connection code.
+name = "AM 服务器"
 # Address and port the server listens on.
 listen = "0.0.0.0:8443"
+# How clients reach this server from outside: public IP or domain plus port,
+# e.g. "47.1.2.3:7000" (behind frp: the relay's IP and remote port). Used for
+# the connection code. Can be filled in from the admin panel.
+public_address = ""
 # Unique number per server process (0-1023). Keep 1 unless you run several.
 node_id = 1
 # Folder for generated files (database, TLS certificate, uploads, bootstrap invite).
@@ -60,6 +66,20 @@ login_record_days = 180
 # rejected (0-64; lower = stricter match). 6 catches re-saved / resized copies.
 block_distance = 6
 
+[admin]
+# The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so
+# only this computer can open it. On a headless Linux server, reach it through
+# an SSH tunnel (ssh -L 8444:127.0.0.1:8444 server) instead of opening it up.
+listen = "127.0.0.1:8444"
+# Open the admin panel in the browser when the server starts (desktop only).
+open_browser = true
+# Show an icon in the Windows notification area (tray).
+tray = true
+
 [log]
 # debug, info, warn, error
 level = "info"
+# Log file inside data_dir (also shown in the admin panel). Empty = no file.
+file = "logs/am-server.log"
+# When the log file grows beyond this size it is renamed to .1 and restarted.
+max_size_mb = 10

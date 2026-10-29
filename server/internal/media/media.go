@@ -287,6 +287,12 @@ func (s *Service) Open(ctx context.Context, user *store.User, mediaID int64, thu
 	return &File{Path: s.blobPath(m.SHA256), Mime: m.Mime, Name: m.Name}, nil
 }
 
+// OpenAny returns a media file without an access check. Only for the
+// server admin panel (e.g. viewing images kept as evidence).
+func (s *Service) OpenAny(ctx context.Context, mediaID int64, thumb bool) (*File, error) {
+	return s.Open(ctx, &store.User{IsSiteAdmin: true}, mediaID, thumb)
+}
+
 // GC deletes media rows nobody refers to (after a grace period, so fresh
 // uploads that are about to be sent are kept) and blobs no row uses.
 func (s *Service) GC(ctx context.Context) (int, error) {

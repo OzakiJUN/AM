@@ -128,3 +128,49 @@ func (q *Queries) PurgeEvidence(ctx context.Context, now int64) (int64, error) {
 	}
 	return res.RowsAffected()
 }
+
+// EvidenceRow is an evidence entry with names resolved, for the admin panel.
+type EvidenceRow struct {
+	Evidence
+	SenderName  string
+	DeleterName string
+	ConvName    string
+	ConvKind    int16
+}
+
+// ListEvidence returns evidence entries, newest deletion first.
+func (q *Queries) ListEvidence(ctx context.Context, limit, offset int) ([]*EvidenceRow, int64, error) {
+	var total int64
+	if err := q.queryRow(ctx, `SELECT count(*) FROM evidence`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := q.query(ctx, `SELECT ev.event_id, ev.conv_id, ev.sender_id, ev.payload, COALESCE(ev.media_id, 0),
+		ev.deleted_by, ev.reason, ev.deleted_at, ev.purge_after,
+		COALESCE(s.display_name, ''), COALESCE(d.display_name, ''), COALESCE(c.name, ''), COALESCE(c.kind, 0)
+		FROM evidence ev
+		LEFT JOIN users s ON s.id = ev.sender_id
+		LEFT JOIN users d ON d.id = ev.deleted_by
+		LEFT JOIN conversations c ON c.id = ev.conv_id
+		ORDER BY ev.deleted_at DESC LIMIT ? OFFSET ?`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []*EvidenceRow
+	for rows.Next() {
+		e := &EvidenceRow{}
+		if err := rows.Scan(&e.EventID, &e.ConvID, &e.SenderID, &e.Payload, &e.MediaID, &e.DeletedBy, &e.Reason,
+			&e.DeletedAt, &e.PurgeAfter, &e.SenderName, &e.DeleterName, &e.ConvName, &e.ConvKind); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, e)
+	}
+	return out, total, rows.Err()
+}
+
+// EvidenceHasMedia reports whether a media item is referenced by evidence.
+func (q *Queries) EvidenceHasMedia(ctx context.Context, mediaID int64) (bool, error) {
+	var n int
+	err := q.queryRow(ctx, `SELECT count(*) FROM evidence WHERE media_id=?`, mediaID).Scan(&n)
+	return n > 0, err
+}

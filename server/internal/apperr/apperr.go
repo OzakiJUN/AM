@@ -63,4 +63,7 @@ var (
 	ErrGroupFull        = New(http.StatusForbidden, "group_full", "the group is full")
 	ErrNoJoinRequest    = New(http.StatusNotFound, "no_join_request", "no pending join request for this user")
 	ErrNotInGroup       = New(http.StatusNotFound, "not_in_group", "that user is not in this group")
+
+	ErrReasonRequired = New(http.StatusBadRequest, "reason_required", "a reason is required")
+	ErrNoPassword     = New(http.StatusBadRequest, "no_password", "this account does not use a password")
 )

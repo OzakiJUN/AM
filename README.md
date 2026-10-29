@@ -12,21 +12,22 @@ AM (AI Message) 是我和小克一起打造的新一代 AI 集成聊天工具，
 
 ## 自己搭服务器
 
-AM 是自建服务：下载服务器，在自己的电脑或云服务器上跑起来，邀请朋友用客户端连接。默认使用 SQLite，**不用装数据库，解压即用**；人多了可以切换到 PostgreSQL。
+AM 是自建服务：下载服务器，在自己的电脑或云服务器上跑起来，邀请朋友用客户端连接。服务器就是**一个文件**，默认使用 SQLite，不用装数据库；人多了可以切换到 PostgreSQL。
 
 看 [docs/server-setup.md](docs/server-setup.md)。简单说：
 
-1. 在 [Actions](../../actions) 里下载最新的 `am-windows-amd64.zip`，解压。
-2. 双击 `1_start_server.bat`，记下打印出来的邀请码和证书指纹。
-3. 双击 `2_testclient.bat`，用邀请码注册第一个账号（站点管理员）。
+1. 下载 `am-server.exe`（[Releases](../../releases)，或 [Actions](../../actions) 里的最新开发版）。
+2. 双击运行。右下角出现托盘图标，浏览器打开管理面板。
+3. 面板概览页有连接码、二维码和邀请码，复制整段邀请文字发给朋友就行。
 
 ## 当前进度
 
-第一阶段已完成两批：
+第一阶段已完成三批：
 - **后端核心**：邀请码注册、登录、多设备会话、好友、私聊、发消息、划掉、断线补消息、已读位置。
 - **群与媒体**：群聊与群管理、入群审批、管理员删除（留证据和审计日志）、登录记录、图片 / 文件 / GIF 头像、图片黑名单。
+- **服务器管理面板**：单文件 exe、托盘图标、网页管理面板（邀请、用户管理、删除记录、操作记录、日志、设置）、连接码 / 二维码、开机自启。
 
-现在可以用命令行测试客户端完整体验。下一批：服务器管理后台和连接码，然后是图形界面客户端。详见 [CHANGELOG.md](CHANGELOG.md) 和 [docs/design.md](docs/design.md)。
+现在可以用命令行测试客户端完整体验。下一批：图形界面客户端。详见 [CHANGELOG.md](CHANGELOG.md) 和 [docs/design.md](docs/design.md)。
 
 ## 目录
 
@@ -37,7 +38,10 @@ AM 是自建服务：下载服务器，在自己的电脑或云服务器上跑�
 | `gen/` | 由 proto 自动生成的代码，不要手改 |
 | `server/` | Go 后端 |
 | `sdk/go/amclient` | Go 客户端库（测试客户端、测试、Go 写的 bot 都用它） |
+| `server/internal/admin/web` | 管理面板网页（纯 JS，打包进 exe） |
+| `internal/connectcode` | 连接码格式（服务器和客户端共用） |
 | `tools/testclient` | 命令行测试客户端 |
+| `assets` | 图标及生成脚本 |
 | `scripts/windows` | Windows 启动脚本 |
 
 ## 开发

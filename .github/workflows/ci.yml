@@ -27,8 +27,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - uses: bufbuild/buf-action@v1
@@ -41,38 +41,54 @@ jobs:
           buf generate
           git diff --exit-code gen/
       - run: go vet ./...
+      - name: Vet the Windows build too
+        run: GOOS=windows go vet ./...
       - name: Test (with race detector)
         env:
           AM_TEST_DATABASE_URL: postgres://am:am@127.0.0.1:5432/am_test?sslmode=disable
         run: go test -race ./...
 
-  build-windows:
+  build:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - name: Windows exe icon and version info
+        # Cosmetic only: if this fails the exe simply has no icon.
+        continue-on-error: true
+        working-directory: server/cmd/am-server
+        run: go run github.com/tc-hib/go-winres@v0.3.3 make
       - name: Build
         env:
-          GOOS: windows
-          GOARCH: amd64
           CGO_ENABLED: "0"
         run: |
           VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
           mkdir -p dist/am
-          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/am/am-server.exe ./server/cmd/am-server
-          go build -trimpath -ldflags "-s -w" -o dist/am/am-testclient.exe ./tools/testclient
+          # Windows: GUI build (no console window; tray icon + admin panel).
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui -X main.version=${VERSION}" -o dist/am/am-server.exe ./server/cmd/am-server
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/am/am-testclient.exe ./tools/testclient
           cp scripts/windows/*.bat dist/am/
           cp docs/server-setup.md dist/am/README-server-setup.md
-          cd dist && zip -r am-windows-amd64.zip am
-      - uses: actions/upload-artifact@v4
+          cp dist/am/am-server.exe dist/am-server-windows-amd64.exe
+          (cd dist && zip -r am-windows-amd64.zip am)
+          # Linux server (headless, e.g. a cloud VPS).
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/am-server-linux-amd64 ./server/cmd/am-server
+      - uses: actions/upload-artifact@v7
         with:
           name: am-windows-amd64
           path: dist/am-windows-amd64.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: am-server-linux-amd64
+          path: dist/am-server-linux-amd64
       - name: Publish release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: dist/am-windows-amd64.zip
+          files: |
+            dist/am-windows-amd64.zip
+            dist/am-server-windows-amd64.exe
+            dist/am-server-linux-amd64

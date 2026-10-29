@@ -50,6 +50,19 @@ update the docs in the same commit.
 - No "overseas mode" switch in the client. An international version, if ever,
   is a fully separate deployment.
 - Account type (human / bot / ai) and owner are set by the server only.
+- `am-server` = `supervisor` (restartable chat-server loop, the admin panel
+  stays up even when the server fails to start) + `admin` (embedded panel on
+  `admin.listen`, loopback by default, key in `data/admin_key.txt`) +
+  `desktop` (tray, browser, autostart, message box; Windows-only code behind
+  build tags, no cgo). The Windows build uses `-H=windowsgui`; output goes to
+  the log sink (file + panel ring), and to the console only when one exists.
+- The admin panel UI is plain HTML/CSS/JS in `server/internal/admin/web`
+  (no build step, no external requests, CSP `self`). Build DOM with `el()`,
+  never `innerHTML` with server data. Panel JSON sends int64 ids as strings.
+  The panel API is internal (not in protocol.md); settings it may edit are
+  whitelisted in `admin/api.go` and written with `config.Apply` (keeps comments).
+- Site-admin actions (ban, reset password, panel invites) live in
+  `account/admin.go` and write the audit log; actor 0 = admin panel.
 
 ## Commands
 
@@ -58,7 +71,8 @@ buf lint && buf generate            # after editing proto (needs buf + protoc-ge
 go vet ./...
 go test -race ./...                 # e2e tests run on SQLite always
 AM_TEST_DATABASE_URL="postgres://...:5432/am_test?sslmode=disable" go test -race ./...   # + PostgreSQL
-go run ./server/cmd/am-server       # creates config.toml on first run
+go run ./server/cmd/am-server -headless   # creates config.toml on first run; prints the panel URL
+go run ./server/cmd/am-server panel       # print the admin panel login URL
 go run ./server/cmd/am-server setup-db
 go run ./tools/testclient -profile alice
 ```
@@ -83,6 +97,10 @@ schema. Never point it at a real database.
   `tls.mode = "files"`.
 - No Redis in stage 1 (single server, Windows). Add it when there is more
   than one gateway.
+- Relative paths in config.toml resolve against the config file's folder
+  (am-server chdirs there). On Windows the default config is next to the exe.
+- Connection codes (`am://connect?...`) are defined in `internal/connectcode`
+  and documented in docs/protocol.md.
 - Uploaded media lives under `data/media` (content-addressed by SHA-256);
   all file access goes through the `media` package so moving to object
   storage + CDN later touches only that package.
