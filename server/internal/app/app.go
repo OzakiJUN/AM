@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/config"
@@ -59,6 +60,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		return nil, err
 	}
 	acct := account.New(st, ids, cfg.Invites, hub, md)
+	acct.SetDeviceLimits(cfg.Limits.MaxDevices, time.Duration(cfg.Limits.PairCodeMinutes)*time.Minute)
 	ms := message.New(st, ids, hub, md, cfg.Limits, cfg.Retention)
 	cs := conv.New(st, ids, hub, ms, md, cfg.Limits, cfg.Server.DefaultChannel, log)
 	ps := presence.New(st, hub)

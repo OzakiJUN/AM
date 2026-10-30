@@ -45,6 +45,7 @@ message ServerFrame {
     ConvRemovedPush conv_removed = 33;
     JoinRequestPush join_request = 34;
     PresencePush presence = 35;
+    ClientStatePush client_state = 36;
   }
 }
 
@@ -162,4 +163,10 @@ message JoinRequestPush {
 // invisible, for everyone but the user and their own bot / ai accounts).
 message PresencePush {
   Presence presence = 1;
+}
+
+// One of my devices saved the state my devices share (PUT
+// /api/v1/me/client-state): load it again. Sent to all my connections.
+message ClientStatePush {
+  int64 updated_at = 1;
 }

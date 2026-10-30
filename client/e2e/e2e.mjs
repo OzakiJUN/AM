@@ -255,6 +255,40 @@ const pages = [];
   await B.waitForSelector('text=已连接');
   await B.waitForSelector('aside button:has-text("大厅")');
 
+  // 多设备: A makes a pairing code, a new device (C) logs in with it and
+  // gets A's servers, saved login and settings.
+  await A.click('button[aria-label="账号设置"]');
+  await A.click('button[role="radio"]:has-text("10 秒")'); // a setting that should come along
+  await A.click('button[role="radio"]:has-text("登录设备")');
+  await A.waitForSelector('text=已登录 1 / 3 台设备');
+  await A.click('button:has-text("添加新设备")');
+  await A.waitForSelector('div[role="dialog"] div.font-mono:has-text("AMP-")');
+  const pairCode = (await A.locator('div[role="dialog"] div.font-mono').textContent()).trim();
+  await wait(400);
+  await shot(A, '23-pair-code');
+  const C = await mk();
+  await C.goto(BASE + '/');
+  await C.click('button:has-text("从已有设备登录")');
+  await C.fill('textarea[aria-label="登录码"]', pairCode);
+  await C.click('form button[type="submit"]:has-text("登录")');
+  await C.waitForSelector('text=已连接');
+  await C.waitForSelector('text=已登录你所有的服务器');
+  await A.waitForSelector('text=新设备已登录', { timeout: 10000 });
+  await shot(A, '24-paired');
+  await A.click('div[role="dialog"] button:has-text("好的")');
+  await A.waitForSelector('text=已登录 2 / 3 台设备');
+  await C.click('button[aria-label="账号设置"]');
+  await C.waitForSelector('text=用户名 weiqi');
+  await C.waitForSelector('button[role="radio"][aria-checked="true"]:has-text("10 秒")');
+  // The code works once.
+  const D = await mk();
+  await D.goto(BASE + '/');
+  await D.click('button:has-text("从已有设备登录")');
+  await D.fill('textarea[aria-label="登录码"]', pairCode);
+  await D.click('form button[type="submit"]:has-text("登录")');
+  await D.waitForSelector('text=登录码不对、已经用过或者过期了');
+  await D.close();
+
   if (JOIN2) {
     // 资料同步: A joins a second server with "用我的资料" (saved login, no typing);
     // name, signature, status and the profile board are copied over.
@@ -288,6 +322,19 @@ const pages = [];
     await A.click('button[aria-label^="切换到 "]:not([aria-label="切换到 第二服"])');
     await A.click('button[aria-label="个人主页"]');
     await A.waitForSelector('text=两个服务器一个我');
+
+    // The paired device is offered the server A joined, and joins it with the saved login.
+    await C.click('button[aria-label="频道"]');
+    await C.waitForSelector('[aria-label="其他设备上有新服务器"]', { timeout: 15000 });
+    await C.click('button[aria-label="服务器列表"]');
+    await C.waitForSelector('text=你在另一台设备上加入了');
+    await wait(400);
+    await shot(C, '25-offer');
+    await C.click('button:has-text("加入")');
+    await C.waitForSelector('text=第二服');
+    await C.waitForSelector('text=已连接');
+    await C.click('button[aria-label="个人主页"]');
+    await C.waitForSelector('text=两个服务器一个我');
   }
   await b.close();
   console.log('E2E OK');

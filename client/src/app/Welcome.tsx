@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ClipboardPaste, ImageUp, KeyRound, LayoutDashboard, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ClipboardPaste, ImageUp, KeyRound, LayoutDashboard, MonitorSmartphone, Sparkles, X } from 'lucide-react';
 import { findJoinCode, parseJoinCode, type Join } from '@/lib/joincode';
+import { findPairCode } from '@/lib/paircode';
+import { redeemPairing } from '@/lib/devices';
 import { readClipboardText, scanQRFromFile } from '@/lib/platform';
 import { addServer, removeServer, switchServer, useApp } from '@/lib/store';
 import { endpointFromJoin, fetchServerInfo } from '@/lib/transport';
@@ -18,7 +20,7 @@ interface Found {
   name: string;
 }
 
-type Step = { kind: 'start' } | { kind: 'register'; found: Found } | { kind: 'login'; found: Found };
+type Step = { kind: 'start' } | { kind: 'register'; found: Found } | { kind: 'login'; found: Found } | { kind: 'pair'; code: string };
 
 /** Joins a server with a join code, then registers or logs in. */
 export function Welcome() {
@@ -46,7 +48,7 @@ export function Welcome() {
           >
             {step.kind === 'start' && (
               <>
-                <Start onFound={(found) => setStep({ kind: found.join.invite ? 'register' : 'login', found })} />
+                <Start onFound={(found) => setStep({ kind: found.join.invite ? 'register' : 'login', found })} onPair={(code) => setStep({ kind: 'pair', code })} />
                 <button
                   onClick={() => useApp.setState({ view: 'main' })}
                   className="press mx-auto mt-3 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[0.85rem] text-accent-700 hover:bg-accent-50 dark:text-accent-200 dark:hover:bg-white/5"
@@ -55,6 +57,7 @@ export function Welcome() {
                 </button>
               </>
             )}
+            {step.kind === 'pair' && <PairLogin initial={step.code} onBack={() => setStep({ kind: 'start' })} />}
             {step.kind === 'register' && (
               <Account mode="register" found={step.found} onBack={() => setStep({ kind: 'start' })} onSwitch={() => setStep({ kind: 'login', found: step.found })} />
             )}
@@ -76,8 +79,9 @@ async function resolve(code: string): Promise<Found> {
   return { join, name: info.name || join.address };
 }
 
-function Start({ onFound }: { onFound: (f: Found) => void }) {
+function Start({ onFound, onPair }: { onFound: (f: Found) => void; onPair: (code: string) => void }) {
   const [detected, setDetected] = useState<Found | null>(null);
+  const [pairCode, setPairCode] = useState('');
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -87,6 +91,8 @@ function Start({ onFound }: { onFound: (f: Found) => void }) {
   useEffect(() => {
     let alive = true;
     readClipboardText().then(async (clip) => {
+      const pc = clip && findPairCode(clip);
+      if (pc) return alive && setPairCode(pc);
       const code = clip && findJoinCode(clip);
       if (!code) return;
       try {
@@ -103,6 +109,8 @@ function Start({ onFound }: { onFound: (f: Found) => void }) {
 
   async function use(code: string) {
     setError('');
+    const pc = findPairCode(code);
+    if (pc) return onPair(pc);
     setBusy(true);
     try {
       onFound(await resolve(code));
@@ -115,7 +123,7 @@ function Start({ onFound }: { onFound: (f: Found) => void }) {
 
   async function fromImage(file: Blob) {
     const content = await scanQRFromFile(file).catch(() => null);
-    const code = content && findJoinCode(content);
+    const code = content && (findPairCode(content) ?? findJoinCode(content));
     if (!code) {
       setError('图片里没有找到加入码二维码');
       return;
@@ -140,7 +148,26 @@ function Start({ onFound }: { onFound: (f: Found) => void }) {
       </div>
 
       <AnimatePresence>
-        {detected && (
+        {pairCode && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 20 }}
+            transition={spring}
+            className="overflow-hidden rounded-2xl bg-gradient-to-br from-accent to-violet-500 p-[1.5px]"
+          >
+            <div className="flex items-center gap-3 rounded-[15px] bg-white/92 p-4 dark:bg-[#221f3c]/92">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-100 text-accent dark:bg-accent/20">
+                <MonitorSmartphone size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[0.8rem] text-ink-soft dark:text-white/50">在剪贴板里发现了登录码</div>
+                <div className="truncate font-semibold">用你另一台设备的账号登录</div>
+              </div>
+              <Button variant="primary" size="sm" onClick={() => onPair(pairCode)}>登录</Button>
+            </div>
+          </motion.div>
+        )}
+        {detected && !pairCode && (
           <motion.div
             initial={{ opacity: 0, height: 0, marginBottom: 0 }}
             animate={{ opacity: 1, height: 'auto', marginBottom: 20 }}
@@ -205,9 +232,14 @@ function Start({ onFound }: { onFound: (f: Found) => void }) {
         </Button>
       </form>
 
-      <Button variant="ghost" className="mt-3 w-full" onClick={() => fileRef.current?.click()}>
-        <ImageUp size={17} /> 选一张二维码图片
-      </Button>
+      <div className="mt-3 flex gap-2">
+        <Button variant="ghost" className="flex-1" onClick={() => fileRef.current?.click()}>
+          <ImageUp size={17} /> 选一张二维码图片
+        </Button>
+        <Button variant="ghost" className="flex-1" onClick={() => onPair('')}>
+          <MonitorSmartphone size={17} /> 从已有设备登录
+        </Button>
+      </div>
       <p className="mt-4 text-center text-[0.8rem] text-ink-soft/80 dark:text-white/40">已经有账号？向服主要一个服务器码，粘贴到上面就能登录</p>
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && fromImage(e.target.files[0])} />
     </>
@@ -357,4 +389,72 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
 function SourceAvatar({ user, serverId }: { user: User; serverId: string }) {
   const src = useMediaUrl(user.avatarStatic, serverId);
   return <Avatar src={src} name={user.name} size={40} />;
+}
+
+/** "从已有设备登录": a pairing code made on my other device (lib/devices.ts). */
+function PairLogin({ initial, onBack }: { initial: string; onBack: () => void }) {
+  const [text, setText] = useState(initial);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function go(code: string) {
+    if (busy) return;
+    setError('');
+    setBusy(true);
+    try {
+      const later = await redeemPairing(code);
+      useApp.setState({ page: 'channels' });
+      toast(later.length ? `已登录。这些服务器要输一次密码：${later.join('、')}` : '已登录你所有的服务器', later.length > 0);
+    } catch (e) {
+      setError(errorText(e));
+      setBusy(false);
+    }
+  }
+
+  async function fromImage(file: Blob) {
+    const content = await scanQRFromFile(file).catch(() => null);
+    const code = content && findPairCode(content);
+    if (!code) return setError('图片里没有找到登录码二维码');
+    setText(code);
+    go(code);
+  }
+
+  return (
+    <>
+      <div className="mb-5 flex items-center gap-3">
+        <button onClick={onBack} aria-label="返回" className="press rounded-xl p-2 text-ink-soft hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/10">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="text-[1.15rem] font-semibold">从已有设备登录</div>
+      </div>
+      <p className="mb-4 text-[0.88rem] text-ink-soft dark:text-white/60">
+        在已经登录的设备上打开 账号设置 → 登录设备 → 添加新设备，把登录码粘贴到这里，或者扫二维码。你的所有服务器、保存的密码和个性化设置会一起过来。
+      </p>
+      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (text.trim()) go(text); }}>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onPaste={(e) => {
+            const img = [...e.clipboardData.items].find((i) => i.type.startsWith('image/'))?.getAsFile();
+            if (img) {
+              e.preventDefault();
+              fromImage(img);
+            }
+          }}
+          placeholder="AMP-XXXX-XXXX-…（也可以直接粘贴二维码截图）"
+          rows={4}
+          spellCheck={false}
+          aria-label="登录码"
+          className={cx('resize-none py-3 font-mono text-[0.85rem]', inputClass)}
+        />
+        {error && <p className="text-[0.85rem] text-rose-500" role="alert">{error}</p>}
+        <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} disabled={!text.trim()}>登录</Button>
+      </form>
+      <Button variant="ghost" className="mt-3 w-full" onClick={() => fileRef.current?.click()}>
+        <ImageUp size={17} /> 选一张二维码图片
+      </Button>
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && fromImage(e.target.files[0])} />
+    </>
+  );
 }

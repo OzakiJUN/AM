@@ -864,6 +864,8 @@ const SETTINGS = [
     { k: 'limits.max_group_members', label: '群人数上限', type: 'int', min: 2 },
     { k: 'limits.max_upload_mb', label: '单个文件最大（MB）', type: 'int', min: 1 },
     { k: 'limits.login_attempts_per_minute', label: '每个 IP 每分钟登录次数', help: '防止有人猜密码，0 表示不限', type: 'int', min: 0 },
+    { k: 'limits.max_devices', label: '每个账号最多登录几台设备', help: '电脑、手机都算，bot / AI 账号不算。满了以后要先在一台设备上退出才能登录新设备。0 表示不限', type: 'int', min: 0, max: 50 },
+    { k: 'limits.pair_code_minutes', label: '添加新设备的登录码有效几分钟', type: 'int', min: 1, max: 60 },
   ] },
   { title: '留存', items: [
     { k: 'retention.evidence_days', label: '删除记录保留天数', help: '被删除消息的原内容保留多久，法规要求至少 180 天', type: 'int', min: 1, warnBelow: 180 },

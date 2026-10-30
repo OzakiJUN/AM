@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/api.proto.
  */
 export const file_am_v1_api: GenFile = /*@__PURE__*/
-  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiPgoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJIk8KClNlcnZlckluZm8SDAoEbmFtZRgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGRvd25sb2FkX3VybBgDIAEoCRIMCgRpY29uGAQgASgJIrwBCg1TZXJ2ZXJQcm9maWxlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSDAoEaWNvbhgDIAEoCRIUCgxtZW1iZXJfY291bnQYBCABKAUSFAoMb25saW5lX2NvdW50GAUgASgFEi0KDmxheW91dF9lZGl0b3JzGAYgASgOMhUuYW0udjEuUHJvZmlsZUVkaXRvcnMSHwoXd2lkZ2V0X2NvbnRlbnRfZWRpdGFibGUYByABKAgicQoTTGlzdEZyaWVuZHNSZXNwb25zZRIcCgdmcmllbmRzGAEgAygLMgsuYW0udjEuVXNlchIdCghpbmNvbWluZxgCIAMoCzILLmFtLnYxLlVzZXISHQoIb3V0Z29pbmcYAyADKAsyCy5hbS52MS5Vc2VyIiEKDUZyaWVuZFJlcXVlc3QSEAoIdXNlcm5hbWUYASABKAkiHwoMRnJpZW5kQWNjZXB0Eg8KB3VzZXJfaWQYASABKAMiIAoNT3BlbkRNUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIkMKEUxpc3RVc2Vyc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlchISCgpuZXh0X2FmdGVyGAIgASgDIjAKEkxpc3RCbG9ja3NSZXNwb25zZRIaCgV1c2VycxgBIAMoCzILLmFtLnYxLlVzZXIijgEKFFVwZGF0ZVByb2ZpbGVSZXF1ZXN0EhkKDGRpc3BsYXlfbmFtZRgBIAEoCUgAiAEBEhwKD2F2YXRhcl9tZWRpYV9pZBgCIAEoA0gBiAEBEhAKA2JpbxgDIAEoCUgCiAEBQg8KDV9kaXNwbGF5X25hbWVCEgoQX2F2YXRhcl9tZWRpYV9pZEIGCgRfYmlvIkoKElNldFByZXNlbmNlUmVxdWVzdBIRCglpbnZpc2libGUYASABKAgSIQoIYWN0aXZpdHkYAiABKAsyDy5hbS52MS5BY3Rpdml0eSI/ChhMaXN0TG9naW5SZWNvcmRzUmVzcG9uc2USIwoHcmVjb3JkcxgBIAMoCzISLmFtLnYxLkxvZ2luUmVjb3JkIlAKC0xvZ2luUmVjb3JkEgwKBGtpbmQYASABKAkSCgoCaXAYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyJGChJDcmVhdGVHcm91cFJlcXVlc3QSDAoEbmFtZRgBIAEoCRISCgptZW1iZXJfaWRzGAIgAygDEg4KBnB1YmxpYxgDIAEoCCI8ChRMaXN0Q2hhbm5lbHNSZXNwb25zZRIkCghjaGFubmVscxgBIAMoCzISLmFtLnYxLkNoYW5uZWxJbmZvIm0KC0NoYW5uZWxJbmZvEgoKAmlkGAEgASgDEgwKBG5hbWUYAiABKAkSDgoGYXZhdGFyGAMgASgJEg4KBm5vdGljZRgEIAEoCRIUCgxtZW1iZXJfY291bnQYBSABKAUSDgoGam9pbmVkGAYgASgIIigKFEludml0ZU1lbWJlcnNSZXF1ZXN0EhAKCHVzZXJfaWRzGAEgAygDIjkKFUludml0ZU1lbWJlcnNSZXNwb25zZRINCgVhZGRlZBgBIAMoAxIRCglyZXF1ZXN0ZWQYAiADKAMisAEKElVwZGF0ZUdyb3VwUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEwoGbm90aWNlGAMgASgJSAKIAQESGgoNam9pbl9hcHByb3ZhbBgEIAEoCEgDiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbCInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIj4KEU11dGVNZW1iZXJSZXF1ZXN0Eg8KB3VzZXJfaWQYASABKAMSGAoQZHVyYXRpb25fc2Vjb25kcxgCIAEoAyJEChhMaXN0Sm9pblJlcXVlc3RzUmVzcG9uc2USKAoIcmVxdWVzdHMYASADKAsyFi5hbS52MS5Kb2luUmVxdWVzdEluZm8iXgoPSm9pblJlcXVlc3RJbmZvEhkKBHVzZXIYASABKAsyCy5hbS52MS5Vc2VyEhwKB2ludml0ZXIYAiABKAsyCy5hbS52MS5Vc2VyEhIKCmNyZWF0ZWRfYXQYAyABKAMiOQoSQWRtaW5EZWxldGVSZXF1ZXN0Eg4KBnJlYXNvbhgBIAEoCRITCgtibG9ja19tZWRpYRgCIAEoCCKSAQoJTWVkaWFJbmZvEgoKAmlkGAEgASgDEgwKBG1pbWUYAiABKAkSDAoEc2l6ZRgDIAEoAxINCgV3aWR0aBgEIAEoBRIOCgZoZWlnaHQYBSABKAUSDAoEbmFtZRgGIAEoCRIQCghpc19pbWFnZRgHIAEoCBILCgN1cmwYCCABKAkSEQoJdGh1bWJfdXJsGAkgASgJIgcKBUVtcHR5KmsKDlByb2ZpbGVFZGl0b3JzEh8KG1BST0ZJTEVfRURJVE9SU19VTlNQRUNJRklFRBAAEhoKFlBST0ZJTEVfRURJVE9SU19BRE1JTlMQARIcChhQUk9GSUxFX0VESVRPUlNfRVZFUllPTkUQAkIqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM", [file_am_v1_common]);
+  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiUwoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uEhMKC21heF9kZXZpY2VzGAIgASgFIikKF0NyZWF0ZVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBmJ1bmRsZRgBIAEoDCIwCgpQYWlyVGlja2V0Eg4KBnRpY2tldBgBIAEoCRISCgpleHBpcmVzX2F0GAIgASgDIj4KF1JlZGVlbVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBnRpY2tldBgBIAEoCRITCgtkZXZpY2VfbmFtZRgCIAEoCSJMChJQYWlyUmVkZWVtUmVzcG9uc2USDQoFdG9rZW4YASABKAkSFwoCbWUYAiABKAsyCy5hbS52MS5Vc2VyEg4KBmJ1bmRsZRgDIAEoDCIvCgtDbGllbnRTdGF0ZRIMCgRkYXRhGAEgASgMEhIKCnVwZGF0ZWRfYXQYAiABKAMiPgoVUHV0Q2xpZW50U3RhdGVSZXF1ZXN0EgwKBGRhdGEYASABKAwSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJIk8KClNlcnZlckluZm8SDAoEbmFtZRgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGRvd25sb2FkX3VybBgDIAEoCRIMCgRpY29uGAQgASgJIrwBCg1TZXJ2ZXJQcm9maWxlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSDAoEaWNvbhgDIAEoCRIUCgxtZW1iZXJfY291bnQYBCABKAUSFAoMb25saW5lX2NvdW50GAUgASgFEi0KDmxheW91dF9lZGl0b3JzGAYgASgOMhUuYW0udjEuUHJvZmlsZUVkaXRvcnMSHwoXd2lkZ2V0X2NvbnRlbnRfZWRpdGFibGUYByABKAgicQoTTGlzdEZyaWVuZHNSZXNwb25zZRIcCgdmcmllbmRzGAEgAygLMgsuYW0udjEuVXNlchIdCghpbmNvbWluZxgCIAMoCzILLmFtLnYxLlVzZXISHQoIb3V0Z29pbmcYAyADKAsyCy5hbS52MS5Vc2VyIiEKDUZyaWVuZFJlcXVlc3QSEAoIdXNlcm5hbWUYASABKAkiHwoMRnJpZW5kQWNjZXB0Eg8KB3VzZXJfaWQYASABKAMiIAoNT3BlbkRNUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIkMKEUxpc3RVc2Vyc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlchISCgpuZXh0X2FmdGVyGAIgASgDIjAKEkxpc3RCbG9ja3NSZXNwb25zZRIaCgV1c2VycxgBIAMoCzILLmFtLnYxLlVzZXIijgEKFFVwZGF0ZVByb2ZpbGVSZXF1ZXN0EhkKDGRpc3BsYXlfbmFtZRgBIAEoCUgAiAEBEhwKD2F2YXRhcl9tZWRpYV9pZBgCIAEoA0gBiAEBEhAKA2JpbxgDIAEoCUgCiAEBQg8KDV9kaXNwbGF5X25hbWVCEgoQX2F2YXRhcl9tZWRpYV9pZEIGCgRfYmlvIkoKElNldFByZXNlbmNlUmVxdWVzdBIRCglpbnZpc2libGUYASABKAgSIQoIYWN0aXZpdHkYAiABKAsyDy5hbS52MS5BY3Rpdml0eSI/ChhMaXN0TG9naW5SZWNvcmRzUmVzcG9uc2USIwoHcmVjb3JkcxgBIAMoCzISLmFtLnYxLkxvZ2luUmVjb3JkIlAKC0xvZ2luUmVjb3JkEgwKBGtpbmQYASABKAkSCgoCaXAYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyJGChJDcmVhdGVHcm91cFJlcXVlc3QSDAoEbmFtZRgBIAEoCRISCgptZW1iZXJfaWRzGAIgAygDEg4KBnB1YmxpYxgDIAEoCCI8ChRMaXN0Q2hhbm5lbHNSZXNwb25zZRIkCghjaGFubmVscxgBIAMoCzISLmFtLnYxLkNoYW5uZWxJbmZvIm0KC0NoYW5uZWxJbmZvEgoKAmlkGAEgASgDEgwKBG5hbWUYAiABKAkSDgoGYXZhdGFyGAMgASgJEg4KBm5vdGljZRgEIAEoCRIUCgxtZW1iZXJfY291bnQYBSABKAUSDgoGam9pbmVkGAYgASgIIigKFEludml0ZU1lbWJlcnNSZXF1ZXN0EhAKCHVzZXJfaWRzGAEgAygDIjkKFUludml0ZU1lbWJlcnNSZXNwb25zZRINCgVhZGRlZBgBIAMoAxIRCglyZXF1ZXN0ZWQYAiADKAMisAEKElVwZGF0ZUdyb3VwUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEwoGbm90aWNlGAMgASgJSAKIAQESGgoNam9pbl9hcHByb3ZhbBgEIAEoCEgDiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbCInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIj4KEU11dGVNZW1iZXJSZXF1ZXN0Eg8KB3VzZXJfaWQYASABKAMSGAoQZHVyYXRpb25fc2Vjb25kcxgCIAEoAyJEChhMaXN0Sm9pblJlcXVlc3RzUmVzcG9uc2USKAoIcmVxdWVzdHMYASADKAsyFi5hbS52MS5Kb2luUmVxdWVzdEluZm8iXgoPSm9pblJlcXVlc3RJbmZvEhkKBHVzZXIYASABKAsyCy5hbS52MS5Vc2VyEhwKB2ludml0ZXIYAiABKAsyCy5hbS52MS5Vc2VyEhIKCmNyZWF0ZWRfYXQYAyABKAMiOQoSQWRtaW5EZWxldGVSZXF1ZXN0Eg4KBnJlYXNvbhgBIAEoCRITCgtibG9ja19tZWRpYRgCIAEoCCKSAQoJTWVkaWFJbmZvEgoKAmlkGAEgASgDEgwKBG1pbWUYAiABKAkSDAoEc2l6ZRgDIAEoAxINCgV3aWR0aBgEIAEoBRIOCgZoZWlnaHQYBSABKAUSDAoEbmFtZRgGIAEoCRIQCghpc19pbWFnZRgHIAEoCBILCgN1cmwYCCABKAkSEQoJdGh1bWJfdXJsGAkgASgJIgcKBUVtcHR5KmsKDlByb2ZpbGVFZGl0b3JzEh8KG1BST0ZJTEVfRURJVE9SU19VTlNQRUNJRklFRBAAEhoKFlBST0ZJTEVfRURJVE9SU19BRE1JTlMQARIcChhQUk9GSUxFX0VESVRPUlNfRVZFUllPTkUQAkIqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM", [file_am_v1_common]);
 
 /**
  * POST /api/v1/register
@@ -124,6 +124,14 @@ export type ListSessionsResponse = Message<"am.v1.ListSessionsResponse"> & {
    * @generated from field: repeated am.v1.DeviceSession sessions = 1;
    */
   sessions: DeviceSession[];
+
+  /**
+   * Most devices a human account may be logged in on (limits.max_devices);
+   * 0 = no limit.
+   *
+   * @generated from field: int32 max_devices = 2;
+   */
+  maxDevices: number;
 };
 
 /**
@@ -132,6 +140,155 @@ export type ListSessionsResponse = Message<"am.v1.ListSessionsResponse"> & {
  */
 export const ListSessionsResponseSchema: GenMessage<ListSessionsResponse> = /*@__PURE__*/
   messageDesc(file_am_v1_api, 3);
+
+/**
+ * POST /api/v1/pair: a one-time ticket that logs in a new device of mine
+ * (docs/design.md §7, 多设备). Refused with too_many_devices when the
+ * account is already on limits.max_devices devices. A new ticket replaces
+ * the previous unused one.
+ *
+ * @generated from message am.v1.CreatePairTicketRequest
+ */
+export type CreatePairTicketRequest = Message<"am.v1.CreatePairTicketRequest"> & {
+  /**
+   * Encrypted data for the new device, at most 32 KiB; kept with the ticket
+   * and handed over when it is redeemed. Opaque to the server.
+   *
+   * @generated from field: bytes bundle = 1;
+   */
+  bundle: Uint8Array;
+};
+
+/**
+ * Describes the message am.v1.CreatePairTicketRequest.
+ * Use `create(CreatePairTicketRequestSchema)` to create a new message.
+ */
+export const CreatePairTicketRequestSchema: GenMessage<CreatePairTicketRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 4);
+
+/**
+ * @generated from message am.v1.PairTicket
+ */
+export type PairTicket = Message<"am.v1.PairTicket"> & {
+  /**
+   * @generated from field: string ticket = 1;
+   */
+  ticket: string;
+
+  /**
+   * @generated from field: int64 expires_at = 2;
+   */
+  expiresAt: bigint;
+};
+
+/**
+ * Describes the message am.v1.PairTicket.
+ * Use `create(PairTicketSchema)` to create a new message.
+ */
+export const PairTicketSchema: GenMessage<PairTicket> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 5);
+
+/**
+ * POST /api/v1/pair/redeem (no token): uses up the ticket and logs the new
+ * device in. invalid_pair_code when it is wrong, used or expired.
+ *
+ * @generated from message am.v1.RedeemPairTicketRequest
+ */
+export type RedeemPairTicketRequest = Message<"am.v1.RedeemPairTicketRequest"> & {
+  /**
+   * @generated from field: string ticket = 1;
+   */
+  ticket: string;
+
+  /**
+   * @generated from field: string device_name = 2;
+   */
+  deviceName: string;
+};
+
+/**
+ * Describes the message am.v1.RedeemPairTicketRequest.
+ * Use `create(RedeemPairTicketRequestSchema)` to create a new message.
+ */
+export const RedeemPairTicketRequestSchema: GenMessage<RedeemPairTicketRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 6);
+
+/**
+ * @generated from message am.v1.PairRedeemResponse
+ */
+export type PairRedeemResponse = Message<"am.v1.PairRedeemResponse"> & {
+  /**
+   * @generated from field: string token = 1;
+   */
+  token: string;
+
+  /**
+   * @generated from field: am.v1.User me = 2;
+   */
+  me?: User | undefined;
+
+  /**
+   * @generated from field: bytes bundle = 3;
+   */
+  bundle: Uint8Array;
+};
+
+/**
+ * Describes the message am.v1.PairRedeemResponse.
+ * Use `create(PairRedeemResponseSchema)` to create a new message.
+ */
+export const PairRedeemResponseSchema: GenMessage<PairRedeemResponse> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 7);
+
+/**
+ * GET /api/v1/me/client-state: data shared by my devices (the list of my
+ * servers), encrypted by the client. Empty data and updated_at 0 = none yet.
+ *
+ * @generated from message am.v1.ClientState
+ */
+export type ClientState = Message<"am.v1.ClientState"> & {
+  /**
+   * @generated from field: bytes data = 1;
+   */
+  data: Uint8Array;
+
+  /**
+   * @generated from field: int64 updated_at = 2;
+   */
+  updatedAt: bigint;
+};
+
+/**
+ * Describes the message am.v1.ClientState.
+ * Use `create(ClientStateSchema)` to create a new message.
+ */
+export const ClientStateSchema: GenMessage<ClientState> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 8);
+
+/**
+ * PUT /api/v1/me/client-state (replies ClientState). At most 32 KiB.
+ * state_conflict when another device saved since base_updated_at.
+ *
+ * @generated from message am.v1.PutClientStateRequest
+ */
+export type PutClientStateRequest = Message<"am.v1.PutClientStateRequest"> & {
+  /**
+   * @generated from field: bytes data = 1;
+   */
+  data: Uint8Array;
+
+  /**
+   * @generated from field: int64 base_updated_at = 2;
+   */
+  baseUpdatedAt: bigint;
+};
+
+/**
+ * Describes the message am.v1.PutClientStateRequest.
+ * Use `create(PutClientStateRequestSchema)` to create a new message.
+ */
+export const PutClientStateRequestSchema: GenMessage<PutClientStateRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 9);
 
 /**
  * @generated from message am.v1.DeviceSession
@@ -170,7 +327,7 @@ export type DeviceSession = Message<"am.v1.DeviceSession"> & {
  * Use `create(DeviceSessionSchema)` to create a new message.
  */
 export const DeviceSessionSchema: GenMessage<DeviceSession> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 4);
+  messageDesc(file_am_v1_api, 10);
 
 /**
  * GET /api/v1/invites   (list my codes)
@@ -197,7 +354,7 @@ export type ListInvitesResponse = Message<"am.v1.ListInvitesResponse"> & {
  * Use `create(ListInvitesResponseSchema)` to create a new message.
  */
 export const ListInvitesResponseSchema: GenMessage<ListInvitesResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 5);
+  messageDesc(file_am_v1_api, 11);
 
 /**
  * @generated from message am.v1.Invite
@@ -247,7 +404,7 @@ export type Invite = Message<"am.v1.Invite"> & {
  * Use `create(InviteSchema)` to create a new message.
  */
 export const InviteSchema: GenMessage<Invite> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 6);
+  messageDesc(file_am_v1_api, 12);
 
 /**
  * GET /api/v1/server (no login needed)
@@ -285,7 +442,7 @@ export type ServerInfo = Message<"am.v1.ServerInfo"> & {
  * Use `create(ServerInfoSchema)` to create a new message.
  */
 export const ServerInfoSchema: GenMessage<ServerInfo> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 7);
+  messageDesc(file_am_v1_api, 13);
 
 /**
  * GET /api/v1/server/profile: the server's profile page. Set up by the site
@@ -344,7 +501,7 @@ export type ServerProfile = Message<"am.v1.ServerProfile"> & {
  * Use `create(ServerProfileSchema)` to create a new message.
  */
 export const ServerProfileSchema: GenMessage<ServerProfile> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 8);
+  messageDesc(file_am_v1_api, 14);
 
 /**
  * Removed: GET /api/v1/friends
@@ -373,7 +530,7 @@ export type ListFriendsResponse = Message<"am.v1.ListFriendsResponse"> & {
  * Use `create(ListFriendsResponseSchema)` to create a new message.
  */
 export const ListFriendsResponseSchema: GenMessage<ListFriendsResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 9);
+  messageDesc(file_am_v1_api, 15);
 
 /**
  * Removed: POST /api/v1/friends/request
@@ -392,7 +549,7 @@ export type FriendRequest = Message<"am.v1.FriendRequest"> & {
  * Use `create(FriendRequestSchema)` to create a new message.
  */
 export const FriendRequestSchema: GenMessage<FriendRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 10);
+  messageDesc(file_am_v1_api, 16);
 
 /**
  * Removed: POST /api/v1/friends/accept
@@ -411,7 +568,7 @@ export type FriendAccept = Message<"am.v1.FriendAccept"> & {
  * Use `create(FriendAcceptSchema)` to create a new message.
  */
 export const FriendAcceptSchema: GenMessage<FriendAccept> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 11);
+  messageDesc(file_am_v1_api, 17);
 
 /**
  * POST /api/v1/dm   -> Conversation
@@ -432,7 +589,7 @@ export type OpenDMRequest = Message<"am.v1.OpenDMRequest"> & {
  * Use `create(OpenDMRequestSchema)` to create a new message.
  */
 export const OpenDMRequestSchema: GenMessage<OpenDMRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 12);
+  messageDesc(file_am_v1_api, 18);
 
 /**
  * GET /api/v1/users?query=&after=&limit=   -> ListUsersResponse
@@ -460,7 +617,7 @@ export type ListUsersResponse = Message<"am.v1.ListUsersResponse"> & {
  * Use `create(ListUsersResponseSchema)` to create a new message.
  */
 export const ListUsersResponseSchema: GenMessage<ListUsersResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 13);
+  messageDesc(file_am_v1_api, 19);
 
 /**
  * GET    /api/v1/blocks             -> ListBlocksResponse
@@ -482,7 +639,7 @@ export type ListBlocksResponse = Message<"am.v1.ListBlocksResponse"> & {
  * Use `create(ListBlocksResponseSchema)` to create a new message.
  */
 export const ListBlocksResponseSchema: GenMessage<ListBlocksResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 14);
+  messageDesc(file_am_v1_api, 20);
 
 /**
  * PATCH /api/v1/me   -> User
@@ -515,7 +672,7 @@ export type UpdateProfileRequest = Message<"am.v1.UpdateProfileRequest"> & {
  * Use `create(UpdateProfileRequestSchema)` to create a new message.
  */
 export const UpdateProfileRequestSchema: GenMessage<UpdateProfileRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 15);
+  messageDesc(file_am_v1_api, 21);
 
 /**
  * PUT /api/v1/me/presence -> Presence (as the user themselves sees it).
@@ -545,7 +702,7 @@ export type SetPresenceRequest = Message<"am.v1.SetPresenceRequest"> & {
  * Use `create(SetPresenceRequestSchema)` to create a new message.
  */
 export const SetPresenceRequestSchema: GenMessage<SetPresenceRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 16);
+  messageDesc(file_am_v1_api, 22);
 
 /**
  * GET /api/v1/me/logins
@@ -564,7 +721,7 @@ export type ListLoginRecordsResponse = Message<"am.v1.ListLoginRecordsResponse">
  * Use `create(ListLoginRecordsResponseSchema)` to create a new message.
  */
 export const ListLoginRecordsResponseSchema: GenMessage<ListLoginRecordsResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 17);
+  messageDesc(file_am_v1_api, 23);
 
 /**
  * @generated from message am.v1.LoginRecord
@@ -598,7 +755,7 @@ export type LoginRecord = Message<"am.v1.LoginRecord"> & {
  * Use `create(LoginRecordSchema)` to create a new message.
  */
 export const LoginRecordSchema: GenMessage<LoginRecord> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 18);
+  messageDesc(file_am_v1_api, 24);
 
 /**
  * POST /api/v1/groups   -> Conversation
@@ -630,7 +787,7 @@ export type CreateGroupRequest = Message<"am.v1.CreateGroupRequest"> & {
  * Use `create(CreateGroupRequestSchema)` to create a new message.
  */
 export const CreateGroupRequestSchema: GenMessage<CreateGroupRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 19);
+  messageDesc(file_am_v1_api, 25);
 
 /**
  * GET /api/v1/channels   -> ListChannelsResponse
@@ -650,7 +807,7 @@ export type ListChannelsResponse = Message<"am.v1.ListChannelsResponse"> & {
  * Use `create(ListChannelsResponseSchema)` to create a new message.
  */
 export const ListChannelsResponseSchema: GenMessage<ListChannelsResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 20);
+  messageDesc(file_am_v1_api, 26);
 
 /**
  * @generated from message am.v1.ChannelInfo
@@ -694,7 +851,7 @@ export type ChannelInfo = Message<"am.v1.ChannelInfo"> & {
  * Use `create(ChannelInfoSchema)` to create a new message.
  */
 export const ChannelInfoSchema: GenMessage<ChannelInfo> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 21);
+  messageDesc(file_am_v1_api, 27);
 
 /**
  * POST /api/v1/groups/{id}/members
@@ -715,7 +872,7 @@ export type InviteMembersRequest = Message<"am.v1.InviteMembersRequest"> & {
  * Use `create(InviteMembersRequestSchema)` to create a new message.
  */
 export const InviteMembersRequestSchema: GenMessage<InviteMembersRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 22);
+  messageDesc(file_am_v1_api, 28);
 
 /**
  * @generated from message am.v1.InviteMembersResponse
@@ -737,7 +894,7 @@ export type InviteMembersResponse = Message<"am.v1.InviteMembersResponse"> & {
  * Use `create(InviteMembersResponseSchema)` to create a new message.
  */
 export const InviteMembersResponseSchema: GenMessage<InviteMembersResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 23);
+  messageDesc(file_am_v1_api, 29);
 
 /**
  * PATCH /api/v1/groups/{id}   -> Conversation
@@ -773,7 +930,7 @@ export type UpdateGroupRequest = Message<"am.v1.UpdateGroupRequest"> & {
  * Use `create(UpdateGroupRequestSchema)` to create a new message.
  */
 export const UpdateGroupRequestSchema: GenMessage<UpdateGroupRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 24);
+  messageDesc(file_am_v1_api, 30);
 
 /**
  * POST /api/v1/groups/{id}/transfer   -> Empty   (owner only)
@@ -792,7 +949,7 @@ export type TransferGroupRequest = Message<"am.v1.TransferGroupRequest"> & {
  * Use `create(TransferGroupRequestSchema)` to create a new message.
  */
 export const TransferGroupRequestSchema: GenMessage<TransferGroupRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 25);
+  messageDesc(file_am_v1_api, 31);
 
 /**
  * POST /api/v1/groups/{id}/mute   -> Empty
@@ -818,7 +975,7 @@ export type MuteMemberRequest = Message<"am.v1.MuteMemberRequest"> & {
  * Use `create(MuteMemberRequestSchema)` to create a new message.
  */
 export const MuteMemberRequestSchema: GenMessage<MuteMemberRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 26);
+  messageDesc(file_am_v1_api, 32);
 
 /**
  * GET /api/v1/groups/{id}/requests
@@ -837,7 +994,7 @@ export type ListJoinRequestsResponse = Message<"am.v1.ListJoinRequestsResponse">
  * Use `create(ListJoinRequestsResponseSchema)` to create a new message.
  */
 export const ListJoinRequestsResponseSchema: GenMessage<ListJoinRequestsResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 27);
+  messageDesc(file_am_v1_api, 33);
 
 /**
  * @generated from message am.v1.JoinRequestInfo
@@ -864,7 +1021,7 @@ export type JoinRequestInfo = Message<"am.v1.JoinRequestInfo"> & {
  * Use `create(JoinRequestInfoSchema)` to create a new message.
  */
 export const JoinRequestInfoSchema: GenMessage<JoinRequestInfo> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 28);
+  messageDesc(file_am_v1_api, 34);
 
 /**
  * POST /api/v1/events/{event_id}/delete   -> Empty
@@ -891,7 +1048,7 @@ export type AdminDeleteRequest = Message<"am.v1.AdminDeleteRequest"> & {
  * Use `create(AdminDeleteRequestSchema)` to create a new message.
  */
 export const AdminDeleteRequestSchema: GenMessage<AdminDeleteRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 29);
+  messageDesc(file_am_v1_api, 35);
 
 /**
  * POST /api/v1/media   (multipart/form-data, field "file")  -> MediaInfo
@@ -952,7 +1109,7 @@ export type MediaInfo = Message<"am.v1.MediaInfo"> & {
  * Use `create(MediaInfoSchema)` to create a new message.
  */
 export const MediaInfoSchema: GenMessage<MediaInfo> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 30);
+  messageDesc(file_am_v1_api, 36);
 
 /**
  * @generated from message am.v1.Empty
@@ -965,7 +1122,7 @@ export type Empty = Message<"am.v1.Empty"> & {
  * Use `create(EmptySchema)` to create a new message.
  */
 export const EmptySchema: GenMessage<Empty> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 31);
+  messageDesc(file_am_v1_api, 37);
 
 /**
  * Who may rearrange the widgets on the server profile.

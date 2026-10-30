@@ -41,6 +41,53 @@ message SessionResponse {
 // GET /api/v1/sessions
 message ListSessionsResponse {
   repeated DeviceSession sessions = 1;
+  // Most devices a human account may be logged in on (limits.max_devices);
+  // 0 = no limit.
+  int32 max_devices = 2;
+}
+
+// POST /api/v1/logout logs out the device making the request (empty body).
+
+// POST /api/v1/pair: a one-time ticket that logs in a new device of mine
+// (docs/design.md §7, 多设备). Refused with too_many_devices when the
+// account is already on limits.max_devices devices. A new ticket replaces
+// the previous unused one.
+message CreatePairTicketRequest {
+  // Encrypted data for the new device, at most 32 KiB; kept with the ticket
+  // and handed over when it is redeemed. Opaque to the server.
+  bytes bundle = 1;
+}
+
+message PairTicket {
+  string ticket = 1;
+  int64 expires_at = 2;
+}
+
+// POST /api/v1/pair/redeem (no token): uses up the ticket and logs the new
+// device in. invalid_pair_code when it is wrong, used or expired.
+message RedeemPairTicketRequest {
+  string ticket = 1;
+  string device_name = 2;
+}
+
+message PairRedeemResponse {
+  string token = 1;
+  User me = 2;
+  bytes bundle = 3;
+}
+
+// GET /api/v1/me/client-state: data shared by my devices (the list of my
+// servers), encrypted by the client. Empty data and updated_at 0 = none yet.
+message ClientState {
+  bytes data = 1;
+  int64 updated_at = 2;
+}
+
+// PUT /api/v1/me/client-state (replies ClientState). At most 32 KiB.
+// state_conflict when another device saved since base_updated_at.
+message PutClientStateRequest {
+  bytes data = 1;
+  int64 base_updated_at = 2;
 }
 
 message DeviceSession {

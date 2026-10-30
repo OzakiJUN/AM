@@ -8,12 +8,14 @@ import { current, useApp } from '@/lib/store';
 import { forgetLogin, useIdentity } from '@/lib/identity';
 import { usePrefs } from '@/lib/prefs';
 import { syncNow, useSync } from '@/lib/sync';
+import { createPairing, type PairingCode } from '@/lib/devices';
+import { errorText } from '@/lib/errors';
 import type { SessionView } from '@/lib/session';
 import type { Invite } from '@/lib/types';
 import type { DeviceSession, LoginRecord } from '@/gen/am/v1/api_pb';
 import { copyText } from '@/lib/platform';
 import { chatTime } from '@/lib/format';
-import { Button, Input, Segmented, Spinner, Toggle, ask, cx, inputClass, spring, toast, toastError } from '@/ui';
+import { Button, Dialog, Input, Segmented, Spinner, Toggle, ask, cx, inputClass, spring, toast, toastError } from '@/ui';
 import { UserAvatar } from './media';
 
 type Tab = 'invites' | 'devices' | 'logins';
@@ -285,15 +287,26 @@ function InviteCard({ inv }: { inv: Invite }) {
 }
 
 function Devices() {
-  const [list, setList] = useState<DeviceSession[] | null>(null);
-  const load = useCallback(() => current().sessions().then(setList).catch(toastError), []);
+  const [data, setData] = useState<{ list: DeviceSession[]; max: number } | null>(null);
+  const [pairing, setPairing] = useState(false);
+  const load = useCallback(() => current().sessions().then(setData).catch(toastError), []);
   useEffect(() => {
     load();
   }, [load]);
-  if (!list) return <div className="py-10 text-center text-ink-soft"><Spinner /></div>;
+  if (!data) return <div className="py-10 text-center text-ink-soft"><Spinner /></div>;
+  const full = data.max > 0 && data.list.length >= data.max;
   return (
     <div className="max-w-2xl space-y-2">
-      {list.map((d) => (
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1 text-[0.85rem] text-ink-soft dark:text-white/55">
+          {data.max > 0 ? `已登录 ${data.list.length} / ${data.max} 台设备。` : `已登录 ${data.list.length} 台设备。`}
+          {full ? '满了，要先让一台下线才能添加新设备。' : '手机、电脑都算。'}
+        </div>
+        <Button variant="primary" size="sm" disabled={full} onClick={() => setPairing(true)}>
+          <Plus size={15} /> 添加新设备
+        </Button>
+      </div>
+      {data.list.map((d) => (
         <div key={String(d.id)} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-4 dark:bg-white/[0.06]">
           <Monitor size={20} className="text-ink-soft" />
           <div className="min-w-0 flex-1">
@@ -305,9 +318,96 @@ function Devices() {
           )}
         </div>
       ))}
+      <PairDialog open={pairing} before={data.list.length} onClose={() => { setPairing(false); load(); }} />
     </div>
   );
 }
+
+/**
+ * "添加新设备": a one-time code (QR + text) that logs a new device in on all
+ * my servers and brings my saved login and settings (lib/devices.ts).
+ */
+function PairDialog({ open, before, onClose }: { open: boolean; before: number; onClose: () => void }) {
+  const v = useApp((s) => s.sessions[s.currentId ?? '']);
+  const [p, setP] = useState<PairingCode | null>(null);
+  const [qr, setQr] = useState('');
+  const [error, setError] = useState('');
+  const [now, setNow] = useState(Date.now());
+  const [done, setDone] = useState(false);
+  const make = useCallback(() => {
+    setP(null);
+    setError('');
+    setDone(false);
+    createPairing(useApp.getState().currentId ?? '').then(async (r) => {
+      setP(r);
+      setQr(await QRCode.toDataURL(r.url, { margin: 1, width: 420, color: { dark: '#2a2440', light: '#ffffff' } }));
+    }).catch((e) => setError(errorText(e)));
+  }, []);
+  useEffect(() => {
+    if (open) make();
+  }, [open, make]);
+  // Countdown, and watch for the new device to show up.
+  useEffect(() => {
+    if (!open || !p || done) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    const w = setInterval(() => {
+      current().sessions().then((r) => r.list.length > before && setDone(true)).catch(() => {});
+    }, 3000);
+    return () => {
+      clearInterval(t);
+      clearInterval(w);
+    };
+  }, [open, p, done, before]);
+  const left = p ? Math.max(0, Math.round((p.expiresAt - now) / 1000)) : 0;
+  return (
+    <Dialog open={open} onClose={onClose} title="添加新设备" width={460}>
+      {error ? (
+        <div className="space-y-4">
+          <p className="text-rose-500" role="alert">{error}</p>
+          <Button className="w-full" onClick={make}>再试一次</Button>
+        </div>
+      ) : done ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15"><Check size={28} /></span>
+          <div className="text-[1.1rem] font-semibold">新设备已登录</div>
+          <p className="text-[0.85rem] text-ink-soft dark:text-white/55">不是你自己的话，马上在列表里让它下线，再找管理员重置密码。</p>
+          <Button variant="primary" onClick={onClose}>好的</Button>
+        </div>
+      ) : !p ? (
+        <div className="flex justify-center py-12 text-ink-soft"><Spinner /></div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-[0.85rem] text-ink-soft dark:text-white/60">
+            在新设备上打开 AM，点「从已有设备登录」，扫这个二维码或者粘贴下面的登录码。所有服务器会一起登录，保存的密码和个性化设置也会带过去。
+          </p>
+          <div className={cx('mx-auto aspect-square w-56 overflow-hidden rounded-2xl bg-white p-2 shadow-[var(--shadow-card)]', left === 0 && 'opacity-30')}>
+            {qr && <img src={qr} alt="登录二维码" className="h-full w-full" />}
+          </div>
+          <div className="selectable rounded-xl bg-black/[0.04] p-2.5 text-center font-mono text-[0.78rem] break-all dark:bg-white/5">{p.code}</div>
+          <div className="flex items-center gap-2">
+            <span className={cx('flex-1 text-[0.82rem]', left < 60 ? 'text-rose-500' : 'text-ink-soft dark:text-white/50')}>
+              {left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} 内有效，只能用一次` : '已过期'}
+            </span>
+            {left > 0 ? (
+              <Button size="sm" variant="ghost" onClick={() => copyText(p.code).then(() => toast('已复制登录码'))}><Copy size={14} /> 复制</Button>
+            ) : (
+              <Button size="sm" variant="primary" onClick={make}>重新生成</Button>
+            )}
+          </div>
+          {p.skipped.length > 0 && (
+            <div className="rounded-xl bg-amber-50 p-2.5 text-[0.8rem] text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+              这些服务器新设备要用密码登录：{p.skipped.join('；')}
+            </div>
+          )}
+          {p.noBackground && <p className="text-[0.8rem] text-ink-soft dark:text-white/50">背景图片太大，没有带过去，在新设备上重新选一下。</p>}
+          <p className="text-[0.75rem] text-ink-soft/80 dark:text-white/40">登录码就等于你的账号，别发给别人。{v ? `生成在「${v.name}」上。` : ''}</p>
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+const LOGIN_KIND: Record<string, string> = { register: '注册', login: '登录', rejoin: '回来', pair: '配对' };
 
 function Logins() {
   const [list, setList] = useState<LoginRecord[] | null>(null);
@@ -320,7 +420,7 @@ function Logins() {
       {list.map((r, i) => (
         <div key={i} className="flex items-center gap-4 border-b border-black/5 px-4 py-3 text-[0.9rem] last:border-0 dark:border-white/5">
           <span className="w-36 shrink-0 text-ink-soft dark:text-white/55">{chatTime(Number(r.createdAt))}</span>
-          <span className="w-12 shrink-0">{r.kind === 'register' ? '注册' : '登录'}</span>
+          <span className="w-12 shrink-0">{LOGIN_KIND[r.kind] ?? '登录'}</span>
           <span className="selectable font-mono text-[0.85rem]">{r.ip}</span>
           <span className="ml-auto truncate text-ink-soft dark:text-white/50">{r.deviceName}</span>
         </div>

@@ -60,6 +60,13 @@ login_attempts_per_minute = 10
 max_group_members = 500
 # Largest upload (image or file) in MB.
 max_upload_mb = 50
+# Most devices one account may be logged in on at the same time (phones and
+# computers alike; bot / AI accounts do not count). When full, logging in on
+# another device or making a pairing code is refused until one logs out.
+# 0 = no limit.
+max_devices = 3
+# How long a "add a new device" pairing code works, in minutes.
+pair_code_minutes = 5
 
 [retention]
 # How long admin-deleted content is kept in the evidence store before it is

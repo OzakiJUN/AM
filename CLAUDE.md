@@ -140,6 +140,14 @@ update the docs in the same commit.
 - The saved login (`lib/identity.ts`): username in localStorage, password in
   the OS credential store via Rust (`src-tauri/src/secrets.rs`, Windows
   Credential Manager). Never put secrets in localStorage outside browser dev mode.
+- Several devices (docs/design.md §7 多设备): a human account is logged in on at
+  most `limits.max_devices` devices (bots / AI don't count; `too_many_devices`
+  on login, making or redeeming a pairing code). "添加新设备" = one-time
+  tickets (`POST /api/v1/pair`) + an AES-GCM bundle whose key is only in the
+  `AMP-` pairing code (`lib/paircode.ts`, client-only format). My server list
+  is synced between my devices as encrypted client state on every server
+  (`lib/devices.ts`, merge logic in `lib/deviceState.ts`; the vault key lives
+  in the OS credential store). The server never sees the keys or contents.
 - Personalization (theme mode, accent, background, font scale) is per device
   in localStorage; workshop themes will set the same fields.
 - AI emotion keys and fallbacks are listed in docs/design.md §9; keep the

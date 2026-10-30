@@ -41,6 +41,10 @@ type Service struct {
 	onRegistered func(ctx context.Context, u *store.User)
 	// Called after an account left the server (outside the transaction).
 	onLeft func(ctx context.Context, u *store.User)
+	// Most devices a human account may be logged in on (0 = no limit), and
+	// how long a pairing ticket works.
+	maxDevices int
+	pairTTL    time.Duration
 }
 
 // OnRegistered sets a hook that runs after each new account is created
@@ -52,7 +56,12 @@ func (s *Service) OnRegistered(fn func(ctx context.Context, u *store.User)) { s.
 func (s *Service) OnLeft(fn func(ctx context.Context, u *store.User)) { s.onLeft = fn }
 
 func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
-	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now}
+	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now, pairTTL: 5 * time.Minute}
+}
+
+// SetDeviceLimits sets limits.max_devices and limits.pair_code_minutes.
+func (s *Service) SetDeviceLimits(maxDevices int, pairTTL time.Duration) {
+	s.maxDevices, s.pairTTL = maxDevices, pairTTL
 }
 
 // Client describes where a request came from, for login records.
@@ -119,7 +128,7 @@ func (s *Service) Register(ctx context.Context, req *amv1.RegisterRequest, cl Cl
 	if s.onRegistered != nil {
 		s.onRegistered(ctx, u)
 	}
-	token, err = s.newSession(ctx, u.ID, req.GetDeviceName(), "register", cl.IP)
+	token, err = s.newSession(ctx, u, req.GetDeviceName(), "register", cl.IP)
 	if err != nil {
 		return "", nil, err
 	}
@@ -157,7 +166,7 @@ func (s *Service) Login(ctx context.Context, req *amv1.LoginRequest, cl Client) 
 		}
 		kind = "rejoin"
 	}
-	token, err := s.newSession(ctx, u.ID, req.GetDeviceName(), kind, cl.IP)
+	token, err := s.newSession(ctx, u, req.GetDeviceName(), kind, cl.IP)
 	if err != nil {
 		return "", nil, err
 	}
@@ -202,6 +211,12 @@ func (s *Service) Leave(ctx context.Context, u *store.User) error {
 		if err := q.SetLeft(ctx, u.ID, s.now().UnixMilli()); err != nil {
 			return err
 		}
+		if err := q.DeleteUserPairTickets(ctx, u.ID); err != nil {
+			return err
+		}
+		if err := q.DeleteClientState(ctx, u.ID); err != nil {
+			return err
+		}
 		var err error
 		closed, err = q.DeleteUserSessions(ctx, u.ID)
 		return err
@@ -222,7 +237,24 @@ func (s *Service) Leave(ctx context.Context, u *store.User) error {
 var dummyHash, _ = HashPassword("not-a-real-password-just-timing")
 
 // newSession creates a device session and writes a login record.
-func (s *Service) newSession(ctx context.Context, userID int64, device, kind, ip string) (string, error) {
+func (s *Service) newSession(ctx context.Context, u *store.User, device, kind, ip string) (token string, err error) {
+	err = s.st.InTx(ctx, func(q *store.Queries) error {
+		token, err = s.createSession(ctx, q, u, device, kind, ip)
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	_ = s.st.MarkDay(ctx, u.ID, DayKey(s.now()))
+	return token, nil
+}
+
+// createSession is newSession inside a transaction. A human account already
+// on limits.max_devices devices gets too_many_devices.
+func (s *Service) createSession(ctx context.Context, q *store.Queries, u *store.User, device, kind, ip string) (string, error) {
+	if err := s.checkDevices(ctx, q, u); err != nil {
+		return "", err
+	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
@@ -233,20 +265,30 @@ func (s *Service) newSession(ctx context.Context, userID int64, device, kind, ip
 	if utf8.RuneCountInString(device) > 64 {
 		device = string([]rune(device)[:64])
 	}
-	sess := &store.Session{ID: s.ids.Next(), UserID: userID, DeviceName: device, CreatedAt: now, LastSeen: now}
-	err := s.st.InTx(ctx, func(q *store.Queries) error {
-		if err := q.CreateSession(ctx, sess, hashToken(token)); err != nil {
-			return err
-		}
-		return q.AddLoginRecord(ctx, &store.LoginRecord{
-			ID: s.ids.Next(), UserID: userID, SessionID: sess.ID, Kind: kind, IP: ip, DeviceName: device, CreatedAt: now,
-		})
-	})
-	if err != nil {
+	sess := &store.Session{ID: s.ids.Next(), UserID: u.ID, DeviceName: device, CreatedAt: now, LastSeen: now}
+	if err := q.CreateSession(ctx, sess, hashToken(token)); err != nil {
 		return "", err
 	}
-	_ = s.st.MarkDay(ctx, userID, DayKey(s.now()))
-	return token, nil
+	err := q.AddLoginRecord(ctx, &store.LoginRecord{
+		ID: s.ids.Next(), UserID: u.ID, SessionID: sess.ID, Kind: kind, IP: ip, DeviceName: device, CreatedAt: now,
+	})
+	return token, err
+}
+
+// checkDevices refuses one more device when the account is full. Bot / AI
+// accounts are not limited.
+func (s *Service) checkDevices(ctx context.Context, q *store.Queries, u *store.User) error {
+	if s.maxDevices <= 0 || u.AccountType != int16(amv1.AccountType_ACCOUNT_TYPE_HUMAN) {
+		return nil
+	}
+	n, err := q.CountSessions(ctx, u.ID)
+	if err != nil {
+		return err
+	}
+	if n >= s.maxDevices {
+		return apperr.ErrTooManyDevices
+	}
+	return nil
 }
 
 // ListLoginRecords returns the user's recent logins (newest first).
@@ -345,7 +387,7 @@ func (s *Service) ListSessions(ctx context.Context, userID, currentID int64) (*a
 	if err != nil {
 		return nil, err
 	}
-	out := &amv1.ListSessionsResponse{}
+	out := &amv1.ListSessionsResponse{MaxDevices: int32(s.maxDevices)}
 	for _, se := range list {
 		out.Sessions = append(out.Sessions, &amv1.DeviceSession{
 			Id: se.ID, DeviceName: se.DeviceName, CreatedAt: se.CreatedAt, LastSeen: se.LastSeen,

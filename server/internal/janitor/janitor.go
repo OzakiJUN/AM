@@ -64,6 +64,11 @@ func (j *Janitor) RunOnce(ctx context.Context) {
 	} else if n > 0 {
 		j.log.Info("purged deleted guestbook entries", "rows", n)
 	}
+	if n, err := j.st.PurgePairTickets(ctx, now.UnixMilli()); err != nil {
+		j.log.Error("purge pairing codes", "err", err)
+	} else if n > 0 {
+		j.log.Info("purged expired pairing codes", "rows", n)
+	}
 	if n, err := j.media.GC(ctx); err != nil {
 		j.log.Error("media cleanup", "err", err)
 	} else if n > 0 {

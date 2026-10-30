@@ -1,13 +1,15 @@
 // Server name + connection state at the top of each list. Click it for the
 // list of servers saved on this device: click a name to switch, click an
-// avatar to open that server's profile page; "加入新服务器" at the bottom
-// goes back to the join screen.
+// avatar to open that server's profile page; servers I joined on another
+// device are offered below them (lib/devices.ts); "加入新服务器" at the
+// bottom goes back to the join screen.
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Check, ChevronDown, Plus } from 'lucide-react';
+import { Check, ChevronDown, MonitorSmartphone, Plus } from 'lucide-react';
+import { acceptOffer, ignoreOffer, useDevices } from '@/lib/devices';
 import { switchServer, useApp } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
-import { cx, spring, type MenuItem } from '@/ui';
+import { Button, cx, spring, type MenuItem } from '@/ui';
 import { ServerAvatar } from './media';
 import { unread } from './unread';
 
@@ -41,6 +43,7 @@ const STATUS_TEXT = { connecting: '连接中…', online: '已连接', offline: 
 export function ServerSwitcher({ v }: { v: SessionView }) {
   const servers = useApp((s) => s.servers);
   const sessions = useApp((s) => s.sessions);
+  const offers = useDevices((s) => s.offers);
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -65,6 +68,7 @@ export function ServerSwitcher({ v }: { v: SessionView }) {
             {STATUS_TEXT[v.status]}
           </div>
         </div>
+        {offers.length > 0 && !open && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-label="其他设备上有新服务器" />}
         <ChevronDown size={18} className={cx('text-ink-soft transition-transform duration-300 ease-[var(--ease-out)]', open && 'rotate-180')} />
       </button>
       <AnimatePresence>
@@ -110,6 +114,21 @@ export function ServerSwitcher({ v }: { v: SessionView }) {
                 </div>
               );
             })}
+            {offers.length > 0 && (
+              <div className="mt-1 border-t border-black/5 pt-1.5 dark:border-white/5">
+                <div className="flex items-center gap-1.5 px-2 pb-1 text-[0.72rem] text-ink-soft/80 dark:text-white/40">
+                  <MonitorSmartphone size={12} /> 你在另一台设备上加入了
+                </div>
+                {offers.map((o) => (
+                  <div key={o.endpoint.address + (o.endpoint.pin ?? '')} className="flex items-center gap-2 rounded-xl p-1.5">
+                    <ServerAvatar name={o.name} size={30} />
+                    <span className="min-w-0 flex-1 truncate text-[0.9rem]">{o.name}</span>
+                    <Button size="sm" variant="primary" onClick={() => acceptOffer(o).then(() => setOpen(false))}>加入</Button>
+                    <button onClick={() => ignoreOffer(o)} className="rounded-lg px-1.5 py-1 text-[0.78rem] text-ink-soft hover:bg-black/5 dark:hover:bg-white/10">忽略</button>
+                  </div>
+                ))}
+              </div>
+            )}
             <button
               onClick={() => {
                 useApp.setState({ view: 'welcome' });

@@ -47,10 +47,11 @@ export async function savedPassword(): Promise<string | null> {
 
 /**
  * Remembers a login that worked, unless one is saved already (the first one
- * stays until it is forgotten in 账号设置).
+ * stays until it is forgotten in 账号设置). force: replace it (the login
+ * handed over by my other device when pairing).
  */
-export async function rememberLogin(username: string, password: string) {
-  if (useIdentity.getState().username) return;
+export async function rememberLogin(username: string, password: string, force = false) {
+  if (useIdentity.getState().username && !force) return;
   let hasPassword = false;
   try {
     await secretSet(SECRET, password);

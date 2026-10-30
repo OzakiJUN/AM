@@ -286,6 +286,8 @@ export class Session {
    * sync itself pass quiet = true.
    */
   onOwnChange?: (parts: SyncPart[]) => void;
+  /** Another device of mine saved my server list (lib/devices.ts loads it again). */
+  onClientState?: () => void;
 
   constructor(
     public record: ServerRecord,
@@ -375,8 +377,42 @@ export class Session {
     this.patch({ status: 'logged_out', error: reason });
   }
 
+  /** Logs out here; the server frees this device's place (limits.max_devices). */
   async logout() {
+    if (this.record.token) await this.call('POST', '/api/v1/logout', null).catch(() => {});
     this.loggedOut('');
+  }
+
+  // ---- several devices (lib/devices.ts) ----
+
+  /** One-time ticket that logs in another device of mine; bundle goes along to it. */
+  async createPairTicket(bundle?: Uint8Array) {
+    const r = await this.call('POST', '/api/v1/pair', api.PairTicketSchema, {
+      schema: api.CreatePairTicketRequestSchema, value: { bundle: bundle ?? new Uint8Array() },
+    });
+    return { ticket: r.ticket, expiresAt: Number(r.expiresAt) };
+  }
+
+  /** Logs this device in with a pairing ticket; returns the bundle that came with it. */
+  async redeemPair(ticket: string): Promise<Uint8Array> {
+    const r = await this.call('POST', '/api/v1/pair/redeem', api.PairRedeemResponseSchema, {
+      schema: api.RedeemPairTicketRequestSchema, value: { ticket, deviceName: deviceName() },
+    });
+    await this.loggedIn(r.token, r.me!);
+    return r.bundle;
+  }
+
+  /** The encrypted state my devices share (my server list). */
+  async clientState() {
+    const r = await this.call('GET', '/api/v1/me/client-state', api.ClientStateSchema);
+    return { data: r.data, updatedAt: Number(r.updatedAt) };
+  }
+
+  async putClientState(data: Uint8Array, base: number) {
+    const r = await this.call('PUT', '/api/v1/me/client-state', api.ClientStateSchema, {
+      schema: api.PutClientStateRequestSchema, value: { data, baseUpdatedAt: BigInt(base) },
+    });
+    return Number(r.updatedAt);
   }
 
   /**
@@ -529,6 +565,9 @@ export class Session {
         this.patch({ presence });
         break;
       }
+      case 'clientState':
+        this.onClientState?.();
+        break;
       case 'joinRequest': {
         const jr = f.msg.value;
         const id = s(jr.convId);
@@ -974,8 +1013,10 @@ export class Session {
     await this.call('POST', '/api/v1/invites', api.InviteSchema);
   }
 
+  /** Devices I am logged in on, and the most allowed (0 = no limit). */
   async sessions() {
-    return (await this.call('GET', '/api/v1/sessions', api.ListSessionsResponseSchema)).sessions;
+    const r = await this.call('GET', '/api/v1/sessions', api.ListSessionsResponseSchema);
+    return { list: r.sessions, max: r.maxDevices };
   }
 
   revokeSession(id: bigint) {

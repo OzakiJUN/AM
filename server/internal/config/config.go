@@ -71,6 +71,8 @@ type Limits struct {
 	LoginAttemptsPerMinute int `toml:"login_attempts_per_minute"`
 	MaxGroupMembers        int `toml:"max_group_members"`
 	MaxUploadMB            int `toml:"max_upload_mb"`
+	MaxDevices             int `toml:"max_devices"`
+	PairCodeMinutes        int `toml:"pair_code_minutes"`
 }
 
 type Retention struct {
@@ -236,6 +238,9 @@ func (c *Config) validate() error {
 	}
 	if c.Limits.MaxTextLength < 1 {
 		return errors.New("limits.max_text_length must be >= 1")
+	}
+	if c.Limits.MaxDevices < 0 || c.Limits.PairCodeMinutes < 1 {
+		return errors.New("limits.max_devices must be >= 0 and limits.pair_code_minutes >= 1")
 	}
 	if c.Limits.LoginAttemptsPerMinute < 0 {
 		return errors.New("limits.login_attempts_per_minute must be >= 0")

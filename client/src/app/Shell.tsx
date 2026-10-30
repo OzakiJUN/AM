@@ -1,11 +1,12 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Hash, KeyRound, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, UserRound } from 'lucide-react';
 import { current, openProfile, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
 import { rememberLogin, savedPassword, useIdentity } from '@/lib/identity';
-import { Button, Empty, Field, Input, cx, ease, spring } from '@/ui';
+import { useDevices } from '@/lib/devices';
+import { Button, Empty, Field, Input, cx, ease, spring, toast } from '@/ui';
 import { AIPage } from './AI';
 import { ChatView } from './Chat';
 import { ConvList } from './ConvList';
@@ -21,6 +22,7 @@ import logo from '@/assets/logo.png';
 export function Shell() {
   const page = useApp((s) => s.page);
   const v = useCurrent();
+  useOfferToast();
   let content;
   if (!v) content = page === 'settings' ? <SettingsPage /> : <NoServer />;
   else if (v.status === 'logged_out' && page !== 'settings') content = <LoginAgain v={v} />;
@@ -167,4 +169,15 @@ function LoginAgain({ v }: { v: SessionView }) {
       </form>
     </section>
   );
+}
+
+/** Tells once when another device of mine joined a server (offered in the server list). */
+function useOfferToast() {
+  const offers = useDevices((s) => s.offers);
+  const seen = useRef(new Set<string>());
+  useEffect(() => {
+    const fresh = offers.filter((o) => !seen.current.has(o.endpoint.address + o.endpoint.pin));
+    for (const o of offers) seen.current.add(o.endpoint.address + o.endpoint.pin);
+    if (fresh.length) toast(`你在另一台设备上加入了「${fresh.map((o) => o.name).join('」「')}」，点上面的服务器列表就能在这里加入`);
+  }, [offers]);
 }

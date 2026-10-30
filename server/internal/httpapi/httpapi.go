@@ -63,6 +63,11 @@ func (a *API) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/v1/sessions", a.authed(a.listSessions))
 	mux.HandleFunc("DELETE /api/v1/sessions/{id}", a.authed(a.revokeSession))
+	mux.HandleFunc("POST /api/v1/logout", a.authed(a.logout))
+	mux.HandleFunc("POST /api/v1/pair", a.authed(a.createPair))
+	mux.HandleFunc("POST /api/v1/pair/redeem", a.limited(a.redeemPair))
+	mux.HandleFunc("GET /api/v1/me/client-state", a.authed(a.getClientState))
+	mux.HandleFunc("PUT /api/v1/me/client-state", a.authed(a.putClientState))
 	mux.HandleFunc("GET /api/v1/server", func(w http.ResponseWriter, r *http.Request) { a.ok(w, a.acct.ServerInfo()) })
 	mux.HandleFunc("GET /api/v1/server/icon", a.serverIcon)
 	mux.HandleFunc("GET /api/v1/server/profile", a.authed(a.serverProfile))

@@ -41,6 +41,9 @@ const TEXT: Record<string, string> = {
   invalid_widget: '有个小组件的大小、位置或内容不对',
   layout_conflict: '刚才有人改过这个主页了，已经刷新，再改一次吧',
   left_server: '你已经退出了这个服务器，要服主给一个新的邀请码才能回来',
+  too_many_devices: '这个账号登录的设备已经满了，先在一台设备上退出（账号设置 → 登录设备）',
+  invalid_pair_code: '登录码不对、已经用过或者过期了，在旧设备上重新生成一个',
+  state_conflict: '另一台设备刚改过，稍后再试',
   rate_limited: '操作太频繁了，等一会儿再试',
   internal_error: '服务器出错了',
 };
