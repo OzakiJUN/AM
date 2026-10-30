@@ -15,14 +15,15 @@ import { cx } from '@/ui';
 const glide: Transition = { type: 'spring', stiffness: 230, damping: 30, mass: 1 };
 const fade: Transition = { duration: 0.45, ease: [0.22, 1, 0.36, 1] };
 
-function moodOf(user: User, mood?: Mood): Mood {
-  return user.online === false ? 'offline' : mood ?? 'neutral';
+/** `online` is the AI account's presence: an AI that is not connected cannot reply. */
+function moodOf(online: boolean, mood?: Mood): Mood {
+  return online ? mood ?? 'neutral' : 'offline';
 }
 
 /** The band under the chat header. Collapses to nothing when folded. */
-export function PortraitBand({ user, mood, pack = DEFAULT_PACK }: { user: User; mood?: Mood; pack?: Pack }) {
+export function PortraitBand({ user, online, mood, pack = DEFAULT_PACK }: { user: User; online: boolean; mood?: Mood; pack?: Pack }) {
   const pos = usePrefs((s) => s.portrait);
-  const img = resolveMood(pack, moodOf(user, mood));
+  const img = resolveMood(pack, moodOf(online, mood));
   const open = pos !== 'corner' && !!img;
   return (
     <motion.div
@@ -94,11 +95,11 @@ function PositionControls({ pos }: { pos: PortraitPos }) {
 }
 
 /** Folded portrait: a small round face in the header; click to unfold. */
-export function PortraitCorner({ user, mood, pack = DEFAULT_PACK }: { user: User; mood?: Mood; pack?: Pack }) {
+export function PortraitCorner({ user, online, mood, pack = DEFAULT_PACK }: { user: User; online: boolean; mood?: Mood; pack?: Pack }) {
   const pos = usePrefs((s) => s.portrait);
   const reopen = usePrefs((s) => s.portraitOpen);
   const set = usePrefs((s) => s.setPortrait);
-  const img = resolveMood(pack, moodOf(user, mood));
+  const img = resolveMood(pack, moodOf(online, mood));
   return (
     <AnimatePresence initial={false}>
       {pos === 'corner' && img && (

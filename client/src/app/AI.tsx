@@ -1,12 +1,15 @@
 import { useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Sparkles } from 'lucide-react';
+import { PanelLeftClose, Sparkles } from 'lucide-react';
 import { listTime } from '@/lib/format';
+import { usePrefs } from '@/lib/prefs';
 import { isBotConv, openConv, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, User } from '@/lib/types';
-import { IdentityChip, cx, spring } from '@/ui';
+import { IconButton, IdentityChip, cx, spring } from '@/ui';
 import { ChatView } from './Chat';
+import { ListStrip } from './ConvList';
+import { FoldColumn, StripItem } from './Fold';
 import { UserAvatar } from './media';
 import { ServerSwitcher } from './ServerSwitcher';
 
@@ -27,6 +30,8 @@ interface Row {
 
 function AIList({ v }: { v: SessionView }) {
   const convId = useOpenConv('ai', v.id);
+  const folded = usePrefs((p) => p.listFolded);
+  const setPrefs = usePrefs((p) => p.set);
   const { mine, added } = useMemo(() => {
     const rows: Row[] = Object.values(v.convs)
       .filter((c) => isBotConv(c, v.users))
@@ -54,7 +59,7 @@ function AIList({ v }: { v: SessionView }) {
                   active ? 'bg-accent-100/90 shadow-[var(--shadow-card)] dark:bg-white/10' : 'hover:bg-white/70 dark:hover:bg-white/5',
                 )}
               >
-                <UserAvatar user={peer} size={44} />
+                <UserAvatar user={peer} size={44} presence />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate font-medium">{peer.name}</span>
@@ -87,9 +92,25 @@ function AIList({ v }: { v: SessionView }) {
       </div>
     );
 
-  return (
-    <aside className="glass flex w-[300px] shrink-0 flex-col rounded-3xl p-3">
-      <ServerSwitcher v={v} />
+  const strip = (
+    <ListStrip v={v} onUnfold={() => setPrefs({ listFolded: false })} menu={[]}>
+      {[...mine, ...added].map(({ conv, peer }) => {
+        const active = conv.id === convId;
+        return (
+          <StripItem key={conv.id} label={peer.name} active={active} badge={active ? 0 : Math.max(0, conv.lastSeq - conv.readSeq)} onClick={() => openConv(conv.id)}>
+            <UserAvatar user={peer} size={42} presence />
+          </StripItem>
+        );
+      })}
+    </ListStrip>
+  );
+
+  const full = (
+    <div className="flex h-full flex-col p-3">
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1"><ServerSwitcher v={v} /></div>
+        <IconButton label="收起列表" onClick={() => setPrefs({ listFolded: true })}><PanelLeftClose size={18} /></IconButton>
+      </div>
       <div className="-mx-1 mt-2 flex-1 overflow-y-auto px-1 pb-1">
         {section('我的 AI', mine)}
         {section('添加的 AI', added)}
@@ -100,6 +121,8 @@ function AIList({ v }: { v: SessionView }) {
           </div>
         )}
       </div>
-    </aside>
+    </div>
   );
+
+  return <FoldColumn label="AI" folded={folded} width={300} foldedWidth={76} full={full} strip={strip} />;
 }

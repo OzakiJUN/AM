@@ -1,3 +1,5 @@
+// 账号设置: profile editing (name, avatar, signature), invites, devices,
+// login records and logging out. The profile page itself is Profile.tsx.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { motion } from 'motion/react';
@@ -8,16 +10,21 @@ import type { Invite } from '@/lib/types';
 import type { DeviceSession, LoginRecord } from '@/gen/am/v1/api_pb';
 import { copyText } from '@/lib/platform';
 import { chatTime } from '@/lib/format';
-import { Button, Input, Segmented, Spinner, ask, cx, spring, toast, toastError } from '@/ui';
+import { Button, Input, Segmented, Spinner, ask, cx, inputClass, spring, toast, toastError } from '@/ui';
 import { UserAvatar } from './media';
 
 type Tab = 'invites' | 'devices' | 'logins';
 
-export function MePage({ v }: { v: SessionView }) {
+/** Longest signature the server accepts. */
+const BIO_MAX = 100;
+
+export function AccountPage({ v }: { v: SessionView }) {
   const [tab, setTab] = useState<Tab>('invites');
   return (
     <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
+      <h1 className="mb-6 text-[1.35rem] font-bold">账号设置</h1>
       <Profile v={v} />
+      <Bio v={v} />
       <div className="mt-10 mb-5 flex items-center gap-3">
         <Segmented id="me" value={tab} onChange={setTab} options={[
           { value: 'invites', label: '我的邀请' }, { value: 'devices', label: '登录设备' }, { value: 'logins', label: '登录记录' },
@@ -87,7 +94,6 @@ function Profile({ v }: { v: SessionView }) {
           </h2>
         )}
         <div className="text-ink-soft dark:text-white/55">@{v.me?.username} · {v.name}</div>
-        <div className="mt-1 text-[0.8rem] text-ink-soft/80 dark:text-white/40">头像支持 GIF 动图，列表里显示第一帧</div>
       </div>
       <Button
         variant="ghost"
@@ -95,6 +101,32 @@ function Profile({ v }: { v: SessionView }) {
       >
         <LogOut size={16} /> 退出登录
       </Button>
+    </div>
+  );
+}
+
+function Bio({ v }: { v: SessionView }) {
+  const [bio, setBio] = useState(v.me?.bio ?? '');
+  useEffect(() => setBio(v.me?.bio ?? ''), [v.me?.bio]);
+  const changed = bio.trim() !== (v.me?.bio ?? '');
+  return (
+    <div className="mt-6 max-w-xl">
+      <label htmlFor="bio" className="mb-1.5 block text-[0.85rem] font-medium text-ink-soft dark:text-white/60">个性签名</label>
+      <textarea
+        id="bio"
+        value={bio}
+        onChange={(e) => setBio(e.target.value)}
+        maxLength={BIO_MAX}
+        rows={2}
+        placeholder="写点什么，会显示在你的个人主页上"
+        className={cx(inputClass, 'resize-none py-2.5 leading-relaxed')}
+      />
+      <div className="mt-2 flex items-center gap-3">
+        <span className="text-[0.8rem] text-ink-soft/80 dark:text-white/40">{[...bio].length} / {BIO_MAX}</span>
+        <div className="flex-1" />
+        {changed && <Button size="sm" variant="ghost" onClick={() => setBio(v.me?.bio ?? '')}>还原</Button>}
+        <Button size="sm" variant="primary" disabled={!changed} onClick={() => current().updateProfile({ bio: bio.trim() }).then(() => toast('签名已保存'))}>保存签名</Button>
+      </div>
     </div>
   );
 }

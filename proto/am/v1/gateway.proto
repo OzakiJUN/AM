@@ -44,6 +44,7 @@ message ServerFrame {
     FriendPush friend = 32;
     ConvRemovedPush conv_removed = 33;
     JoinRequestPush join_request = 34;
+    PresencePush presence = 35;
   }
 }
 
@@ -59,6 +60,10 @@ message AuthResponse {
   repeated Conversation conversations = 2;
   // Site admin of this server: may create public channels.
   bool is_site_admin = 3;
+  // Everyone who is online as this user sees it (includes the user
+  // themselves, with `invisible` set if they are). Changes arrive as
+  // `presence` pushes.
+  repeated Presence presences = 4;
 }
 
 message SendRequest {
@@ -150,4 +155,11 @@ message JoinRequestPush {
   int64 conv_id = 1;
   User user = 2;
   User inviter = 3;
+}
+
+// Someone's online state or activity changed, as the receiver sees it.
+// Sent to everyone online on the server. online = false means offline (or
+// invisible, for everyone but the user and their own bot / ai accounts).
+message PresencePush {
+  Presence presence = 1;
 }

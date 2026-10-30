@@ -5,7 +5,8 @@ import { Session, previewText, type ServerRecord, type SessionView } from './ses
 import { notify } from './platform';
 import type { Conversation, User } from './types';
 
-export type Page = 'channels' | 'dms' | 'ai' | 'me' | 'settings';
+/** 'account' = 账号设置 (profile editing, invites, devices); 'profile' = my profile page. */
+export type Page = 'channels' | 'dms' | 'ai' | 'account' | 'profile' | 'settings';
 /** Pages that list conversations: channels, direct messages, AI chats. */
 export type ConvPage = 'channels' | 'dms' | 'ai';
 
@@ -36,7 +37,6 @@ interface AppState {
   sessions: Record<string, SessionView>;
   /** Open conversation per page and server, keyed by openKey(). */
   openConvs: Record<string, string | null>;
-  showMembers: boolean;
   set: (patch: Partial<AppState>) => void;
 }
 
@@ -47,7 +47,6 @@ export const useApp = create<AppState>((set) => ({
   currentId: null,
   sessions: {},
   openConvs: {},
-  showMembers: true,
   set: (patch) => set(patch),
 }));
 
@@ -165,6 +164,11 @@ export function openConv(convId: string) {
   if (!id || !v || !c) return;
   const page = convPage(c, v.users);
   useApp.setState({ openConvs: { ...st.openConvs, [openKey(page, id)]: convId }, page });
+}
+
+/** Presence of a user on the server on screen (undefined = offline). */
+export function usePresence(userId?: string) {
+  return useApp((st) => (st.currentId && userId ? st.sessions[st.currentId]?.presence[userId] : undefined));
 }
 
 /** View of the server on screen. */

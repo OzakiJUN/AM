@@ -39,7 +39,7 @@ const pages = [];
   await shot(A, '02-empty-main');
 
   // Invites → copy first join code.
-  await A.click('button[aria-label="我"]');
+  await A.click('button[aria-label="账号设置"]');
   await A.waitForSelector('text=复制加入码');
   await wait(800);
   await shot(A, '03-invites');
@@ -110,7 +110,7 @@ const pages = [];
   await A.fill('div[role="dialog"] input[aria-label="搜索成员"]', 'xiao');
   await A.click('div[role="dialog"] button:has-text("小克")');
   await A.click('div[role="dialog"] button:has-text("新建")');
-  await A.waitForSelector('text=创建了频道');
+  await A.waitForSelector('header h2:has-text("AM 内测")');
   await A.fill('textarea[aria-label="消息"]', '欢迎来到内测频道，有 bug 直接说');
   await A.press('textarea[aria-label="消息"]', 'Enter');
   await A.fill('textarea[aria-label="消息"]', '这周六晚上八点开黑');
@@ -132,6 +132,40 @@ const pages = [];
   await A.hover('aside button:has-text("大厅")');
   await wait(400);
   await shot(A, '09-hover');
+
+  // Presence: both online in the member list; signature and activity.
+  await B.waitForSelector('aside >> text=在线 — 2');
+  await A.click('button[aria-label="账号设置"]');
+  await A.fill('textarea#bio', '今天也在写 AM');
+  await A.click('button:has-text("保存签名")');
+  await A.waitForSelector('text=签名已保存');
+  await A.click('button[aria-label="个人主页"]');
+  await A.waitForSelector('text=今天也在写 AM');
+  await A.click('button:has-text("正在听歌")');
+  await A.fill('input[aria-label="歌名（可不填）"]', '晴天');
+  await A.click('button:has-text("保存状态")');
+  await A.waitForSelector('text=🎧 正在听歌：晴天');
+  await wait(500);
+  await shot(A, '12-profile');
+  await B.waitForSelector('aside >> text=🎧 正在听歌：晴天');
+  await shot(B, '13-presence-dark');
+  // Invisible: B sees A offline; A still sees itself as invisible.
+  await A.click('button[role="switch"][aria-label="隐身"]');
+  await B.waitForSelector('aside >> text=离线 — 1');
+  await A.waitForSelector('text=（隐身中）');
+  // Folding both side columns (kept per device).
+  await B.click('button[aria-label="收起列表"]');
+  await B.click('button[aria-label="收起成员列表"]');
+  await wait(900);
+  await shot(B, '14-folded-dark');
+  await B.reload();
+  await B.click('button[aria-label="AM 内测"]'); // still folded after a reload
+  await B.waitForSelector('button[aria-label="展开成员列表"]');
+  await B.click('button[aria-label="展开成员列表"]');
+  await B.click('button[aria-label="展开列表"]');
+  await A.click('button[role="switch"][aria-label="隐身"]');
+  await B.waitForSelector('aside >> text=在线 — 2');
+  await A.click('button[aria-label="频道"]');
 
   // Browse public channels.
   await A.click('button[aria-label="浏览公开频道"]');

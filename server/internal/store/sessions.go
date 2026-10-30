@@ -22,11 +22,10 @@ func (q *Queries) GetSessionByTokenHash(ctx context.Context, tokenHash []byte) (
 	u := &User{}
 	err := q.queryRow(ctx, `SELECT s.id, s.user_id, s.device_name, s.created_at, s.last_seen,
 		u.id, u.username, u.display_name, u.avatar, COALESCE(u.avatar_media_id, 0), COALESCE(u.password_hash, ''),
-		u.account_type, COALESCE(u.owner_id, 0), u.is_site_admin, u.banned, u.created_at
+		u.account_type, COALESCE(u.owner_id, 0), u.is_site_admin, u.banned, u.created_at,
+		u.bio, u.invisible, u.activity_kind, u.activity_text
 		FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`, tokenHash).
-		Scan(&s.ID, &s.UserID, &s.DeviceName, &s.CreatedAt, &s.LastSeen,
-			&u.ID, &u.Username, &u.DisplayName, &u.Avatar, &u.AvatarMediaID, &u.PasswordHash,
-			&u.AccountType, &u.OwnerID, &u.IsSiteAdmin, &u.Banned, &u.CreatedAt)
+		Scan(append([]any{&s.ID, &s.UserID, &s.DeviceName, &s.CreatedAt, &s.LastSeen}, u.scanTargets()...)...)
 	if err != nil {
 		return nil, nil, notFound(err)
 	}

@@ -137,6 +137,18 @@ message UpdateProfileRequest {
   optional string display_name = 1;
   // Media id of an uploaded image (GIF allowed). 0 removes the avatar.
   optional int64 avatar_media_id = 2;
+  // Personal signature, at most 100 characters. Empty clears it.
+  optional string bio = 3;
+}
+
+// PUT /api/v1/me/presence -> Presence (as the user themselves sees it).
+// Saved on the server, so it stays after reconnecting or restarting.
+message SetPresenceRequest {
+  // Appear offline to everyone except yourself and your own bot / ai
+  // accounts (so your AI knows you are around and may give it away).
+  bool invisible = 1;
+  // Empty / UNSPECIFIED clears the activity.
+  Activity activity = 2;
 }
 
 // GET /api/v1/me/logins

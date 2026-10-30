@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
@@ -122,6 +123,32 @@ func (s *Service) ResetPassword(ctx context.Context, actorID, userID int64) (str
 		s.push.CloseSession(id)
 	}
 	return pw, nil
+}
+
+// ChannelHistory returns one page of a channel's events for the server
+// admin panel: newest first, seq < before (0 = from the latest). Channels
+// only; direct messages read as not found. Opening a channel (the first
+// page) is written to the audit log, so reading is never silent.
+func (s *Service) ChannelHistory(ctx context.Context, actorID, convID, before int64, limit int) (*store.Conversation, []*store.Event, error) {
+	c, err := s.st.GetConv(ctx, convID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && c.Kind != int16(amv1.ConvKind_CONV_KIND_GROUP)) {
+		return nil, nil, apperr.ErrNotFound
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	if before <= 0 {
+		before = c.LastSeq + 1
+		if err := s.st.AddAudit(ctx, &store.AuditEntry{ID: s.ids.Next(), ActorID: actorID, Action: "channel_view",
+			ConvID: convID, CreatedAt: s.now().UnixMilli()}); err != nil {
+			return nil, nil, err
+		}
+	}
+	events, err := s.st.ListEventsBefore(ctx, convID, before, limit)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c, events, nil
 }
 
 func (s *Service) audit(ctx context.Context, q *store.Queries, actorID int64, action string, targetID int64, detail string) error {

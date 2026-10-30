@@ -15,7 +15,23 @@ export interface User {
   /** Media path of the avatar (may be a GIF) and of its static first frame. */
   avatar?: string;
   avatarStatic?: string;
-  online?: boolean;
+  /** Personal signature (profile page). */
+  bio: string;
+}
+
+export type ActivityKind = 'listening' | 'playing' | 'tuning_ai' | 'working' | 'custom';
+
+/** What someone says they are doing ("正在听歌：晴天"). */
+export interface Activity {
+  kind: ActivityKind;
+  text: string;
+}
+
+/** Online state as this user sees it. Only online people have an entry. */
+export interface Presence {
+  /** Online but invisible: only set for yourself and your own bot / AI accounts. */
+  invisible?: boolean;
+  activity?: Activity;
 }
 
 export interface Member {

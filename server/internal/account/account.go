@@ -193,7 +193,11 @@ func (s *Service) ListLoginRecords(ctx context.Context, userID int64) (*amv1.Lis
 	return out, nil
 }
 
-// UpdateProfile changes display name and/or avatar (an uploaded image, GIF allowed).
+// maxBio is the longest profile signature, in characters.
+const maxBio = 100
+
+// UpdateProfile changes display name, avatar (an uploaded image, GIF allowed)
+// and/or signature.
 func (s *Service) UpdateProfile(ctx context.Context, u *store.User, req *amv1.UpdateProfileRequest) (*store.User, error) {
 	display := ""
 	if req.DisplayName != nil {
@@ -201,6 +205,14 @@ func (s *Service) UpdateProfile(ctx context.Context, u *store.User, req *amv1.Up
 		if n := utf8.RuneCountInString(display); n < 1 || n > 32 {
 			return nil, apperr.ErrInvalidName
 		}
+	}
+	var bio *string
+	if req.Bio != nil {
+		b := strings.TrimSpace(req.GetBio())
+		if utf8.RuneCountInString(b) > maxBio {
+			return nil, apperr.ErrBioTooLong
+		}
+		bio = &b
 	}
 	avatar := int64(-1) // keep
 	if req.AvatarMediaId != nil {
@@ -213,6 +225,11 @@ func (s *Service) UpdateProfile(ctx context.Context, u *store.User, req *amv1.Up
 	}
 	if err := s.st.UpdateProfile(ctx, u.ID, display, avatar, ""); err != nil {
 		return nil, err
+	}
+	if bio != nil {
+		if err := s.st.SetBio(ctx, u.ID, *bio); err != nil {
+			return nil, err
+		}
 	}
 	return s.st.GetUser(ctx, u.ID)
 }

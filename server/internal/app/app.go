@@ -16,6 +16,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/janitor"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -58,11 +59,12 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	acct := account.New(st, ids, cfg.Invites, hub, md)
 	ms := message.New(st, ids, hub, md, cfg.Limits, cfg.Retention)
 	cs := conv.New(st, ids, hub, ms, md, cfg.Limits, cfg.Server.DefaultChannel, log)
+	ps := presence.New(st, hub)
 	acct.OnRegistered(cs.Welcome)
 
 	mux := http.NewServeMux()
-	httpapi.New(acct, cs, ms, md, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
-	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, log))
+	httpapi.New(acct, cs, ms, md, ps, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
+	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, log))
 
 	return &App{
 		Store:   st,

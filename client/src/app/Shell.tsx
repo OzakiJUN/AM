@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Hash, LogIn, MessageCircle, Settings, Sparkles } from 'lucide-react';
+import { Hash, LogIn, MessageCircle, Settings, Sparkles, UserRound } from 'lucide-react';
 import { current, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
@@ -8,8 +8,9 @@ import { Button, Empty, Field, Input, cx, ease, spring } from '@/ui';
 import { AIPage } from './AI';
 import { ChatView } from './Chat';
 import { ConvList } from './ConvList';
+import { AccountPage } from './Account';
 import { UserAvatar } from './media';
-import { MePage } from './Me';
+import { ProfilePage } from './Profile';
 import { SettingsPage } from './Settings';
 import { unread } from './unread';
 import logo from '@/assets/logo.png';
@@ -23,7 +24,8 @@ export function Shell() {
   else if (v.status === 'logged_out' && page !== 'settings') content = <LoginAgain v={v} />;
   else if (page === 'channels' || page === 'dms') content = <><ConvList v={v} page={page} /><ChatView v={v} page={page} /></>;
   else if (page === 'ai') content = <AIPage v={v} />;
-  else if (page === 'me') content = <MePage v={v} />;
+  else if (page === 'account') content = <AccountPage v={v} />;
+  else if (page === 'profile') content = <ProfilePage v={v} />;
   else content = <SettingsPage />;
   return (
     <div className="flex h-full gap-3 p-3">
@@ -47,6 +49,9 @@ export function Shell() {
 function NavBar({ v }: { v?: SessionView }) {
   const page = useApp((s) => s.page);
   const set = useApp((s) => s.set);
+  // Connection state, and hollow while I am invisible.
+  const mine = v?.me ? v.presence[v.me.id] : undefined;
+  const myStatus = v?.status !== 'online' ? false : mine?.invisible ? 'invisible' as const : true;
   const item = (p: Page, label: string, Icon: typeof MessageCircle, badge?: number) => (
     <button
       key={p}
@@ -83,9 +88,16 @@ function NavBar({ v }: { v?: SessionView }) {
       {item('dms', '私信', MessageCircle, unread(v, 'dms'))}
       {item('ai', 'AI', Sparkles, unread(v, 'ai'))}
       <div className="flex-1" />
+      {item('account', '账号设置', UserRound)}
       {item('settings', '设置', Settings)}
-      <button onClick={() => set({ page: 'me' })} aria-label="我" title="我" className="press mt-1 rounded-full">
-        <UserAvatar user={v?.me} size={40} status={v?.status === 'online'} />
+      <button
+        onClick={() => set({ page: 'profile' })}
+        aria-label="个人主页"
+        title="个人主页"
+        aria-current={page === 'profile' ? 'page' : undefined}
+        className={cx('press mt-1 rounded-full ring-offset-2 ring-offset-transparent transition-shadow duration-300', page === 'profile' && 'ring-2 ring-accent')}
+      >
+        <UserAvatar user={v?.me} size={40} status={myStatus} />
       </button>
     </nav>
   );

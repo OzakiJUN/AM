@@ -32,8 +32,13 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-export function Avatar({ src, name, size = 40, status, square, className }: {
-  src?: string; name: string; size?: number; status?: boolean; square?: boolean; className?: string;
+/**
+ * status: true = online (green dot), false = offline (grey), 'invisible' =
+ * online but hidden (hollow ring). statusAt puts the dot top-right
+ * (presence in lists) or bottom-right (default).
+ */
+export function Avatar({ src, name, size = 40, status, statusAt = 'bottom', square, className }: {
+  src?: string; name: string; size?: number; status?: boolean | 'invisible'; statusAt?: 'top' | 'bottom'; square?: boolean; className?: string;
 }) {
   const [a, b] = GRADIENTS[hash(name || '?') % GRADIENTS.length];
   const radius = square ? Math.round(size * 0.3) : size / 2;
@@ -53,7 +58,11 @@ export function Avatar({ src, name, size = 40, status, square, className }: {
       )}
       {status !== undefined && (
         <span
-          className={cx('absolute right-0 bottom-0 rounded-full ring-2 ring-white dark:ring-[#1e1b36]', status ? 'bg-emerald-400' : 'bg-zinc-300 dark:bg-zinc-600')}
+          className={cx(
+            'absolute right-0 rounded-full ring-2 ring-white transition-colors duration-300 dark:ring-[#1e1b36]',
+            statusAt === 'top' ? 'top-0' : 'bottom-0',
+            status === 'invisible' ? 'border-[2.5px] border-zinc-400 bg-white dark:bg-[#1e1b36]' : status ? 'bg-emerald-400' : 'bg-zinc-300 dark:bg-zinc-600',
+          )}
           style={{ width: Math.max(8, size * 0.26), height: Math.max(8, size * 0.26) }}
         />
       )}

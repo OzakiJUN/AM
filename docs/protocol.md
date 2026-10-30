@@ -51,8 +51,9 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | DELETE | `/api/v1/sessions/{id}` | — | `Empty`（立即断开该设备） |
 | GET | `/api/v1/invites` | — | `ListInvitesResponse`：注册时自动发的邀请码（不够 `invites.per_user` 个会补齐），未使用的带加入码；`remaining = -1` 表示站点管理员可以再要 |
 | POST | `/api/v1/invites` | — | `Invite`（只有站点管理员能超出自动发放的数量，其他人返回 `invite_limit`） |
-| PATCH | `/api/v1/me` | `UpdateProfileRequest` | `User` |
+| PATCH | `/api/v1/me` | `UpdateProfileRequest` | `User`：只改带了的字段（昵称、头像、`bio` 个性签名，最多 100 字，空字符串清空） |
 | GET | `/api/v1/me/logins` | — | `ListLoginRecordsResponse`（最近 50 条） |
+| PUT | `/api/v1/me/presence` | `SetPresenceRequest` | `Presence`：隐身开关和"正在做什么"，存在服务器上，见下面"在线状态" |
 | GET | `/api/v1/users/{id}` | — | `User` |
 
 ### 成员与私信
@@ -111,16 +112,25 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 - 谁能下载：上传者；任何人的头像对所有登录用户可见；群头像对群成员可见；消息里的媒体对该会话成员可见（被管理员删除后不再可见）。
 - 非图片文件以附件方式下载，不会在浏览器里直接打开。
 
+### 在线状态
+
+- 有一个以上设备连着 WebSocket 就是在线。
+- `Presence`：`online`、`activity`（`ActivityKind`：听歌 / 打游戏 / 调试 AI / 学习工作 / 自定义，`text` 最多 32 字，自定义必须有 `text`）、`invisible`。
+- **隐身**：对其他人报告 `online = false`，没有 `activity`。只有本人和本人名下的 bot / ai 账号能看到真实状态，此时 `invisible = true`（AI 知道主人在线，可能说漏嘴，这是故意的）。
+- 连上时 `AuthResponse.presences` 是此刻所有在线的人（按你能看到的样子，包括你自己）；之后有变化时推送 `presence`。断线后客户端应把所有人当离线，重连拿新的列表。
+- `SetPresenceRequest` 每次都要带完整设置：`invisible` 和 `activity`（不带 = 清除状态）。
+
 ## WebSocket 流程
 
 1. 连接 `/ws`，**第一帧**必须是 `ClientFrame{auth}`，10 秒内不发就断开。
-2. 服务器回 `ServerFrame{auth}`：自己的资料 + 所有会话（带 `last_seq`、成员和角色、自己的 `self` 状态）+ `is_site_admin`（能不能建公开频道）。token 无效时先回 `error`（`unauthorized`）再断开。
+2. 服务器回 `ServerFrame{auth}`：自己的资料 + 所有会话（带 `last_seq`、成员和角色、自己的 `self` 状态）+ `is_site_admin`（能不能建公开频道）+ `presences`（在线的人）。token 无效时先回 `error`（`unauthorized`）再断开。
 3. 客户端对比本地每个会话已有的最大 seq 和 `last_seq`，用 `sync` 补齐缺的事件；`has_more` 里的会话还要继续拉下一页。
 4. 之后服务器推送（`req_id = 0`）：
    - `event`：会话里有新事件（含系统事件）。
    - `conv`：你加入了新会话（新会话会先于它的事件推送）。
    - `conv_removed`：你离开了某个会话（退群、被踢、群解散），客户端保留只读历史。
    - `join_request`：有人被邀请进需要审批的群（发给群主和管理员）。
+   - `presence`：某人上线 / 下线 / 改了隐身或状态（发给服务器上所有在线的人，每人看到的是自己该看到的样子，见"在线状态"）。
 5. 请求带客户端自定的 `req_id`，响应带同一个 `req_id`。
 
 服务器每 30 秒发一次 WebSocket ping；客户端也可以发 `ping` 帧。客户端读得太慢会被断开，重连后 sync 即可。
@@ -193,6 +203,8 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | `not_image` | 400 | 不是支持的图片 |
 | `bad_image` | 400 | 图片读不出来或像素过大 |
 | `media_not_found` | 404 | 媒体不存在或无权查看 |
+| `bio_too_long` | 400 | 个性签名最多 100 字 |
+| `invalid_activity` | 400 | 状态类型不认识、说明超过 32 字，或自定义状态没写内容 |
 | `rate_limited` | 429 | 尝试太频繁 |
 | `already_authenticated` | 400 | 已登录的连接又发了 auth |
 | `internal_error` | 500 | 服务器内部错误（看服务器日志） |

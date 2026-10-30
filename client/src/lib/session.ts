@@ -8,7 +8,7 @@ import * as gw from '@/gen/am/v1/gateway_pb';
 import { ApiError, errorFromBody } from './errors';
 import { encodeJoinCode, joinUrl } from './joincode';
 import { createTransport, type Endpoint, type Socket, type Transport } from './transport';
-import type { ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, SysEvent, User } from './types';
+import type { Activity, ActivityKind, ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, Presence, SysEvent, User } from './types';
 
 export interface ServerRecord {
   id: string;
@@ -37,6 +37,8 @@ export interface SessionView {
   blocked: string[];
   joinRequests: Record<string, JoinRequest[]>;
   downloadUrl: string;
+  /** Who is online, as I see them (user id -> presence). Empty while disconnected. */
+  presence: Record<string, Presence>;
 }
 
 const INITIAL_PAGE = 50;
@@ -60,6 +62,24 @@ export function toUser(u: common.User): User {
     ownerName: u.ownerDisplayName || undefined,
     avatar: u.avatar || undefined,
     avatarStatic: u.avatarStatic || u.avatar || undefined,
+    bio: u.bio,
+  };
+}
+
+const ACTIVITY: Record<number, ActivityKind> = {
+  [common.ActivityKind.LISTENING]: 'listening',
+  [common.ActivityKind.PLAYING]: 'playing',
+  [common.ActivityKind.TUNING_AI]: 'tuning_ai',
+  [common.ActivityKind.WORKING]: 'working',
+  [common.ActivityKind.CUSTOM]: 'custom',
+};
+const ACTIVITY_CODE = Object.fromEntries(Object.entries(ACTIVITY).map(([k, v]) => [v, Number(k)])) as Record<ActivityKind, common.ActivityKind>;
+
+function toPresence(p: common.Presence): Presence {
+  const kind = p.activity ? ACTIVITY[p.activity.kind] : undefined;
+  return {
+    invisible: p.invisible || undefined,
+    activity: kind ? { kind, text: p.activity!.text } : undefined,
   };
 }
 
@@ -174,6 +194,7 @@ export class Session {
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
       users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '',
+      presence: {},
     };
   }
 
@@ -305,6 +326,7 @@ export class Session {
       p.reject(new Error('连接断开了'));
     }
     this.pending.clear();
+    this.patch({ presence: {} });
     if (this.stopped || this.view.status === 'logged_out') return;
     this.patch({ status: 'offline', error: reason === 'closed' ? undefined : reason });
     this.scheduleReconnect();
@@ -373,6 +395,16 @@ export class Session {
         this.emit();
         break;
       }
+      case 'presence': {
+        const p = f.msg.value.presence;
+        if (!p) break;
+        const id = s(p.userId);
+        const presence = { ...this.view.presence };
+        if (p.online) presence[id] = toPresence(p);
+        else delete presence[id];
+        this.patch({ presence });
+        break;
+      }
       case 'joinRequest': {
         const jr = f.msg.value;
         const id = s(jr.convId);
@@ -427,6 +459,7 @@ export class Session {
       this.view.me = toUser(a.me);
     }
     this.view.isAdmin = a.isSiteAdmin;
+    this.view.presence = Object.fromEntries(a.presences.filter((p) => p.online).map((p) => [s(p.userId), toPresence(p)]));
     const convs: Record<string, Conversation> = {};
     for (const c of a.conversations) {
       const id = s(c.id);
@@ -734,11 +767,21 @@ export class Session {
 
   // ---- me ----
 
-  async updateProfile(value: { displayName?: string; avatarMediaId?: bigint }) {
+  async updateProfile(value: { displayName?: string; avatarMediaId?: bigint; bio?: string }) {
     const u = await this.call('PATCH', '/api/v1/me', common.UserSchema, { schema: api.UpdateProfileRequestSchema, value });
     this.addUsers([u]);
     this.view.me = toUser(u);
     this.emit();
+  }
+
+  /** Invisible mode and activity. Saved on the server (stays after restarting). */
+  async setPresence(invisible: boolean, activity?: Activity) {
+    const p = await this.call('PUT', '/api/v1/me/presence', common.PresenceSchema, {
+      schema: api.SetPresenceRequestSchema,
+      value: { invisible, activity: activity ? { kind: ACTIVITY_CODE[activity.kind], text: activity.text } : undefined },
+    });
+    const me = this.view.me?.id;
+    if (me && this.view.status === 'online') this.patch({ presence: { ...this.view.presence, [me]: toPresence(p) } });
   }
 
   async invites(): Promise<{ list: Invite[]; remaining: number }> {

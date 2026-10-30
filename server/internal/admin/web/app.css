@@ -224,6 +224,18 @@ td.actions .btn + .btn { margin-left: 4px; }
 .evidence .content { background: var(--paper); border-radius: var(--r-s); padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; grid-column: 1 / -1; }
 .evidence img { max-width: 260px; max-height: 260px; border-radius: var(--r-s); display: block; }
 .evidence .meta { color: var(--muted); font-size: 13px; }
+.back { display: inline-block; margin-bottom: 6px; font-size: 13px; color: var(--muted); text-decoration: none; }
+.back:hover { color: var(--blue); }
+.history-top { text-align: center; padding-bottom: 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.history { max-height: calc(100vh - 260px); overflow-y: auto; padding-top: 8px; }
+.h-msg { display: grid; grid-template-columns: 36px 1fr; gap: 10px; padding: 8px 0; }
+.h-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--blue-soft); color: var(--blue);
+  display: flex; align-items: center; justify-content: center; font-weight: 600; }
+.h-meta { font-size: 13px; margin-bottom: 2px; }
+.h-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.h-body.struck { text-decoration: line-through; color: var(--muted); }
+.h-body img { max-width: 260px; max-height: 260px; border-radius: var(--r-s); display: block; }
+.h-sys { text-align: center; color: var(--muted); font-size: 12px; padding: 6px 0; }
 
 .logs {
   background: var(--night); color: #d6dcef; border-radius: var(--r-m);

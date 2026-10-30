@@ -19,6 +19,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -160,15 +161,16 @@ func (c *Conn) close(code websocket.StatusCode, reason string) {
 
 // Gateway is the HTTP handler for /ws.
 type Gateway struct {
-	hub  *Hub
-	acct *account.Service
-	conv *conv.Service
-	msg  *message.Service
-	log  *slog.Logger
+	hub      *Hub
+	acct     *account.Service
+	conv     *conv.Service
+	msg      *message.Service
+	presence *presence.Service
+	log      *slog.Logger
 }
 
-func New(hub *Hub, acct *account.Service, cs *conv.Service, ms *message.Service, log *slog.Logger) *Gateway {
-	return &Gateway{hub: hub, acct: acct, conv: cs, msg: ms, log: log}
+func New(hub *Hub, acct *account.Service, cs *conv.Service, ms *message.Service, ps *presence.Service, log *slog.Logger) *Gateway {
+	return &Gateway{hub: hub, acct: acct, conv: cs, msg: ms, presence: ps, log: log}
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -187,17 +189,21 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The auth response must be the first frame, so queue it before the
-	// connection becomes visible to pushes. Anything that happens in
-	// between is picked up by the sync the client does right after auth.
-	resp, err := g.authResponse(ctx, c, authReq)
+	// connection becomes visible to pushes. Events that happen in between
+	// are picked up by the sync the client does right after auth; presence
+	// is filled in under the presence lock, so no change is missed.
+	resp, err := g.authResponse(ctx, c)
 	if err != nil {
 		g.log.Error("build auth response", "err", err)
 		c.close(websocket.StatusInternalError, "internal error")
 		return
 	}
-	c.enqueue(resp)
-	g.hub.add(c)
-	defer g.hub.remove(c)
+	g.presence.Connect(c.user, func(snapshot []*amv1.Presence) {
+		resp.Presences = snapshot
+		c.enqueueFrame(&amv1.ServerFrame{ReqId: authReq.GetReqId(), Msg: &amv1.ServerFrame_Auth{Auth: resp}})
+		g.hub.add(c)
+	})
+	defer g.presence.Disconnect(c.userID, func() { g.hub.remove(c) })
 	g.log.Debug("connected", "user", c.userID, "conn", c.id)
 	defer g.log.Debug("disconnected", "user", c.userID, "conn", c.id)
 
@@ -240,7 +246,7 @@ func (g *Gateway) authenticate(ctx context.Context, ws *websocket.Conn, cancel c
 	return c, frame, nil
 }
 
-func (g *Gateway) authResponse(ctx context.Context, c *Conn, req *amv1.ClientFrame) ([]byte, error) {
+func (g *Gateway) authResponse(ctx context.Context, c *Conn) (*amv1.AuthResponse, error) {
 	me, err := g.conv.UserView(ctx, c.user)
 	if err != nil {
 		return nil, err
@@ -249,9 +255,7 @@ func (g *Gateway) authResponse(ctx context.Context, c *Conn, req *amv1.ClientFra
 	if err != nil {
 		return nil, err
 	}
-	return proto.Marshal(&amv1.ServerFrame{ReqId: req.GetReqId(), Msg: &amv1.ServerFrame_Auth{
-		Auth: &amv1.AuthResponse{Me: me, Conversations: convs, IsSiteAdmin: c.user.IsSiteAdmin},
-	}})
+	return &amv1.AuthResponse{Me: me, Conversations: convs, IsSiteAdmin: c.user.IsSiteAdmin}, nil
 }
 
 func (g *Gateway) writeLoop(ctx context.Context, c *Conn) {

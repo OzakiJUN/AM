@@ -69,6 +69,19 @@ func (a *API) updateProfile(w http.ResponseWriter, r *http.Request, _ *store.Ses
 	a.ok(w, v)
 }
 
+func (a *API) setPresence(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	req := &amv1.SetPresenceRequest{}
+	if !a.read(w, r, req) {
+		return
+	}
+	p, err := a.presence.Set(r.Context(), me, req)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, p)
+}
+
 func (a *API) listLogins(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 	resp, err := a.acct.ListLoginRecords(r.Context(), me.ID)
 	if err != nil {

@@ -1,17 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import { Ban, Check, Crown, ImageUp, LogOut, MessageCircle, Shield, ShieldOff, UserMinus, UserPlus, Volume2, X } from 'lucide-react';
+import { Ban, Check, Crown, ImageUp, LogOut, MessageCircle, PanelRightClose, PanelRightOpen, Shield, ShieldOff, UserMinus, UserPlus, Volume2, X } from 'lucide-react';
 import { motion } from 'motion/react';
+import { usePrefs } from '@/lib/prefs';
+import { activityText } from '@/lib/presence';
 import { current } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, MemberRole } from '@/lib/types';
 import { Button, Dialog, Field, IconButton, IdentityChip, Input, RoleChip, Spinner, Toggle, ask, cx, inputClass, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
+import { FoldColumn, StripItem } from './Fold';
 import { ConvAvatar, UserAvatar } from './media';
 import { PersonPicker, messageUser, toggleBlock } from './People';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
+/** Channel members, online first. Folds into a column of avatars with online dots. */
 export function MemberPanel({ v, conv, onInvite }: { v: SessionView; conv: Conversation; onInvite: () => void }) {
-  const members = [...conv.members].sort((a, b) => RANK[b.role] - RANK[a.role]);
+  const folded = usePrefs((p) => p.membersFolded);
+  const setPrefs = usePrefs((p) => p.set);
+  const byRole = [...conv.members].sort((a, b) => RANK[b.role] - RANK[a.role]);
+  const online = byRole.filter((m) => v.presence[m.userId]);
+  const offline = byRole.filter((m) => !v.presence[m.userId]);
   const requests = v.joinRequests[conv.id] ?? [];
   const canManage = RANK[conv.myRole] >= 2;
   useEffect(() => {
@@ -52,11 +60,42 @@ export function MemberPanel({ v, conv, onInvite }: { v: SessionView; conv: Conve
     openMenu(e, items);
   };
 
-  return (
-    <aside className="glass flex w-[250px] shrink-0 flex-col rounded-3xl p-4">
-      <div className="mb-3 flex items-center">
-        <h3 className="flex-1 font-semibold">成员 · {members.length}</h3>
+  const row = (m: (typeof byRole)[number]) => {
+    const u = v.users[m.userId];
+    const act = activityText(v.presence[m.userId]?.activity);
+    return (
+      <motion.button
+        layout="position"
+        transition={spring}
+        key={m.userId}
+        onClick={(e) => menuFor(e, m.userId, m.role)}
+        onContextMenu={(e) => menuFor(e, m.userId, m.role)}
+        className={cx('lift flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left hover:bg-white/70 dark:hover:bg-white/5', !v.presence[m.userId] && 'opacity-60')}
+      >
+        <UserAvatar user={u} size={32} presence />
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate text-[0.9rem]">{u?.name ?? '…'}{m.userId === v.me?.id && <span className="text-ink-soft"> （我）</span>}</span>
+          {act && <span className="block truncate text-[0.75rem] text-ink-soft dark:text-white/45">{act}</span>}
+        </span>
+        <RoleChip role={m.role} />
+        <IdentityChip user={u} short />
+      </motion.button>
+    );
+  };
+  const section = (title: string, list: typeof byRole) =>
+    list.length > 0 && (
+      <div key={title}>
+        <div className="px-2 pt-2 pb-1 text-[0.72rem] font-medium tracking-wide text-ink-soft/80 dark:text-white/40">{title} — {list.length}</div>
+        {list.map(row)}
+      </div>
+    );
+
+  const full = (
+    <div className="flex h-full flex-col p-4">
+      <div className="mb-3 flex items-center gap-0.5">
+        <h3 className="flex-1 font-semibold">成员 · {byRole.length}</h3>
         <IconButton label="邀请成员" onClick={onInvite}><UserPlus size={17} /></IconButton>
+        <IconButton label="收起成员列表" onClick={() => setPrefs({ membersFolded: true })}><PanelRightClose size={17} /></IconButton>
       </div>
       {canManage && requests.length > 0 && (
         <div className="mb-3 space-y-2 rounded-2xl bg-accent-50 p-2.5 dark:bg-white/5">
@@ -75,27 +114,47 @@ export function MemberPanel({ v, conv, onInvite }: { v: SessionView; conv: Conve
         </div>
       )}
       <div className="-mx-2 flex-1 space-y-0.5 overflow-y-auto">
-        {members.map((m) => {
+        {section('在线', online)}
+        {section('离线', offline)}
+      </div>
+    </div>
+  );
+
+  const strip = (
+    <div className="flex h-full flex-col items-center gap-1 py-3">
+      <IconButton label="展开成员列表" onClick={() => setPrefs({ membersFolded: false })}><PanelRightOpen size={18} /></IconButton>
+      <IconButton label="邀请成员" onClick={onInvite}><UserPlus size={17} /></IconButton>
+      {canManage && requests.length > 0 && (
+        <button
+          onClick={() => setPrefs({ membersFolded: false })}
+          title={`${requests.length} 个加入申请`}
+          className="press rounded-full bg-accent px-2 text-[0.72rem] leading-5 font-semibold text-white"
+        >
+          {requests.length}
+        </button>
+      )}
+      <div className="my-1.5 h-px w-7 bg-black/10 dark:bg-white/10" />
+      <div className="flex w-full flex-1 flex-col items-center gap-0.5 overflow-y-auto pb-1">
+        {[...online, ...offline].map((m) => {
           const u = v.users[m.userId];
+          const act = activityText(v.presence[m.userId]?.activity);
           return (
-            <motion.button
-              layout="position"
-              transition={spring}
+            <StripItem
               key={m.userId}
+              label={(u?.name ?? '…') + (act ? ` · ${act}` : '')}
+              dim={!v.presence[m.userId]}
               onClick={(e) => menuFor(e, m.userId, m.role)}
               onContextMenu={(e) => menuFor(e, m.userId, m.role)}
-              className="lift flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left hover:bg-white/70 dark:hover:bg-white/5"
             >
-              <UserAvatar user={u} size={32} />
-              <span className="min-w-0 flex-1 truncate text-[0.9rem]">{u?.name ?? '…'}{m.userId === v.me?.id && <span className="text-ink-soft"> （我）</span>}</span>
-              <RoleChip role={m.role} />
-              <IdentityChip user={u} short />
-            </motion.button>
+              <UserAvatar user={u} size={36} presence />
+            </StripItem>
           );
         })}
       </div>
-    </aside>
+    </div>
   );
+
+  return <FoldColumn label="频道成员" folded={folded} width={250} foldedWidth={68} full={full} strip={strip} />;
 }
 
 export function GroupDialog({ open, onClose, v, conv }: { open: boolean; onClose: () => void; v: SessionView; conv: Conversation }) {

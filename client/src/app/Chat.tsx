@@ -5,7 +5,9 @@ import {
   SendHorizontal, Settings2, Smile, Sparkles, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
-import { current, useApp, useOpenConv, type ConvPage } from '@/lib/store';
+import { usePrefs } from '@/lib/prefs';
+import { activityText } from '@/lib/presence';
+import { current, useOpenConv, type ConvPage } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message } from '@/lib/types';
 import { copyText } from '@/lib/platform';
@@ -29,7 +31,8 @@ const EMPTY = {
  */
 export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const convId = useOpenConv(page, v.id);
-  const showMembers = useApp((s) => s.showMembers);
+  const membersFolded = usePrefs((p) => p.membersFolded);
+  const setPrefs = usePrefs((p) => p.set);
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const conv = convId ? v.convs[convId] : undefined;
@@ -45,6 +48,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const peer = conv.peerId ? v.users[conv.peerId] : undefined;
   const blocked = !!peer && v.blocked.includes(peer.id);
   const ai = page === 'ai';
+  const peerPresence = peer ? v.presence[peer.id] : undefined;
   return (
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
@@ -56,7 +60,9 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
               <IdentityChip user={peer} />
             </div>
             <div className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">
-              {group ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人` : peer ? `@${peer.username}` : ''}
+              {group
+                ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人`
+                : peer ? `@${peer.username} · ${peerPresence ? activityText(peerPresence.activity) || '在线' : '离线'}` : ''}
               {conv.left && ' · 你已不在这个频道里'}
               {blocked && ' · 已屏蔽'}
             </div>
@@ -65,27 +71,27 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
             <>
               <IconButton label="邀请成员" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
               <IconButton label="频道设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
-              <IconButton label="成员列表" active={showMembers} onClick={() => useApp.setState({ showMembers: !showMembers })}><PanelRight size={19} /></IconButton>
+              <IconButton label={membersFolded ? '展开成员列表' : '收起成员列表'} active={!membersFolded} onClick={() => setPrefs({ membersFolded: !membersFolded })}><PanelRight size={19} /></IconButton>
             </>
           )}
           {!group && peer && (
             <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
           )}
-          {ai && peer && <PortraitCorner user={peer} />}
+          {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} />}
         </header>
-        {ai && peer && <PortraitBand user={peer} />}
+        {ai && peer && <PortraitBand user={peer} online={!!peerPresence} />}
         <MessageList key={conv.id} v={v} conv={conv} fadeTop={ai} />
         <Composer v={v} conv={conv} blocked={blocked} />
       </section>
       <AnimatePresence initial={false}>
-        {group && showMembers && !conv.left && (
+        {group && !conv.left && (
           <motion.div
             key="members"
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 250 }}
-            exit={{ opacity: 0, width: 0 }}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
             transition={spring}
-            className="flex shrink-0 overflow-hidden"
+            className="flex shrink-0"
           >
             <MemberPanel v={v} conv={conv} onInvite={() => setInviteOpen(true)} />
           </motion.div>

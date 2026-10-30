@@ -182,6 +182,7 @@ const PAGES = [
   { id: 'overview', name: '概览', render: renderOverview },
   { id: 'users', name: '用户', render: renderUsers },
   { id: 'invites', name: '邀请码', render: renderInvites },
+  { id: 'channels', name: '频道记录', render: renderChannels },
   { id: 'evidence', name: '删除记录', render: renderEvidence },
   { id: 'audit', name: '操作记录', render: renderAudit },
   { id: 'logs', name: '运行日志', render: renderLogs },
@@ -617,6 +618,102 @@ async function renderInvites(root, page) {
   load();
 }
 
+// ---------- channel history ----------
+
+let channelQuery = '';
+let channelPage = 1;
+
+// #/channels lists every channel (public and private); #/channels/<id>
+// shows one channel's messages, read-only. Direct messages are never shown.
+async function renderChannels(root, page) {
+  root.append(stateBanner() || '');
+  const id = (location.hash.match(/^#\/channels\/(\d+)/) || [])[1];
+  if (id) return renderChannel(root, page, id);
+  const search = el('input', { type: 'search', placeholder: '搜索频道名', value: channelQuery, 'aria-label': '搜索频道' });
+  let t;
+  search.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { channelQuery = search.value.trim(); channelPage = 1; load(); }, 250);
+  });
+  const box = el('div');
+  root.append(head('频道记录', '所有频道（公开和私密）的聊天记录，只能看不能改。私信看不到。打开某个频道会记入操作记录。', search), box);
+  async function load() {
+    let data;
+    try { data = await api('GET', 'channels?q=' + encodeURIComponent(channelQuery) + '&page=' + channelPage); } catch (e) { fail(e); return; }
+    if (currentPage !== page) return;
+    if (!data.items.length) {
+      box.replaceChildren(el('div', { class: 'table-wrap' }, el('p', { class: 'empty' }, channelQuery ? '没有找到匹配的频道' : '还没有频道。')));
+      return;
+    }
+    box.replaceChildren(el('div', { class: 'table-wrap' }, el('table', {},
+      el('thead', {}, el('tr', {}, ['频道', '人数', '记录数', '创建时间', ''].map((h) => el('th', {}, h)))),
+      el('tbody', {}, data.items.map((c) => el('tr', {},
+        el('td', {},
+          el('b', {}, c.name),
+          el('span', { class: 'tag' + (c.public ? '' : ' warn') }, c.public ? '公开' : '私密'),
+          c.dissolved && el('span', { class: 'tag bad' }, '已解散'),
+          c.owner_name && el('span', { class: 'sub' }, '频道主：' + c.owner_name)),
+        el('td', {}, c.members),
+        el('td', {}, c.messages),
+        el('td', {}, fmtTime(c.created_at)),
+        el('td', { class: 'actions' }, el('a', { class: 'btn small ghost', href: '#/channels/' + c.id }, '查看记录'))))))),
+    pager(data.total, data.page_size, channelPage, (p) => { channelPage = p; load(); }));
+  }
+  load();
+}
+
+async function renderChannel(root, page, id) {
+  const title = el('h1', {}, '频道记录');
+  const tags = el('span');
+  root.append(el('div', { class: 'page-head' },
+    el('div', {}, el('a', { class: 'back', href: '#/channels' }, '← 所有频道'), el('div', { class: 'row' }, title, tags),
+      el('p', {}, '只读。打开这个频道已记入操作记录。')),
+  ));
+  const list = el('div', { class: 'history' });
+  const more = el('button', { class: 'btn small ghost', onclick: () => load(before) }, '加载更早的消息');
+  const top = el('div', { class: 'history-top' });
+  root.append(el('div', { class: 'panel' }, top, list));
+  let before = 0;
+  async function load(from) {
+    more.disabled = true;
+    let data;
+    try { data = await api('GET', 'channels/' + id + '/events' + (from ? '?before=' + from : '')); } catch (e) { fail(e); more.disabled = false; return; }
+    if (currentPage !== page) return;
+    if (!from) {
+      title.textContent = data.channel.name;
+      tags.replaceChildren(el('span', { class: 'tag' + (data.channel.public ? '' : ' warn') }, data.channel.public ? '公开' : '私密'),
+        data.channel.dissolved ? el('span', { class: 'tag bad' }, '已解散') : '');
+    }
+    before = data.before;
+    const rows = data.items.map(historyItem);
+    if (!from && !rows.length) rows.push(el('p', { class: 'empty' }, '这个频道还没有消息。'));
+    const keep = list.scrollHeight - list.scrollTop;
+    list.prepend(...rows);
+    if (from) list.scrollTop = list.scrollHeight - keep; else list.scrollTop = list.scrollHeight;
+    more.disabled = false;
+    top.replaceChildren(before ? more : el('span', { class: 'muted' }, '已经到最早的消息了'));
+  }
+  load(0);
+}
+
+function historyItem(x) {
+  if (x.kind === 'sys') return el('div', { class: 'h-sys' }, x.text, ' · ', fmtTime(x.at));
+  let content;
+  if (x.kind === 'text') content = x.text;
+  else if (x.kind === 'image') content = el('a', { href: 'api/media/' + x.media_id, target: '_blank', rel: 'noopener' },
+    el('img', { src: 'api/media/' + x.media_id + '?thumb=1', alt: '图片', loading: 'lazy' }));
+  else if (x.kind === 'file') content = ['[文件] ', el('a', { href: 'api/media/' + x.media_id }, x.file_name), ' ', fmtBytes(x.file_size || 0)];
+  else if (x.kind === 'deleted') content = el('span', { class: 'muted' }, '已被 ' + x.deleted_by + ' 删除，原因：' + x.reason + '（原内容在「删除记录」里）');
+  const avatar = x.sender_avatar
+    ? el('img', { class: 'h-avatar', src: 'api/media/' + x.sender_avatar + '?thumb=1', alt: '' })
+    : el('span', { class: 'h-avatar' }, (x.sender_name || '?').slice(0, 1));
+  return el('div', { class: 'h-msg' }, avatar,
+    el('div', {},
+      el('div', { class: 'h-meta' }, el('b', {}, x.sender_name), ' ', el('span', { class: 'muted' }, fmtTime(x.at)),
+        x.struck && el('span', { class: 'tag warn' }, '已划掉')),
+      el('div', { class: 'h-body' + (x.struck ? ' struck' : '') }, content)));
+}
+
 // ---------- evidence ----------
 
 async function renderEvidence(root, page) {
@@ -660,7 +757,7 @@ const AUDIT_TEXT = {
   admin_delete: '删除了一条消息', kick: '把人移出了群', mute: '禁言了', transfer: '转让了群',
   dissolve: '解散了群', ban: '封禁了', unban: '解封了', site_admin_grant: '设为站点管理员：',
   site_admin_remove: '取消了站点管理员：', password_reset: '重置了密码：', invite_create: '生成了邀请码',
-  invite_delete: '作废了邀请码',
+  invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录',
 };
 
 async function renderAudit(root, page) {
@@ -683,7 +780,7 @@ async function renderAudit(root, page) {
         el('td', {}, fmtTime(x.at)),
         el('td', {}, x.actor_id ? x.actor_name || '(已不存在)' : el('span', { class: 'tag' }, '管理面板')),
         el('td', {}, (AUDIT_TEXT[x.action] || x.action) + ' ', x.target_name && el('b', {}, x.target_name),
-          x.conv_name && el('span', { class: 'sub' }, '群「' + x.conv_name + '」')),
+          x.conv_name && el('span', { class: 'sub' }, '频道「' + x.conv_name + '」')),
         el('td', { class: 'muted' }, auditDetail(x))))))),
     pager(data.total, data.page_size, pageNo, (p) => { pageNo = p; load(); }));
   }

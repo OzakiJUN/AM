@@ -65,4 +65,7 @@ var (
 
 	ErrReasonRequired = New(http.StatusBadRequest, "reason_required", "a reason is required")
 	ErrNoPassword     = New(http.StatusBadRequest, "no_password", "this account does not use a password")
+
+	ErrBioTooLong      = New(http.StatusBadRequest, "bio_too_long", "signature must be at most 100 characters")
+	ErrInvalidActivity = New(http.StatusBadRequest, "invalid_activity", "unknown activity, or its text is too long / missing")
 )

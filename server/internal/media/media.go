@@ -287,9 +287,16 @@ func (s *Service) Open(ctx context.Context, user *store.User, mediaID int64, thu
 	return &File{Path: s.blobPath(m.SHA256), Mime: m.Mime, Name: m.Name}, nil
 }
 
-// OpenAny returns a media file without an access check. Only for the
-// server admin panel (e.g. viewing images kept as evidence).
-func (s *Service) OpenAny(ctx context.Context, mediaID int64, thumb bool) (*File, error) {
+// OpenForPanel returns a media file for the server admin panel: evidence,
+// files sent in channels and avatars, never files sent in direct messages.
+func (s *Service) OpenForPanel(ctx context.Context, mediaID int64, groupKind int16, thumb bool) (*File, error) {
+	ok, err := s.st.PanelCanSeeMedia(ctx, mediaID, groupKind)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrMediaMissing
+	}
 	return s.Open(ctx, &store.User{IsSiteAdmin: true}, mediaID, thumb)
 }
 

@@ -403,7 +403,7 @@ func (h *handler) media(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request", "bad media id")
 		return
 	}
-	f, err := a.Media.OpenAny(r.Context(), id, r.URL.Query().Get("thumb") == "1")
+	f, err := a.Media.OpenForPanel(r.Context(), id, int16(amv1.ConvKind_CONV_KIND_GROUP), r.URL.Query().Get("thumb") == "1")
 	if errors.Is(err, media.ErrMediaMissing) {
 		writeErr(w, http.StatusNotFound, "media_not_found", "文件不存在或已被清理")
 		return

@@ -28,6 +28,44 @@ message User {
   // Static (first-frame) version of the avatar. Lists and chats show this;
   // only the profile page plays the animated `avatar`.
   string avatar_static = 8;
+  // Personal signature shown on the profile page (at most 100 characters).
+  string bio = 9;
+}
+
+// What a user says they are doing. Chosen by the user; shown next to their
+// name while they are online.
+enum ActivityKind {
+  // Nothing.
+  ACTIVITY_KIND_UNSPECIFIED = 0;
+  // Listening to music; text = the song.
+  ACTIVITY_KIND_LISTENING = 1;
+  // Playing a game; text = the game.
+  ACTIVITY_KIND_PLAYING = 2;
+  // Tuning / debugging an AI.
+  ACTIVITY_KIND_TUNING_AI = 3;
+  // Studying or working (busy).
+  ACTIVITY_KIND_WORKING = 4;
+  // Free text only.
+  ACTIVITY_KIND_CUSTOM = 5;
+}
+
+message Activity {
+  ActivityKind kind = 1;
+  // Optional detail (song, game ...), at most 32 characters. Required for CUSTOM.
+  string text = 2;
+}
+
+// Online state of one user as seen by the receiver.
+message Presence {
+  int64 user_id = 1;
+  // At least one device connected. An invisible user is reported offline to
+  // everyone except themselves and the bot / ai accounts they own.
+  bool online = 2;
+  // Set only for the user themselves and their own bot / ai accounts: the
+  // user is online but invisible to everyone else.
+  bool invisible = 3;
+  // Only while online.
+  Activity activity = 4;
 }
 
 enum ConvKind {

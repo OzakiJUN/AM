@@ -22,6 +22,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -37,14 +38,15 @@ type API struct {
 	conv      *conv.Service
 	msg       *message.Service
 	media     *media.Service
+	presence  *presence.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	maxUpload int64
 }
 
-func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service,
+func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service, ps *presence.Service,
 	loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
-	return &API{acct: acct, conv: cs, msg: ms, media: md, log: log,
+	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, log: log,
 		limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
 }
 
@@ -75,6 +77,7 @@ func (a *API) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("PATCH /api/v1/me", a.authed(a.updateProfile))
 	mux.HandleFunc("GET /api/v1/me/logins", a.authed(a.listLogins))
+	mux.HandleFunc("PUT /api/v1/me/presence", a.authed(a.setPresence))
 
 	mux.HandleFunc("POST /api/v1/groups", a.authed(a.createGroup))
 	mux.HandleFunc("PATCH /api/v1/groups/{id}", a.authed(a.updateGroup))

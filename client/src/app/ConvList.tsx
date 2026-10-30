@@ -2,15 +2,17 @@
 // search, and the conversations that belong to the page.
 import { useMemo, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Compass, Lock, Plus, RefreshCw, Search, Users, WifiOff } from 'lucide-react';
+import { Compass, Lock, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Search, Users, WifiOff } from 'lucide-react';
 import { listTime } from '@/lib/format';
+import { usePrefs } from '@/lib/prefs';
 import { convPage, openConv, session, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
-import { IconButton, IdentityChip, Spinner, cx, spring } from '@/ui';
+import { IconButton, IdentityChip, Spinner, cx, openMenu, spring, type MenuItem } from '@/ui';
 import { BrowseChannelsDialog, CreateChannelDialog } from './Channels';
+import { FoldColumn, StripItem } from './Fold';
 import { ConvAvatar } from './media';
 import { PeopleDialog } from './People';
-import { ServerSwitcher } from './ServerSwitcher';
+import { ServerSwitcher, serverMenuItems } from './ServerSwitcher';
 import { convUnread } from './unread';
 
 const PAGES = {
@@ -20,6 +22,8 @@ const PAGES = {
 
 export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES }) {
   const openId = useOpenConv(page, v.id);
+  const folded = usePrefs((p) => p.listFolded);
+  const setPrefs = usePrefs((p) => p.set);
   const [q, setQ] = useState('');
   const [dialog, setDialog] = useState<'browse' | 'create' | 'people' | null>(null);
   const list = useMemo(
@@ -32,6 +36,7 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
   );
 
   let actions: ReactNode;
+  let actionItems: MenuItem[];
   if (page === 'channels') {
     actions = (
       <>
@@ -39,17 +44,37 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
         <IconButton label="新建频道" onClick={() => setDialog('create')}><Plus size={19} /></IconButton>
       </>
     );
+    actionItems = [
+      { label: '浏览公开频道', icon: <Compass size={16} />, onClick: () => setDialog('browse') },
+      { label: '新建频道', icon: <Plus size={16} />, onClick: () => setDialog('create') },
+    ];
   } else {
     actions = <IconButton label="服务器成员" onClick={() => setDialog('people')}><Users size={18} /></IconButton>;
+    actionItems = [{ label: '服务器成员', icon: <Users size={16} />, onClick: () => setDialog('people') }];
   }
 
-  return (
-    <aside className="glass flex w-[300px] shrink-0 flex-col rounded-3xl p-3">
+  const strip = (
+    <ListStrip v={v} onUnfold={() => setPrefs({ listFolded: false })} menu={actionItems}>
+      {list.map((c) => {
+        const peer = c.peerId ? v.users[c.peerId] : undefined;
+        const active = c.id === openId;
+        return (
+          <StripItem key={c.id} label={c.name} active={active} dim={!!c.left} badge={active ? 0 : convUnread(c)} onClick={() => openConv(c.id)}>
+            <ConvAvatar conv={c} peer={peer} size={42} />
+          </StripItem>
+        );
+      })}
+    </ListStrip>
+  );
+
+  const full = (
+    <div className="flex h-full flex-col p-3">
       <ServerSwitcher v={v} />
       <OfflineBanner v={v} />
       <div className="mt-3 flex items-center gap-1 px-1">
         <h2 className="flex-1 text-[0.95rem] font-semibold text-ink-soft dark:text-white/60">{PAGES[page].title}</h2>
         {actions}
+        <IconButton label="收起列表" onClick={() => setPrefs({ listFolded: true })}><PanelLeftClose size={18} /></IconButton>
       </div>
       <div className="relative my-2">
         <Search size={16} className="absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-soft/70 dark:text-white/40" />
@@ -111,10 +136,43 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
           );
         })}
       </div>
+    </div>
+  );
+
+  return (
+    <>
+      <FoldColumn label={PAGES[page].title} folded={folded} width={300} foldedWidth={76} full={full} strip={strip} />
       <BrowseChannelsDialog open={dialog === 'browse'} onClose={() => setDialog(null)} />
       <CreateChannelDialog open={dialog === 'create'} onClose={() => setDialog(null)} v={v} />
       <PeopleDialog open={dialog === 'people'} onClose={() => setDialog(null)} v={v} />
-    </aside>
+    </>
+  );
+}
+
+/**
+ * The folded list: unfold button, one button holding the server switcher and
+ * the page's actions, then a column of avatars.
+ */
+export function ListStrip({ v, onUnfold, menu, children }: { v: SessionView; onUnfold: () => void; menu: MenuItem[]; children: ReactNode }) {
+  const dot = v.status === 'online' ? 'bg-emerald-400' : v.status === 'connecting' ? 'animate-pulse bg-amber-400' : 'bg-rose-400';
+  return (
+    <div className="flex h-full flex-col items-center gap-1 py-3">
+      <IconButton label="展开列表" onClick={onUnfold}><PanelLeftOpen size={18} /></IconButton>
+      <button
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          openMenu({ clientX: r.right + 6, clientY: r.top }, [...menu, ...serverMenuItems(v.id)]);
+        }}
+        aria-label={`${v.name}：切换服务器和更多操作`}
+        title={v.name}
+        className="press relative mt-1 flex h-11 w-11 items-center justify-center rounded-[14px] bg-accent-100 text-accent dark:bg-white/10 dark:text-accent-200"
+      >
+        <Plus size={20} />
+        <span className={cx('absolute top-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-[#1e1b36]', dot)} />
+      </button>
+      <div className="my-1.5 h-px w-8 bg-black/10 dark:bg-white/10" />
+      <div className="-mx-1 flex w-full flex-1 flex-col items-center gap-1 overflow-y-auto px-1 pb-1">{children}</div>
+    </div>
   );
 }
 

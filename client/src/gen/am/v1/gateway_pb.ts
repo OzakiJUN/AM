@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Conversation, Error, User } from "./common_pb";
+import type { Conversation, Error, Presence, User } from "./common_pb";
 import { file_am_v1_common } from "./common_pb";
 import type { Event, FileMsg, ImageMsg, StrikeAct, TextMsg } from "./event_pb";
 import { file_am_v1_event } from "./event_pb";
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/gateway.proto.
  */
 export const file_am_v1_gateway: GenFile = /*@__PURE__*/
-  fileDesc("ChNhbS92MS9nYXRld2F5LnByb3RvEgVhbS52MSLaAQoLQ2xpZW50RnJhbWUSDgoGcmVxX2lkGAEgASgEEiIKBGF1dGgYCiABKAsyEi5hbS52MS5BdXRoUmVxdWVzdEgAEiIKBHNlbmQYCyABKAsyEi5hbS52MS5TZW5kUmVxdWVzdEgAEiIKBHN5bmMYDCABKAsyEi5hbS52MS5TeW5jUmVxdWVzdEgAEisKCW1hcmtfcmVhZBgNIAEoCzIWLmFtLnYxLk1hcmtSZWFkUmVxdWVzdEgAEhsKBHBpbmcYDiABKAsyCy5hbS52MS5QaW5nSABCBQoDbXNnIsYDCgtTZXJ2ZXJGcmFtZRIOCgZyZXFfaWQYASABKAQSHQoFZXJyb3IYCiABKAsyDC5hbS52MS5FcnJvckgAEiMKBGF1dGgYCyABKAsyEy5hbS52MS5BdXRoUmVzcG9uc2VIABIjCgRzZW5kGAwgASgLMhMuYW0udjEuU2VuZFJlc3BvbnNlSAASIwoEc3luYxgNIAEoCzITLmFtLnYxLlN5bmNSZXNwb25zZUgAEiwKCW1hcmtfcmVhZBgOIAEoCzIXLmFtLnYxLk1hcmtSZWFkUmVzcG9uc2VIABIbCgRwb25nGA8gASgLMgsuYW0udjEuUG9uZ0gAEiEKBWV2ZW50GB4gASgLMhAuYW0udjEuRXZlbnRQdXNoSAASHwoEY29udhgfIAEoCzIPLmFtLnYxLkNvbnZQdXNoSAASIwoGZnJpZW5kGCAgASgLMhEuYW0udjEuRnJpZW5kUHVzaEgAEi4KDGNvbnZfcmVtb3ZlZBghIAEoCzIWLmFtLnYxLkNvbnZSZW1vdmVkUHVzaEgAEi4KDGpvaW5fcmVxdWVzdBgiIAEoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0UHVzaEgAQgUKA21zZyIcCgtBdXRoUmVxdWVzdBINCgV0b2tlbhgBIAEoCSJqCgxBdXRoUmVzcG9uc2USFwoCbWUYASABKAsyCy5hbS52MS5Vc2VyEioKDWNvbnZlcnNhdGlvbnMYAiADKAsyEy5hbS52MS5Db252ZXJzYXRpb24SFQoNaXNfc2l0ZV9hZG1pbhgDIAEoCCLDAQoLU2VuZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxIVCg1jbGllbnRfbXNnX2lkGAIgASgJEh4KBHRleHQYCiABKAsyDi5hbS52MS5UZXh0TXNnSAASIAoFaW1hZ2UYCyABKAsyDy5hbS52MS5JbWFnZU1zZ0gAEh4KBGZpbGUYDCABKAsyDi5hbS52MS5GaWxlTXNnSAASIgoGc3RyaWtlGBQgASgLMhAuYW0udjEuU3RyaWtlQWN0SABCBgoEYm9keSIrCgxTZW5kUmVzcG9uc2USGwoFZXZlbnQYASABKAsyDC5hbS52MS5FdmVudCJACgtTeW5jUmVxdWVzdBIiCgdjdXJzb3JzGAEgAygLMhEuYW0udjEuU3luY0N1cnNvchINCgVsaW1pdBgCIAEoBSIwCgpTeW5jQ3Vyc29yEg8KB2NvbnZfaWQYASABKAMSEQoJYWZ0ZXJfc2VxGAIgASgDIj4KDFN5bmNSZXNwb25zZRIcCgZldmVudHMYASADKAsyDC5hbS52MS5FdmVudBIQCghoYXNfbW9yZRgCIAMoAyIvCg9NYXJrUmVhZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxILCgNzZXEYAiABKAMiEgoQTWFya1JlYWRSZXNwb25zZSIGCgRQaW5nIgYKBFBvbmciKAoJRXZlbnRQdXNoEhsKBWV2ZW50GAEgASgLMgwuYW0udjEuRXZlbnQiNQoIQ29udlB1c2gSKQoMY29udmVyc2F0aW9uGAEgASgLMhMuYW0udjEuQ29udmVyc2F0aW9uIpkBCgpGcmllbmRQdXNoEiQKBGtpbmQYASABKA4yFi5hbS52MS5GcmllbmRQdXNoLktpbmQSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXIiSgoES2luZBIUChBLSU5EX1VOU1BFQ0lGSUVEEAASGQoVS0lORF9SRVFVRVNUX1JFQ0VJVkVEEAESEQoNS0lORF9BQ0NFUFRFRBACIq0BCg9Db252UmVtb3ZlZFB1c2gSDwoHY29udl9pZBgBIAEoAxItCgZyZWFzb24YAiABKA4yHS5hbS52MS5Db252UmVtb3ZlZFB1c2guUmVhc29uIloKBlJlYXNvbhIWChJSRUFTT05fVU5TUEVDSUZJRUQQABIPCgtSRUFTT05fTEVGVBABEhEKDVJFQVNPTl9LSUNLRUQQAhIUChBSRUFTT05fRElTU09MVkVEEAMiWwoPSm9pblJlcXVlc3RQdXNoEg8KB2NvbnZfaWQYASABKAMSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgDIAEoCzILLmFtLnYxLlVzZXJCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common, file_am_v1_event]);
+  fileDesc("ChNhbS92MS9nYXRld2F5LnByb3RvEgVhbS52MSLaAQoLQ2xpZW50RnJhbWUSDgoGcmVxX2lkGAEgASgEEiIKBGF1dGgYCiABKAsyEi5hbS52MS5BdXRoUmVxdWVzdEgAEiIKBHNlbmQYCyABKAsyEi5hbS52MS5TZW5kUmVxdWVzdEgAEiIKBHN5bmMYDCABKAsyEi5hbS52MS5TeW5jUmVxdWVzdEgAEisKCW1hcmtfcmVhZBgNIAEoCzIWLmFtLnYxLk1hcmtSZWFkUmVxdWVzdEgAEhsKBHBpbmcYDiABKAsyCy5hbS52MS5QaW5nSABCBQoDbXNnIu8DCgtTZXJ2ZXJGcmFtZRIOCgZyZXFfaWQYASABKAQSHQoFZXJyb3IYCiABKAsyDC5hbS52MS5FcnJvckgAEiMKBGF1dGgYCyABKAsyEy5hbS52MS5BdXRoUmVzcG9uc2VIABIjCgRzZW5kGAwgASgLMhMuYW0udjEuU2VuZFJlc3BvbnNlSAASIwoEc3luYxgNIAEoCzITLmFtLnYxLlN5bmNSZXNwb25zZUgAEiwKCW1hcmtfcmVhZBgOIAEoCzIXLmFtLnYxLk1hcmtSZWFkUmVzcG9uc2VIABIbCgRwb25nGA8gASgLMgsuYW0udjEuUG9uZ0gAEiEKBWV2ZW50GB4gASgLMhAuYW0udjEuRXZlbnRQdXNoSAASHwoEY29udhgfIAEoCzIPLmFtLnYxLkNvbnZQdXNoSAASIwoGZnJpZW5kGCAgASgLMhEuYW0udjEuRnJpZW5kUHVzaEgAEi4KDGNvbnZfcmVtb3ZlZBghIAEoCzIWLmFtLnYxLkNvbnZSZW1vdmVkUHVzaEgAEi4KDGpvaW5fcmVxdWVzdBgiIAEoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0UHVzaEgAEicKCHByZXNlbmNlGCMgASgLMhMuYW0udjEuUHJlc2VuY2VQdXNoSABCBQoDbXNnIhwKC0F1dGhSZXF1ZXN0Eg0KBXRva2VuGAEgASgJIo4BCgxBdXRoUmVzcG9uc2USFwoCbWUYASABKAsyCy5hbS52MS5Vc2VyEioKDWNvbnZlcnNhdGlvbnMYAiADKAsyEy5hbS52MS5Db252ZXJzYXRpb24SFQoNaXNfc2l0ZV9hZG1pbhgDIAEoCBIiCglwcmVzZW5jZXMYBCADKAsyDy5hbS52MS5QcmVzZW5jZSLDAQoLU2VuZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxIVCg1jbGllbnRfbXNnX2lkGAIgASgJEh4KBHRleHQYCiABKAsyDi5hbS52MS5UZXh0TXNnSAASIAoFaW1hZ2UYCyABKAsyDy5hbS52MS5JbWFnZU1zZ0gAEh4KBGZpbGUYDCABKAsyDi5hbS52MS5GaWxlTXNnSAASIgoGc3RyaWtlGBQgASgLMhAuYW0udjEuU3RyaWtlQWN0SABCBgoEYm9keSIrCgxTZW5kUmVzcG9uc2USGwoFZXZlbnQYASABKAsyDC5hbS52MS5FdmVudCJACgtTeW5jUmVxdWVzdBIiCgdjdXJzb3JzGAEgAygLMhEuYW0udjEuU3luY0N1cnNvchINCgVsaW1pdBgCIAEoBSIwCgpTeW5jQ3Vyc29yEg8KB2NvbnZfaWQYASABKAMSEQoJYWZ0ZXJfc2VxGAIgASgDIj4KDFN5bmNSZXNwb25zZRIcCgZldmVudHMYASADKAsyDC5hbS52MS5FdmVudBIQCghoYXNfbW9yZRgCIAMoAyIvCg9NYXJrUmVhZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxILCgNzZXEYAiABKAMiEgoQTWFya1JlYWRSZXNwb25zZSIGCgRQaW5nIgYKBFBvbmciKAoJRXZlbnRQdXNoEhsKBWV2ZW50GAEgASgLMgwuYW0udjEuRXZlbnQiNQoIQ29udlB1c2gSKQoMY29udmVyc2F0aW9uGAEgASgLMhMuYW0udjEuQ29udmVyc2F0aW9uIpkBCgpGcmllbmRQdXNoEiQKBGtpbmQYASABKA4yFi5hbS52MS5GcmllbmRQdXNoLktpbmQSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXIiSgoES2luZBIUChBLSU5EX1VOU1BFQ0lGSUVEEAASGQoVS0lORF9SRVFVRVNUX1JFQ0VJVkVEEAESEQoNS0lORF9BQ0NFUFRFRBACIq0BCg9Db252UmVtb3ZlZFB1c2gSDwoHY29udl9pZBgBIAEoAxItCgZyZWFzb24YAiABKA4yHS5hbS52MS5Db252UmVtb3ZlZFB1c2guUmVhc29uIloKBlJlYXNvbhIWChJSRUFTT05fVU5TUEVDSUZJRUQQABIPCgtSRUFTT05fTEVGVBABEhEKDVJFQVNPTl9LSUNLRUQQAhIUChBSRUFTT05fRElTU09MVkVEEAMiWwoPSm9pblJlcXVlc3RQdXNoEg8KB2NvbnZfaWQYASABKAMSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgDIAEoCzILLmFtLnYxLlVzZXIiMQoMUHJlc2VuY2VQdXNoEiEKCHByZXNlbmNlGAEgASgLMg8uYW0udjEuUHJlc2VuY2VCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common, file_am_v1_event]);
 
 /**
  * @generated from message am.v1.ClientFrame
@@ -150,6 +150,12 @@ export type ServerFrame = Message<"am.v1.ServerFrame"> & {
      */
     value: JoinRequestPush;
     case: "joinRequest";
+  } | {
+    /**
+     * @generated from field: am.v1.PresencePush presence = 35;
+     */
+    value: PresencePush;
+    case: "presence";
   } | { case: undefined; value?: undefined };
 };
 
@@ -202,6 +208,15 @@ export type AuthResponse = Message<"am.v1.AuthResponse"> & {
    * @generated from field: bool is_site_admin = 3;
    */
   isSiteAdmin: boolean;
+
+  /**
+   * Everyone who is online as this user sees it (includes the user
+   * themselves, with `invisible` set if they are). Changes arrive as
+   * `presence` pushes.
+   *
+   * @generated from field: repeated am.v1.Presence presences = 4;
+   */
+  presences: Presence[];
 };
 
 /**
@@ -595,4 +610,25 @@ export type JoinRequestPush = Message<"am.v1.JoinRequestPush"> & {
  */
 export const JoinRequestPushSchema: GenMessage<JoinRequestPush> = /*@__PURE__*/
   messageDesc(file_am_v1_gateway, 17);
+
+/**
+ * Someone's online state or activity changed, as the receiver sees it.
+ * Sent to everyone online on the server. online = false means offline (or
+ * invisible, for everyone but the user and their own bot / ai accounts).
+ *
+ * @generated from message am.v1.PresencePush
+ */
+export type PresencePush = Message<"am.v1.PresencePush"> & {
+  /**
+   * @generated from field: am.v1.Presence presence = 1;
+   */
+  presence?: Presence | undefined;
+};
+
+/**
+ * Describes the message am.v1.PresencePush.
+ * Use `create(PresencePushSchema)` to create a new message.
+ */
+export const PresencePushSchema: GenMessage<PresencePush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 18);
 

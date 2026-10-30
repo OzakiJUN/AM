@@ -5,9 +5,27 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 import { switchServer, useApp } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
-import { cx, spring } from '@/ui';
+import { cx, spring, type MenuItem } from '@/ui';
 import { ServerAvatar } from './media';
 import { unread } from './unread';
+
+/** Server switching as menu items (used by the folded conversation list). */
+export function serverMenuItems(currentId: string): MenuItem[] {
+  const { servers, sessions } = useApp.getState();
+  return [
+    ...servers.map((s): MenuItem => {
+      const name = sessions[s.id]?.name ?? s.name;
+      const n = s.id === currentId ? 0 : unread(sessions[s.id]);
+      return {
+        label: s.id === currentId ? `${name}（当前）` : n ? `${name} · ${n} 条未读` : name,
+        key: `server:${s.id}`,
+        icon: <ServerAvatar name={name} size={20} />,
+        onClick: () => switchServer(s.id),
+      };
+    }),
+    { label: '添加服务器', icon: <Plus size={16} />, onClick: () => useApp.setState({ view: 'welcome' }) },
+  ];
+}
 
 const STATUS_TEXT = { connecting: '连接中…', online: '已连接', offline: '已断开', logged_out: '需要登录' };
 

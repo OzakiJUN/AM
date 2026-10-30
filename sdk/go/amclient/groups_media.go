@@ -33,6 +33,12 @@ func (c *Client) UpdateProfile(ctx context.Context, req *amv1.UpdateProfileReque
 	return out, c.call(ctx, http.MethodPatch, "/api/v1/me", req, out)
 }
 
+// SetPresence saves invisible mode and the activity ("listening to ...").
+func (c *Client) SetPresence(ctx context.Context, req *amv1.SetPresenceRequest) (*amv1.Presence, error) {
+	out := &amv1.Presence{}
+	return out, c.call(ctx, http.MethodPut, "/api/v1/me/presence", req, out)
+}
+
 func (c *Client) ListLogins(ctx context.Context) (*amv1.ListLoginRecordsResponse, error) {
 	out := &amv1.ListLoginRecordsResponse{}
 	return out, c.call(ctx, http.MethodGet, "/api/v1/me/logins", nil, out)
