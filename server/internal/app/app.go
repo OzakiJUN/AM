@@ -61,6 +61,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	cs := conv.New(st, ids, hub, ms, md, cfg.Limits, cfg.Server.DefaultChannel, log)
 	ps := presence.New(st, hub)
 	acct.OnRegistered(cs.Welcome)
+	acct.OnLeft(cs.LeaveAll)
 
 	mux := http.NewServeMux()
 	httpapi.New(acct, cs, ms, md, ps, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)

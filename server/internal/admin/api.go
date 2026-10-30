@@ -264,7 +264,7 @@ func (h *handler) listUsers(w http.ResponseWriter, r *http.Request) {
 			"type": accountTypes[u.AccountType], "owner_id": id64(u.OwnerID),
 			"is_site_admin": u.IsSiteAdmin, "banned": u.Banned, "ban_reason": u.BanReason, "banned_at": u.BannedAt,
 			"created_at": u.CreatedAt, "last_seen": u.LastSeen, "sessions": u.Sessions, "online": online[u.ID],
-			"avatar_media_id": id64(u.AvatarMediaID),
+			"avatar_media_id": id64(u.AvatarMediaID), "left_at": u.LeftAt,
 		})
 	}
 	writeJSON(w, map[string]any{"users": out, "total": total, "page_size": limit})

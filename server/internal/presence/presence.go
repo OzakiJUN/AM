@@ -124,6 +124,19 @@ func (s *Service) Set(ctx context.Context, u *store.User, req *amv1.SetPresenceR
 	return s.view(u.ID, st, u.ID, 0), nil
 }
 
+// VisibleCount is how many people are online and not invisible.
+func (s *Service) VisibleCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, st := range s.online {
+		if !st.invisible {
+			n++
+		}
+	}
+	return n
+}
+
 // view is user id's presence (st nil = offline) as viewer sees it.
 func (s *Service) view(id int64, st *state, viewer, viewerOwner int64) *amv1.Presence {
 	p := &amv1.Presence{UserId: id}

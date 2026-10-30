@@ -175,6 +175,44 @@ const pages = [];
   await A.click('button[aria-label="设置"]');
   await wait(700);
   await shot(A, '11-settings');
+
+  // Server list -> server profile.
+  await A.click('button[aria-label="频道"]');
+  await A.click('button[aria-label="服务器列表"]');
+  await A.click('button[aria-label$="的服务器主页"]');
+  await A.waitForSelector('text=位成员');
+  await wait(600);
+  await shot(A, '15-server-profile');
+
+  // B leaves the server: back to the join screen, can enter the empty main view.
+  await B.click('button[aria-label="服务器列表"]');
+  await B.click('button[aria-label$="的服务器主页"]');
+  await B.click('button:has-text("退出服务器")');
+  await B.click('div[role="dialog"] button:has-text("退出服务器")');
+  await B.waitForSelector('textarea[aria-label="加入码"]');
+  await shot(B, '16-welcome-after-leave');
+  await B.click('button:has-text("先不加入，进入主界面")');
+  await B.waitForSelector('text=还没有服务器');
+  await shot(B, '17-no-server');
+  await A.click('button[aria-label="频道"]');
+  await A.click('aside button:has-text("AM 内测")');
+  await A.waitForSelector('text=小克 退出了频道');
+
+  // Coming back needs a new invite: log in with a join code that carries one.
+  await A.click('button[aria-label="账号设置"]');
+  await A.waitForSelector('div.font-mono[title^="AM1-"]');
+  const again = await A.locator('div.font-mono[title^="AM1-"]').first().getAttribute('title');
+  await B.click('button:has-text("加入服务器")');
+  await B.fill('textarea[aria-label="加入码"]', again);
+  await B.click('button:has-text("下一步")');
+  await B.click('button:has-text("我已经有这个服务器的账号，直接登录")');
+  await B.waitForSelector('text=以前退出过这个服务器'); // login form is in (after the slide)
+  await wait(400);
+  await B.fill('input[autocomplete="username"]', 'xiaoke');
+  await B.fill('input[type="password"]', 'password123');
+  await B.click('form button[type="submit"]:has-text("登录")');
+  await B.waitForSelector('text=已连接');
+  await B.waitForSelector('aside button:has-text("大厅")');
   await b.close();
   console.log('E2E OK');
 })().catch(async (e) => {

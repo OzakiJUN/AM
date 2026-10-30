@@ -1,7 +1,7 @@
 // Profile page (click your avatar in the nav bar): big card with the
 // animated avatar, name and signature; your online status and activity; and
-// the widget grid that becomes a phone-home-screen-like layout in stage 4
-// (docs/design.md §7). Editing name / avatar / signature is in 账号设置.
+// the widget grid that becomes a phone-home-screen-like layout in the next
+// batch (docs/design.md §7). Editing name / avatar / signature is in 账号设置.
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { EyeOff, LayoutGrid, Pencil, X } from 'lucide-react';
@@ -40,18 +40,25 @@ export function ProfilePage({ v }: { v: SessionView }) {
         <Status v={v} key={v.id} />
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.1 }} className="mt-8">
-        <h2 className="mb-3 flex items-center gap-2 text-[1.1rem] font-semibold"><LayoutGrid size={19} className="text-accent" /> 主页小组件</h2>
-        <div className="grid grid-cols-4 gap-4">
-          {['col-span-2 row-span-2', '', '', 'col-span-2'].map((span, i) => (
-            <div key={i} className={cx('flex min-h-24 items-center justify-center rounded-3xl border-2 border-dashed border-black/10 text-[0.85rem] text-ink-soft/70 dark:border-white/10 dark:text-white/30', span)}>
-              {i === 0 && '小组件即将推出'}
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-[0.85rem] text-ink-soft dark:text-white/45">以后可以像手机桌面一样在这里摆放签名、在玩的游戏、照片墙、留言板等小组件（第四阶段）。</p>
-      </motion.div>
+      <WidgetGridStub note="以后可以像手机桌面一样在这里摆放签名、在玩的游戏、照片墙、留言板等小组件（下一批上线）。" />
     </section>
+  );
+}
+
+/** Placeholder for the widget grid of profile pages (widgets: next batch). */
+export function WidgetGridStub({ note }: { note: string }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.1 }} className="mt-8">
+      <h2 className="mb-3 flex items-center gap-2 text-[1.1rem] font-semibold"><LayoutGrid size={19} className="text-accent" /> 主页小组件</h2>
+      <div className="grid grid-cols-4 gap-4">
+        {['col-span-2 row-span-2', '', '', 'col-span-2'].map((span, i) => (
+          <div key={i} className={cx('flex min-h-24 items-center justify-center rounded-3xl border-2 border-dashed border-black/10 text-[0.85rem] text-ink-soft/70 dark:border-white/10 dark:text-white/30', span)}>
+            {i === 0 && '小组件即将推出'}
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-[0.85rem] text-ink-soft dark:text-white/45">{note}</p>
+    </motion.div>
   );
 }
 

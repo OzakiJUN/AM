@@ -82,6 +82,36 @@ func (a *API) setPresence(w http.ResponseWriter, r *http.Request, _ *store.Sessi
 	a.ok(w, p)
 }
 
+func (a *API) leaveServer(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	if err := a.acct.Leave(r.Context(), me); err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, &amv1.Empty{})
+}
+
+// serverIcon serves the server's icon (public, like GET /api/v1/server).
+func (a *API) serverIcon(w http.ResponseWriter, r *http.Request) {
+	f, _ := a.media.ServerIcon()
+	if f == nil {
+		a.fail(w, media.ErrMediaMissing)
+		return
+	}
+	w.Header().Set("Content-Type", f.Mime)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "public, max-age=86400") // the URL changes with the file
+	http.ServeFile(w, r, f.Path)
+}
+
+func (a *API) serverProfile(w http.ResponseWriter, r *http.Request, _ *store.Session, _ *store.User) {
+	p, err := a.acct.ServerProfile(r.Context(), a.presence.VisibleCount())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, p)
+}
+
 func (a *API) listLogins(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 	resp, err := a.acct.ListLoginRecords(r.Context(), me.ID)
 	if err != nil {

@@ -140,6 +140,12 @@ func (c *Client) ServerInfo(ctx context.Context) (*amv1.ServerInfo, error) {
 	return out, c.call(ctx, http.MethodGet, "/api/v1/server", nil, out)
 }
 
+// ServerProfile returns the server's profile page.
+func (c *Client) ServerProfile(ctx context.Context) (*amv1.ServerProfile, error) {
+	out := &amv1.ServerProfile{}
+	return out, c.call(ctx, http.MethodGet, "/api/v1/server/profile", nil, out)
+}
+
 func (c *Client) CreateInvite(ctx context.Context) (*amv1.Invite, error) {
 	out := &amv1.Invite{}
 	return out, c.call(ctx, http.MethodPost, "/api/v1/invites", nil, out)

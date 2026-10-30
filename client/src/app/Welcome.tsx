@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ClipboardPaste, ImageUp, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ClipboardPaste, ImageUp, LayoutDashboard, Sparkles, X } from 'lucide-react';
 import { findJoinCode, parseJoinCode, type Join } from '@/lib/joincode';
 import { readClipboardText, scanQRFromFile } from '@/lib/platform';
 import { addServer, removeServer, switchServer, useApp } from '@/lib/store';
@@ -40,7 +40,17 @@ export function Welcome() {
             exit={{ opacity: 0, x: step.kind === 'start' ? 24 : -24 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
-            {step.kind === 'start' && <Start onFound={(found) => setStep({ kind: found.join.invite ? 'register' : 'login', found })} />}
+            {step.kind === 'start' && (
+              <>
+                <Start onFound={(found) => setStep({ kind: found.join.invite ? 'register' : 'login', found })} />
+                <button
+                  onClick={() => useApp.setState({ view: 'main' })}
+                  className="press mx-auto mt-3 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[0.85rem] text-accent-700 hover:bg-accent-50 dark:text-accent-200 dark:hover:bg-white/5"
+                >
+                  <LayoutDashboard size={15} /> 先不加入，进入主界面
+                </button>
+              </>
+            )}
             {step.kind === 'register' && (
               <Account mode="register" found={step.found} onBack={() => setStep({ kind: 'start' })} onSwitch={() => setStep({ kind: 'login', found: step.found })} />
             )}
@@ -216,8 +226,10 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
     const s = addServer({ endpoint: ep, name: found.name });
     try {
       if (mode === 'register') await s.register(found.join.invite!, username.trim(), password, display.trim());
-      else await s.login(username.trim(), password);
+      // A join code with an invite also brings back an account that left the server.
+      else await s.login(username.trim(), password, found.join.invite ?? '');
       switchServer(s.record.id);
+      useApp.setState({ page: 'channels' }); // land in the server's channels
     } catch (err) {
       setError(errorText(err));
       // Don't keep a server we never got into.
@@ -270,6 +282,9 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
           <button type="button" onClick={onSwitch} className="w-full text-center text-[0.85rem] text-accent-700 hover:underline dark:text-accent-200">
             {mode === 'register' ? '我已经有这个服务器的账号，直接登录' : '还没有账号，用邀请码注册'}
           </button>
+        )}
+        {mode === 'login' && found.join.invite && (
+          <p className="text-center text-[0.8rem] text-ink-soft/80 dark:text-white/40">以前退出过这个服务器？用这个带邀请码的加入码登录就能回来。</p>
         )}
       </form>
     </>

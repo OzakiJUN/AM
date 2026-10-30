@@ -2,10 +2,10 @@ package store
 
 import "context"
 
-// ListUsers pages through accounts that are not banned, ordered by id.
+// ListUsers pages through accounts that are not banned and have not left, ordered by id.
 // search matches username or display name (case-insensitive for ASCII).
 func (q *Queries) ListUsers(ctx context.Context, search string, after int64, limit int) ([]*User, error) {
-	where := ` WHERE NOT banned AND id > ?`
+	where := ` WHERE NOT banned AND left_at IS NULL AND id > ?`
 	args := []any{after}
 	if search != "" {
 		where += ` AND (lower(username) LIKE ? ESCAPE '\' OR lower(display_name) LIKE ? ESCAPE '\')`

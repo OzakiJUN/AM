@@ -15,7 +15,7 @@ import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, open
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
-import { PortraitBand, PortraitCorner } from './Portrait';
+import { PortraitCorner, PortraitOverlay, PortraitPosButton } from './Portrait';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
@@ -77,10 +77,13 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {!group && peer && (
             <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
           )}
+          {ai && peer && <PortraitPosButton />}
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} />}
         </header>
-        {ai && peer && <PortraitBand user={peer} online={!!peerPresence} />}
-        <MessageList key={conv.id} v={v} conv={conv} fadeTop={ai} />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <MessageList key={conv.id} v={v} conv={conv} />
+          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} />}
+        </div>
         <Composer v={v} conv={conv} blocked={blocked} />
       </section>
       <AnimatePresence initial={false}>
@@ -105,8 +108,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
 
 // ---------- messages ----------
 
-/** fadeTop: soften the top edge (under the AI portrait) so messages fade out instead of being cut. */
-function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation; fadeTop?: boolean }) {
+function MessageList({ v, conv }: { v: SessionView; conv: Conversation }) {
   const list = v.messages[conv.id] ?? [];
   const ref = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -158,7 +160,7 @@ function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation;
     items.push(<MessageItem key={m.id} v={v} conv={conv} msg={m} grouped={grouped} animate={m.time > mountedAt.current} onView={setViewer} />);
   }
   return (
-    <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fadeTop && '[mask-image:linear-gradient(to_bottom,transparent,black_28px)]')}>
+    <div ref={ref} onScroll={onScroll} className="selectable relative flex-1 overflow-y-auto px-5 py-4">
       {v.hasOlder[conv.id] && <div className="flex justify-center py-2 text-ink-soft"><Spinner size={16} /></div>}
       {conv.notice && (
         <div className="mx-auto mb-3 flex max-w-xl items-start gap-2 rounded-2xl bg-amber-50/80 px-4 py-2.5 text-[0.85rem] text-amber-800 shadow-[var(--shadow-card)] dark:bg-amber-400/10 dark:text-amber-200">

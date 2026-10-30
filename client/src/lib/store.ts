@@ -5,8 +5,11 @@ import { Session, previewText, type ServerRecord, type SessionView } from './ses
 import { notify } from './platform';
 import type { Conversation, User } from './types';
 
-/** 'account' = 账号设置 (profile editing, invites, devices); 'profile' = my profile page. */
-export type Page = 'channels' | 'dms' | 'ai' | 'account' | 'profile' | 'settings';
+/**
+ * 'account' = 账号设置 (profile editing, invites, devices); 'profile' = my
+ * profile page; 'server' = the current server's profile page.
+ */
+export type Page = 'channels' | 'dms' | 'ai' | 'account' | 'profile' | 'server' | 'settings';
 /** Pages that list conversations: channels, direct messages, AI chats. */
 export type ConvPage = 'channels' | 'dms' | 'ai';
 
@@ -97,12 +100,25 @@ export function boot() {
   for (const rec of servers) attach(rec).start();
 }
 
-/** Adds a server (from a join code) or returns the existing one with the same address. */
+/**
+ * Adds a server (from a join code) or returns the existing one with the same
+ * address. Same address but a different certificate means the server was
+ * reinstalled: the saved record takes the new certificate and drops the old
+ * login (it is gone with the old database).
+ */
 export function addServer(rec: Omit<ServerRecord, 'id'>): Session {
-  const existing = useApp.getState().servers.find((s) => s.endpoint.address === rec.endpoint.address);
+  const servers = useApp.getState().servers;
+  const existing = servers.find((s) => s.endpoint.address === rec.endpoint.address);
   if (existing) {
-    const s = live.get(existing.id)!;
-    return s;
+    const same = existing.endpoint.pin === rec.endpoint.pin && existing.endpoint.plain === rec.endpoint.plain;
+    if (same) return live.get(existing.id)!;
+    live.get(existing.id)?.stop();
+    live.delete(existing.id);
+    const fresh: ServerRecord = { ...existing, endpoint: rec.endpoint, name: rec.name, token: undefined, userId: undefined };
+    const list = servers.map((x) => (x.id === existing.id ? fresh : x));
+    useApp.setState({ servers: list });
+    saveRecords(list);
+    return attach(fresh);
   }
   const full: ServerRecord = { ...rec, id: 's' + Date.now().toString(36) };
   const list = [...useApp.getState().servers, full];
@@ -118,6 +134,17 @@ export function switchServer(id: string) {
   } catch {
     /* ignore */
   }
+}
+
+/** Leaves the server for good (see Session.leaveServer) and forgets it here. */
+export async function leaveServer(id: string) {
+  await live.get(id)?.leaveServer();
+  // Leaving the last server goes to the join screen: keep `page` as it is,
+  // since changing it in the same render would mount new animated parts
+  // inside the screen that is fading out, and that fade never finishes.
+  const last = useApp.getState().servers.length === 1;
+  removeServer(id);
+  if (!last && useApp.getState().page === 'server') useApp.setState({ page: 'channels' });
 }
 
 /** Forgets a server on this device (logs out first). */

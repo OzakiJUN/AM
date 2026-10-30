@@ -39,8 +39,10 @@ export function ConvAvatar({ conv, peer, size = 46 }: { conv: Conversation; peer
   return <Avatar src={src} name={conv.kind === 'group' ? conv.name : peer?.name ?? conv.name} size={size} square={conv.kind === 'group'} status={status} statusAt="top" />;
 }
 
-export function ServerAvatar({ name, size = 38 }: { name: string; size?: number }) {
-  return <Avatar name={name} size={size} square />;
+/** Server icon (set in the admin panel), or the first letter on a gradient. */
+export function ServerAvatar({ name, icon, serverId, size = 38 }: { name: string; icon?: string; serverId?: string; size?: number }) {
+  const src = useMediaUrl(icon || undefined, serverId);
+  return <Avatar src={src} name={name} size={size} square />;
 }
 
 export const mediaPath = (id: string, thumb = false) => `/api/v1/media/${id}${thumb ? '/thumb' : ''}`;

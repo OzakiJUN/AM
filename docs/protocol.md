@@ -44,9 +44,11 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | — | `{"ok":true}`（无需登录） |
-| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页（无需登录） |
+| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址（无需登录） |
+| GET | `/api/v1/server/icon` | — | 服务器图标 PNG（无需登录；没设置时 `media_not_found`）。`ServerInfo.icon` 带 `?v=` 版本号，换图标地址就变 |
+| GET | `/api/v1/server/profile` | — | `ServerProfile`：服务器主页（名字、简介、图标、成员数、在线人数、谁能改布局、成员能否改小组件内容）。由站点管理员在管理面板里设置 |
 | POST | `/api/v1/register` | `RegisterRequest` | `SessionResponse`（无需登录） |
-| POST | `/api/v1/login` | `LoginRequest` | `SessionResponse`（无需登录） |
+| POST | `/api/v1/login` | `LoginRequest` | `SessionResponse`（无需登录）。退出过服务器的账号要带 `invite_code`（一个没用过的邀请码，会被用掉）才能回来，否则 `left_server`；其他账号忽略这个字段 |
 | GET | `/api/v1/sessions` | — | `ListSessionsResponse` |
 | DELETE | `/api/v1/sessions/{id}` | — | `Empty`（立即断开该设备） |
 | GET | `/api/v1/invites` | — | `ListInvitesResponse`：注册时自动发的邀请码（不够 `invites.per_user` 个会补齐），未使用的带加入码；`remaining = -1` 表示站点管理员可以再要 |
@@ -54,6 +56,7 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | PATCH | `/api/v1/me` | `UpdateProfileRequest` | `User`：只改带了的字段（昵称、头像、`bio` 个性签名，最多 100 字，空字符串清空） |
 | GET | `/api/v1/me/logins` | — | `ListLoginRecordsResponse`（最近 50 条） |
 | PUT | `/api/v1/me/presence` | `SetPresenceRequest` | `Presence`：隐身开关和"正在做什么"，存在服务器上，见下面"在线状态" |
+| POST | `/api/v1/me/leave` | — | `Empty`：退出服务器。所有设备登出、退出所有频道（自己是频道主的交给下一个人，没人的解散）、不再出现在成员列表、不能被私信。回来要新的邀请码（见 login） |
 | GET | `/api/v1/users/{id}` | — | `User` |
 
 ### 成员与私信
@@ -205,6 +208,7 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | `media_not_found` | 404 | 媒体不存在或无权查看 |
 | `bio_too_long` | 400 | 个性签名最多 100 字 |
 | `invalid_activity` | 400 | 状态类型不认识、说明超过 32 字，或自定义状态没写内容 |
+| `left_server` | 403 | 这个账号退出了服务器，登录时要带新的邀请码 |
 | `rate_limited` | 429 | 尝试太频繁 |
 | `already_authenticated` | 400 | 已登录的连接又发了 auth |
 | `internal_error` | 500 | 服务器内部错误（看服务器日志） |

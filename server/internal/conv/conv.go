@@ -167,7 +167,7 @@ func (s *Service) OpenDM(ctx context.Context, me *store.User, peerID int64) (*am
 		return nil, apperr.ErrSelf
 	}
 	peer, err := s.st.GetUser(ctx, peerID)
-	if errors.Is(err, store.ErrNotFound) || (err == nil && peer.Banned) {
+	if errors.Is(err, store.ErrNotFound) || (err == nil && peer.Gone()) {
 		return nil, apperr.ErrUserNotFound
 	}
 	if err != nil {

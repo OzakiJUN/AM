@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Hash, LogIn, MessageCircle, Settings, Sparkles, UserRound } from 'lucide-react';
+import { Hash, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, UserRound } from 'lucide-react';
 import { current, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
@@ -11,6 +11,7 @@ import { ConvList } from './ConvList';
 import { AccountPage } from './Account';
 import { UserAvatar } from './media';
 import { ProfilePage } from './Profile';
+import { ServerProfilePage } from './ServerProfile';
 import { SettingsPage } from './Settings';
 import { unread } from './unread';
 import logo from '@/assets/logo.png';
@@ -20,12 +21,13 @@ export function Shell() {
   const page = useApp((s) => s.page);
   const v = useCurrent();
   let content;
-  if (!v) content = <Empty title="还没有服务器" text="点左下角的设置 → 服务器，或者重新粘贴加入码。" />;
+  if (!v) content = page === 'settings' ? <SettingsPage /> : <NoServer />;
   else if (v.status === 'logged_out' && page !== 'settings') content = <LoginAgain v={v} />;
   else if (page === 'channels' || page === 'dms') content = <><ConvList v={v} page={page} /><ChatView v={v} page={page} /></>;
   else if (page === 'ai') content = <AIPage v={v} />;
   else if (page === 'account') content = <AccountPage v={v} />;
   else if (page === 'profile') content = <ProfilePage v={v} />;
+  else if (page === 'server') content = <ServerProfilePage v={v} />;
   else content = <SettingsPage />;
   return (
     <div className="flex h-full gap-3 p-3">
@@ -100,6 +102,16 @@ function NavBar({ v }: { v?: SessionView }) {
         <UserAvatar user={v?.me} size={40} status={myStatus} />
       </button>
     </nav>
+  );
+}
+
+function NoServer() {
+  return (
+    <section className="glass flex flex-1 flex-col rounded-3xl">
+      <Empty icon={<Server size={28} />} title="还没有服务器" text="向服主要一个加入码，粘贴进来就能加入。">
+        <Button variant="primary" onClick={() => useApp.setState({ view: 'welcome' })}><Plus size={16} /> 加入服务器</Button>
+      </Empty>
+    </section>
   );
 }
 

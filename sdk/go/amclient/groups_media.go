@@ -33,6 +33,12 @@ func (c *Client) UpdateProfile(ctx context.Context, req *amv1.UpdateProfileReque
 	return out, c.call(ctx, http.MethodPatch, "/api/v1/me", req, out)
 }
 
+// Leave takes this account off the server (coming back needs a new invite
+// code: LoginRequest.InviteCode).
+func (c *Client) Leave(ctx context.Context) error {
+	return c.call(ctx, http.MethodPost, "/api/v1/me/leave", nil, nil)
+}
+
 // SetPresence saves invisible mode and the activity ("listening to ...").
 func (c *Client) SetPresence(ctx context.Context, req *amv1.SetPresenceRequest) (*amv1.Presence, error) {
 	out := &amv1.Presence{}

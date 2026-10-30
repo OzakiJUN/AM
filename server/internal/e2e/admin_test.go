@@ -2,7 +2,9 @@ package e2e
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"image/png"
 	"io"
 	"log/slog"
 	"net/http"
@@ -328,6 +330,38 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 		t.Fatalf("DM image visible in the panel: %d", code)
 	}
 
+	// Server profile: set in the panel, applies at once, seen by clients.
+	if code := pc.do("PUT", "/api/server-profile", map[string]any{"description": "  欢迎来玩  ", "layout_editors": "nobody"}, nil); code != 400 {
+		t.Fatalf("bad layout editors: %d", code)
+	}
+	if code := pc.do("PUT", "/api/server-profile", map[string]any{
+		"description": "  欢迎来玩  ", "layout_editors": "everyone", "widget_content_editable": true,
+	}, nil); code != 200 {
+		t.Fatalf("server profile: %d", code)
+	}
+	if code := pc.do("PUT", "/api/server-icon", map[string]string{"data": base64.StdEncoding.EncodeToString([]byte("not an image"))}, nil); code != 400 {
+		t.Fatalf("bad icon: %d", code)
+	}
+	icon := base64.StdEncoding.EncodeToString(encodePNG(testImage(600, 300)))
+	if code := pc.do("PUT", "/api/server-icon", map[string]string{"data": icon}, nil); code != 200 {
+		t.Fatalf("server icon: %d", code)
+	}
+	sp := must(daveCli.ServerProfile(ctx))
+	if sp.Description != "欢迎来玩" || sp.LayoutEditors != amv1.ProfileEditors_PROFILE_EDITORS_EVERYONE ||
+		!sp.WidgetContentEditable || sp.MemberCount != 4 || sp.Icon == "" || sp.Icon != must(daveCli.ServerInfo(ctx)).Icon {
+		t.Fatalf("server profile: %+v", sp)
+	}
+	resp := must(http.Get(base + sp.Icon)) // public, no token
+	img, err := png.Decode(resp.Body)
+	resp.Body.Close()
+	if err != nil || img.Bounds().Dx() != 256 || img.Bounds().Dy() != 128 {
+		t.Fatalf("server icon: %v %v", err, img)
+	}
+	pc.do("DELETE", "/api/server-icon", nil, nil)
+	if must(daveCli.ServerInfo(ctx)).Icon != "" {
+		t.Fatal("icon still set after delete")
+	}
+
 	// Audit log has the panel's actions.
 	var al struct {
 		Items []struct {
@@ -340,7 +374,8 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 	for _, it := range al.Items {
 		seen[it.Action] = true
 	}
-	for _, want := range []string{"ban", "unban", "password_reset", "site_admin_grant", "invite_delete", "admin_delete", "channel_view"} {
+	for _, want := range []string{"ban", "unban", "password_reset", "site_admin_grant", "invite_delete", "admin_delete", "channel_view",
+		"server_profile"} {
 		if !seen[want] {
 			t.Errorf("audit log missing %s: %+v", want, al.Items)
 		}

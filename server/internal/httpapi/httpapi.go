@@ -62,6 +62,8 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/sessions", a.authed(a.listSessions))
 	mux.HandleFunc("DELETE /api/v1/sessions/{id}", a.authed(a.revokeSession))
 	mux.HandleFunc("GET /api/v1/server", func(w http.ResponseWriter, r *http.Request) { a.ok(w, a.acct.ServerInfo()) })
+	mux.HandleFunc("GET /api/v1/server/icon", a.serverIcon)
+	mux.HandleFunc("GET /api/v1/server/profile", a.authed(a.serverProfile))
 	mux.HandleFunc("GET /api/v1/invites", a.authed(a.listInvites))
 	mux.HandleFunc("POST /api/v1/invites", a.authed(a.createInvite))
 	mux.HandleFunc("POST /api/v1/dm", a.authed(a.openDM))
@@ -78,6 +80,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/me", a.authed(a.updateProfile))
 	mux.HandleFunc("GET /api/v1/me/logins", a.authed(a.listLogins))
 	mux.HandleFunc("PUT /api/v1/me/presence", a.authed(a.setPresence))
+	mux.HandleFunc("POST /api/v1/me/leave", a.authed(a.leaveServer))
 
 	mux.HandleFunc("POST /api/v1/groups", a.authed(a.createGroup))
 	mux.HandleFunc("PATCH /api/v1/groups/{id}", a.authed(a.updateGroup))

@@ -27,6 +27,9 @@ message LoginRequest {
   string username = 1;
   string password = 2;
   string device_name = 3;
+  // Only for accounts that left the server: an unused invite code lets them
+  // back in (used up like a registration). Ignored for everyone else.
+  string invite_code = 4;
 }
 
 // Response of register and login.
@@ -79,6 +82,33 @@ message ServerInfo {
   string version = 2;
   // Client download page; QR codes point here.
   string download_url = 3;
+  // Server icon ("/api/v1/server/icon?v=..."), "" when none is set. Public.
+  string icon = 4;
+}
+
+// Who may rearrange the widgets on the server profile.
+enum ProfileEditors {
+  PROFILE_EDITORS_UNSPECIFIED = 0;
+  // Site admins only (default).
+  PROFILE_EDITORS_ADMINS = 1;
+  PROFILE_EDITORS_EVERYONE = 2;
+}
+
+// GET /api/v1/server/profile: the server's profile page. Set up by the site
+// admin in the admin panel.
+message ServerProfile {
+  string name = 1;
+  string description = 2;
+  // Same as ServerInfo.icon.
+  string icon = 3;
+  // Accounts that are not banned and have not left.
+  int32 member_count = 4;
+  // Online and not invisible.
+  int32 online_count = 5;
+  ProfileEditors layout_editors = 6;
+  // Members may change what is inside widgets (never their kind or place).
+  // When on, each widget can also get its own rule (widgets: later batch).
+  bool widget_content_editable = 7;
 }
 
 // ---- friends (removed) ----

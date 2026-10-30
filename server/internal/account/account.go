@@ -36,13 +36,20 @@ type Service struct {
 	media   *media.Service
 	now     func() time.Time
 	meta    serverMeta
-	// Called after an account is created (outside the transaction).
+	// Called after an account is created or comes back after leaving
+	// (outside the transaction).
 	onRegistered func(ctx context.Context, u *store.User)
+	// Called after an account left the server (outside the transaction).
+	onLeft func(ctx context.Context, u *store.User)
 }
 
 // OnRegistered sets a hook that runs after each new account is created
 // (conv uses it to put new accounts into the public channels).
 func (s *Service) OnRegistered(fn func(ctx context.Context, u *store.User)) { s.onRegistered = fn }
+
+// OnLeft sets a hook that runs after an account left the server (conv uses
+// it to take the account out of every channel).
+func (s *Service) OnLeft(fn func(ctx context.Context, u *store.User)) { s.onLeft = fn }
 
 func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
 	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now}
@@ -143,11 +150,72 @@ func (s *Service) Login(ctx context.Context, req *amv1.LoginRequest, cl Client) 
 	if u.Banned {
 		return "", nil, apperr.ErrBanned
 	}
-	token, err := s.newSession(ctx, u.ID, req.GetDeviceName(), "login", cl.IP)
+	kind := "login"
+	if u.LeftAt != 0 {
+		if err := s.rejoin(ctx, u, req.GetInviteCode()); err != nil {
+			return "", nil, err
+		}
+		kind = "rejoin"
+	}
+	token, err := s.newSession(ctx, u.ID, req.GetDeviceName(), kind, cl.IP)
 	if err != nil {
 		return "", nil, err
 	}
 	return token, u, nil
+}
+
+// rejoin brings back an account that left the server; it costs an unused
+// invite code, like registering.
+func (s *Service) rejoin(ctx context.Context, u *store.User, code string) error {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" {
+		return apperr.ErrLeftServer
+	}
+	err := s.st.InTx(ctx, func(q *store.Queries) error {
+		if _, err := q.LockUnusedInvite(ctx, code); errors.Is(err, store.ErrNotFound) {
+			return apperr.ErrInvalidInvite
+		} else if err != nil {
+			return err
+		}
+		if err := q.MarkInviteUsed(ctx, code, u.ID, s.now().UnixMilli()); err != nil {
+			return err
+		}
+		return q.SetLeft(ctx, u.ID, 0)
+	})
+	if err != nil {
+		return err
+	}
+	u.LeftAt = 0
+	if s.onRegistered != nil {
+		s.onRegistered(ctx, u) // back into the public channels
+	}
+	return nil
+}
+
+// Leave takes the user off the server: logged out everywhere, out of every
+// channel (owned channels pass to the next member, or are dissolved when
+// nobody is left), hidden from the member list. The account and its
+// messages stay; coming back needs a new invite code (see Login).
+func (s *Service) Leave(ctx context.Context, u *store.User) error {
+	var closed []int64
+	err := s.st.InTx(ctx, func(q *store.Queries) error {
+		if err := q.SetLeft(ctx, u.ID, s.now().UnixMilli()); err != nil {
+			return err
+		}
+		var err error
+		closed, err = q.DeleteUserSessions(ctx, u.ID)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	if s.onLeft != nil {
+		s.onLeft(ctx, u)
+	}
+	for _, id := range closed {
+		s.push.CloseSession(id)
+	}
+	return nil
 }
 
 // dummyHash is a valid hash of a random password, used for timing equalisation.
@@ -253,6 +321,9 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*store.Sessio
 	}
 	if u.Banned {
 		return nil, nil, apperr.ErrBanned
+	}
+	if u.LeftAt != 0 {
+		return nil, nil, apperr.ErrUnauthorized
 	}
 	now := s.now()
 	if now.Sub(time.UnixMilli(sess.LastSeen)) > touchInterval {

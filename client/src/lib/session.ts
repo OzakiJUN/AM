@@ -39,6 +39,21 @@ export interface SessionView {
   downloadUrl: string;
   /** Who is online, as I see them (user id -> presence). Empty while disconnected. */
   presence: Record<string, Presence>;
+  /** Server icon (media path), '' when none. */
+  icon: string;
+}
+
+/** The server's profile page (GET /api/v1/server/profile). */
+export interface ServerProfileView {
+  name: string;
+  description: string;
+  icon: string;
+  members: number;
+  online: number;
+  /** Who may rearrange the profile's widgets. */
+  layoutEditors: 'admins' | 'everyone';
+  /** Members may change widget contents (not their kind or place). */
+  widgetContentEditable: boolean;
 }
 
 const INITIAL_PAGE = 50;
@@ -195,6 +210,7 @@ export class Session {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
       users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '',
       presence: {},
+      icon: '',
     };
   }
 
@@ -249,9 +265,10 @@ export class Session {
     await this.loggedIn(r.token, r.me!);
   }
 
-  async login(username: string, password: string) {
+  /** invite: only used when the account left this server (coming back costs a new invite code). */
+  async login(username: string, password: string, invite = '') {
     const r = await this.call('POST', '/api/v1/login', api.SessionResponseSchema, {
-      schema: api.LoginRequestSchema, value: { username, password, deviceName: deviceName() },
+      schema: api.LoginRequestSchema, value: { username, password, deviceName: deviceName(), inviteCode: invite },
     });
     await this.loggedIn(r.token, r.me!);
   }
@@ -274,6 +291,25 @@ export class Session {
     this.loggedOut('');
   }
 
+  /**
+   * Leaves the server for good: logged out everywhere, out of every channel,
+   * hidden from the member list. Coming back needs a new invite code.
+   */
+  async leaveServer() {
+    await this.call('POST', '/api/v1/me/leave', null);
+    this.stop();
+  }
+
+  async serverProfile(): Promise<ServerProfileView> {
+    const p = await this.call('GET', '/api/v1/server/profile', api.ServerProfileSchema);
+    if (p.icon !== this.view.icon || p.name !== this.view.name) this.patch({ icon: p.icon, name: p.name || this.view.name });
+    return {
+      name: p.name, description: p.description, icon: p.icon, members: p.memberCount, online: p.onlineCount,
+      layoutEditors: p.layoutEditors === api.ProfileEditors.EVERYONE ? 'everyone' : 'admins',
+      widgetContentEditable: p.widgetContentEditable,
+    };
+  }
+
   // ---- connection ----
 
   async start() {
@@ -285,7 +321,7 @@ export class Session {
         this.record = { ...this.record, name: i.name };
         this.onRecord(this.record);
       }
-      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl });
+      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon });
     }).catch(() => {});
     await this.connect();
   }

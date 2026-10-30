@@ -29,6 +29,9 @@ const ERR_TEXT = {
   not_found: '找不到，可能已经被删掉了',
   no_password: '这个账号不用密码登录',
   media_not_found: '文件不存在或已被清理',
+  not_image: '这不是支持的图片（JPEG / PNG / GIF / WebP）',
+  bad_image: '图片读不出来，或者像素太大',
+  too_large: '图片太大了（最多 2 MB）',
 };
 
 class ApiError extends Error {
@@ -492,6 +495,7 @@ async function renderUsers(root, page) {
         el('td', {},
           u.banned
             ? [el('span', { class: 'tag bad' }, '已封禁'), el('span', { class: 'sub' }, u.ban_reason)]
+            : u.left_at ? [el('span', { class: 'tag warn' }, '已退出服务器'), el('span', { class: 'sub' }, fmtTime(u.left_at) + '，要新的邀请码才能回来')]
             : u.online ? el('span', { class: 'online' }, '在线') : el('span', { class: 'muted' }, fmtAgo(u.last_seen))),
         el('td', {}, fmtTime(u.created_at)),
         el('td', { class: 'actions' },
@@ -757,7 +761,7 @@ const AUDIT_TEXT = {
   admin_delete: '删除了一条消息', kick: '把人移出了群', mute: '禁言了', transfer: '转让了群',
   dissolve: '解散了群', ban: '封禁了', unban: '解封了', site_admin_grant: '设为站点管理员：',
   site_admin_remove: '取消了站点管理员：', password_reset: '重置了密码：', invite_create: '生成了邀请码',
-  invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录',
+  invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录', server_profile: '修改了服务器主页设置',
 };
 
 async function renderAudit(root, page) {
@@ -865,6 +869,68 @@ const SETTINGS = [
   ] },
 ];
 
+// Server profile (shown in the client when you click the server's avatar):
+// icon, description and who may edit the widgets. Saved in the database and
+// applied at once, no restart.
+function serverProfilePanel(page) {
+  const box = el('section', { class: 'panel', 'aria-label': '服务器主页' }, el('h2', {}, '服务器主页'),
+    el('p', { class: 'hint' }, '大家在客户端点服务器头像会看到这个主页。这里的改动立即生效，不用重启。'));
+  load();
+  return box;
+
+  async function load() {
+    let data;
+    try { data = await api('GET', 'server-profile'); } catch (e) { box.append(el('p', { class: 'muted' }, e.message)); return; }
+    if (currentPage !== page) return;
+    const p = data.settings;
+    const icon = data.icon_version
+      ? el('img', { class: 'server-icon', src: 'api/server-icon?v=' + data.icon_version, alt: '服务器图标' })
+      : el('span', { class: 'server-icon empty' }, '无图标');
+    const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: () => file.files[0] && upload(file.files[0]) });
+    const desc = el('textarea', { rows: 4, maxlength: 500, id: 'set-profile-desc', placeholder: '介绍一下这个服务器' });
+    desc.value = p.description;
+    const editors = el('select', { id: 'set-profile-layout' },
+      [['admins', '仅管理员'], ['everyone', '所有人']].map(([v, t]) => el('option', { value: v, selected: v === p.layout_editors }, t)));
+    const widget = el('input', { type: 'checkbox', checked: p.widget_content_editable, id: 'set-profile-widget' });
+    const row = (id, label, help, ctl) => el('div', { class: 'setting' },
+      el('div', { class: 'lbl' }, el('label', { for: id }, el('b', {}, label)), help && el('span', {}, help)),
+      el('div', { class: 'ctl' }, ctl));
+    box.replaceChildren(box.firstChild, box.children[1],
+      el('div', { class: 'setting' },
+        el('div', { class: 'lbl' }, el('b', {}, '服务器图标'), el('span', {}, '显示在客户端的服务器列表和主页上。会缩到 256 像素以内，最大 2 MB。')),
+        el('div', { class: 'ctl row' }, icon, file,
+          el('button', { class: 'btn small', type: 'button', onclick: () => file.click() }, '上传'),
+          data.icon_version ? el('button', { class: 'btn small ghost', type: 'button', onclick: removeIcon }, '删除') : '')),
+      row('set-profile-desc', '简介', '最多 500 字', desc),
+      row('set-profile-layout', '谁能改布局', '摆放、增删主页上的小组件', editors),
+      row('set-profile-widget', '成员能改小组件内容', '只改内容，不能改类型和位置。打开后可以给每个小组件单独设权限（小组件下一批上线）',
+        el('label', { class: 'check' }, widget, el('span', {}, '开启'))),
+      el('div', { class: 'row' }, el('button', { class: 'btn primary', type: 'button', onclick: save }, '保存主页设置')));
+
+    async function save() {
+      try {
+        await api('PUT', 'server-profile', { description: desc.value.trim(), layout_editors: editors.value, widget_content_editable: widget.checked });
+        toast('主页设置已保存');
+      } catch (e) { fail(e); }
+    }
+  }
+
+  async function upload(f) {
+    if (f.size > 2 << 20) { toast('图片太大了（最多 2 MB）', true); return; }
+    const data = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(f);
+    });
+    try { await api('PUT', 'server-icon', { data }); toast('图标已更新'); load(); } catch (e) { fail(e); }
+  }
+
+  async function removeIcon() {
+    try { await api('DELETE', 'server-icon'); toast('图标已删除'); load(); } catch (e) { fail(e); }
+  }
+}
+
 async function renderSettings(root, page) {
   root.append(stateBanner() || '');
   root.append(head('设置', '改完点保存。大部分设置要重启服务器才生效，会有提示。'));
@@ -919,6 +985,7 @@ async function renderSettings(root, page) {
   } else {
     root.append(el('div', { class: 'banner err' }, el('p', {}, loadErr.message)));
   }
+  root.append(serverProfilePanel(page));
 
   // Raw config.toml editor for everything else (database, TLS, ...).
   const ta = el('textarea', { rows: 24, spellcheck: 'false', 'aria-label': 'config.toml' });

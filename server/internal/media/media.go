@@ -342,6 +342,61 @@ func DHash(img image.Image) uint64 {
 	return h
 }
 
+// ---- server icon ----
+
+const (
+	serverIconSide  = 256
+	maxServerIconMB = 2
+)
+
+func (s *Service) serverIconPath() string { return filepath.Join(s.root, "server_icon.png") }
+
+// SetServerIcon stores the server's icon: any supported image, re-encoded as
+// a PNG of at most 256 px (which also strips metadata).
+func (s *Service) SetServerIcon(data []byte) error {
+	if len(data) > maxServerIconMB<<20 {
+		return ErrTooLarge
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return ErrNotImage
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width*cfg.Height > maxPixels {
+		return ErrBadImage
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return ErrBadImage
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, resizeToFit(img, serverIconSide)); err != nil {
+		return err
+	}
+	tmp := s.serverIconPath() + ".tmp"
+	if err := os.WriteFile(tmp, buf.Bytes(), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.serverIconPath())
+}
+
+// RemoveServerIcon deletes the icon (no icon is fine).
+func (s *Service) RemoveServerIcon() error {
+	if err := os.Remove(s.serverIconPath()); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// ServerIcon returns the icon file and a version that changes with it, or
+// nil when the server has no icon.
+func (s *Service) ServerIcon() (*File, int64) {
+	st, err := os.Stat(s.serverIconPath())
+	if err != nil {
+		return nil, 0
+	}
+	return &File{Path: s.serverIconPath(), Mime: "image/png", Name: "server_icon.png"}, st.ModTime().UnixMilli()
+}
+
 func resizeToFit(img image.Image, maxSide int) image.Image {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()

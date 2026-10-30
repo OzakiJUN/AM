@@ -68,4 +68,5 @@ var (
 
 	ErrBioTooLong      = New(http.StatusBadRequest, "bio_too_long", "signature must be at most 100 characters")
 	ErrInvalidActivity = New(http.StatusBadRequest, "invalid_activity", "unknown activity, or its text is too long / missing")
+	ErrLeftServer      = New(http.StatusForbidden, "left_server", "you left this server; a new invite code is needed to come back")
 )
