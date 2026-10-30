@@ -46,7 +46,18 @@ func (s *Service) server() ServerMeta {
 // ServerInfo answers GET /api/v1/server.
 func (s *Service) ServerInfo() *amv1.ServerInfo {
 	m := s.server()
-	return &amv1.ServerInfo{Name: m.Name, Version: m.Version, DownloadUrl: m.DownloadURL, Icon: s.iconURL()}
+	return &amv1.ServerInfo{Name: m.Name, Version: m.Version, DownloadUrl: m.DownloadURL, Icon: s.iconURL(), InstanceId: s.instance}
+}
+
+// InstanceID is the random id of this server process.
+func (s *Service) InstanceID() string { return s.instance }
+
+// PublicAddress is server.public_address ("" when not set).
+func (s *Service) PublicAddress() string {
+	if j := s.server().Join; j != nil {
+		return j.Address
+	}
+	return ""
 }
 
 func (s *Service) iconURL() string {

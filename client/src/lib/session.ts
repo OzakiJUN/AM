@@ -23,6 +23,8 @@ export interface AIInfo {
 export interface ServerRecord {
   id: string;
   endpoint: Endpoint;
+  /** Addresses this server had before (newest first): tried when the current one stops working. */
+  oldAddresses?: string[];
   name: string;
   token?: string;
   userId?: string;
@@ -295,6 +297,10 @@ export class Session {
   onOwnChange?: (parts: SyncPart[]) => void;
   /** Another device of mine saved my server list (lib/devices.ts loads it again). */
   onClientState?: () => void;
+  /** The server has a new public address (relay changed): lib/store.ts checks it and switches. */
+  onMoved?: (address: string) => void;
+  /** Several connection attempts failed (lib/store.ts tries the addresses used before). */
+  onUnreachable?: () => void;
 
   constructor(
     public record: ServerRecord,
@@ -516,10 +522,12 @@ export class Session {
       return;
     }
     try {
-      const f = await this.request({ case: 'auth', value: create(gw.AuthRequestSchema, { token: this.record.token! }) });
+      const f = await this.request({ case: 'auth', value: create(gw.AuthRequestSchema, { token: this.record.token!, address: this.record.endpoint.address }) });
       if (f.msg.case !== 'auth') throw new Error('unexpected reply');
       this.retry = 0;
       await this.onAuth(f.msg.value);
+      const pub = f.msg.value.publicAddress;
+      if (pub && pub !== this.record.endpoint.address) this.onMoved?.(pub);
       this.patch({ status: 'online', error: undefined });
       this.loadBlocks().catch(() => {});
     } catch (e) {
@@ -543,6 +551,8 @@ export class Session {
 
   private scheduleReconnect() {
     if (this.stopped) return;
+    // Several tries failed: maybe the relay changed while we were away.
+    if (this.retry === 3) this.onUnreachable?.();
     const delay = Math.min(30_000, 1000 * 2 ** this.retry++) * (0.8 + Math.random() * 0.4);
     this.retryTimer = setTimeout(() => this.connect(), delay);
   }
@@ -616,6 +626,9 @@ export class Session {
       }
       case 'clientState':
         this.onClientState?.();
+        break;
+      case 'serverMoved':
+        if (f.msg.value.address && f.msg.value.address !== this.record.endpoint.address) this.onMoved?.(f.msg.value.address);
         break;
       case 'joinRequest': {
         const jr = f.msg.value;

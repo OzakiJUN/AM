@@ -287,6 +287,14 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
     const pw = useSaved ? savedPw : password;
     const user = username.trim();
     const s = addServer({ endpoint: ep, name: found.name });
+    // Already logged in there (also when the server only moved to a new address): just open it.
+    if (s.record.token) {
+      setBusy(false);
+      switchServer(s.record.id);
+      useApp.setState({ page: 'channels' });
+      toast(`已经加过「${found.name}」了${old ? '' : '，地址已更新'}`);
+      return;
+    }
     try {
       if (mode === 'register') await s.register(found.join.invite!, user, pw, (copy ? me.name : display.trim()) || user);
       // A join code with an invite also brings back an account that left the server.

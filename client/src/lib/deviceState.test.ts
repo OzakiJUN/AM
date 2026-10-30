@@ -39,6 +39,15 @@ assert.equal(merge(x, y).servers[serverKey(A)].removed, true);
 assert.ok(sameState(merge(m, m), m));
 assert.ok(!sameState(m, x));
 
+// A server that moved to another relay address is the same entry (same pin).
+const moved = noteLocal(noteLocal(emptyState(), [{ endpoint: A, name: 'A' }], [], 60), [{ endpoint: { ...A, address: '9.9.9.9:7000' }, name: 'A' }], [], 70);
+assert.equal(Object.keys(moved.servers).length, 1);
+assert.equal(moved.servers[serverKey(A)].endpoint.address, '9.9.9.9:7000');
+assert.deepEqual(plan(moved, [A], []).offers, []); // not offered as a new server
+assert.deepEqual(plan(moved, [A], []).remove, []);
+// Servers without a pin are known by address.
+assert.notEqual(serverKey({ address: 'a:1', plain: true }), serverKey({ address: 'b:1', plain: true }));
+
 // Old tombstones are dropped.
 assert.equal(Object.keys(prune(y, 50 + 181 * 86_400_000).servers).length, 0);
 assert.equal(Object.keys(prune(y, 60).servers).length, 1);

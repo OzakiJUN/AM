@@ -359,6 +359,22 @@ func (s *Supervisor) Snapshot() admin.Snapshot {
 	}
 }
 
+// SetPublicAddress changes server.public_address of the running server
+// (the panel already wrote it to config.toml).
+func (s *Supervisor) SetPublicAddress(addr string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cfg == nil {
+		return
+	}
+	cfg := *s.cfg
+	cfg.Server.PublicAddress = addr
+	s.cfg = &cfg
+	if s.app != nil {
+		s.app.Account.SetServer(ServerMeta(&cfg, s.opts.Version, s.fp))
+	}
+}
+
 // ClearBootstrap forgets the bootstrap invite once someone registered.
 func (s *Supervisor) ClearBootstrap() {
 	s.mu.Lock()

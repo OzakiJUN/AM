@@ -46,12 +46,16 @@ message ServerFrame {
     JoinRequestPush join_request = 34;
     PresencePush presence = 35;
     ClientStatePush client_state = 36;
+    ServerMovedPush server_moved = 37;
   }
 }
 
 message AuthRequest {
   // Session token from /api/v1/login or /api/v1/register.
   string token = 1;
+  // The address (host:port) the client connected to, so the admin panel
+  // can tell how many devices still use an old relay address.
+  string address = 2;
 }
 
 message AuthResponse {
@@ -65,6 +69,10 @@ message AuthResponse {
   // themselves, with `invisible` set if they are). Changes arrive as
   // `presence` pushes.
   repeated Presence presences = 4;
+  // The server's public address (server.public_address), "" when not set.
+  // A client using another address checks the new one (same certificate)
+  // and switches to it (docs/design.md §3, 更换中转地址).
+  string public_address = 5;
 }
 
 message SendRequest {
@@ -169,4 +177,11 @@ message PresencePush {
 // /api/v1/me/client-state): load it again. Sent to all my connections.
 message ClientStatePush {
   int64 updated_at = 1;
+}
+
+// The server moved to a new public address (the admin changed the relay).
+// Sent to everyone online; the client connects to the new address with the
+// same certificate pin and switches only when that works.
+message ServerMovedPush {
+  string address = 1;
 }

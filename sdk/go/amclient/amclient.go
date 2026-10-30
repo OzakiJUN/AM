@@ -194,7 +194,8 @@ func (c *Client) Connect(ctx context.Context) (*Conn, error) {
 	conn.Pushes = conn.pushes
 	go conn.readLoop()
 
-	resp, err := conn.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_Auth{Auth: &amv1.AuthRequest{Token: c.Token}}})
+	addr := strings.TrimPrefix(strings.TrimPrefix(c.BaseURL, "https://"), "http://")
+	resp, err := conn.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_Auth{Auth: &amv1.AuthRequest{Token: c.Token, Address: addr}}})
 	if err != nil {
 		conn.Close()
 		return nil, err

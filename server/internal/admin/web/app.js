@@ -434,6 +434,59 @@ async function renderOverview(root, page) {
       info('数据文件夹', el('code', {}, s.data_dir)),
       info('配置文件', el('code', {}, s.config_path)),
       info('版本', s.version))));
+  if (conn.public) root.append(await relayPanel(page));
+}
+
+// Changing the relay (public) address: check the new one reaches this
+// server, then switch; online clients follow by themselves.
+async function relayPanel(page) {
+  let r;
+  try { r = await api('GET', 'relay'); } catch (e) { return el('section', { class: 'panel' }, el('p', { class: 'muted' }, '读不到中转信息：' + e.message)); }
+  const input = el('input', { type: 'text', placeholder: '新地址，例如 47.1.2.3:7000', 'aria-label': '新的中转地址' });
+  const result = el('p', { class: 'hint', 'aria-live': 'polite' });
+  const value = () => input.value.trim();
+  const check = async (btn) => {
+    if (!value()) { input.focus(); return false; }
+    btn.disabled = true;
+    result.textContent = '正在通过新地址连本服务器…';
+    try {
+      await api('POST', 'relay/test', { address: value() });
+      result.textContent = '✓ 新地址能连到本服务器。';
+      return true;
+    } catch (e) {
+      result.textContent = '✗ ' + e.message;
+      return false;
+    } finally { btn.disabled = false; }
+  };
+  const testBtn = el('button', { class: 'btn', type: 'button', onclick: (e) => check(e.currentTarget) }, '检查');
+  const moveBtn = el('button', { class: 'btn primary', type: 'button', onclick: async (e) => {
+    const btn = e.currentTarget;
+    if (!(await check(btn))) return;
+    const ok = await confirmDialog({
+      title: '换成新的中转地址？',
+      text: '在线的客户端会先试着连新地址，连上了才切过去。旧中转先别关：等下面「还在用旧地址的设备」变成 0 再关。以后发出的加入码都用新地址。',
+      ok: '更换',
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    try {
+      await api('POST', 'relay/move', { address: value() });
+      toast('已换成新地址，正在通知客户端');
+      await refreshStatus();
+      if (currentPage === page) route();
+    } catch (err) { fail(err); } finally { btn.disabled = false; }
+  } }, '更换并通知客户端');
+  const others = r.connections.filter((c) => c.address && c.address !== r.current);
+  const oldCount = others.reduce((n, c) => n + c.devices, 0);
+  return el('section', { class: 'panel', 'aria-label': '中转地址' },
+    el('h2', {}, '中转地址'),
+    el('p', { class: 'hint' }, '换中转服务器（frp）时用：先把新中转配好，在这里填新地址。服务器会先检查新地址是不是连到自己，再通知所有在线的客户端切过去。'),
+    el('dl', { class: 'info' },
+      info('现在的地址', el('code', {}, r.current)),
+      info('还在用旧地址的设备', oldCount ? others.map((c) => c.address + '：' + c.devices + ' 台').join('，') : '没有'),
+      r.previous && r.previous.length ? info('以前用过', r.previous.join('，')) : null),
+    el('div', { class: 'row' }, input, testBtn, moveBtn),
+    result);
 }
 
 function fact(k, v) { return el('div', {}, el('dt', {}, k), el('dd', {}, v)); }

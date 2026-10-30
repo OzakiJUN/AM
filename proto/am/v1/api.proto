@@ -131,6 +131,9 @@ message ServerInfo {
   string download_url = 3;
   // Server icon ("/api/v1/server/icon?v=..."), "" when none is set. Public.
   string icon = 4;
+  // Random id of the running server process: lets the server (and clients)
+  // check that a new address really reaches this same server.
+  string instance_id = 5;
 }
 
 // Who may rearrange the widgets on the server profile.

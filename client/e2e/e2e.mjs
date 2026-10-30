@@ -377,6 +377,24 @@ const pages = [];
     await C.click('button[aria-label="个人主页"]');
     await C.waitForSelector('text=两个服务器一个我');
   }
+  // Relay change (optional: AM_E2E_ADMIN = panel address, AM_E2E_ADMIN_KEY):
+  // the panel moves server 1 to another address that reaches it; online
+  // clients check it and switch, keeping their login.
+  if (process.env.AM_E2E_ADMIN && process.env.AM_E2E_ADMIN_KEY && process.env.AM_E2E_MOVE_TO) {
+    const panel = `http://${process.env.AM_E2E_ADMIN}`;
+    const login = await fetch(`${panel}/login?key=${process.env.AM_E2E_ADMIN_KEY}`, { redirect: 'manual' });
+    const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0];
+    const move = await fetch(`${panel}/api/relay/move`, { method: 'POST', headers: { cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ address: process.env.AM_E2E_MOVE_TO }) });
+    if (move.status !== 200) throw new Error('relay move: ' + move.status + ' ' + (await move.text()));
+    await A.waitForFunction((to) => (JSON.parse(localStorage.getItem('am-servers') ?? '[]')).some((r) => r.endpoint.address === to && r.oldAddresses?.length), process.env.AM_E2E_MOVE_TO, { timeout: 15000 });
+    await A.click('button[aria-label="频道"]');
+    await A.waitForSelector('text=已连接');
+    await A.click('aside button:has-text("大厅")');
+    await A.fill('textarea[aria-label="消息"]', '换了中转也照样聊');
+    await A.press('textarea[aria-label="消息"]', 'Enter');
+    await B.waitForSelector('text=换了中转也照样聊');
+  }
+
   // AI: A makes an AI that runs in this browser, adds a model service (the
   // mock), picks it, and chats; the reply streams in with a mood.
   await A.click('button[aria-label="AI"]');

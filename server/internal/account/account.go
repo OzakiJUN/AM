@@ -46,6 +46,8 @@ type Service struct {
 	maxDevices int
 	pairTTL    time.Duration
 	maxAI      int
+	// Random id of this server process (ServerInfo.instance_id).
+	instance string
 }
 
 // OnRegistered sets a hook that runs after each new account is created
@@ -57,7 +59,7 @@ func (s *Service) OnRegistered(fn func(ctx context.Context, u *store.User)) { s.
 func (s *Service) OnLeft(fn func(ctx context.Context, u *store.User)) { s.onLeft = fn }
 
 func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
-	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now, pairTTL: 5 * time.Minute}
+	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now, pairTTL: 5 * time.Minute, instance: randomLower(16)}
 }
 
 // SetAILimit sets limits.max_ai_per_user.

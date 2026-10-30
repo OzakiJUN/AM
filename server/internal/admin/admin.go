@@ -60,6 +60,9 @@ type Runtime interface {
 	Restart()
 	Quit()
 	ClearBootstrap()
+	// SetPublicAddress changes server.public_address of the running server
+	// (join codes, what clients are told) without a restart.
+	SetPublicAddress(addr string)
 }
 
 const cookieName = "am_admin"
@@ -156,6 +159,9 @@ func (h *handler) routes() {
 	api("GET /api/config", h.getConfig)
 	api("PUT /api/config", h.putConfig)
 	api("PUT /api/autostart", h.putAutostart)
+	api("GET /api/relay", h.getRelay)
+	api("POST /api/relay/test", h.testRelay)
+	api("POST /api/relay/move", h.moveRelay)
 	api("POST /api/restart", h.restart)
 	api("POST /api/quit", h.quit)
 }

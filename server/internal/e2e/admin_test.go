@@ -25,6 +25,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/app"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/logx"
+	"github.com/OzakiJUN/am/server/internal/supervisor"
 )
 
 func TestAdminPanel(t *testing.T) { forEachDB(t, testAdminPanel) }
@@ -48,6 +49,12 @@ func (f *fakeRuntime) Snapshot() admin.Snapshot {
 func (f *fakeRuntime) Restart()        { f.restarts++ }
 func (f *fakeRuntime) Quit()           {}
 func (f *fakeRuntime) ClearBootstrap() {}
+func (f *fakeRuntime) SetPublicAddress(addr string) {
+	cfg := *f.cfg
+	cfg.Server.PublicAddress = addr
+	f.cfg = &cfg
+	f.a.Account.SetServer(supervisor.ServerMeta(&cfg, "test", bytes.Repeat([]byte{7}, 32)))
+}
 
 // panelClient talks to the admin panel's JSON API.
 type panelClient struct {

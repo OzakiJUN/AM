@@ -20,7 +20,7 @@ import { usePrefs } from './prefs';
 import { loadProviders, onProvidersChanged, saveProviders, type SyncedProviders } from './ai/keys';
 import { emptyState, merge, noteLocal, plan, prune, sameState, serverKey, type DeviceState, type ServerEntry } from './deviceState';
 import type { Session } from './session';
-import { addServer, removeServer, session, switchServer, useApp } from './store';
+import { addServer, moveServer, removeServer, session, switchServer, useApp } from './store';
 import { useTheme } from './theme';
 import { endpointFromJoin, secretGet, secretSet, type Endpoint } from './transport';
 
@@ -200,7 +200,8 @@ interface Local {
 function loadLocal(): Local {
   try {
     const v = JSON.parse(localStorage.getItem(STATE_KEY) ?? 'null') as Partial<Local> | null;
-    return { state: v?.state ?? emptyState(), ignored: v?.ignored ?? [], offers: [] };
+    // Version 1 knew servers by address: start over (this device's servers are noted again at start).
+    return { state: v?.state?.v === 2 ? v.state : emptyState(), ignored: v?.state?.v === 2 ? v.ignored ?? [] : [], offers: [] };
   } catch {
     return { state: emptyState(), ignored: [], offers: [] };
   }
@@ -210,7 +211,7 @@ export const useDevices = create<Local>(loadLocal);
 
 function saveLocal(patch: Partial<Local>) {
   // Provider keys never go into localStorage (they live in the credential store).
-  if (patch.state?.providers) patch = { ...patch, state: { v: 1, servers: patch.state.servers } };
+  if (patch.state?.providers) patch = { ...patch, state: { v: 2, servers: patch.state.servers } };
   useDevices.setState(patch);
   const { state, ignored } = useDevices.getState();
   try {
@@ -225,6 +226,11 @@ function apply(state: DeviceState) {
   const recs = useApp.getState().servers;
   const { remove, offers } = plan(state, recs.map((r) => r.endpoint), useDevices.getState().ignored);
   saveLocal({ state, offers });
+  // Moved to another address on another device: check it here too.
+  for (const r of recs) {
+    const e = state.servers[serverKey(r.endpoint)];
+    if (r.token && e && !e.removed && e.endpoint.address !== r.endpoint.address) void moveServer(r.id, e.endpoint.address);
+  }
   for (const ep of remove) {
     const r = recs.find((x) => serverKey(x.endpoint) === serverKey(ep));
     // Only when it was removed after it was added here (record ids are "s" +
@@ -250,6 +256,7 @@ async function syncWith(s: Session) {
       } catch {
         return;
       }
+      if (theirs.v !== 2) theirs = emptyState(); // older format: replaced by ours
     }
     const providers = await loadProviders();
     const mine: DeviceState = providers.at ? { ...useDevices.getState().state, providers } : useDevices.getState().state;
@@ -306,7 +313,8 @@ export function startDevices() {
     if (prev && app.servers !== prev.servers) {
       const now = keys(app.servers);
       const all = new Set(app.servers.map((r) => serverKey(r.endpoint)));
-      const added = [...now].filter(([k]) => !known.has(k)).map(([, r]) => r);
+      // New here, or the same server at a new address.
+      const added = [...now].filter(([k, r]) => known.get(k)?.endpoint.address !== r.endpoint.address).map(([, r]) => r);
       // Gone from this device entirely (left / forgotten), not just logged out.
       const removed = [...known].filter(([k]) => !all.has(k)).map(([, r]) => r.endpoint);
       known = now;

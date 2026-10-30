@@ -14,16 +14,20 @@ export interface ServerEntry {
 }
 
 export interface DeviceState {
-  v: 1;
+  v: 2;
   servers: Record<string, ServerEntry>;
   /** My AI model providers with keys (lib/ai/keys.ts); never stored in plain local storage. */
   providers?: { at: number; list: unknown[] };
 }
 
-export const emptyState = (): DeviceState => ({ v: 1, servers: {} });
+export const emptyState = (): DeviceState => ({ v: 2, servers: {} });
 
-/** One server = address + certificate (a reinstalled server is another one). */
-export const serverKey = (ep: Endpoint) => `${ep.address}|${ep.pin ?? ''}|${ep.plain ? 1 : 0}`;
+/**
+ * One server = its certificate pin (a reinstalled server is another one; a
+ * server that moved to a new relay address is the same). Servers without a
+ * pin (real certificates, local testing) are known by address.
+ */
+export const serverKey = (ep: Endpoint) => (ep.pin ? `pin:${ep.pin}` : `${ep.address}|${ep.plain ? 1 : 0}`);
 
 /** Newer entry per server wins; on a tie a removal wins. */
 export function merge(a: DeviceState, b: DeviceState): DeviceState {
@@ -33,7 +37,7 @@ export function merge(a: DeviceState, b: DeviceState): DeviceState {
     if (!mine || e.at > mine.at || (e.at === mine.at && e.removed && !mine.removed)) servers[k] = e;
   }
   const providers = (b.providers?.at ?? 0) > (a.providers?.at ?? 0) ? b.providers : a.providers;
-  return providers ? { v: 1, servers, providers } : { v: 1, servers };
+  return providers ? { v: 2, servers, providers } : { v: 2, servers };
 }
 
 export function sameState(a: DeviceState, b: DeviceState) {
@@ -53,13 +57,14 @@ export function noteLocal(s: DeviceState, added: { endpoint: Endpoint; name: str
   const keep = s.providers ? { providers: s.providers } : {};
   for (const r of added) {
     const k = serverKey(r.endpoint);
-    if (!servers[k] || servers[k].removed) servers[k] = { endpoint: r.endpoint, name: r.name, at: now };
+    // New, joined again, or moved to another address.
+    if (!servers[k] || servers[k].removed || servers[k].endpoint.address !== r.endpoint.address) servers[k] = { endpoint: r.endpoint, name: r.name, at: now };
   }
   for (const ep of removed) {
     const k = serverKey(ep);
     if (servers[k] && !servers[k].removed) servers[k] = { ...servers[k], removed: true, at: now };
   }
-  return { v: 1, servers, ...keep };
+  return { v: 2, servers, ...keep };
 }
 
 /**

@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { Session, previewText, type ServerRecord, type SessionView } from './session';
 import { notify } from './platform';
+import { fetchServerInfo } from './transport';
 import type { Conversation, User } from './types';
 
 /**
@@ -90,9 +91,58 @@ function attach(rec: ServerRecord): Session {
       notify(conv?.kind === 'group' ? conv.name : who, (conv?.kind === 'group' ? `${who}：` : '') + previewText(m, s.nameOf));
     },
   );
+  s.onMoved = (address) => void moveServer(rec.id, address);
+  s.onUnreachable = () => void tryOldAddresses(rec.id);
   live.set(rec.id, s);
   useApp.setState((st) => ({ sessions: { ...st.sessions, [rec.id]: s.view } }));
   return s;
+}
+
+const moving = new Set<string>();
+
+/**
+ * The server is now reached at another address (its relay changed,
+ * docs/design.md §3). Switches only when the new address answers as the
+ * same server: the desktop app checks the pinned certificate; servers
+ * without a pin must report the same instance id. Keeps the login.
+ */
+export async function moveServer(id: string, address: string): Promise<boolean> {
+  const rec = useApp.getState().servers.find((x) => x.id === id);
+  if (!rec || moving.has(id) || rec.endpoint.address === address) return false;
+  moving.add(id);
+  try {
+    const ep = { ...rec.endpoint, address };
+    const r = await fetchServerInfo(ep);
+    if (r.status !== 200) return false;
+    if (!ep.pin) {
+      const cur = await fetchServerInfo(rec.endpoint).catch(() => null);
+      const id1 = cur?.status === 200 ? (JSON.parse(cur.body) as { instanceId?: string }).instanceId : undefined;
+      const id2 = (JSON.parse(r.body) as { instanceId?: string }).instanceId;
+      if (id1 && id1 !== id2) return false;
+    }
+    const old = rec.endpoint.address;
+    const next: ServerRecord = {
+      ...rec, endpoint: ep,
+      oldAddresses: [old, ...(rec.oldAddresses ?? []).filter((a) => a !== old && a !== address)].slice(0, 5),
+    };
+    live.get(id)?.stop();
+    live.delete(id);
+    const list = useApp.getState().servers.map((x) => (x.id === id ? next : x));
+    useApp.setState({ servers: list });
+    saveRecords(list);
+    void attach(next).start();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    moving.delete(id);
+  }
+}
+
+/** The current address stopped working: try the ones the server had before. */
+async function tryOldAddresses(id: string) {
+  const rec = useApp.getState().servers.find((x) => x.id === id);
+  for (const a of rec?.oldAddresses ?? []) if (await moveServer(id, a)) return;
 }
 
 /** Loads saved servers and connects to them. */
@@ -112,6 +162,22 @@ export function boot() {
  */
 export function addServer(rec: Omit<ServerRecord, 'id'>): Session {
   const servers = useApp.getState().servers;
+  // Same certificate at another address: the server moved (new relay). Keep the login.
+  const moved = rec.endpoint.pin ? servers.find((s) => s.endpoint.pin === rec.endpoint.pin && s.endpoint.address !== rec.endpoint.address) : undefined;
+  if (moved) {
+    const next: ServerRecord = {
+      ...moved, endpoint: rec.endpoint,
+      oldAddresses: [moved.endpoint.address, ...(moved.oldAddresses ?? []).filter((a) => a !== rec.endpoint.address)].slice(0, 5),
+    };
+    live.get(moved.id)?.stop();
+    live.delete(moved.id);
+    const list = servers.map((x) => (x.id === moved.id ? next : x));
+    useApp.setState({ servers: list });
+    saveRecords(list);
+    const s = attach(next);
+    void s.start();
+    return s;
+  }
   const existing = servers.find((s) => s.endpoint.address === rec.endpoint.address);
   if (existing) {
     const same = existing.endpoint.pin === rec.endpoint.pin && existing.endpoint.plain === rec.endpoint.plain;

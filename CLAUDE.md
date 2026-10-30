@@ -153,6 +153,12 @@ update the docs in the same commit.
   is synced between my devices as encrypted client state on every server
   (`lib/devices.ts`, merge logic in `lib/deviceState.ts`; the vault key lives
   in the OS credential store). The server never sees the keys or contents.
+  Servers are identified by certificate pin (address only when unpinned).
+- Relay change (docs/design.md §3): the panel probes the new address
+  (`admin/relay.go`: same cert + `ServerInfo.instance_id`), saves
+  `server.public_address` live (`Runtime.SetPublicAddress`) and broadcasts
+  `server_moved`; clients switch in `store.moveServer` only after the new
+  address answers with the same pin, keep `oldAddresses` as fallbacks.
 - Personalization (theme mode, accent, background, font scale) is per device
   in localStorage; workshop themes will set the same fields.
 - AI emotion keys and fallbacks are listed in docs/design.md §9; keep the

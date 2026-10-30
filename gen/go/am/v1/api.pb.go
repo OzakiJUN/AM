@@ -881,7 +881,10 @@ type ServerInfo struct {
 	// Client download page; QR codes point here.
 	DownloadUrl string `protobuf:"bytes,3,opt,name=download_url,json=downloadUrl,proto3" json:"download_url,omitempty"`
 	// Server icon ("/api/v1/server/icon?v=..."), "" when none is set. Public.
-	Icon          string `protobuf:"bytes,4,opt,name=icon,proto3" json:"icon,omitempty"`
+	Icon string `protobuf:"bytes,4,opt,name=icon,proto3" json:"icon,omitempty"`
+	// Random id of the running server process: lets the server (and clients)
+	// check that a new address really reaches this same server.
+	InstanceId    string `protobuf:"bytes,5,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -940,6 +943,13 @@ func (x *ServerInfo) GetDownloadUrl() string {
 func (x *ServerInfo) GetIcon() string {
 	if x != nil {
 		return x.Icon
+	}
+	return ""
+}
+
+func (x *ServerInfo) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
 	}
 	return ""
 }
@@ -2761,13 +2771,15 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fused_by_name\x18\x04 \x01(\tR\n" +
 	"usedByName\x12\x1b\n" +
 	"\tjoin_code\x18\x05 \x01(\tR\bjoinCode\x12\x19\n" +
-	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"q\n" +
+	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\x92\x01\n" +
 	"\n" +
 	"ServerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12!\n" +
 	"\fdownload_url\x18\x03 \x01(\tR\vdownloadUrl\x12\x12\n" +
-	"\x04icon\x18\x04 \x01(\tR\x04icon\"\x95\x02\n" +
+	"\x04icon\x18\x04 \x01(\tR\x04icon\x12\x1f\n" +
+	"\vinstance_id\x18\x05 \x01(\tR\n" +
+	"instanceId\"\x95\x02\n" +
 	"\rServerProfile\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +

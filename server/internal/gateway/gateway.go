@@ -98,6 +98,30 @@ func (h *Hub) CloseSession(sessionID int64) {
 
 // CloseAll disconnects every client (server restart / shutdown). Clients
 // reconnect on their own.
+// Broadcast sends a frame to every connection.
+func (h *Hub) Broadcast(frame *amv1.ServerFrame) {
+	users := h.OnlineUsers()
+	ids := make([]int64, 0, len(users))
+	for id := range users {
+		ids = append(ids, id)
+	}
+	h.ToUsers(ids, frame, 0)
+}
+
+// AddressCounts is how many connections use each address (as the clients
+// report it; "" for clients too old to say).
+func (h *Hub) AddressCounts() map[string]int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	out := map[string]int{}
+	for _, byID := range h.byUser {
+		for _, c := range byID {
+			out[c.address]++
+		}
+	}
+	return out
+}
+
 func (h *Hub) CloseAll() {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -135,6 +159,8 @@ type Conn struct {
 	id        uint64
 	userID    int64
 	sessionID int64
+	// Address the client says it connected to (AuthRequest.address).
+	address   string
 	user      *store.User
 	ws        *websocket.Conn
 	out       chan []byte
@@ -238,6 +264,7 @@ func (g *Gateway) authenticate(ctx context.Context, ws *websocket.Conn, cancel c
 		id:        g.hub.nextID.Add(1),
 		userID:    user.ID,
 		sessionID: sess.ID,
+		address:   frame.GetAuth().GetAddress(),
 		user:      user,
 		ws:        ws,
 		out:       make(chan []byte, sendBuffer),
@@ -255,7 +282,7 @@ func (g *Gateway) authResponse(ctx context.Context, c *Conn) (*amv1.AuthResponse
 	if err != nil {
 		return nil, err
 	}
-	return &amv1.AuthResponse{Me: me, Conversations: convs, IsSiteAdmin: c.user.IsSiteAdmin}, nil
+	return &amv1.AuthResponse{Me: me, Conversations: convs, IsSiteAdmin: c.user.IsSiteAdmin, PublicAddress: g.acct.PublicAddress()}, nil
 }
 
 func (g *Gateway) writeLoop(ctx context.Context, c *Conn) {
