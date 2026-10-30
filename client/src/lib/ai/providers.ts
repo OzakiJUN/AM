@@ -95,7 +95,7 @@ function openaiMessages(r: ChatRequest) {
       out.push({
         role: 'user',
         content: m.images?.length
-          ? [{ type: 'text', text: m.content }, ...m.images.map((b) => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${b}` } }))]
+          ? [{ type: 'text', text: m.content }, ...m.images.map((b) => ({ type: 'image_url', image_url: { url: `data:${imageMime(b)};base64,${b}` } }))]
           : m.content,
       });
     } else if (m.role === 'assistant') {
@@ -105,14 +105,14 @@ function openaiMessages(r: ChatRequest) {
     } else {
       out.push({ role: 'tool', tool_call_id: m.callId, content: m.content });
       // Tool messages can't carry pictures here: hand them over as the user.
-      if (m.images?.length) out.push({ role: 'user', content: [{ type: 'text', text: `（${m.name} 的截图）` }, ...m.images.map((b) => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${b}` } }))] });
+      if (m.images?.length) out.push({ role: 'user', content: [{ type: 'text', text: `（${m.name} 的截图）` }, ...m.images.map((b) => ({ type: 'image_url', image_url: { url: `data:${imageMime(b)};base64,${b}` } }))] });
     }
   }
   return out;
 }
 
 function claudeMessages(r: ChatRequest) {
-  const img = (b: string) => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: b } });
+  const img = (b: string) => ({ type: 'image', source: { type: 'base64', media_type: imageMime(b), data: b } });
   return groupTools(r.messages).map((m) => {
     if (Array.isArray(m)) {
       return { role: 'user', content: m.map((t) => ({ type: 'tool_result', tool_use_id: t.callId, content: [{ type: 'text', text: t.content || '（空）' }, ...(t.images ?? []).map(img)] })) };
@@ -129,7 +129,7 @@ function claudeMessages(r: ChatRequest) {
 }
 
 function geminiContents(r: ChatRequest) {
-  const img = (b: string) => ({ inlineData: { mimeType: 'image/png', data: b } });
+  const img = (b: string) => ({ inlineData: { mimeType: imageMime(b), data: b } });
   return groupTools(r.messages).map((m) => {
     if (Array.isArray(m)) {
       return { role: 'user', parts: m.flatMap((t) => [{ functionResponse: { name: t.name, response: { result: t.content } } }, ...(t.images ?? []).map(img)]) };
@@ -140,6 +140,14 @@ function geminiContents(r: ChatRequest) {
     }
     return { role: 'user', parts: [{ text: m.content }] };
   });
+}
+
+/** Picture type from the first bytes of base64 data (screenshots are PNG; MCP tools may send others). */
+export function imageMime(b64: string): string {
+  if (b64.startsWith('/9j/')) return 'image/jpeg';
+  if (b64.startsWith('R0lG')) return 'image/gif';
+  if (b64.startsWith('UklGR')) return 'image/webp';
+  return 'image/png';
 }
 
 /** The HTTP request for a streamed chat completion (with tools when given). */

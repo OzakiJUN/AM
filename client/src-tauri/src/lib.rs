@@ -3,8 +3,11 @@
 
 mod agent;
 mod ai_http;
+mod browser;
+mod mcp;
 mod net;
 mod secrets;
+mod uia;
 
 use net::{Endpoint, Net, Reply, WsEvent};
 use tauri::http::{Response, StatusCode};
@@ -124,6 +127,73 @@ async fn agent_screenshot(max_width: u32) -> Res<agent::Shot> {
 #[tauri::command]
 async fn agent_input(action: agent::Input, scale: f64, quiet_ms: u32) -> Res<()> {
     agent::input(action, scale, quiet_ms).await
+}
+
+// UI Automation (uia.rs): windows and their controls, read by name.
+
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static) -> Res<T> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn agent_ui_windows() -> Res<Vec<uia::Window>> {
+    blocking(uia::windows).await
+}
+
+#[tauri::command]
+async fn agent_ui_tree(handle: i64) -> Res<Vec<uia::Node>> {
+    blocking(move || uia::tree(handle)).await
+}
+
+#[tauri::command]
+async fn agent_ui_act(handle: i64, id: usize, expect: String, action: String, text: Option<String>) -> Res<String> {
+    blocking(move || uia::act(handle, id, &expect, &action, text.as_deref())).await
+}
+
+#[tauri::command]
+async fn agent_ui_activate(handle: i64) -> Res<()> {
+    blocking(move || uia::activate(handle)).await
+}
+
+// The AI's own browser (browser.rs), with its own profile in the app data folder.
+
+fn browser_profile(app: &tauri::AppHandle) -> Res<std::path::PathBuf> {
+    Ok(app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("ai-browser"))
+}
+
+#[tauri::command]
+async fn agent_browser(app: tauri::AppHandle, action: String, url: Option<String>, n: Option<u32>, text: Option<String>, submit: Option<bool>, pages: Option<f64>) -> Res<String> {
+    let p = browser_profile(&app)?;
+    match action.as_str() {
+        "open" => browser::open(&p, url.as_deref().unwrap_or("")).await,
+        "read" => browser::snapshot(&p).await,
+        "click" => browser::click(&p, n.ok_or("缺少元素编号")?).await,
+        "type" => browser::type_text(&p, n.ok_or("缺少元素编号")?, text.as_deref().unwrap_or(""), submit.unwrap_or(false)).await,
+        "scroll" => browser::scroll(&p, pages.unwrap_or(1.0)).await,
+        "back" => browser::back(&p).await,
+        "close" => {
+            browser::close();
+            Ok("浏览器关了".into())
+        }
+        _ => Err(format!("不认识的浏览器操作 {action}")),
+    }
+}
+
+// MCP tool servers (mcp.rs); `key` keeps each AI's servers apart.
+
+#[tauri::command]
+async fn mcp_tools(key: String, spec: Vec<String>) -> Res<Vec<mcp::Tool>> {
+    mcp::tools(&key, &spec).await
+}
+
+#[tauri::command]
+async fn mcp_call(key: String, spec: Vec<String>, tool: String, args: serde_json::Value, timeout: u64) -> Res<mcp::CallResult> {
+    mcp::call(&key, &spec, &tool, args, timeout).await
+}
+
+#[tauri::command]
+fn mcp_stop(prefix: String) {
+    mcp::stop(&prefix);
 }
 
 /// F12 stops every AI that is operating the computer. Only held while one
@@ -263,7 +333,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
-            agent_screenshot, agent_input, agent_stop_key, ws_open, ws_send, ws_close
+            agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
+            agent_browser, mcp_tools, mcp_call, mcp_stop, ws_open, ws_send, ws_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

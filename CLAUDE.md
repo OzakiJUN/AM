@@ -180,6 +180,12 @@ update the docs in the same commit.
   behind `cfg(windows)`); the loop is `reply()` in `runner.ts`; asks, the
   status bar, F12 stop and the action log are `lib/ai/agentState.ts` +
   `app/AgentHost.tsx`. Never run a tool the permission level says no to.
+  2b: UI Automation `src-tauri/src/uia.rs` (Windows only, acts by number +
+  name check), the AI's own browser `browser.rs` (Edge / Chrome with its own
+  profile, DevTools protocol; test with `AM_BROWSER=<chrome> AM_BROWSER_HEADLESS=1
+  cargo test`), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
+  named `mcp__<server>__<tool>`, category `mcp`). New tool categories need
+  `ToolCategory`, `DEFAULT_LEVELS` and `CATEGORY_LABEL`.
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

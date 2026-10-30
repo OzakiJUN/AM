@@ -17,7 +17,7 @@ import { argsOf, categoryOf, computerPrompt, describeCall, levelFor, toolsFor } 
 import { appendLog, askOwner, setActivity, stopped } from './agentState';
 import { parseSettings, previewText, systemPrompt, toChat, type AISettings } from './persona';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
-import { execTool, type ToolCtx } from './tools';
+import { execTool, loadMcpTools, stopMcp, type ToolCtx } from './tools';
 
 interface AIState {
   /** My AI accounts per server (owner view, with settings). */
@@ -152,6 +152,7 @@ function stop(key: string) {
   run?.s.stop();
   runs.delete(key);
   patch('running', key, undefined);
+  stopMcp(key);
 }
 
 /** The first time it runs: say hello to its owner (once per chat). */
@@ -250,12 +251,14 @@ async function reply(run: Run, convId: string) {
     const speakerId = [...msgs].reverse().find((x) => x.senderId !== run.ai.user.id)?.senderId ?? '';
     const speaker = { name: s.nameOf(speakerId), isOwner: speakerId === run.ai.user.ownerId };
     const comp = st.computer;
-    const tools = toolsFor(comp);
+    const agentKey = errKey;
+    const mcp = await loadMcpTools(comp, agentKey);
+    const tools = toolsFor(comp, mcp.defs);
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
     if (tools.length) system += '\n\n' + computerPrompt(comp, speaker);
+    if (mcp.errors.length) system += '\n\n这些 MCP 工具服务没启动成功（需要时告诉对方）：\n' + mcp.errors.join('\n');
     const turn: AgentMsg[] = [...chat];
-    const ctx: ToolCtx = { computer: comp, scale: 1 };
-    const agentKey = errKey;
+    const ctx: ToolCtx = { computer: comp, scale: 1, mcp: mcp.map, owner: agentKey };
     let final = '';
     try {
       for (let step = 0; ; step++) {

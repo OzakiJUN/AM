@@ -54,6 +54,8 @@ cd src-tauri && cargo test
 
 Rust 联网的真实连接测试（可选）：`AM_TEST_SERVER=127.0.0.1:8443 AM_TEST_PIN=<面板里证书指纹的十六进制> cargo test -- --nocapture`。
 
+AI 自己的浏览器测试（可选，要一个 Chromium）：`AM_BROWSER=<chrome 路径> AM_BROWSER_HEADLESS=1 cargo test -- browser`。界面自动化只在 Windows 上编译。
+
 改了 proto 以后在仓库根目录跑 `buf generate`（要先 `npm ci`，因为它用 `node_modules/.bin/protoc-gen-es`），生成的 `src/gen` 要一起提交，CI 会检查。
 
 ## 端到端测试

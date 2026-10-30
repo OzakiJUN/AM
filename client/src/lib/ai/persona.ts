@@ -47,22 +47,37 @@ export interface ComputerSettings {
   maxSteps: number;
   /** Seconds the owner must leave mouse and keyboard alone before it uses them. */
   yieldSeconds: number;
+  /** MCP tool servers it may use (started on the device that runs it). */
+  mcp: McpServer[];
 }
 
-export type ToolCategory = 'files_read' | 'files_write' | 'files_delete' | 'command' | 'open' | 'clipboard' | 'screen' | 'input';
+/** An MCP server: a program that speaks MCP over stdio (src-tauri/src/mcp.rs). */
+export interface McpServer {
+  name: string;
+  command: string;
+  /** One argument per entry (no quoting rules to get wrong). */
+  args: string[];
+  enabled: boolean;
+}
+
+export type ToolCategory =
+  | 'files_read' | 'files_write' | 'files_delete' | 'command' | 'open' | 'clipboard' | 'screen' | 'input'
+  | 'ui' | 'browser' | 'mcp';
 export type Level = 'allow' | 'ask' | 'deny';
 
 /**
  * Defaults for my own AI (Weiqi: as much as possible): everything allowed
- * except deleting and running commands, which ask first. All can be raised.
+ * except deleting, running commands and MCP tools (they can do anything),
+ * which ask first. All can be raised.
  */
 export const DEFAULT_LEVELS: Record<ToolCategory, Level> = {
   files_read: 'allow', files_write: 'allow', files_delete: 'ask', command: 'ask',
   open: 'allow', clipboard: 'allow', screen: 'allow', input: 'allow',
+  ui: 'allow', browser: 'allow', mcp: 'ask',
 };
 
 export const defaultComputer = (): ComputerSettings => ({
-  enabled: true, workDirs: [], levels: { ...DEFAULT_LEVELS }, vision: false, maxSteps: 20, yieldSeconds: 3,
+  enabled: true, workDirs: [], levels: { ...DEFAULT_LEVELS }, vision: false, maxSteps: 20, yieldSeconds: 3, mcp: [],
 });
 
 export const TEMPLATES: { key: string; name: string; persona: Persona }[] = [

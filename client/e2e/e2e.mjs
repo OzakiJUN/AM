@@ -15,6 +15,7 @@ if (!JOIN || !IMAGE) {
 }
 // A fake model service (OpenAI-compatible, streamed) for the AI scenario.
 const MOCK_PORT = Number(process.env.AM_E2E_MOCK_PORT ?? 8460);
+let seenTools = [];
 const mock = createServer((req, res) => {
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
   if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
@@ -24,6 +25,7 @@ const mock = createServer((req, res) => {
     const j = JSON.parse(body || '{}');
     if (req.headers.authorization !== 'Bearer sk-test') return res.writeHead(401, cors).end('{"error":{"message":"bad key"}}');
     const last = j.messages?.at(-1)?.content ?? '';
+    if (j.tools) seenTools = j.tools.map((t) => t.function.name);
     res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
     // Asked to use the clipboard: call the tool first, then answer.
     const wantsTool = last.includes?.('剪贴板') && j.messages.at(-1).role === 'user' && j.tools?.some((t) => t.function.name === 'set_clipboard');
@@ -442,6 +444,7 @@ const pages = [];
   await A.click('button[aria-label="AI 设置"]');
   await A.click('div[role="dialog"] button[role="radio"]:has-text("电脑")');
   await A.click('div[role="group"][aria-label="剪贴板"] button[role="radio"]:has-text("问我")');
+  await A.waitForSelector('text=已保存', { state: 'detached' }); // not the model tab's toast
   await A.click('div[role="dialog"] button:has-text("保存")');
   await A.waitForSelector('text=已保存');
   await A.keyboard.press('Escape');
@@ -458,6 +461,29 @@ const pages = [];
   await A.waitForSelector('div[role="dialog"] >> text=把「小鱼到此一游」放进剪贴板');
   await wait(400);
   await shot(A, '29-ai-log');
+  await A.keyboard.press('Escape');
+  // 2b tools reach the model: UI automation and its own browser (allowed by default).
+  for (const t of ['ui_read', 'ui_act', 'browser_open', 'browser_click']) if (!seenTools.includes(t)) throw new Error(`tool ${t} not offered: ${seenTools}`);
+
+  // MCP tool servers: add one in the 电脑 tab, saved with the AI's settings.
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("电脑")');
+  for (const g of ['操作软件界面', '自己的浏览器', 'MCP 工具']) await A.waitForSelector(`div[role="group"][aria-label="${g}"]`);
+  await A.click('button:has-text("添加工具服务")');
+  const form = A.locator('div[role="dialog"]').last();
+  await form.locator('input[aria-label="名字"]').fill('文件系统');
+  await form.locator('input[aria-label="命令"]').fill('npx');
+  await form.locator('textarea[aria-label="参数"]').fill('-y\n@modelcontextprotocol/server-filesystem\nD:\\AI');
+  await form.locator('button[type="submit"]:has-text("好")').click();
+  await A.waitForSelector('div[role="group"][aria-label="MCP 文件系统"] >> text=npx -y @modelcontextprotocol/server-filesystem D:\\AI');
+  await wait(400);
+  await shot(A, '30-ai-mcp');
+  await A.click('div[role="dialog"] button:has-text("保存")');
+  await A.waitForSelector('text=已保存');
+  await A.keyboard.press('Escape');
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("电脑")');
+  await A.waitForSelector('div[role="group"][aria-label="MCP 文件系统"]');
   await A.keyboard.press('Escape');
 
   await b.close();

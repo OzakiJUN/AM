@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { buildRequest, errorOf, streamReader, type Provider } from './providers.ts';
+import { buildRequest, errorOf, imageMime, streamReader, type Provider } from './providers.ts';
 
 const req = { model: 'm1', system: '你是小鱼', messages: [{ role: 'user' as const, content: '你好' }], temperature: 0.8, maxTokens: 800 };
 const P = (kind: Provider['kind'], baseUrl: string): Provider => ({ id: 'p', kind, name: 'x', baseUrl, key: 'sk-1' });
@@ -62,6 +62,8 @@ assert.equal(b.tools[0].function.name, 'list_dir');
 assert.deepEqual(b.messages[2].tool_calls[0], { id: 'c1', type: 'function', function: { name: 'list_dir', arguments: '{"path":"D:/桌面"}' } });
 assert.deepEqual(b.messages[3], { role: 'tool', tool_call_id: 'c1', content: 'a.txt\nb.png' });
 assert.equal(b.messages[4].content[1].image_url.url, 'data:image/png;base64,QUJD');
+assert.equal(imageMime('/9j/4AAQ'), 'image/jpeg');
+assert.equal(imageMime('iVBORw0K'), 'image/png');
 // Claude: tool_use with parsed input, tool_result (with the picture) in a user turn.
 b = JSON.parse(buildRequest(P('claude', 'https://x'), turn).body);
 assert.equal(b.tools[0].input_schema.type, 'object');

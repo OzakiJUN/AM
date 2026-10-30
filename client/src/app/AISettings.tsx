@@ -2,10 +2,11 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, Folder, ImageUp, KeyRound, Monitor, Pencil, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Cpu, Folder, ImageUp, KeyRound, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
 import { CATEGORY_LABEL } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
-import type { Level, ToolCategory } from '@/lib/ai/persona';
+import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
+import { listMcpTools, stopMcp } from '@/lib/ai/tools';
 import { chatTime } from '@/lib/format';
 import { inTauri } from '@/lib/platform';
 import { deviceId } from '@/lib/deviceId';
@@ -256,6 +257,7 @@ function ComputerTab({ draft, set, save }: TabProps) {
           ))}
         </div>
       </div>
+      {c.levels.mcp !== 'deny' && <McpList list={c.mcp} onChange={(mcp) => setC({ mcp })} />}
       <div className="grid grid-cols-3 gap-3">
         <Field label="模型能看图" hint="能看图的模型才打开（截图会发给模型服务商）">
           <Toggle label="模型能看图" checked={c.vision} onChange={(on) => setC({ vision: on })} />
@@ -269,6 +271,79 @@ function ComputerTab({ draft, set, save }: TabProps) {
       </div>
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
     </>
+  );
+}
+
+/** MCP tool servers for this AI (programs started on the device that runs it). */
+function McpList({ list, onChange }: { list: McpServer[]; onChange: (l: McpServer[]) => void }) {
+  const [editing, setEditing] = useState<{ index: number; server: McpServer } | null>(null);
+  const done = (m: McpServer) => {
+    if (!editing) return;
+    onChange(editing.index < 0 ? [...list, m] : list.map((x, i) => (i === editing.index ? m : x)));
+    setEditing(null);
+  };
+  return (
+    <Field label="MCP 工具服务" hint="别人写好的工具（MCP 服务器），比如操作某个软件、查资料。填它的启动命令；保存后在运行它的设备上启动">
+      <div className="space-y-1.5">
+        {list.map((m, i) => (
+          <div key={i} role="group" aria-label={`MCP ${m.name}`} className="flex items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+            <Plug size={15} className="shrink-0 text-accent" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[0.9rem] font-medium">{m.name}</div>
+              <div className="truncate font-mono text-[0.75rem] text-ink-soft dark:text-white/45" title={[m.command, ...m.args].join(' ')}>{[m.command, ...m.args].join(' ')}</div>
+            </div>
+            <Toggle label={`启用 ${m.name}`} checked={m.enabled} onChange={(on) => onChange(list.map((x, j) => (j === i ? { ...x, enabled: on } : x)))} />
+            <button type="button" onClick={() => setEditing({ index: i, server: m })} aria-label={`编辑 ${m.name}`} className="press rounded-md p-1 text-ink-soft hover:bg-black/5 dark:hover:bg-white/10"><Pencil size={14} /></button>
+            <button type="button" onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label={`移除 ${m.name}`} className="press rounded-md p-1 text-ink-soft hover:bg-black/5 dark:hover:bg-white/10"><X size={14} /></button>
+          </div>
+        ))}
+        <Button size="sm" variant="soft" onClick={() => setEditing({ index: -1, server: { name: '', command: '', args: [], enabled: true } })}><Plus size={14} /> 添加工具服务</Button>
+      </div>
+      <Dialog open={!!editing} onClose={() => setEditing(null)} title={editing && editing.index >= 0 ? '编辑工具服务' : '添加工具服务'} width={480}>
+        {editing && <McpForm initial={editing.server} taken={list.filter((_, i) => i !== editing.index).map((x) => x.name)} onDone={done} />}
+      </Dialog>
+    </Field>
+  );
+}
+
+function McpForm({ initial, taken, onDone }: { initial: McpServer; taken: string[]; onDone: (m: McpServer) => void }) {
+  const [m, setM] = useState(initial);
+  const [args, setArgs] = useState(initial.args.join('\n'));
+  const [test, setTest] = useState('');
+  const server = (): McpServer => ({ ...m, name: m.name.trim(), command: m.command.trim(), args: args.split('\n').map((x) => x.trim()).filter(Boolean) });
+  const dup = taken.includes(m.name.trim());
+  async function tryIt() {
+    const x = server();
+    try {
+      const tools = await listMcpTools(x, 'mcp-test|x');
+      setTest(`能用 ✓ ${tools.length} 个工具：${tools.map((t) => t.name).join('、') || '（没有）'}`);
+    } catch (e) {
+      setTest(`不行：${errorText(e)}`);
+    } finally {
+      stopMcp('mcp-test');
+    }
+  }
+  return (
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (!dup) onDone(server()); }}>
+      <Field label="名字" hint={dup ? '已经有同名的了' : '给自己看的，也会告诉 AI'}>
+        <Input value={m.name} onChange={(e) => setM({ ...m, name: e.target.value })} maxLength={30} required aria-label="名字" placeholder="文件系统" />
+      </Field>
+      <Field label="命令" hint="程序名或完整路径，例如 npx、uvx、C:\tools\server.exe">
+        <Input value={m.command} onChange={(e) => setM({ ...m, command: e.target.value })} required aria-label="命令" placeholder="npx" className="font-mono" />
+      </Field>
+      <Field label="参数" hint="一行一个，不用加引号">
+        <textarea value={args} onChange={(e) => setArgs(e.target.value)} className={cx(textarea, 'font-mono text-[0.85rem]')} rows={3} aria-label="参数" placeholder={'-y\n@modelcontextprotocol/server-filesystem\nD:\\AI'} />
+      </Field>
+      <p className="flex gap-2 rounded-xl bg-amber-50 p-2.5 text-[0.8rem] text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+        <ShieldAlert size={16} className="mt-0.5 shrink-0" />
+        工具服务是在你电脑上运行的程序，权限和你一样大。只添加你信得过的。
+      </p>
+      {test && <p className={cx('text-[0.85rem] break-all', test.startsWith('能用') ? 'text-emerald-600 dark:text-emerald-300' : 'text-ink-soft dark:text-white/60')}>{test}</p>}
+      <div className="flex justify-end gap-2">
+        {inTauri && <Button variant="soft" disabled={!m.command.trim()} onClick={tryIt}>测试</Button>}
+        <Button type="submit" variant="primary" disabled={dup}>好</Button>
+      </div>
+    </form>
   );
 }
 

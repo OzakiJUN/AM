@@ -40,6 +40,7 @@ tauri-plugin-global-shortcut = "2"
 windows-native-keyring-store = "1"
 enigo = "0.6"
 xcap = "0.9"
+uiautomation = "0.25"
 windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_SystemInformation"] }
 
 [profile.release]

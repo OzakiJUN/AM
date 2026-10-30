@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { argsOf, computerPrompt, describeCall, levelFor, toolsFor, TOOLS } from './agent.ts';
+import { argsOf, categoryOf, computerPrompt, describeCall, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
 import { defaultComputer, parseSettings } from './persona.ts';
 
 const c = defaultComputer();
@@ -16,6 +16,25 @@ names = toolsFor({ ...c, vision: true, levels: { ...c.levels, command: 'deny' } 
 assert.ok(names.includes('screenshot') && !names.includes('run_command'));
 assert.deepEqual(toolsFor({ ...c, enabled: false }), []);
 assert.equal(levelFor({ ...c, enabled: false }, 'read_file'), 'deny');
+// UI automation and the AI's own browser are allowed by default; MCP asks.
+assert.equal(levelFor(c, 'ui_act'), 'allow');
+assert.equal(levelFor(c, 'browser_open'), 'allow');
+assert.equal(levelFor(c, 'mcp__files__read'), 'ask');
+assert.equal(categoryOf('mcp__files__read'), 'mcp');
+
+// MCP tools: names safe for every provider, offered unless MCP is denied.
+assert.equal(mcpToolName('我的 文件', 'read.file'), 'mcp__x__read_file');
+assert.equal(mcpToolName('git hub', 'list'), 'mcp__git_hub__list');
+assert.ok(mcpToolName('s'.repeat(50), 't'.repeat(80)).length <= 64);
+const mt = mcpTool('files', { name: 'read', description: 'reads', inputSchema: { type: 'object', properties: { p: { type: 'string' } } } });
+assert.equal(mt.name, 'mcp__files__read');
+assert.equal(mt.category, 'mcp');
+assert.ok(toolsFor(c, [mt]).includes(mt));
+assert.ok(!toolsFor({ ...c, levels: { ...c.levels, mcp: 'deny' } }, [mt]).includes(mt));
+assert.equal(describeCall('mcp__files__read', { p: 'a' }), 'MCP files：read {"p":"a"}');
+assert.equal(describeCall('ui_act', { id: 3, name: '保存', action: 'press' }), '点控件 [3] 保存');
+assert.equal(describeCall('browser_type', { n: 2, text: 'hi', submit: true }), '浏览器在第 2 号填「hi」并提交');
+
 // Every tool has a schema and a description.
 for (const t of TOOLS) assert.ok(t.description && (t.parameters as { type: string }).type === 'object', t.name);
 
@@ -24,6 +43,8 @@ const s = parseSettings(JSON.stringify({ computer: { workDirs: ['D:/AI'], levels
 assert.deepEqual(s.computer.workDirs, ['D:/AI']);
 assert.equal(s.computer.levels.command, 'allow');
 assert.equal(s.computer.levels.files_delete, 'ask');
+assert.equal(s.computer.levels.browser, 'allow'); // added later: gets its default
+assert.deepEqual(s.computer.mcp, []);
 assert.equal(parseSettings('').computer.enabled, true);
 
 assert.equal(describeCall('run_command', { command: 'Get-Date' }), '运行命令：Get-Date');
