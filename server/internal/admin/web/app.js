@@ -500,6 +500,7 @@ async function renderUsers(root, page) {
         el('td', {}, fmtTime(u.created_at)),
         el('td', { class: 'actions' },
           el('button', { class: 'btn small ghost', onclick: () => showLogins(u) }, '登录记录'),
+          el('button', { class: 'btn small ghost', onclick: () => clearProfile(u) }, '清空主页'),
           el('button', { class: 'btn small ghost', onclick: () => resetPassword(u) }, '重置密码'),
           el('button', { class: 'btn small ghost', onclick: () => toggleAdmin(u) }, u.is_site_admin ? '取消管理员' : '设为管理员'),
           u.banned
@@ -530,6 +531,16 @@ async function renderUsers(root, page) {
     if (!ok) return;
     try { await api('POST', 'users/' + u.id + '/admin', { admin: on }); toast('已更新'); load(); } catch (e) { fail(e); }
   }
+  async function clearProfile(u) {
+    const ok = await confirmDialog({
+      title: '清空 ' + u.display_name + ' 的个人主页',
+      text: '主页上的小组件全部移除（有违规内容时用）。原来的布局会作为旧版本保留一段时间，到期自动清除。会记入操作记录。',
+      ok: '清空主页',
+    });
+    if (!ok) return;
+    try { await api('POST', 'users/' + u.id + '/clear-profile'); toast('已清空 ' + u.display_name + ' 的主页'); } catch (e) { fail(e); }
+  }
+
   async function resetPassword(u) {
     const ok = await confirmDialog({
       title: '重置 ' + u.display_name + ' 的密码',
@@ -762,6 +773,7 @@ const AUDIT_TEXT = {
   dissolve: '解散了群', ban: '封禁了', unban: '解封了', site_admin_grant: '设为站点管理员：',
   site_admin_remove: '取消了站点管理员：', password_reset: '重置了密码：', invite_create: '生成了邀请码',
   invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录', server_profile: '修改了服务器主页设置',
+  server_layout: '修改了服务器主页的小组件', profile_clear: '清空了个人主页：', guestbook_delete: '删除了一条留言',
 };
 
 async function renderAudit(root, page) {

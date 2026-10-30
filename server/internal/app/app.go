@@ -17,6 +17,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/presence"
+	"github.com/OzakiJUN/am/server/internal/profile"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -25,6 +26,7 @@ type App struct {
 	Hub     *gateway.Hub
 	Account *account.Service
 	Media   *media.Service
+	Profile *profile.Service
 	Janitor *janitor.Janitor
 	Handler http.Handler
 }
@@ -62,9 +64,10 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	ps := presence.New(st, hub)
 	acct.OnRegistered(cs.Welcome)
 	acct.OnLeft(cs.LeaveAll)
+	prof := profile.New(st, ids, acct, cs, md, cfg.Retention)
 
 	mux := http.NewServeMux()
-	httpapi.New(acct, cs, ms, md, ps, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
+	httpapi.New(acct, cs, ms, md, ps, prof, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, log))
 
 	return &App{
@@ -72,6 +75,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Hub:     hub,
 		Account: acct,
 		Media:   md,
+		Profile: prof,
 		Janitor: janitor.New(st, md, cfg.Retention, log),
 		Handler: mux,
 	}, nil

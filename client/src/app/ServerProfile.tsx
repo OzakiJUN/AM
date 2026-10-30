@@ -4,21 +4,29 @@
 // admin panel (icon, description, who may edit the widgets). "退出服务器" in
 // the top-right corner leaves the server for good: coming back needs a new
 // invite code.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { LogOut, Users } from 'lucide-react';
 import { current, leaveServer } from '@/lib/store';
-import type { ServerProfileView, SessionView } from '@/lib/session';
+import type { ProfileData, ServerProfileView, SessionView } from '@/lib/session';
 import { Button, Spinner, ask, spring, toastError } from '@/ui';
+import type { Background } from '@/lib/widgets';
 import { ServerAvatar } from './media';
-import { WidgetGridStub } from './Profile';
+import { Board, ProfileBg } from './widgets/Board';
 
 export function ServerProfilePage({ v }: { v: SessionView }) {
   const [p, setP] = useState<ServerProfileView | null>(null);
+  const [data, setData] = useState<ProfileData | null>(null);
+  const [previewBg, setPreviewBg] = useState<Background | null>(null);
+  const load = useCallback(() => {
+    current().getProfile('server').then(setData).catch(toastError);
+  }, []);
   useEffect(() => {
     setP(null);
+    setData(null);
     current().serverProfile().then(setP).catch(toastError);
-  }, [v.id]);
+    load();
+  }, [v.id, load]);
 
   const leave = () =>
     ask({
@@ -30,8 +38,10 @@ export function ServerProfilePage({ v }: { v: SessionView }) {
     });
 
   return (
-    <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="card relative overflow-hidden rounded-3xl bg-white/90 dark:bg-white/[0.06]">
+    <section className="glass relative flex-1 overflow-hidden rounded-3xl">
+      {data && <ProfileBg bg={previewBg ?? data.layout.background} />}
+      <div className="relative h-full overflow-y-auto p-8">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="card relative overflow-hidden rounded-3xl bg-white/90 dark:bg-[#211c38]/90">
         <div className="h-28 bg-gradient-to-br from-teal-200 via-accent-100 to-sky-100 dark:from-teal-500/30 dark:via-accent/20 dark:to-sky-500/20" />
         <div className="absolute top-4 right-4">
           <Button variant="danger" size="sm" onClick={leave}>
@@ -60,11 +70,10 @@ export function ServerProfilePage({ v }: { v: SessionView }) {
           {p?.description || <span className="text-ink-soft/80 dark:text-white/40">服主还没写简介{v.isAdmin ? '。在服务器的管理面板「设置 → 服务器主页」里写。' : '。'}</span>}
         </div>
       </motion.div>
-      <WidgetGridStub
-        note={p
-          ? `布局：${p.layoutEditors === 'everyone' ? '所有人都能改' : '仅管理员能改'}；小组件内容：${p.widgetContentEditable ? '成员可以改（每个小组件可单独设权限）' : '仅管理员能改'}。服主在管理面板里设置。`
-          : '…'}
-      />
+      {data
+        ? <Board v={v} target="server" profileKind="server" data={data} onChange={setData} reload={load} onBackground={setPreviewBg} />
+        : <div className="flex justify-center py-12 text-ink-soft"><Spinner /></div>}
+      </div>
     </section>
   );
 }

@@ -38,6 +38,8 @@ const TEXT: Record<string, string> = {
   media_not_found: '文件不存在或已被清理',
   bio_too_long: '个性签名最多 100 字',
   invalid_activity: '状态说明最多 32 字，自定义状态要写点内容',
+  invalid_widget: '有个小组件的大小、位置或内容不对',
+  layout_conflict: '刚才有人改过这个主页了，已经刷新，再改一次吧',
   left_server: '你已经退出了这个服务器，要服主给一个新的邀请码才能回来',
   rate_limited: '操作太频繁了，等一会儿再试',
   internal_error: '服务器出错了',

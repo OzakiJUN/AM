@@ -69,4 +69,6 @@ var (
 	ErrBioTooLong      = New(http.StatusBadRequest, "bio_too_long", "signature must be at most 100 characters")
 	ErrInvalidActivity = New(http.StatusBadRequest, "invalid_activity", "unknown activity, or its text is too long / missing")
 	ErrLeftServer      = New(http.StatusForbidden, "left_server", "you left this server; a new invite code is needed to come back")
+	ErrInvalidWidget   = New(http.StatusBadRequest, "invalid_widget", "a widget has an unknown kind, a bad size or place, or bad settings")
+	ErrLayoutConflict  = New(http.StatusConflict, "layout_conflict", "someone else saved this profile in the meantime; reload and try again")
 )

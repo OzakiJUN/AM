@@ -123,6 +123,39 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 - 连上时 `AuthResponse.presences` 是此刻所有在线的人（按你能看到的样子，包括你自己）；之后有变化时推送 `presence`。断线后客户端应把所有人当离线，重连拿新的列表。
 - `SetPresenceRequest` 每次都要带完整设置：`invisible` 和 `activity`（不带 = 清除状态）。
 
+### 主页小组件
+
+个人主页和服务器主页是小组件"桌面"（定义在 `proto/am/v1/profile.proto`）：
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/profiles/users/{id}`、`/api/v1/profiles/server` | — | `ProfileView`：布局、你能不能改布局、你能改内容的组件、你能不能设每个组件的权限（站点管理员）、统计数字、用户 |
+| PUT | 同上 | `SaveProfileRequest` | `ProfileView`。`base_version` 是开始编辑时的版本，期间有人存过就 `layout_conflict` |
+| GET | `.../guestbook/{widget_id}?before=` | — | `ListGuestbookResponse`：新的在前，每页 30 条 |
+| POST | `.../guestbook/{widget_id}` | `PostGuestbookRequest` | `GuestbookEntry`（1–200 字，一分钟最多 3 条；有屏蔽关系时 `blocked`） |
+| POST | `/api/v1/guestbook/{id}/hide` | `HideGuestbookRequest` | `Empty`：主页主人或站点管理员 |
+| POST | `/api/v1/guestbook/{id}/delete` | `DeleteGuestbookRequest` | `Empty`：站点管理员，`reason` 必填，原文作为证据保留 |
+
+- 格子：最多 3 页；横屏 6 列 × 4 行，竖屏 4 列 × 6 行；组件宽高 1–4。`landscape` 必填；`portrait_custom` 为假时竖屏位置由客户端按横屏的阅读顺序排，为真时每个组件要有 `portrait`。同一页同一方向不能重叠。
+- 内置组件 `kind` 和 `config`（JSON，最多 8 KB，媒体 ID 写成字符串，不认识的字段忽略）：
+
+  | kind | 最小 | config |
+  | --- | --- | --- |
+  | `text` | 2×1 | `title`（≤40）、`text`（≤1000） |
+  | `image` | 1×1 | `media_id`、`caption`（≤80）、`fit`（`cover` / `contain`） |
+  | `gallery` | 2×2 | `media_ids`（≤20）、`interval`（2–60 秒）、`caption` |
+  | `links` | 2×1 | `items`：≤6 个 `{title ≤30, url}`，url 必须是 http(s) |
+  | `countdown` | 1×1 | `title`（≤30）、`date`（毫秒） |
+  | `stats` | 2×1 | `items`：`messages` `streak` `joined`（个人）/ `members` `messages` `channels` `age`（服务器） |
+  | `guestbook` | 2×2 | `title`（≤30） |
+  | `music` | 2×2 | `provider`（`netease`）、`playlist_id`（数字）、`title`（≤40） |
+  | `status` | 2×1 | 只能放在个人主页 |
+  | `online` | 2×2 | 只能放在服务器主页 |
+
+- 工坊组件（`source = WORKSHOP`）要有 `workshop_id`、`workshop_version`、`package_sha256`，可带截图 `snapshot_media_id`（第五阶段运行）。
+- 权限：个人主页只有本人能存。服务器主页：站点管理员都行；加删、挪动、改大小、改背景要"谁能改布局"；改某个组件的 `config` 要"成员能改小组件内容"打开且这个组件不是 `WIDGET_EDITORS_ADMINS`；改 `content_editors` 只有站点管理员。新放上去的图片必须是保存的人自己上传的。
+- 每次保存是一个新版本，旧版本保留 `retention.evidence_days` 天。
+
 ## WebSocket 流程
 
 1. 连接 `/ws`，**第一帧**必须是 `ClientFrame{auth}`，10 秒内不发就断开。
@@ -209,6 +242,8 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | `bio_too_long` | 400 | 个性签名最多 100 字 |
 | `invalid_activity` | 400 | 状态类型不认识、说明超过 32 字，或自定义状态没写内容 |
 | `left_server` | 403 | 这个账号退出了服务器，登录时要带新的邀请码 |
+| `invalid_widget` | 400 | 小组件类型不认识、大小或位置不对（出界、重叠、第 4 页）、或设置内容不对 |
+| `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
 | `rate_limited` | 429 | 尝试太频繁 |
 | `already_authenticated` | 400 | 已登录的连接又发了 auth |
 | `internal_error` | 500 | 服务器内部错误（看服务器日志） |

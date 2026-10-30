@@ -40,6 +40,8 @@ interface AppState {
   sessions: Record<string, SessionView>;
   /** Open conversation per page and server, keyed by openKey(). */
   openConvs: Record<string, string | null>;
+  /** Whose profile the 'profile' page shows (null = mine). */
+  profileUser: string | null;
   set: (patch: Partial<AppState>) => void;
 }
 
@@ -50,6 +52,7 @@ export const useApp = create<AppState>((set) => ({
   currentId: null,
   sessions: {},
   openConvs: {},
+  profileUser: null,
   set: (patch) => set(patch),
 }));
 
@@ -191,6 +194,12 @@ export function openConv(convId: string) {
   if (!id || !v || !c) return;
   const page = convPage(c, v.users);
   useApp.setState({ openConvs: { ...st.openConvs, [openKey(page, id)]: convId }, page });
+}
+
+/** Shows someone's profile page (null / my id = mine). */
+export function openProfile(userId: string | null) {
+  const me = session()?.view.me?.id;
+  useApp.setState({ page: 'profile', profileUser: userId === me ? null : userId });
 }
 
 /** Presence of a user on the server on screen (undefined = offline). */

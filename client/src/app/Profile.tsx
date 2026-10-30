@@ -1,64 +1,76 @@
-// Profile page (click your avatar in the nav bar): big card with the
-// animated avatar, name and signature; your online status and activity; and
-// the widget grid that becomes a phone-home-screen-like layout in the next
-// batch (docs/design.md §7). Editing name / avatar / signature is in 账号设置.
-import { useEffect, useState } from 'react';
+// Profile page: mine (click your avatar in the nav bar) or someone else's
+// (their avatar in a chat, "查看主页" in the member list). A big card with
+// the animated avatar, name and signature; on my own page my status and
+// invisible mode; then the widget board (widgets/Board.tsx, docs/design.md
+// §7), with the profile's own background. Editing name / avatar / signature
+// is in 账号设置.
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { EyeOff, LayoutGrid, Pencil, X } from 'lucide-react';
+import { EyeOff, MessageCircle, Pencil, X } from 'lucide-react';
 import { ACTIVITIES, ACTIVITY_MAX, presenceText } from '@/lib/presence';
 import { current, useApp } from '@/lib/store';
-import type { SessionView } from '@/lib/session';
+import type { ProfileData, SessionView } from '@/lib/session';
 import type { ActivityKind } from '@/lib/types';
-import { Button, IdentityChip, Toggle, cx, inputClass, spring } from '@/ui';
+import { Button, IdentityChip, Spinner, Toggle, cx, inputClass, spring, toastError } from '@/ui';
+import type { Background } from '@/lib/widgets';
 import { UserAvatar } from './media';
+import { messageUser } from './People';
+import { Board, ProfileBg } from './widgets/Board';
 
 export function ProfilePage({ v }: { v: SessionView }) {
-  const me = v.me;
+  const other = useApp((s) => s.profileUser);
+  const id = other ?? v.me?.id ?? '';
+  const mine = !other || other === v.me?.id;
+  const [data, setData] = useState<ProfileData | null>(null);
+  const [previewBg, setPreviewBg] = useState<Background | null>(null);
+  const load = useCallback(() => {
+    if (id) current().getProfile(id).then(setData).catch(toastError);
+  }, [id]);
+  useEffect(() => {
+    setData(null);
+    load();
+  }, [load, v.id]);
+  const user = mine ? v.me : v.users[id] ?? data?.user;
+  const p = user ? v.presence[user.id] : undefined;
   return (
-    <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="card relative overflow-hidden rounded-3xl bg-white/90 dark:bg-white/[0.06]">
-        <div className="h-28 bg-gradient-to-br from-accent-200 via-accent-100 to-violet-100 dark:from-accent/40 dark:via-accent/20 dark:to-violet-500/20" />
-        <div className="flex flex-wrap items-end gap-5 px-7 pb-6">
-          <div className="-mt-14 rounded-full bg-white p-1.5 shadow-[var(--shadow-card)] dark:bg-[#24203c]">
-            <UserAvatar user={me} size={112} animated presence />
+    <section className="glass relative flex-1 overflow-hidden rounded-3xl">
+      {data && <ProfileBg bg={previewBg ?? data.layout.background} />}
+      <div className="relative h-full overflow-y-auto p-8">
+        <motion.div key={id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="card relative overflow-hidden rounded-3xl bg-white/90 dark:bg-[#211c38]/90">
+          <div className="h-28 bg-gradient-to-br from-accent-200 via-accent-100 to-violet-100 dark:from-accent/40 dark:via-accent/20 dark:to-violet-500/20" />
+          <div className="flex flex-wrap items-end gap-5 px-7 pb-6">
+            <div className="-mt-14 rounded-full bg-white p-1.5 shadow-[var(--shadow-card)] dark:bg-[#24203c]">
+              <UserAvatar user={user} size={112} animated presence />
+            </div>
+            <div className="min-w-0 flex-1 pb-1">
+              <h1 className="flex items-center gap-2 text-[1.6rem] font-bold">
+                <span className="truncate">{user?.name ?? '…'}</span>
+                <IdentityChip user={user} />
+              </h1>
+              <div className="text-ink-soft dark:text-white/55">
+                @{user?.username}{mine ? ` · ${v.name}` : ` · ${presenceText(p)}`}
+              </div>
+            </div>
+            {mine
+              ? <Button variant="soft" onClick={() => useApp.setState({ page: 'account' })}><Pencil size={15} /> 编辑资料</Button>
+              : !v.blocked.includes(id) && <Button variant="soft" onClick={() => messageUser(id)}><MessageCircle size={15} /> 发私信</Button>}
           </div>
-          <div className="min-w-0 flex-1 pb-1">
-            <h1 className="flex items-center gap-2 text-[1.6rem] font-bold">
-              <span className="truncate">{me?.name}</span>
-              <IdentityChip user={me} />
-            </h1>
-            <div className="text-ink-soft dark:text-white/55">@{me?.username} · {v.name}</div>
+          <div className="mx-7 mb-6 rounded-2xl bg-black/[0.03] px-4 py-3 whitespace-pre-wrap dark:bg-white/[0.04]">
+            {user?.bio || <span className="text-ink-soft/80 dark:text-white/40">{mine ? '还没有个性签名。点「编辑资料」写一句吧。' : '还没有个性签名'}</span>}
           </div>
-          <Button variant="soft" onClick={() => useApp.setState({ page: 'account' })}><Pencil size={15} /> 编辑资料</Button>
-        </div>
-        <div className="mx-7 mb-6 rounded-2xl bg-black/[0.03] px-4 py-3 whitespace-pre-wrap dark:bg-white/[0.04]">
-          {me?.bio || <span className="text-ink-soft/80 dark:text-white/40">还没有个性签名。点「编辑资料」写一句吧。</span>}
-        </div>
-      </motion.div>
+        </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.05 }}>
-        <Status v={v} key={v.id} />
-      </motion.div>
+        {mine && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.05 }}>
+            <Status v={v} key={v.id} />
+          </motion.div>
+        )}
 
-      <WidgetGridStub note="以后可以像手机桌面一样在这里摆放签名、在玩的游戏、照片墙、留言板等小组件（下一批上线）。" />
-    </section>
-  );
-}
-
-/** Placeholder for the widget grid of profile pages (widgets: next batch). */
-export function WidgetGridStub({ note }: { note: string }) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.1 }} className="mt-8">
-      <h2 className="mb-3 flex items-center gap-2 text-[1.1rem] font-semibold"><LayoutGrid size={19} className="text-accent" /> 主页小组件</h2>
-      <div className="grid grid-cols-4 gap-4">
-        {['col-span-2 row-span-2', '', '', 'col-span-2'].map((span, i) => (
-          <div key={i} className={cx('flex min-h-24 items-center justify-center rounded-3xl border-2 border-dashed border-black/10 text-[0.85rem] text-ink-soft/70 dark:border-white/10 dark:text-white/30', span)}>
-            {i === 0 && '小组件即将推出'}
-          </div>
-        ))}
+        {data
+          ? <Board v={v} target={id} profileKind="user" data={data} owner={user} onChange={setData} reload={load} onBackground={setPreviewBg} />
+          : <div className="flex justify-center py-12 text-ink-soft"><Spinner /></div>}
       </div>
-      <p className="mt-3 text-[0.85rem] text-ink-soft dark:text-white/45">{note}</p>
-    </motion.div>
+    </section>
   );
 }
 

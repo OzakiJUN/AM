@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: ammedia: http://ammedia.localhost; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; font-src 'self' data:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: ammedia: http://ammedia.localhost; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; font-src 'self' data:; frame-src https://music.163.com"
     }
   },
   "bundle": {

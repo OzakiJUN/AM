@@ -7,7 +7,7 @@ import {
 import { chatTime, fileSize } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
-import { current, useOpenConv, type ConvPage } from '@/lib/store';
+import { current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message } from '@/lib/types';
 import { copyText } from '@/lib/platform';
@@ -238,7 +238,13 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
 
   return (
     <motion.div {...enter} className={cx('group flex gap-3', grouped ? 'pt-1' : 'pt-3', mine && 'flex-row-reverse')} onContextMenu={menu}>
-      <div className="w-[38px] shrink-0">{!grouped && <UserAvatar user={sender} size={38} animated />}</div>
+      <div className="w-[38px] shrink-0">
+        {!grouped && (
+          <button onClick={() => openProfile(msg.senderId)} className="press rounded-full" aria-label={`${sender?.name ?? '对方'}的主页`} title="看主页">
+            <UserAvatar user={sender} size={38} animated />
+          </button>
+        )}
+      </div>
       <div className={cx('flex max-w-[68%] min-w-0 flex-col', mine ? 'items-end' : 'items-start')}>
         {!mine && !grouped && (
           <div className="mb-1 flex items-center gap-1.5 text-[0.8rem]">

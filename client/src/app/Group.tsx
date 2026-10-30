@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Ban, Check, Crown, ImageUp, LogOut, MessageCircle, PanelRightClose, PanelRightOpen, Shield, ShieldOff, UserMinus, UserPlus, Volume2, X } from 'lucide-react';
+import { Ban, Check, Crown, ImageUp, LogOut, MessageCircle, PanelRightClose, PanelRightOpen, Shield, ShieldOff, UserMinus, UserPlus, UserRound, Volume2, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
-import { current } from '@/lib/store';
+import { current, openProfile } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, MemberRole } from '@/lib/types';
 import { Button, Dialog, Field, IconButton, IdentityChip, Input, RoleChip, Spinner, Toggle, ask, cx, inputClass, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
@@ -27,13 +27,13 @@ export function MemberPanel({ v, conv, onInvite }: { v: SessionView; conv: Conve
   }, [canManage, conv.id, conv.joinApproval]);
 
   const menuFor = (e: React.MouseEvent, userId: string, role: MemberRole) => {
-    if (userId === v.me?.id) return;
+    if (userId === v.me?.id) return openProfile(null);
     const s = current();
     const name = v.users[userId]?.name ?? '对方';
     const user = v.users[userId];
     const blocked = v.blocked.includes(userId);
     const mine = RANK[conv.myRole];
-    const items: MenuItem[] = [];
+    const items: MenuItem[] = [{ label: '查看主页', icon: <UserRound size={16} />, onClick: () => openProfile(userId) }];
     if (!blocked) items.push({ label: '发私信', key: `dm:${userId}`, icon: <MessageCircle size={16} />, onClick: () => messageUser(userId) });
     if (conv.myRole === 'owner') {
       items.push(role === 'admin'

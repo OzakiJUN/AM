@@ -139,6 +139,7 @@ func (h *handler) routes() {
 	api("POST /api/users/{id}/admin", h.setAdmin)
 	api("POST /api/users/{id}/reset-password", h.resetPassword)
 	api("GET /api/users/{id}/logins", h.userLogins)
+	api("POST /api/users/{id}/clear-profile", h.clearProfile)
 	api("GET /api/server-profile", h.getServerProfile)
 	api("PUT /api/server-profile", h.putServerProfile)
 	api("GET /api/server-icon", h.serverIcon)

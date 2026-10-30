@@ -149,6 +149,45 @@ const pages = [];
   await shot(A, '12-profile');
   await B.waitForSelector('aside >> text=🎧 正在听歌：晴天');
   await shot(B, '13-presence-dark');
+
+  // Widgets: A fills the profile board; B opens it from the member list and leaves a note.
+  await A.click('button:has-text("编辑主页")');
+  const addWidget = async (label) => {
+    await A.click('button:has-text("添加")');
+    await A.click(`div[role="dialog"] button:has-text("${label}")`);
+    await wait(400);
+  };
+  await addWidget('文字卡片');
+  await A.fill('div[role="dialog"] input[maxlength="40"]', '关于我');
+  await A.fill('div[role="dialog"] textarea', '在做 AM，一个自己的聊天软件。');
+  await A.click('div[role="dialog"] button:has-text("好了")');
+  await addWidget('照片墙');
+  await A.setInputFiles('div[role="dialog"] input[type="file"]', [IMAGE, IMAGE]);
+  await A.waitForSelector('text=2 / 20 张');
+  await A.click('div[role="dialog"] button:has-text("好了")');
+  await addWidget('统计');
+  await A.click('div[role="dialog"] button:has-text("4×1")');
+  await A.click('div[role="dialog"] button:has-text("好了")');
+  await addWidget('留言板');
+  await A.click('div[role="dialog"] button:has-text("好了")');
+  await A.click('button:has-text("背景")');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("渐变")');
+  await A.click('div[role="dialog"] button[aria-label="ocean"]');
+  await A.click('div[role="dialog"] button:has-text("好了")');
+  await A.getByRole('button', { name: '保存', exact: true }).click();
+  await A.waitForSelector('text=主页已保存');
+  await wait(800);
+  await shot(A, '18-profile-widgets');
+  await B.click('aside[aria-label="频道成员"] button:has-text("Weiqi")');
+  await B.click('button[role="menuitem"]:has-text("查看主页")');
+  await B.waitForSelector('text=关于我');
+  await B.fill('input[aria-label="留言"]', '主页好看！');
+  await B.press('input[aria-label="留言"]', 'Enter');
+  await B.waitForSelector('text=主页好看！');
+  await wait(600);
+  await shot(B, '19-visit-profile-dark');
+  await B.click('button[aria-label="频道"]');
+  await B.waitForSelector('aside >> text=在线 — 2');
   // Invisible: B sees A offline; A still sees itself as invisible.
   await A.click('button[role="switch"][aria-label="隐身"]');
   await B.waitForSelector('aside >> text=离线 — 1');

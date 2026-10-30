@@ -59,6 +59,13 @@ update the docs in the same commit.
   every channel (`conv.LeaveAll`: owned channels pass on or are dissolved).
   Left accounts are treated like banned ones in lists / DMs (`User.Gone()`);
   logging in again needs an unused invite code (`LoginRequest.invite_code`).
+- Profile pages (a user's / the server's) are widget boards:
+  `server/internal/profile` validates layouts (`validate.go`: kinds, sizes,
+  board bounds, config limits), checks rights field by field against the
+  previous version, and stores every save as a new version
+  (`profile_layouts`, purged after retention). Widget media goes in
+  `profile_media` (visible to everyone, kept by media GC). Keep the kind list
+  in `validate.go`, `client/src/lib/widgetKinds.ts` and docs/protocol.md in sync.
 - Server profile settings (description, widget permissions) live in the
   `server_settings` table and are edited in the panel (no restart); the icon
   is `data/media/server_icon.png` via the `media` package.
@@ -111,6 +118,9 @@ update the docs in the same commit.
   the bottom of the nav 账号设置 (`Account.tsx`), 设置, and the avatar →
   个人主页 (`Profile.tsx`, status + invisible).
   `convPage()` decides where a conversation lives; `openConv()` routes to it.
+- Widget boards: grid logic is pure and tested (`lib/widgets.ts`); the board
+  UI is `app/widgets/` (Board, Kinds, Editor, Guestbook). External embeds
+  (NetEase player) load only after a click and need a CSP `frame-src` entry.
 - The conversation list and the member list fold into avatar strips
   (`app/Fold.tsx`, prefs `listFolded` / `membersFolded`). Presence is
   `SessionView.presence`; `UserAvatar presence` shows the dot top-right.

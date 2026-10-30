@@ -245,6 +245,7 @@ func (s *Service) newSession(ctx context.Context, userID int64, device, kind, ip
 	if err != nil {
 		return "", err
 	}
+	_ = s.st.MarkDay(ctx, userID, DayKey(s.now()))
 	return token, nil
 }
 
@@ -302,6 +303,12 @@ func (s *Service) UpdateProfile(ctx context.Context, u *store.User, req *amv1.Up
 	return s.st.GetUser(ctx, u.ID)
 }
 
+// DayKey is a date as yyyymmdd in the server's local time zone.
+func DayKey(t time.Time) int {
+	y, m, d := t.Local().Date()
+	return y*10000 + int(m)*100 + d
+}
+
 func hashToken(token string) []byte {
 	sum := sha256.Sum256([]byte(token))
 	return sum[:]
@@ -328,6 +335,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*store.Sessio
 	now := s.now()
 	if now.Sub(time.UnixMilli(sess.LastSeen)) > touchInterval {
 		_ = s.st.TouchSession(ctx, sess.ID, now.UnixMilli())
+		_ = s.st.MarkDay(ctx, u.ID, DayKey(now)) // "days in a row" statistic
 	}
 	return sess, u, nil
 }

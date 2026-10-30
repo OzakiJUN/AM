@@ -75,16 +75,18 @@ func (q *Queries) ListEventsBefore(ctx context.Context, convID, beforeSeq int64,
 }
 
 // PanelCanSeeMedia reports whether the admin panel may show a media item:
-// it is kept as evidence, sent in a channel (kind groupKind), or an
-// account's or channel's avatar. Images sent in direct messages are not.
+// it is kept as evidence, sent in a channel (kind groupKind), on a profile
+// page, or an account's or channel's avatar. Images sent in direct messages
+// are not.
 func (q *Queries) PanelCanSeeMedia(ctx context.Context, mediaID int64, groupKind int16) (bool, error) {
 	var n int
 	err := q.queryRow(ctx, `SELECT
 		(SELECT count(*) FROM evidence WHERE media_id=?) +
 		(SELECT count(*) FROM events e JOIN conversations c ON c.id = e.conv_id WHERE e.media_id=? AND c.kind=?) +
 		(SELECT count(*) FROM users WHERE avatar_media_id=?) +
+		(SELECT count(*) FROM profile_media WHERE media_id=?) +
 		(SELECT count(*) FROM conversations WHERE avatar_media_id=? AND kind=?)`,
-		mediaID, mediaID, groupKind, mediaID, mediaID, groupKind).Scan(&n)
+		mediaID, mediaID, groupKind, mediaID, mediaID, mediaID, groupKind).Scan(&n)
 	return n > 0, err
 }
 

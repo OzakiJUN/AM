@@ -77,6 +77,11 @@ func (s *Service) UserView(ctx context.Context, u *store.User) (*amv1.User, erro
 	return m[u.ID], nil
 }
 
+// UsersView loads and converts users (missing ids are left out).
+func (s *Service) UsersView(ctx context.Context, ids []int64) (map[int64]*amv1.User, error) {
+	return s.usersView(ctx, ids)
+}
+
 // UserViewByID loads and converts one user.
 func (s *Service) UserViewByID(ctx context.Context, id int64) (*amv1.User, error) {
 	m, err := s.usersView(ctx, []int64{id})

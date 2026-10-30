@@ -5,9 +5,11 @@ import * as api from '@/gen/am/v1/api_pb';
 import * as common from '@/gen/am/v1/common_pb';
 import * as ev from '@/gen/am/v1/event_pb';
 import * as gw from '@/gen/am/v1/gateway_pb';
+import * as pf from '@/gen/am/v1/profile_pb';
 import { ApiError, errorFromBody } from './errors';
 import { encodeJoinCode, joinUrl } from './joincode';
 import { createTransport, type Endpoint, type Socket, type Transport } from './transport';
+import type { Background, LayoutModel, WidgetModel } from './widgets';
 import type { Activity, ActivityKind, ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, Presence, SysEvent, User } from './types';
 
 export interface ServerRecord {
@@ -41,6 +43,85 @@ export interface SessionView {
   presence: Record<string, Presence>;
   /** Server icon (media path), '' when none. */
   icon: string;
+}
+
+/** A profile page: the widget board and what the viewer may do with it. */
+export interface ProfileData {
+  layout: LayoutModel;
+  canEditLayout: boolean;
+  /** Widgets whose contents the viewer may change. */
+  editable: string[];
+  /** Site admin on the server profile: may set who edits each widget. */
+  canSetEditors: boolean;
+  stats: { messages: number; streakDays: number; joinedAt: number; members: number; channels: number; createdAt: number };
+  /** User profiles: the user. */
+  user?: User;
+}
+
+export interface GuestEntry {
+  id: string;
+  author?: User;
+  text: string;
+  time: number;
+  hidden: boolean;
+}
+
+/** 'server' or a user id. */
+export type ProfileTarget = string;
+const profilePath = (t: ProfileTarget) => (t === 'server' ? '/api/v1/profiles/server' : `/api/v1/profiles/users/${t}`);
+
+const cellFrom = (c?: pf.Cell) => ({ page: c?.page ?? 0, x: c?.x ?? 0, y: c?.y ?? 0 });
+
+function toWidget(w: pf.Widget): WidgetModel {
+  let config: Record<string, unknown> = {};
+  try {
+    const c = JSON.parse(w.config || '{}');
+    if (c && typeof c === 'object' && !Array.isArray(c)) config = c;
+  } catch {
+    /* bad JSON from an old client: show defaults */
+  }
+  return {
+    id: w.id, kind: w.kind, source: w.source === pf.WidgetSource.WORKSHOP ? 'workshop' : 'builtin',
+    w: w.w, h: w.h, land: cellFrom(w.landscape), port: w.portrait ? cellFrom(w.portrait) : undefined, config,
+    contentEditors: w.contentEditors === pf.WidgetEditors.ADMINS ? 'admins' : 'everyone',
+    workshop: w.workshopId ? { id: w.workshopId, version: w.workshopVersion, sha256: w.packageSha256 } : undefined,
+    snapshotMediaId: s(w.snapshotMediaId) || undefined,
+  };
+}
+
+function toLayout(l?: pf.ProfileLayout): LayoutModel {
+  const bg = l?.background;
+  const background: Background = {
+    kind: (['color', 'gradient', 'image'].includes(bg?.kind ?? '') ? bg!.kind : '') as Background['kind'],
+    value: bg?.value ?? '', mediaId: bg ? s(bg.mediaId) || undefined : undefined, blur: bg?.blur ?? 0, dim: bg?.dim ?? 0,
+  };
+  return { widgets: (l?.widgets ?? []).map(toWidget), portraitCustom: !!l?.portraitCustom, background, version: Number(l?.version ?? 0n) };
+}
+
+function fromLayout(l: LayoutModel) {
+  return {
+    portraitCustom: l.portraitCustom,
+    background: { kind: l.background.kind, value: l.background.value, mediaId: BigInt(l.background.mediaId || 0), blur: l.background.blur, dim: l.background.dim },
+    widgets: l.widgets.map((w) => ({
+      id: w.id, kind: w.kind, source: w.source === 'workshop' ? pf.WidgetSource.WORKSHOP : pf.WidgetSource.BUILTIN,
+      w: w.w, h: w.h, landscape: w.land, portrait: l.portraitCustom ? w.port : undefined, config: JSON.stringify(w.config),
+      contentEditors: w.contentEditors === 'admins' ? pf.WidgetEditors.ADMINS : pf.WidgetEditors.UNSPECIFIED,
+      workshopId: w.workshop?.id ?? '', workshopVersion: w.workshop?.version ?? '', packageSha256: w.workshop?.sha256 ?? '',
+      snapshotMediaId: BigInt(w.snapshotMediaId || 0),
+    })),
+  };
+}
+
+function toProfile(v: pf.ProfileView): ProfileData {
+  const st = v.stats;
+  return {
+    layout: toLayout(v.layout), canEditLayout: v.canEditLayout, editable: v.editableWidgetIds, canSetEditors: v.canSetWidgetEditors,
+    stats: {
+      messages: Number(st?.messages ?? 0n), streakDays: st?.streakDays ?? 0, joinedAt: Number(st?.joinedAt ?? 0n),
+      members: st?.members ?? 0, channels: st?.channels ?? 0, createdAt: Number(st?.createdAt ?? 0n),
+    },
+    user: v.user ? toUser(v.user) : undefined,
+  };
 }
 
 /** The server's profile page (GET /api/v1/server/profile). */
@@ -818,6 +899,45 @@ export class Session {
     });
     const me = this.view.me?.id;
     if (me && this.view.status === 'online') this.patch({ presence: { ...this.view.presence, [me]: toPresence(p) } });
+  }
+
+  // ---- profile pages (widgets) ----
+
+  async getProfile(t: ProfileTarget): Promise<ProfileData> {
+    const v = toProfile(await this.call('GET', profilePath(t), pf.ProfileViewSchema));
+    if (v.user) {
+      this.view.users = { ...this.view.users, [v.user.id]: { ...this.view.users[v.user.id], ...v.user } };
+      this.emit();
+    }
+    return v;
+  }
+
+  /** Saves a new version; `layout.version` is the version the edit started from. */
+  async saveProfile(t: ProfileTarget, layout: LayoutModel): Promise<ProfileData> {
+    return toProfile(await this.call('PUT', profilePath(t), pf.ProfileViewSchema, {
+      schema: pf.SaveProfileRequestSchema, value: { layout: fromLayout(layout), baseVersion: BigInt(layout.version) },
+    }));
+  }
+
+  async guestbook(t: ProfileTarget, widgetId: string, before = ''): Promise<{ entries: GuestEntry[]; nextBefore: string; canHide: boolean }> {
+    const r = await this.call('GET', `${profilePath(t)}/guestbook/${widgetId}?before=${before || 0}`, pf.ListGuestbookResponseSchema);
+    return {
+      entries: r.entries.map((e) => ({ id: s(e.id), author: e.author ? toUser(e.author) : undefined, text: e.text, time: Number(e.createdAt), hidden: e.hidden })),
+      nextBefore: s(r.nextBefore), canHide: r.canHide,
+    };
+  }
+
+  async postGuestbook(t: ProfileTarget, widgetId: string, text: string): Promise<GuestEntry> {
+    const e = await this.call('POST', `${profilePath(t)}/guestbook/${widgetId}`, pf.GuestbookEntrySchema, { schema: pf.PostGuestbookRequestSchema, value: { text } });
+    return { id: s(e.id), author: e.author ? toUser(e.author) : undefined, text: e.text, time: Number(e.createdAt), hidden: e.hidden };
+  }
+
+  hideGuestbook(id: string, hidden: boolean) {
+    return this.call('POST', `/api/v1/guestbook/${id}/hide`, null, { schema: pf.HideGuestbookRequestSchema, value: { hidden } });
+  }
+
+  deleteGuestbook(id: string, reason: string) {
+    return this.call('POST', `/api/v1/guestbook/${id}/delete`, null, { schema: pf.DeleteGuestbookRequestSchema, value: { reason } });
   }
 
   async invites(): Promise<{ list: Invite[]; remaining: number }> {

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Hash, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, UserRound } from 'lucide-react';
-import { current, useApp, useCurrent, type Page } from '@/lib/store';
+import { current, openProfile, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
 import { Button, Empty, Field, Input, cx, ease, spring } from '@/ui';
@@ -93,7 +93,7 @@ function NavBar({ v }: { v?: SessionView }) {
       {item('account', '账号设置', UserRound)}
       {item('settings', '设置', Settings)}
       <button
-        onClick={() => set({ page: 'profile' })}
+        onClick={() => openProfile(null)}
         aria-label="个人主页"
         title="个人主页"
         aria-current={page === 'profile' ? 'page' : undefined}

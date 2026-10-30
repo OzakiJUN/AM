@@ -23,6 +23,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/presence"
+	"github.com/OzakiJUN/am/server/internal/profile"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -39,14 +40,15 @@ type API struct {
 	msg       *message.Service
 	media     *media.Service
 	presence  *presence.Service
+	profile   *profile.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	maxUpload int64
 }
 
 func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service, ps *presence.Service,
-	loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
-	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, log: log,
+	prof *profile.Service, loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
+	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, profile: prof, log: log,
 		limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
 }
 
@@ -96,6 +98,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/groups/{id}/requests/{uid}/reject", a.authed(a.decideJoin(false)))
 
 	mux.HandleFunc("POST /api/v1/events/{id}/delete", a.authed(a.adminDelete))
+	a.registerProfiles(mux)
 
 	mux.HandleFunc("POST /api/v1/media", a.authed(a.upload))
 	mux.HandleFunc("GET /api/v1/media/{id}", a.authed(a.download(false)))

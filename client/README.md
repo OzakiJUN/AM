@@ -45,7 +45,7 @@ npx tauri build --bundles nsis   # 打包：src-tauri/target/release/am-client.e
 
 ```sh
 npm run typecheck
-npm test          # 加入码编解码（和 Go 版同一组测试向量）、立绘包的情绪替代规则、状态文字
+npm test          # 加入码编解码（和 Go 版同一组测试向量）、立绘包的情绪替代规则、状态文字、小组件格子排布
 npx vite build
 cd src-tauri && cargo test
 ```

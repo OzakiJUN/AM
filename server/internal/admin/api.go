@@ -21,6 +21,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/desktop"
 	"github.com/OzakiJUN/am/server/internal/media"
+	"github.com/OzakiJUN/am/server/internal/profile"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -280,7 +281,7 @@ func (h *handler) userAction(w http.ResponseWriter, r *http.Request, fn func(ctx
 		writeErr(w, http.StatusBadRequest, "bad_request", "bad user id")
 		return
 	}
-	res, err := fn(r.Context(), &appRef{a.Account, a.Store}, id)
+	res, err := fn(r.Context(), &appRef{a.Account, a.Store, a.Profile}, id)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -292,8 +293,9 @@ func (h *handler) userAction(w http.ResponseWriter, r *http.Request, fn func(ctx
 }
 
 type appRef struct {
-	acct *account.Service
-	st   *store.Store
+	acct    *account.Service
+	st      *store.Store
+	profile *profile.Service
 }
 
 func (h *handler) banUser(w http.ResponseWriter, r *http.Request) {
@@ -335,6 +337,13 @@ func (h *handler) resetPassword(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		return map[string]string{"password": pw}, nil
+	})
+}
+
+// clearProfile empties a user's profile page (content that breaks the rules).
+func (h *handler) clearProfile(w http.ResponseWriter, r *http.Request) {
+	h.userAction(w, r, func(ctx context.Context, a *appRef, id int64) (any, error) {
+		return map[string]bool{"ok": true}, a.profile.Clear(ctx, account.PanelActor, id)
 	})
 }
 
