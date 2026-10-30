@@ -15,10 +15,10 @@ import (
 // Board geometry (docs/protocol.md, "主页小组件").
 const (
 	MaxPages   = 3
-	landCols   = 6
+	landCols   = 8
 	landRows   = 4
 	portCols   = 4
-	portRows   = 6
+	portRows   = 8
 	maxSide    = 4
 	maxWidgets = 3 * 24 // can't have more than the cells anyway
 	maxConfig  = 8 << 10

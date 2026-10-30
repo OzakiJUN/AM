@@ -12,16 +12,17 @@ const ws = [W('a', 2, 2, 0, 0, 0), W('b', 4, 2, 0, 2, 2)];
 const pl = placements(layout(ws), 'landscape');
 assert.equal(fits(ws, pl, 'landscape', { page: 0, x: 1, y: 1 }, 2, 1), false); // hits a
 assert.equal(fits(ws, pl, 'landscape', { page: 0, x: 2, y: 0 }, 4, 2), true);
-assert.equal(fits(ws, pl, 'landscape', { page: 0, x: 3, y: 0 }, 4, 1), false); // off the right edge
+assert.equal(fits(ws, pl, 'landscape', { page: 0, x: 5, y: 0 }, 4, 1), false); // off the right edge (8 wide)
+assert.equal(fits(ws, pl, 'landscape', { page: 0, x: 4, y: 0 }, 4, 1), true);
 assert.equal(fits(ws, pl, 'landscape', { page: 3, x: 0, y: 0 }, 1, 1), false); // no 4th page
 assert.equal(fits(ws, pl, 'landscape', { page: 0, x: 1, y: 1 }, 1, 1, 'a'), true); // moving a itself
 
 // firstFree: page 0 first, then the next pages
 assert.deepEqual(firstFree(ws, pl, 'landscape', 2, 2), { page: 0, x: 2, y: 0 });
-const full = [W('a', 4, 4, 0, 0, 0), W('b', 2, 4, 0, 4, 0)];
+const full = [W('a', 4, 4, 0, 0, 0), W('b', 4, 4, 0, 4, 0)];
 assert.deepEqual(firstFree(full, placements(layout(full), 'landscape'), 'landscape', 1, 1), { page: 1, x: 0, y: 0 });
 
-// autoPortrait: reading order, first fit (6 wide landscape row -> 4 wide portrait)
+// autoPortrait: reading order, first fit (8 wide landscape row -> 4 wide portrait)
 const port = autoPortrait([W('b', 4, 2, 0, 2, 2), W('a', 2, 2, 0, 0, 0), W('c', 2, 1, 1, 0, 0)]);
 assert.deepEqual(port.get('a'), { page: 0, x: 0, y: 0 });
 assert.deepEqual(port.get('b'), { page: 0, x: 0, y: 2 });
@@ -36,7 +37,7 @@ assert.equal(fz.portraitCustom, true);
 assert.deepEqual(fz.widgets.find((w) => w.id === 'c')!.port, { page: 0, x: 2, y: 0 });
 
 // cellAt clamps to the board
-assert.deepEqual(cellAt('landscape', 1, 500, -40, 100, 2, 1), { page: 1, x: 4, y: 0 });
+assert.deepEqual(cellAt('landscape', 1, 900, -40, 100, 2, 1), { page: 1, x: 6, y: 0 });
 console.log('widgets ok');
 
 // widgetKinds helpers

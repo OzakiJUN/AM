@@ -65,7 +65,7 @@ func testProfileWidgets(t *testing.T, a *app.App, base string) {
 		wantCode(t, err, "invalid_widget")
 	}
 	bad(widget("a", "text", 2, 1, 0, 0, 0, ""), widget("b", "text", 2, 1, 0, 1, 0, "")) // overlap
-	bad(widget("a", "text", 2, 1, 0, 5, 0, ""))                                         // off the board (6 wide)
+	bad(widget("a", "text", 2, 1, 0, 7, 0, ""))                                         // off the board (8 wide)
 	bad(widget("a", "text", 2, 1, 3, 0, 0, ""))                                         // 4th page
 	bad(widget("a", "image", 5, 1, 0, 0, 0, ""))                                        // wider than 4
 	bad(widget("a", "gallery", 1, 1, 0, 0, 0, ""))                                      // below its minimum size

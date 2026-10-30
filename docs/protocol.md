@@ -136,7 +136,7 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | POST | `/api/v1/guestbook/{id}/hide` | `HideGuestbookRequest` | `Empty`：主页主人或站点管理员 |
 | POST | `/api/v1/guestbook/{id}/delete` | `DeleteGuestbookRequest` | `Empty`：站点管理员，`reason` 必填，原文作为证据保留 |
 
-- 格子：最多 3 页；横屏 6 列 × 4 行，竖屏 4 列 × 6 行；组件宽高 1–4。`landscape` 必填；`portrait_custom` 为假时竖屏位置由客户端按横屏的阅读顺序排，为真时每个组件要有 `portrait`。同一页同一方向不能重叠。
+- 格子：最多 3 页；横屏 8 列 × 4 行，竖屏 4 列 × 8 行；组件宽高 1–4。`landscape` 必填；`portrait_custom` 为假时竖屏位置由客户端按横屏的阅读顺序排，为真时每个组件要有 `portrait`。同一页同一方向不能重叠。
 - 内置组件 `kind` 和 `config`（JSON，最多 8 KB，媒体 ID 写成字符串，不认识的字段忽略）：
 
   | kind | 最小 | config |

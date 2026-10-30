@@ -1,5 +1,5 @@
-// A profile's widget board (docs/design.md §7): up to 3 pages, 6 x 4 cells in
-// landscape (desktop) and 4 x 6 in portrait (phone). Viewers see only pages
+// A profile's widget board (docs/design.md §7): up to 3 pages, 8 x 4 cells in
+// landscape (desktop) and 4 x 8 in portrait (phone). Viewers see only pages
 // that have widgets and can swipe between them. Editors drag widgets to any
 // free cell; the portrait board follows the landscape one until it is
 // arranged by hand. Everything is saved at once ("保存"), as a new version.

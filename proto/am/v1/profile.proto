@@ -7,8 +7,8 @@ import "am/v1/common.proto";
 option go_package = "github.com/OzakiJUN/am/gen/go/am/v1;amv1";
 
 // Profile pages (a user's, or the server's) are boards of widgets, like a
-// phone home screen: up to 3 pages, each 6 x 4 cells in landscape (desktop)
-// and 4 x 6 in portrait (phone). A widget is 1x1 to 4x4 cells and may sit
+// phone home screen: up to 3 pages, each 8 x 4 cells in landscape (desktop)
+// and 4 x 8 in portrait (phone). A widget is 1x1 to 4x4 cells and may sit
 // anywhere; empty cells are fine. Empty pages are not shown.
 
 enum WidgetSource {

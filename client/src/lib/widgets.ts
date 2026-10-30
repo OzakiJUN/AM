@@ -1,12 +1,12 @@
-// Profile boards (docs/design.md §7): up to 3 pages of 6 x 4 cells in
-// landscape, 4 x 6 in portrait. Widgets are 1x1 to 4x4 and may sit anywhere
+// Profile boards (docs/design.md §7): up to 3 pages of 8 x 4 cells in
+// landscape, 4 x 8 in portrait. Widgets are 1x1 to 4x4 and may sit anywhere
 // (empty cells are fine). The portrait board follows the landscape one in
 // reading order until it is arranged by hand. Pure functions, unit-tested.
 
 export type Orientation = 'landscape' | 'portrait';
 export const GRID: Record<Orientation, { cols: number; rows: number }> = {
-  landscape: { cols: 6, rows: 4 },
-  portrait: { cols: 4, rows: 6 },
+  landscape: { cols: 8, rows: 4 },
+  portrait: { cols: 4, rows: 8 },
 };
 export const MAX_PAGES = 3;
 export const MAX_SIDE = 4;
