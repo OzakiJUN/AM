@@ -185,7 +185,10 @@ schema. Never point it at a real database.
   clients by address/domain or a connection code. Only the official creative
   workshop (separate service, later) talks to the owner's servers; approved
   workshop items are signed, sideloading is allowed with warnings.
-- Client updates come from GitHub Releases, not from self-hosted servers.
+- Updates (docs/design.md §3, not built yet): the server updates itself first
+  (GitHub Releases, signature checked), then tells clients; clients download
+  from GitHub, or from the copy their server keeps, and always verify the
+  signature with the built-in public key; clients also check GitHub themselves.
 - The owner's own server runs on his Windows PC (i5-13600) behind CGNAT,
   exposed through frp on an Alibaba Cloud 5 Mbps relay; frp sends proxy
   protocol v2, `server.proxy_protocol = true` (trusted from localhost only).
