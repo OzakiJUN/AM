@@ -82,7 +82,7 @@ export type SysEvent =
   | { t: 'role'; op: string; target: string; role: MemberRole };
 
 export type MessageBody =
-  | { kind: 'text'; text: string; replyTo?: string }
+  | { kind: 'text'; text: string; replyTo?: string; mood?: string }
   | { kind: 'image'; mediaId: string; w: number; h: number }
   | { kind: 'file'; mediaId: string; name: string; size: number }
   | { kind: 'deleted'; byId: string; reason: string }

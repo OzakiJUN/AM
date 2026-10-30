@@ -130,6 +130,20 @@ fn tls_config(ep: &Endpoint) -> Result<Option<Arc<ClientConfig>>, NetError> {
     Ok(Some(Arc::new(cfg)))
 }
 
+/// Client for public HTTPS services (AI model providers): normal CA checks,
+/// no overall timeout (answers stream for a long time), only a read timeout.
+pub(crate) fn public_client() -> Result<reqwest::Client, NetError> {
+    let ep = Endpoint { address: String::new(), plain: false, pin: None };
+    let cfg = tls_config(&ep)?.expect("TLS config for a non-plain endpoint");
+    reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .read_timeout(std::time::Duration::from_secs(180))
+        .user_agent(concat!("AM-client/", env!("CARGO_PKG_VERSION")))
+        .tls_backend_preconfigured((*cfg).clone())
+        .build()
+        .map_err(err)
+}
+
 fn http_client(ep: &Endpoint) -> Result<reqwest::Client, NetError> {
     let mut b = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(10))

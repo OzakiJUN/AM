@@ -144,6 +144,19 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 - 连上时 `AuthResponse.presences` 是此刻所有在线的人（按你能看到的样子，包括你自己）；之后有变化时推送 `presence`。断线后客户端应把所有人当离线，重连拿新的列表。
 - `SetPresenceRequest` 每次都要带完整设置：`invisible` 和 `activity`（不带 = 清除状态）。
 
+### AI 账号（只有主人能用）
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/ai` | — | `ListAIResponse`：我的 AI 账号和各自的设置 JSON |
+| POST | `/api/v1/ai` | `CreateAIRequest` | `AIAccount`：新建 ai 类型账号，主人是我。只有真人账号能建，每人最多 `limits.max_ai_per_user` 个（`ai_limit`） |
+| PATCH | `/api/v1/ai/{id}` | `UpdateProfileRequest` | `User`：改 AI 的名字、头像（主人上传的图）、签名 |
+| PUT | `/api/v1/ai/{id}/settings` | `PutAISettingsRequest` | `AIAccount`：设置 JSON（最多 64 KiB，服务器原样保存）。`base_updated_at` 不是当前版本时 `state_conflict` |
+| POST | `/api/v1/ai/{id}/run` | `RunAIRequest` | `SessionResponse`：这台设备以 AI 身份登录，成为运行它的设备；AI 在别处的登录全部结束 |
+| DELETE | `/api/v1/ai/{id}` | — | `Empty`：AI 退出服务器（同 leave） |
+
+不是我的 AI（或已删除）一律 `user_not_found`。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
+
 ### 主页小组件
 
 个人主页和服务器主页是小组件"桌面"（定义在 `proto/am/v1/profile.proto`）：
@@ -266,6 +279,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | `left_server` | 403 | 这个账号退出了服务器，登录时要带新的邀请码 |
 | `invalid_widget` | 400 | 小组件类型不认识、大小或位置不对（出界、重叠、第 4 页）、或设置内容不对 |
 | `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
+| `ai_limit` | 403 | AI 账号已经建到 `limits.max_ai_per_user` 个 |
 | `too_many_devices` | 403 | 这个账号登录的设备已经到 `limits.max_devices` 台，先退出一台（登录、生成登录码、用登录码时） |
 | `invalid_pair_code` | 400 | 登录码的 ticket 不对、用过了或过期了 |
 | `state_conflict` | 409 | 共享数据在你合并期间被另一台设备存过了，取回重新合并 |

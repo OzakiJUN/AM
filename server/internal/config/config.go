@@ -73,6 +73,7 @@ type Limits struct {
 	MaxUploadMB            int `toml:"max_upload_mb"`
 	MaxDevices             int `toml:"max_devices"`
 	PairCodeMinutes        int `toml:"pair_code_minutes"`
+	MaxAIPerUser           int `toml:"max_ai_per_user"`
 }
 
 type Retention struct {
@@ -238,6 +239,9 @@ func (c *Config) validate() error {
 	}
 	if c.Limits.MaxTextLength < 1 {
 		return errors.New("limits.max_text_length must be >= 1")
+	}
+	if c.Limits.MaxAIPerUser < 0 {
+		return errors.New("limits.max_ai_per_user must be >= 0")
 	}
 	if c.Limits.MaxDevices < 0 || c.Limits.PairCodeMinutes < 1 {
 		return errors.New("limits.max_devices must be >= 0 and limits.pair_code_minutes >= 1")

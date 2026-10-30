@@ -43,6 +43,9 @@ message TextMsg {
   // Event this message replies to. 0 = not a reply.
   int64 reply_to = 2;
   repeated int64 mentions = 3;
+  // Mood of an AI reply (emotion key from docs/design.md §9, e.g. "happy"),
+  // shown by the AI portrait. Only kept on messages from ai / bot accounts.
+  string mood = 4;
 }
 
 message ImageMsg {

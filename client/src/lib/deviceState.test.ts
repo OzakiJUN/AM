@@ -43,4 +43,11 @@ assert.ok(!sameState(m, x));
 assert.equal(Object.keys(prune(y, 50 + 181 * 86_400_000).servers).length, 0);
 assert.equal(Object.keys(prune(y, 60).servers).length, 1);
 
+// Provider lists (with keys) travel too: newest wins.
+const withP = (at: number, name: string) => ({ ...emptyState(), providers: { at, list: [{ name }] } });
+assert.deepEqual(merge(withP(1, 'old'), withP(2, 'new')).providers, { at: 2, list: [{ name: 'new' }] });
+assert.deepEqual(merge(withP(3, 'mine'), emptyState()).providers?.at, 3);
+assert.ok(!sameState(withP(1, 'a'), withP(2, 'a')));
+assert.equal(prune(withP(5, 'x'), 10).providers?.at, 5);
+
 console.log('deviceState ok');

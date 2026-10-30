@@ -16,6 +16,9 @@ import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton } from './Portrait';
+import { AISettingsDialog } from './AISettings';
+import { useAI } from '@/lib/ai/runner';
+import { MOODS, type Mood } from '@/lib/portraits';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
@@ -35,7 +38,10 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const setPrefs = usePrefs((p) => p.set);
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [aiOpen, setAIOpen] = useState(false);
   const conv = convId ? v.convs[convId] : undefined;
+  const streaming = useAI((s) => (convId ? s.streams[`${v.id}|${convId}`] : undefined));
+  const aiError = useAI((s) => (conv?.peerId ? s.errors[`${v.id}|${conv.peerId}`] : undefined));
   if (!conv) {
     const { Icon, title, text } = EMPTY[page];
     return (
@@ -49,6 +55,8 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const blocked = !!peer && v.blocked.includes(peer.id);
   const ai = page === 'ai';
   const peerPresence = peer ? v.presence[peer.id] : undefined;
+  const myAI = ai && !!peer && peer.ownerId === v.me?.id;
+  const mood = aiMood(v, conv.id, peer?.id, streaming);
   return (
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
@@ -77,14 +85,23 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {!group && peer && (
             <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
           )}
+          {myAI && <IconButton label="AI 设置" onClick={() => setAIOpen(true)}><Settings2 size={19} /></IconButton>}
           {ai && peer && <PortraitPosButton />}
-          {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} />}
+          {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} />}
         </header>
         <div className="relative flex min-h-0 flex-1 flex-col">
-          <MessageList key={conv.id} v={v} conv={conv} />
-          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} />}
+          <MessageList key={conv.id} v={v} conv={conv} streaming={streaming} />
+          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} />}
         </div>
+        {myAI && aiError && (
+          <div className="mx-4 mb-1 flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[0.82rem] text-rose-700 dark:bg-rose-400/10 dark:text-rose-200" role="alert">
+            <AlertCircle size={15} className="shrink-0" />
+            <span className="min-w-0 flex-1">它没能回复：{aiError}</span>
+            <button onClick={() => setAIOpen(true)} className="shrink-0 underline">打开设置</button>
+          </div>
+        )}
         <Composer v={v} conv={conv} blocked={blocked} />
+        {myAI && peer && <AISettingsDialog open={aiOpen} onClose={() => setAIOpen(false)} aiId={peer.id} />}
       </section>
       <AnimatePresence initial={false}>
         {group && !conv.left && (
@@ -108,7 +125,21 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
 
 // ---------- messages ----------
 
-function MessageList({ v, conv }: { v: SessionView; conv: Conversation }) {
+/** The AI's mood for its portrait: `typing` while it writes, else its last reply's mood. */
+function aiMood(v: SessionView, convId: string, aiId: string | undefined, streaming: string | undefined): Mood | undefined {
+  if (!aiId) return undefined;
+  if (streaming !== undefined) return 'typing';
+  const list = v.messages[convId] ?? [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (m.senderId !== aiId) continue;
+    const mood = m.body.kind === 'text' ? m.body.mood : undefined;
+    return mood && (MOODS as readonly string[]).includes(mood) ? (mood as Mood) : 'neutral';
+  }
+  return undefined;
+}
+
+function MessageList({ v, conv, streaming }: { v: SessionView; conv: Conversation; streaming?: string }) {
   const list = v.messages[conv.id] ?? [];
   const ref = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -127,7 +158,7 @@ function MessageList({ v, conv }: { v: SessionView; conv: Conversation }) {
     } else if (atBottom.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [list]);
+  }, [list, streaming]);
 
   // Read up to the newest message while the conversation is on screen.
   useEffect(() => {
@@ -168,8 +199,9 @@ function MessageList({ v, conv }: { v: SessionView; conv: Conversation }) {
           <span className="whitespace-pre-wrap">频道公告：{conv.notice}</span>
         </div>
       )}
-      {!list.length && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
+      {!list.length && streaming === undefined && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
       {items}
+      {streaming !== undefined && conv.peerId && <StreamingReply v={v} aiId={conv.peerId} text={streaming} />}
       <ImageViewer mediaId={viewer} onClose={() => setViewer(null)} />
     </div>
   );
@@ -269,6 +301,22 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
     </motion.div>
   );
 });
+
+/** The AI's reply while it is being written (only on the device that runs it). */
+function StreamingReply({ v, aiId, text }: { v: SessionView; aiId: string; text: string }) {
+  const ai = v.users[aiId];
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="flex gap-3 pt-3" aria-live="polite">
+      <div className="w-[38px] shrink-0"><UserAvatar user={ai} size={38} /></div>
+      <div className="flex max-w-[68%] min-w-0 flex-col items-start">
+        <div className="mb-1 text-[0.8rem] text-ink-soft dark:text-white/60">{ai?.name ?? 'AI'} 正在输入…</div>
+        <div className="card rounded-2xl rounded-tl-md bg-white/95 px-3.5 py-2 whitespace-pre-wrap break-words dark:bg-white/[0.07]">
+          {text || <span className="inline-flex gap-1 py-1">{[0, 1, 2].map((i) => <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-ink-soft/60" animate={{ y: [0, -3, 0] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }} />)}</span>}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id: string) => void }) {
   const b = msg.body;

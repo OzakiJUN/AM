@@ -17,6 +17,7 @@ import { rememberLogin, savedPassword, useIdentity } from './identity';
 import { concat, sha256 } from './joincode';
 import { encodePairCode, hex, newKey, pairUrl, parsePairCode, seal, unhex, unseal } from './paircode';
 import { usePrefs } from './prefs';
+import { loadProviders, onProvidersChanged, saveProviders, type SyncedProviders } from './ai/keys';
 import { emptyState, merge, noteLocal, plan, prune, sameState, serverKey, type DeviceState, type ServerEntry } from './deviceState';
 import type { Session } from './session';
 import { addServer, removeServer, session, switchServer, useApp } from './store';
@@ -208,6 +209,8 @@ function loadLocal(): Local {
 export const useDevices = create<Local>(loadLocal);
 
 function saveLocal(patch: Partial<Local>) {
+  // Provider keys never go into localStorage (they live in the credential store).
+  if (patch.state?.providers) patch = { ...patch, state: { v: 1, servers: patch.state.servers } };
   useDevices.setState(patch);
   const { state, ignored } = useDevices.getState();
   try {
@@ -248,7 +251,10 @@ async function syncWith(s: Session) {
         return;
       }
     }
-    const merged = prune(merge(useDevices.getState().state, theirs), Date.now());
+    const providers = await loadProviders();
+    const mine: DeviceState = providers.at ? { ...useDevices.getState().state, providers } : useDevices.getState().state;
+    const merged = prune(merge(mine, theirs), Date.now());
+    if (merged.providers && merged.providers.at > providers.at) await saveProviders(merged.providers as SyncedProviders, true);
     apply(merged);
     if (sameState(merged, theirs)) return;
     try {
@@ -289,6 +295,7 @@ export function ignoreOffer(e: ServerEntry) {
 
 /** Watches my servers: notes joins / leaves and syncs the list (call once at start). */
 export function startDevices() {
+  onProvidersChanged(pushAll);
   const keys = (list = useApp.getState().servers) => new Map(list.filter((r) => r.token).map((r) => [serverKey(r.endpoint), r]));
   let known = keys();
   // Servers logged in before this feature existed.

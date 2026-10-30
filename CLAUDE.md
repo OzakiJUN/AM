@@ -157,6 +157,15 @@ update the docs in the same commit.
   in localStorage; workshop themes will set the same fields.
 - AI emotion keys and fallbacks are listed in docs/design.md §9; keep the
   client in sync with that table.
+- AI accounts (docs/design.md §9): `account/ai.go` on the server (owner-only
+  endpoints, settings JSON stored as is, `run` gives one device the AI's
+  session). The client runs them in `lib/ai/runner.ts` (only on the device in
+  `settings.runner`); providers / persona / mood parsing are pure and tested
+  (`lib/ai/providers.ts`, `persona.ts`); model requests go through Rust
+  (`src-tauri/src/ai_http.rs`, CA-checked HTTPS, not the pinned AM
+  connection); keys: `lib/ai/keys.ts` (one credential-store entry per key,
+  synced in the encrypted device state). `TextMsg.mood` is kept only for
+  ai / bot senders.
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

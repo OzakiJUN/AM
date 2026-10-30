@@ -369,3 +369,42 @@ message MediaInfo {
 }
 
 message Empty {}
+
+// ---- AI / bot accounts (docs/design.md §9, §10) ----
+// Only the owner (a human account) may use these. The AI runs on one device
+// of its owner, which logs in as the AI with POST /api/v1/ai/{id}/run.
+
+// GET /api/v1/ai
+message ListAIResponse {
+  repeated AIAccount ais = 1;
+}
+
+message AIAccount {
+  User user = 1;
+  // The owner's settings for it (persona, model, runner device, ...), JSON
+  // kept as it is by the server; only the owner can read it.
+  string settings = 2;
+  int64 settings_updated_at = 3;
+}
+
+// POST /api/v1/ai -> AIAccount
+message CreateAIRequest {
+  string display_name = 1;
+}
+
+// PATCH /api/v1/ai/{id} takes UpdateProfileRequest (name, avatar, bio) -> User.
+
+// PUT /api/v1/ai/{id}/settings -> AIAccount. At most 64 KiB of JSON.
+// state_conflict when saved elsewhere since base_updated_at.
+message PutAISettingsRequest {
+  string settings = 1;
+  int64 base_updated_at = 2;
+}
+
+// POST /api/v1/ai/{id}/run -> SessionResponse: logs this device in as the
+// AI (it becomes the device that runs it); the AI's other sessions end.
+message RunAIRequest {
+  string device_name = 1;
+}
+
+// DELETE /api/v1/ai/{id} -> Empty: the AI leaves the server for good.

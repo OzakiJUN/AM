@@ -80,6 +80,36 @@ export async function secretDelete(key: string): Promise<void> {
   localStorage.removeItem('am-dev-secret:' + key);
 }
 
+/**
+ * POSTs to an AI model provider and streams the reply text to onChunk;
+ * resolves with the HTTP status (docs/design.md §9). Desktop: through Rust
+ * (no browser cross-origin limits). Browser development mode: fetch (the
+ * provider must allow it, e.g. the e2e test's mock).
+ */
+export async function aiRequest(url: string, headers: Record<string, string>, body: string, onChunk: (text: string) => void, signal?: AbortSignal): Promise<number> {
+  if (inTauri) {
+    const { invoke, Channel } = await import('@tauri-apps/api/core');
+    const ch = new Channel<{ type: 'chunk'; text: string }>();
+    let stopped = false;
+    signal?.addEventListener('abort', () => (stopped = true));
+    ch.onmessage = (e) => !stopped && onChunk(e.text);
+    const status = await invoke<number>('ai_request', { url, headers: Object.entries(headers), body, onEvent: ch });
+    if (stopped) throw new DOMException('aborted', 'AbortError');
+    return status;
+  }
+  const r = await fetch(url, { method: 'POST', headers, body, signal });
+  const reader = r.body?.getReader();
+  const dec = new TextDecoder();
+  if (reader) {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      onChunk(dec.decode(value, { stream: true }));
+    }
+  }
+  return r.status;
+}
+
 /** Asks a not-yet-added server for its info (join screen). */
 export async function fetchServerInfo(ep: Endpoint): Promise<Reply> {
   if (inTauri) {

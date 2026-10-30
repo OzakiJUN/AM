@@ -1,6 +1,7 @@
 //! AM desktop client: the window (Tauri) plus the networking the UI cannot
 //! do itself (certificate pinning). The UI is the React app in ../src.
 
+mod ai_http;
 mod net;
 mod secrets;
 
@@ -74,6 +75,12 @@ async fn media_bytes(net: State<'_, Net>, id: String, path: String) -> Res<tauri
         return Err(format!("取文件失败（{status}）"));
     }
     Ok(tauri::ipc::Response::new(data))
+}
+
+/// A request to an AI model provider; the reply streams back through `on_event`.
+#[tauri::command]
+async fn ai_request(url: String, headers: Vec<(String, String)>, body: String, on_event: Channel<ai_http::StreamEvent>) -> Res<u16> {
+    ai_http::post(url, headers, body, on_event).await
 }
 
 #[tauri::command]
@@ -186,7 +193,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
-            secret_delete, ws_open, ws_send, ws_close
+            secret_delete, ai_request, ws_open, ws_send, ws_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

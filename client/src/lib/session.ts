@@ -13,6 +13,13 @@ import type { Part as SyncPart } from './profileSync';
 import type { Background, LayoutModel, WidgetModel } from './widgets';
 import type { Activity, ActivityKind, ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, Presence, SysEvent, User } from './types';
 
+/** One of my AI accounts; settings is its JSON (lib/ai/persona.ts parses it). */
+export interface AIInfo {
+  user: User;
+  settings: string;
+  updatedAt: number;
+}
+
 export interface ServerRecord {
   id: string;
   endpoint: Endpoint;
@@ -186,7 +193,7 @@ function toBody(e: ev.Event): MessageBody | null {
   const op = (v: bigint) => s(v) || s(e.senderId);
   switch (b.case) {
     case 'text':
-      return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined };
+      return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined };
     case 'image':
       return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height };
     case 'file':
@@ -381,6 +388,48 @@ export class Session {
   async logout() {
     if (this.record.token) await this.call('POST', '/api/v1/logout', null).catch(() => {});
     this.loggedOut('');
+  }
+
+  // ---- my AI accounts (lib/ai) ----
+
+  async listAI(): Promise<AIInfo[]> {
+    const r = await this.call('GET', '/api/v1/ai', api.ListAIResponseSchema);
+    return r.ais.map((a) => this.aiInfo(a));
+  }
+
+  private aiInfo(a: api.AIAccount): AIInfo {
+    const user = toUser(a.user!);
+    this.view.users = { ...this.view.users, [user.id]: { ...this.view.users[user.id], ...user } };
+    this.emit();
+    return { user, settings: a.settings, updatedAt: Number(a.settingsUpdatedAt) };
+  }
+
+  async createAI(displayName: string) {
+    return this.aiInfo(await this.call('POST', '/api/v1/ai', api.AIAccountSchema, { schema: api.CreateAIRequestSchema, value: { displayName } }));
+  }
+
+  async updateAI(id: string, value: { displayName?: string; avatarMediaId?: bigint; bio?: string }) {
+    const u = toUser(await this.call('PATCH', `/api/v1/ai/${id}`, common.UserSchema, { schema: api.UpdateProfileRequestSchema, value }));
+    this.view.users = { ...this.view.users, [u.id]: { ...this.view.users[u.id], ...u } };
+    this.emit();
+    return u;
+  }
+
+  /** Saves settings JSON; base = updatedAt it was edited from (state_conflict otherwise). */
+  async putAISettings(id: string, settings: string, base: number) {
+    return this.aiInfo(await this.call('PUT', `/api/v1/ai/${id}/settings`, api.AIAccountSchema, {
+      schema: api.PutAISettingsRequestSchema, value: { settings, baseUpdatedAt: BigInt(base) },
+    }));
+  }
+
+  /** A session token of my AI for this device (which then runs it). */
+  async runAI(id: string) {
+    const r = await this.call('POST', `/api/v1/ai/${id}/run`, api.SessionResponseSchema, { schema: api.RunAIRequestSchema, value: { deviceName: deviceName() } });
+    return r.token;
+  }
+
+  deleteAI(id: string) {
+    return this.call('DELETE', `/api/v1/ai/${id}`, null);
   }
 
   // ---- several devices (lib/devices.ts) ----
@@ -782,8 +831,9 @@ export class Session {
     }
   }
 
-  sendText(convId: string, text: string) {
-    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text }) }, { kind: 'text', text });
+  /** mood: only for AI accounts (their portrait), see lib/ai/runner.ts. */
+  sendText(convId: string, text: string, mood?: string) {
+    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text, mood }) }, { kind: 'text', text, mood });
   }
 
   /** Removes a failed message from the list (it was never sent). */
@@ -1044,7 +1094,7 @@ export class Session {
   }
 }
 
-function deviceName() {
+export function deviceName() {
   const ua = navigator.userAgent;
   const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '设备';
   return `AM ${os}`;

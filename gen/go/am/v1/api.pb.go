@@ -2441,6 +2441,258 @@ func (*Empty) Descriptor() ([]byte, []int) {
 	return file_am_v1_api_proto_rawDescGZIP(), []int{39}
 }
 
+// GET /api/v1/ai
+type ListAIResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ais           []*AIAccount           `protobuf:"bytes,1,rep,name=ais,proto3" json:"ais,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAIResponse) Reset() {
+	*x = ListAIResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAIResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAIResponse) ProtoMessage() {}
+
+func (x *ListAIResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAIResponse.ProtoReflect.Descriptor instead.
+func (*ListAIResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ListAIResponse) GetAis() []*AIAccount {
+	if x != nil {
+		return x.Ais
+	}
+	return nil
+}
+
+type AIAccount struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	User  *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	// The owner's settings for it (persona, model, runner device, ...), JSON
+	// kept as it is by the server; only the owner can read it.
+	Settings          string `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	SettingsUpdatedAt int64  `protobuf:"varint,3,opt,name=settings_updated_at,json=settingsUpdatedAt,proto3" json:"settings_updated_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AIAccount) Reset() {
+	*x = AIAccount{}
+	mi := &file_am_v1_api_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIAccount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIAccount) ProtoMessage() {}
+
+func (x *AIAccount) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIAccount.ProtoReflect.Descriptor instead.
+func (*AIAccount) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *AIAccount) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *AIAccount) GetSettings() string {
+	if x != nil {
+		return x.Settings
+	}
+	return ""
+}
+
+func (x *AIAccount) GetSettingsUpdatedAt() int64 {
+	if x != nil {
+		return x.SettingsUpdatedAt
+	}
+	return 0
+}
+
+// POST /api/v1/ai -> AIAccount
+type CreateAIRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAIRequest) Reset() {
+	*x = CreateAIRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAIRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAIRequest) ProtoMessage() {}
+
+func (x *CreateAIRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAIRequest.ProtoReflect.Descriptor instead.
+func (*CreateAIRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *CreateAIRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+// PUT /api/v1/ai/{id}/settings -> AIAccount. At most 64 KiB of JSON.
+// state_conflict when saved elsewhere since base_updated_at.
+type PutAISettingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      string                 `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	BaseUpdatedAt int64                  `protobuf:"varint,2,opt,name=base_updated_at,json=baseUpdatedAt,proto3" json:"base_updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PutAISettingsRequest) Reset() {
+	*x = PutAISettingsRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PutAISettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PutAISettingsRequest) ProtoMessage() {}
+
+func (x *PutAISettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PutAISettingsRequest.ProtoReflect.Descriptor instead.
+func (*PutAISettingsRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *PutAISettingsRequest) GetSettings() string {
+	if x != nil {
+		return x.Settings
+	}
+	return ""
+}
+
+func (x *PutAISettingsRequest) GetBaseUpdatedAt() int64 {
+	if x != nil {
+		return x.BaseUpdatedAt
+	}
+	return 0
+}
+
+// POST /api/v1/ai/{id}/run -> SessionResponse: logs this device in as the
+// AI (it becomes the device that runs it); the AI's other sessions end.
+type RunAIRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceName    string                 `protobuf:"bytes,1,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunAIRequest) Reset() {
+	*x = RunAIRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunAIRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunAIRequest) ProtoMessage() {}
+
+func (x *RunAIRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunAIRequest.ProtoReflect.Descriptor instead.
+func (*RunAIRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *RunAIRequest) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -2617,7 +2869,21 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\bis_image\x18\a \x01(\bR\aisImage\x12\x10\n" +
 	"\x03url\x18\b \x01(\tR\x03url\x12\x1b\n" +
 	"\tthumb_url\x18\t \x01(\tR\bthumbUrl\"\a\n" +
-	"\x05Empty*k\n" +
+	"\x05Empty\"4\n" +
+	"\x0eListAIResponse\x12\"\n" +
+	"\x03ais\x18\x01 \x03(\v2\x10.am.v1.AIAccountR\x03ais\"x\n" +
+	"\tAIAccount\x12\x1f\n" +
+	"\x04user\x18\x01 \x01(\v2\v.am.v1.UserR\x04user\x12\x1a\n" +
+	"\bsettings\x18\x02 \x01(\tR\bsettings\x12.\n" +
+	"\x13settings_updated_at\x18\x03 \x01(\x03R\x11settingsUpdatedAt\"4\n" +
+	"\x0fCreateAIRequest\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\"Z\n" +
+	"\x14PutAISettingsRequest\x12\x1a\n" +
+	"\bsettings\x18\x01 \x01(\tR\bsettings\x12&\n" +
+	"\x0fbase_updated_at\x18\x02 \x01(\x03R\rbaseUpdatedAt\"/\n" +
+	"\fRunAIRequest\x12\x1f\n" +
+	"\vdevice_name\x18\x01 \x01(\tR\n" +
+	"deviceName*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -2636,7 +2902,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -2679,31 +2945,38 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*AdminDeleteRequest)(nil),       // 38: am.v1.AdminDeleteRequest
 	(*MediaInfo)(nil),                // 39: am.v1.MediaInfo
 	(*Empty)(nil),                    // 40: am.v1.Empty
-	(*User)(nil),                     // 41: am.v1.User
-	(*Activity)(nil),                 // 42: am.v1.Activity
+	(*ListAIResponse)(nil),           // 41: am.v1.ListAIResponse
+	(*AIAccount)(nil),                // 42: am.v1.AIAccount
+	(*CreateAIRequest)(nil),          // 43: am.v1.CreateAIRequest
+	(*PutAISettingsRequest)(nil),     // 44: am.v1.PutAISettingsRequest
+	(*RunAIRequest)(nil),             // 45: am.v1.RunAIRequest
+	(*User)(nil),                     // 46: am.v1.User
+	(*Activity)(nil),                 // 47: am.v1.Activity
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	41, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	46, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	41, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	46, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	41, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	41, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	41, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	41, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	41, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	42, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	46, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	46, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	46, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	46, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	46, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	47, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	41, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	41, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	46, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	46, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
+	46, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -2720,7 +2993,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   40,
+			NumMessages:   45,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

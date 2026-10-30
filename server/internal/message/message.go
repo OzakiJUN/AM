@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -98,7 +99,7 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 		if utf8.RuneCountInString(text) > s.limits.MaxTextLength {
 			return nil, apperr.ErrTooLong
 		}
-		body.Body = &amv1.Event_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: b.Text.GetReplyTo(), Mentions: b.Text.GetMentions()}}
+		body.Body = &amv1.Event_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: b.Text.GetReplyTo(), Mentions: b.Text.GetMentions(), Mood: aiMood(me, b.Text.GetMood())}}
 		kind = KindText
 	case *amv1.SendRequest_Image:
 		m, err := s.media.OwnUpload(ctx, me.ID, b.Image.GetMediaId(), true)
@@ -459,4 +460,15 @@ func ToProto(r *store.Event, viewer int64) (*amv1.Event, error) {
 		ev.ClientMsgId = r.ClientMsgID
 	}
 	return ev, nil
+}
+
+var moodRe = regexp.MustCompile(`^[a-z_]{1,16}$`)
+
+// aiMood keeps the mood of an AI / bot message (shown by its portrait);
+// people's messages never carry one.
+func aiMood(me *store.User, mood string) string {
+	if me.AccountType == int16(amv1.AccountType_ACCOUNT_TYPE_HUMAN) || !moodRe.MatchString(mood) {
+		return ""
+	}
+	return mood
 }

@@ -70,6 +70,7 @@ var (
 	ErrInvalidActivity = New(http.StatusBadRequest, "invalid_activity", "unknown activity, or its text is too long / missing")
 	ErrLeftServer      = New(http.StatusForbidden, "left_server", "you left this server; a new invite code is needed to come back")
 	ErrInvalidWidget   = New(http.StatusBadRequest, "invalid_widget", "a widget has an unknown kind, a bad size or place, or bad settings")
+	ErrAILimit         = New(http.StatusForbidden, "ai_limit", "you already have the most AI accounts allowed")
 	ErrTooManyDevices  = New(http.StatusForbidden, "too_many_devices", "this account is logged in on the most devices allowed; log out on one first")
 	ErrInvalidPairCode = New(http.StatusBadRequest, "invalid_pair_code", "the pairing code is wrong, already used or expired")
 	ErrStateConflict   = New(http.StatusConflict, "state_conflict", "another device saved in the meantime; load and merge first")

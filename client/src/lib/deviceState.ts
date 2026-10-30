@@ -16,6 +16,8 @@ export interface ServerEntry {
 export interface DeviceState {
   v: 1;
   servers: Record<string, ServerEntry>;
+  /** My AI model providers with keys (lib/ai/keys.ts); never stored in plain local storage. */
+  providers?: { at: number; list: unknown[] };
 }
 
 export const emptyState = (): DeviceState => ({ v: 1, servers: {} });
@@ -30,10 +32,12 @@ export function merge(a: DeviceState, b: DeviceState): DeviceState {
     const mine = servers[k];
     if (!mine || e.at > mine.at || (e.at === mine.at && e.removed && !mine.removed)) servers[k] = e;
   }
-  return { v: 1, servers };
+  const providers = (b.providers?.at ?? 0) > (a.providers?.at ?? 0) ? b.providers : a.providers;
+  return providers ? { v: 1, servers, providers } : { v: 1, servers };
 }
 
 export function sameState(a: DeviceState, b: DeviceState) {
+  if ((a.providers?.at ?? 0) !== (b.providers?.at ?? 0)) return false;
   const ka = Object.keys(a.servers);
   if (ka.length !== Object.keys(b.servers).length) return false;
   return ka.every((k) => {
@@ -46,6 +50,7 @@ export function sameState(a: DeviceState, b: DeviceState) {
 /** Records servers I got into (added) or left / forgot (removed) on this device. */
 export function noteLocal(s: DeviceState, added: { endpoint: Endpoint; name: string }[], removed: Endpoint[], now: number): DeviceState {
   const servers = { ...s.servers };
+  const keep = s.providers ? { providers: s.providers } : {};
   for (const r of added) {
     const k = serverKey(r.endpoint);
     if (!servers[k] || servers[k].removed) servers[k] = { endpoint: r.endpoint, name: r.name, at: now };
@@ -54,7 +59,7 @@ export function noteLocal(s: DeviceState, added: { endpoint: Endpoint; name: str
     const k = serverKey(ep);
     if (servers[k] && !servers[k].removed) servers[k] = { ...servers[k], removed: true, at: now };
   }
-  return { v: 1, servers };
+  return { v: 1, servers, ...keep };
 }
 
 /**
@@ -72,5 +77,5 @@ export function plan(s: DeviceState, local: Endpoint[], ignored: string[]) {
 
 /** Drops tombstones older than maxAge (they have reached every device by then). */
 export function prune(s: DeviceState, now: number, maxAge = 180 * 86_400_000): DeviceState {
-  return { v: 1, servers: Object.fromEntries(Object.entries(s.servers).filter(([, e]) => !e.removed || now - e.at < maxAge)) };
+  return { ...s, servers: Object.fromEntries(Object.entries(s.servers).filter(([, e]) => !e.removed || now - e.at < maxAge)) };
 }

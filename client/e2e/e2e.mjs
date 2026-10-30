@@ -1,5 +1,6 @@
 // Two-user browser test of the client against a real am-server.
 // See client/README.md ("端到端测试") for how to run it.
+import { createServer } from 'node:http';
 import { chromium } from 'playwright';
 
 const BASE = process.env.AM_E2E_URL ?? 'http://127.0.0.1:4173';
@@ -12,6 +13,25 @@ if (!JOIN || !IMAGE) {
   console.error('set AM_E2E_JOIN and AM_E2E_IMAGE');
   process.exit(2);
 }
+// A fake model service (OpenAI-compatible, streamed) for the AI scenario.
+const MOCK_PORT = Number(process.env.AM_E2E_MOCK_PORT ?? 8460);
+const mock = createServer((req, res) => {
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+  if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
+  let body = '';
+  req.on('data', (c) => (body += c));
+  req.on('end', async () => {
+    const j = JSON.parse(body || '{}');
+    if (req.headers.authorization !== 'Bearer sk-test') return res.writeHead(401, cors).end('{"error":{"message":"bad key"}}');
+    const last = j.messages?.at(-1)?.content ?? '';
+    res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
+    for (const piece of ['[mood:', 'shy] 喵～', '收到：', last]) {
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: piece } }] })}\n\n`);
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    res.end('data: [DONE]\n\n');
+  });
+}).listen(MOCK_PORT, '127.0.0.1');
 const shot = (p, n) => p.screenshot({ path: `${OUT}/e2e-${n}.png` });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const pages = [];
@@ -357,10 +377,46 @@ const pages = [];
     await C.click('button[aria-label="个人主页"]');
     await C.waitForSelector('text=两个服务器一个我');
   }
+  // AI: A makes an AI that runs in this browser, adds a model service (the
+  // mock), picks it, and chats; the reply streams in with a mood.
+  await A.click('button[aria-label="AI"]');
+  await A.click('button:has-text("新建 AI")');
+  await A.fill('div[role="dialog"] input[placeholder="例如：小鱼"]', '小鱼');
+  await A.click('div[role="dialog"] button:has-text("傲娇小猫")');
+  await A.click('div[role="dialog"] button[type="submit"]:has-text("创建")');
+  await A.waitForSelector('text=哼，你就是我的主人？', { timeout: 15000 }); // its greeting
+  await A.click('button[aria-label="模型服务商"]');
+  await A.click('div[role="dialog"] button:has-text("添加服务商")');
+  await A.click('div[role="dialog"] button:has-text("本机模型")');
+  await A.fill('div[role="dialog"] input[aria-label="接口地址"]', `http://127.0.0.1:${MOCK_PORT}/v1`);
+  await A.fill('div[role="dialog"] input[aria-label="key"]', 'sk-test');
+  await A.fill('div[role="dialog"] input[aria-label="测试用的模型名"]', 'mock');
+  await A.click('div[role="dialog"] button:has-text("测试")');
+  await A.waitForSelector('text=能用 ✓');
+  await A.click('div[role="dialog"] button[type="submit"]:has-text("保存")');
+  await A.waitForSelector('div[role="dialog"] >> text=本机模型');
+  await A.keyboard.press('Escape');
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("模型")');
+  await A.selectOption('div[role="dialog"] select[aria-label="模型服务商"]', { label: '本机模型（Ollama 等） · OpenAI 兼容' });
+  await A.fill('div[role="dialog"] input[aria-label="模型名"]', 'mock');
+  await A.click('div[role="dialog"] button:has-text("保存模型设置")');
+  await A.waitForSelector('text=已保存');
+  await A.keyboard.press('Escape');
+  await A.fill('textarea[aria-label="消息"]', '今天好累');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
+  await A.waitForSelector('text=小鱼 正在输入…');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：今天好累")', { timeout: 15000 });
+  if (await A.locator('text=[mood:').count()) throw new Error('mood tag shown');
+  await wait(800);
+  await shot(A, '27-ai-chat');
+
   await b.close();
+  mock.close();
   console.log('E2E OK');
 })().catch(async (e) => {
   console.error('E2E FAIL', e);
   await Promise.all(pages.map((p, i) => p.screenshot({ path: `${OUT}/e2e-fail-${i}.png` }).catch(() => {})));
+  mock.close();
   process.exit(1);
 });

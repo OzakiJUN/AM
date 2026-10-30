@@ -45,6 +45,7 @@ type Service struct {
 	// how long a pairing ticket works.
 	maxDevices int
 	pairTTL    time.Duration
+	maxAI      int
 }
 
 // OnRegistered sets a hook that runs after each new account is created
@@ -58,6 +59,9 @@ func (s *Service) OnLeft(fn func(ctx context.Context, u *store.User)) { s.onLeft
 func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
 	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now, pairTTL: 5 * time.Minute}
 }
+
+// SetAILimit sets limits.max_ai_per_user.
+func (s *Service) SetAILimit(n int) { s.maxAI = n }
 
 // SetDeviceLimits sets limits.max_devices and limits.pair_code_minutes.
 func (s *Service) SetDeviceLimits(maxDevices int, pairTTL time.Duration) {
@@ -310,6 +314,12 @@ const maxBio = 100
 // UpdateProfile changes display name, avatar (an uploaded image, GIF allowed)
 // and/or signature.
 func (s *Service) UpdateProfile(ctx context.Context, u *store.User, req *amv1.UpdateProfileRequest) (*store.User, error) {
+	return s.updateProfile(ctx, u, u.ID, req)
+}
+
+// updateProfile changes u's profile; a new avatar must be an image uploaded
+// by `uploader` (u itself, or the owner of an AI account).
+func (s *Service) updateProfile(ctx context.Context, u *store.User, uploader int64, req *amv1.UpdateProfileRequest) (*store.User, error) {
 	display := ""
 	if req.DisplayName != nil {
 		display = strings.TrimSpace(req.GetDisplayName())
@@ -329,7 +339,7 @@ func (s *Service) UpdateProfile(ctx context.Context, u *store.User, req *amv1.Up
 	if req.AvatarMediaId != nil {
 		avatar = req.GetAvatarMediaId()
 		if avatar != 0 {
-			if _, err := s.media.OwnUpload(ctx, u.ID, avatar, true); err != nil {
+			if _, err := s.media.OwnUpload(ctx, uploader, avatar, true); err != nil {
 				return nil, err
 			}
 		}
@@ -373,6 +383,13 @@ func (s *Service) Authenticate(ctx context.Context, token string) (*store.Sessio
 	}
 	if u.LeftAt != 0 {
 		return nil, nil, apperr.ErrUnauthorized
+	}
+	// An AI / bot stops when its owner is banned or left.
+	if u.OwnerID != 0 {
+		owner, err := s.st.GetUser(ctx, u.OwnerID)
+		if err != nil || owner.Gone() {
+			return nil, nil, apperr.ErrUnauthorized
+		}
 	}
 	now := s.now()
 	if now.Sub(time.UnixMilli(sess.LastSeen)) > touchInterval {

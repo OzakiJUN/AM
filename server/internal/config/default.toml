@@ -67,6 +67,8 @@ max_upload_mb = 50
 max_devices = 3
 # How long a "add a new device" pairing code works, in minutes.
 pair_code_minutes = 5
+# How many AI accounts one person may create (they run on the owner's device).
+max_ai_per_user = 5
 
 [retention]
 # How long admin-deleted content is kept in the evidence store before it is

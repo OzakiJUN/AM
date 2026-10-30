@@ -304,6 +304,11 @@ func (c *Conn) SendText(ctx context.Context, convID int64, text string) (*amv1.E
 	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Text{Text: &amv1.TextMsg{Text: text}}})
 }
 
+// SendMood sends a text message with an AI mood (kept only for ai / bot accounts).
+func (c *Conn) SendMood(ctx context.Context, convID int64, text, mood string) (*amv1.Event, error) {
+	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Text{Text: &amv1.TextMsg{Text: text, Mood: mood}}})
+}
+
 // SendTextWithID sends a text message with a fixed client_msg_id (to test resends).
 func (c *Conn) SendTextWithID(ctx context.Context, convID int64, text, clientMsgID string) (*amv1.Event, error) {
 	return c.send(ctx, &amv1.SendRequest{ConvId: convID, ClientMsgId: clientMsgID,
