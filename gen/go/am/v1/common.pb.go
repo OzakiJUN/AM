@@ -633,7 +633,7 @@ type MemberState struct {
 	ReadSeq int64 `protobuf:"varint,2,opt,name=read_seq,json=readSeq,proto3" json:"read_seq,omitempty"`
 	// 0 = not pinned; larger number = higher in the list.
 	PinnedOrder int64 `protobuf:"varint,3,opt,name=pinned_order,json=pinnedOrder,proto3" json:"pinned_order,omitempty"`
-	// Do-not-disturb until this unix time in ms. 0 = off.
+	// Do-not-disturb until this unix time in ms. 0 = off, -1 = until turned off.
 	DndUntil int64 `protobuf:"varint,4,opt,name=dnd_until,json=dndUntil,proto3" json:"dnd_until,omitempty"`
 	// Muted by an admin until this unix time in ms. 0 = not muted.
 	MutedUntil    int64 `protobuf:"varint,5,opt,name=muted_until,json=mutedUntil,proto3" json:"muted_until,omitempty"`

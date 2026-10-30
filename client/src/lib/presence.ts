@@ -22,6 +22,11 @@ export const ACTIVITIES: ActivityInfo[] = [
 /** Longest activity detail the server accepts. */
 export const ACTIVITY_MAX = 32;
 
+/** Emoji of what someone is doing (for the avatar's status dot), or undefined. */
+export function activityEmoji(p?: Presence) {
+  return p?.activity ? ACTIVITIES.find((a) => a.kind === p.activity!.kind)?.emoji : undefined;
+}
+
 /** One line for an activity: "🎧 正在听歌：晴天", "💬 摸鱼中". */
 export function activityText(a?: Activity): string {
   if (!a) return '';

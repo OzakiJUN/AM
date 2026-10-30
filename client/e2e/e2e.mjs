@@ -141,13 +141,16 @@ const pages = [];
   await A.fill('textarea#bio', '今天也在写 AM');
   await A.click('button:has-text("保存签名")');
   await A.waitForSelector('text=签名已保存');
-  await A.click('button[aria-label="个人主页"]');
-  await A.waitForSelector('text=今天也在写 AM');
+  // Status and invisible are set in 账号设置 too; the profile page only shows them.
   await A.click('button:has-text("正在听歌")');
   await A.fill('input[aria-label="歌名（可不填）"]', '晴天');
   await A.click('button:has-text("保存状态")');
   await A.waitForSelector('text=🎧 正在听歌：晴天');
-  await wait(500);
+  await A.click('button[aria-label="个人主页"]');
+  await A.waitForSelector('text=今天也在写 AM');
+  await A.waitForSelector('text=🎧 正在听歌：晴天');
+  await wait(500); // the account page fades out first
+  if (await A.locator('button:has-text("保存状态")').count()) throw new Error('status editor still on the profile page');
   await shot(A, '12-profile');
   await B.waitForSelector('aside >> text=🎧 正在听歌：晴天');
   await shot(B, '13-presence-dark');
@@ -191,6 +194,7 @@ const pages = [];
   await B.click('button[aria-label="频道"]');
   await B.waitForSelector('aside >> text=在线 — 2');
   // Invisible: B sees A offline; A still sees itself as invisible.
+  await A.click('button[aria-label="账号设置"]');
   await A.click('button[role="switch"][aria-label="隐身"]');
   await B.waitForSelector('aside >> text=离线 — 1');
   await A.waitForSelector('text=（隐身中）');
@@ -207,6 +211,23 @@ const pages = [];
   await A.click('button[role="switch"][aria-label="隐身"]');
   await B.waitForSelector('aside >> text=在线 — 2');
   await A.click('button[aria-label="频道"]');
+
+  // Pin and do not disturb (right-click a channel; my own setting).
+  await B.click('aside button:has-text("AM 内测")', { button: 'right' });
+  await B.click('button[role="menuitem"]:has-text("置顶")');
+  await B.waitForSelector('aside button:has-text("AM 内测") [aria-label="已置顶"]');
+  if (!(await B.locator('aside[aria-label="频道"] div.overflow-y-auto > button').first().textContent()).includes('AM 内测')) throw new Error('pinned channel not first');
+  await B.click('aside button:has-text("大厅")', { button: 'right' });
+  await B.click('button[role="menuitem"]:has-text("免打扰 1 小时")');
+  await B.waitForSelector('aside button:has-text("大厅") [aria-label="免打扰"]');
+  await A.click('aside button:has-text("大厅")');
+  await A.fill('textarea[aria-label="消息"]', '免打扰的频道不响也不算红点');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
+  await wait(800);
+  await shot(B, '26-pin-dnd-dark');
+  await B.click('aside button:has-text("大厅")', { button: 'right' });
+  await B.click('button[role="menuitem"]:has-text("关闭免打扰")');
+  await B.waitForSelector('aside button:has-text("大厅") [aria-label="免打扰"]', { state: 'detached' });
 
   // Browse public channels.
   await A.click('button[aria-label="浏览公开频道"]');

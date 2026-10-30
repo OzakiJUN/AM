@@ -249,6 +249,42 @@ func (a *API) muteMember(w http.ResponseWriter, r *http.Request, _ *store.Sessio
 	a.ok(w, &amv1.Empty{})
 }
 
+func (a *API) setPinned(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	req := &amv1.SetPinnedRequest{}
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	if !a.read(w, r, req) {
+		return
+	}
+	c, err := a.conv.SetPinned(r.Context(), me, id, req.GetPinned())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, c)
+}
+
+func (a *API) setDnd(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	req := &amv1.SetDndRequest{}
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	if !a.read(w, r, req) {
+		return
+	}
+	c, err := a.conv.SetDnd(r.Context(), me, id, req.GetUntil())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, c)
+}
+
 func (a *API) listJoinRequests(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 	id, ok := pathID(r, "id")
 	if !ok {

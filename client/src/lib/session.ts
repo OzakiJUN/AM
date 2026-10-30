@@ -602,6 +602,8 @@ export class Session {
       readSeq: Math.max(Number(c.self?.readSeq ?? 0n), prev?.readSeq ?? 0),
       myRole: role(c.self?.role ?? common.MemberRole.MEMBER),
       mutedUntil: Number(c.self?.mutedUntil ?? 0n),
+      pinnedOrder: Number(c.self?.pinnedOrder ?? 0n),
+      dndUntil: Number(c.self?.dndUntil ?? 0n),
       lastText: prev?.lastText ?? '',
       lastTime: prev?.lastTime ?? 0,
       left: undefined,
@@ -926,6 +928,20 @@ export class Session {
     await this.call('POST', `/api/v1/groups/${convId}/requests/${userId}/${approve ? 'approve' : 'reject'}`, null);
     this.view.joinRequests = { ...this.view.joinRequests, [convId]: (this.view.joinRequests[convId] ?? []).filter((x) => x.user.id !== userId) };
     this.emit();
+  }
+
+  /** Pins a channel / DM to the top of my list (all my devices). */
+  async setPinned(convId: string, pinned: boolean) {
+    this.upsertConv(await this.call('PUT', `/api/v1/conversations/${convId}/pin`, common.ConversationSchema, {
+      schema: api.SetPinnedRequestSchema, value: { pinned },
+    }));
+  }
+
+  /** Do not disturb until a time in ms (0 = off, -1 = until turned off). */
+  async setDnd(convId: string, until: number) {
+    this.upsertConv(await this.call('PUT', `/api/v1/conversations/${convId}/dnd`, common.ConversationSchema, {
+      schema: api.SetDndRequestSchema, value: { until: BigInt(until) },
+    }));
   }
 
   // ---- me ----

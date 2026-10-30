@@ -196,3 +196,15 @@ func (c *Conn) SendImage(ctx context.Context, convID, mediaID int64) (*amv1.Even
 func (c *Conn) SendFile(ctx context.Context, convID, mediaID int64, name string) (*amv1.Event, error) {
 	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_File{File: &amv1.FileMsg{MediaId: mediaID, Name: name}}})
 }
+
+// SetPinned pins a conversation to the top of my list, or unpins it.
+func (c *Client) SetPinned(ctx context.Context, convID int64, pinned bool) (*amv1.Conversation, error) {
+	out := &amv1.Conversation{}
+	return out, c.call(ctx, http.MethodPut, fmt.Sprintf("/api/v1/conversations/%d/pin", convID), &amv1.SetPinnedRequest{Pinned: pinned}, out)
+}
+
+// SetDnd sets do-not-disturb for a conversation: until unix ms, 0 = off, -1 = until turned off.
+func (c *Client) SetDnd(ctx context.Context, convID, until int64) (*amv1.Conversation, error) {
+	out := &amv1.Conversation{}
+	return out, c.call(ctx, http.MethodPut, fmt.Sprintf("/api/v1/conversations/%d/dnd", convID), &amv1.SetDndRequest{Until: until}, out)
+}

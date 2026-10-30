@@ -132,6 +132,16 @@ func (q *Queries) SetMemberRole(ctx context.Context, convID, userID int64, role 
 	return affected(q.exec(ctx, `UPDATE conv_members SET role=? WHERE conv_id=? AND user_id=?`, role, convID, userID))
 }
 
+// SetMemberPinned sets my pin order in a conversation (0 = not pinned).
+func (q *Queries) SetMemberPinned(ctx context.Context, convID, userID, order int64) error {
+	return affected(q.exec(ctx, `UPDATE conv_members SET pinned_order=? WHERE conv_id=? AND user_id=?`, order, convID, userID))
+}
+
+// SetMemberDnd sets my do-not-disturb end (0 = off, -1 = until turned off).
+func (q *Queries) SetMemberDnd(ctx context.Context, convID, userID, until int64) error {
+	return affected(q.exec(ctx, `UPDATE conv_members SET dnd_until=? WHERE conv_id=? AND user_id=?`, until, convID, userID))
+}
+
 func (q *Queries) SetMemberMute(ctx context.Context, convID, userID, until int64) error {
 	return affected(q.exec(ctx, `UPDATE conv_members SET muted_until=? WHERE conv_id=? AND user_id=?`, until, convID, userID))
 }

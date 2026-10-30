@@ -115,15 +115,20 @@ update the docs in the same commit.
   `Toggle` onChange or a `MenuItem` (give menu items a `key` with the target);
   use `ask({ run })` for confirm-then-act; `loading` prop for form submits.
 - Pages: 频道 (groups), 私信 (DMs), AI (DMs with bot / ai accounts), and at
-  the bottom of the nav 账号设置 (`Account.tsx`), 设置, and the avatar →
-  个人主页 (`Profile.tsx`, status + invisible).
+  the bottom of the nav 账号设置 (`Account.tsx`: name, avatar, bio, status +
+  invisible in `MyStatus.tsx`, sync, devices), 设置, and the avatar →
+  个人主页 (`Profile.tsx`, display only).
   `convPage()` decides where a conversation lives; `openConv()` routes to it.
 - Widget boards: grid logic is pure and tested (`lib/widgets.ts`); the board
   UI is `app/widgets/` (Board, Kinds, Editor, Guestbook). External embeds
   (NetEase player) load only after a click and need a CSP `frame-src` entry.
 - The conversation list and the member list fold into avatar strips
   (`app/Fold.tsx`, prefs `listFolded` / `membersFolded`). Presence is
-  `SessionView.presence`; `UserAvatar presence` shows the dot top-right.
+  `SessionView.presence`; `UserAvatar presence` shows the dot top-right
+  (activity emoji, or a white check when just online; plain dot under 28px).
+  Pin / do-not-disturb are my own per-conversation settings on the server
+  (`self.pinned_order` / `dnd_until`, -1 = until turned off); list order is
+  `byListOrder`, DND convs don't notify and don't count in `unread()`.
   Dialogs render through a portal (glass panels' backdrop-filter would trap
   fixed overlays).
 - AI portraits: packs map emotion keys to images (`lib/portraits.ts`, pure

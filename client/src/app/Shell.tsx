@@ -54,9 +54,6 @@ export function Shell() {
 function NavBar({ v }: { v?: SessionView }) {
   const page = useApp((s) => s.page);
   const set = useApp((s) => s.set);
-  // Connection state, and hollow while I am invisible.
-  const mine = v?.me ? v.presence[v.me.id] : undefined;
-  const myStatus = v?.status !== 'online' ? false : mine?.invisible ? 'invisible' as const : true;
   const item = (p: Page, label: string, Icon: typeof MessageCircle, badge?: number) => (
     <button
       key={p}
@@ -102,7 +99,7 @@ function NavBar({ v }: { v?: SessionView }) {
         aria-current={page === 'profile' ? 'page' : undefined}
         className={cx('press mt-1 rounded-full ring-offset-2 ring-offset-transparent transition-shadow duration-300', page === 'profile' && 'ring-2 ring-accent')}
       >
-        <UserAvatar user={v?.me} size={40} status={myStatus} />
+        <UserAvatar user={v?.me} size={40} presence />
       </button>
     </nav>
   );

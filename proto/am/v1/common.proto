@@ -112,7 +112,7 @@ message MemberState {
   int64 read_seq = 2;
   // 0 = not pinned; larger number = higher in the list.
   int64 pinned_order = 3;
-  // Do-not-disturb until this unix time in ms. 0 = off.
+  // Do-not-disturb until this unix time in ms. 0 = off, -1 = until turned off.
   int64 dnd_until = 4;
   // Muted by an admin until this unix time in ms. 0 = not muted.
   int64 muted_until = 5;

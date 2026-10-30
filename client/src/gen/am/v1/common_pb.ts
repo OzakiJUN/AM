@@ -262,7 +262,7 @@ export type MemberState = Message<"am.v1.MemberState"> & {
   pinnedOrder: bigint;
 
   /**
-   * Do-not-disturb until this unix time in ms. 0 = off.
+   * Do-not-disturb until this unix time in ms. 0 = off, -1 = until turned off.
    *
    * @generated from field: int64 dnd_until = 4;
    */

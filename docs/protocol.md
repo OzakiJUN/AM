@@ -87,6 +87,8 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | GET | `/api/v1/users?query=&after=&limit=` | — | `ListUsersResponse`：服务器上所有没被封的账号，按 id 排序；`query` 匹配用户名或昵称；翻页时 `after` 填上一页的 `next_after`（0 = 没有了）；`limit` 默认 50，最大 200 |
 | POST | `/api/v1/dm` | `OpenDMRequest` | `Conversation`：和任何人的私信（已有就返回原来的）；有一方屏蔽了另一方时 `blocked` |
 | GET | `/api/v1/conversations/{id}` | — | `Conversation`（须是成员） |
+| PUT | `/api/v1/conversations/{id}/pin` | `SetPinnedRequest` | `Conversation`：置顶 / 取消（我自己的设置，`self.pinned_order` = 置顶时间，0 = 没置顶）。我的其他连接收到 `conv` 推送 |
+| PUT | `/api/v1/conversations/{id}/dnd` | `SetDndRequest` | `Conversation`：免打扰到 `until`（毫秒时间戳；0 关闭，-1 一直到关掉，其他负数 `bad_request`）。我的其他连接收到 `conv` 推送 |
 | GET | `/api/v1/blocks` | — | `ListBlocksResponse`：我屏蔽的人，新的在前 |
 | POST / DELETE | `/api/v1/blocks/{uid}` | — | `Empty`：屏蔽 / 取消屏蔽 |
 

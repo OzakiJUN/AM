@@ -82,6 +82,8 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/channels/{id}/join", a.authed(a.joinChannel))
 
 	mux.HandleFunc("GET /api/v1/conversations/{id}", a.authed(a.getConversation))
+	mux.HandleFunc("PUT /api/v1/conversations/{id}/pin", a.authed(a.setPinned))
+	mux.HandleFunc("PUT /api/v1/conversations/{id}/dnd", a.authed(a.setDnd))
 	mux.HandleFunc("GET /api/v1/users/{id}", a.authed(a.getUser))
 
 	mux.HandleFunc("PATCH /api/v1/me", a.authed(a.updateProfile))

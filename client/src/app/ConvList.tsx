@@ -2,7 +2,7 @@
 // search, and the conversations that belong to the page.
 import { useMemo, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Compass, Lock, PanelLeftClose, PanelLeftOpen, Plus, RefreshCw, Search, Users, WifiOff } from 'lucide-react';
+import { Bell, BellOff, Compass, Lock, PanelLeftClose, PanelLeftOpen, Pin, PinOff, Plus, RefreshCw, Search, Users, WifiOff } from 'lucide-react';
 import { listTime } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
 import { convPage, openConv, session, useOpenConv } from '@/lib/store';
@@ -13,7 +13,8 @@ import { FoldColumn, StripItem } from './Fold';
 import { ConvAvatar } from './media';
 import { PeopleDialog } from './People';
 import { ServerSwitcher, serverMenuItems } from './ServerSwitcher';
-import { convUnread } from './unread';
+import { byListOrder, convUnread, isDnd } from './unread';
+import type { Conversation } from '@/lib/types';
 
 const PAGES = {
   channels: { title: '频道', empty: '还没有频道。点上面的 + 新建一个，或者浏览公开频道。' },
@@ -31,7 +32,7 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
       Object.values(v.convs)
         .filter((c) => convPage(c, v.users) === page)
         .filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()))
-        .sort((a, b) => Number(!!a.left) - Number(!!b.left) || b.lastTime - a.lastTime || b.lastSeq - a.lastSeq),
+        .sort(byListOrder),
     [v.convs, v.users, q, page],
   );
 
@@ -59,7 +60,7 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
         const peer = c.peerId ? v.users[c.peerId] : undefined;
         const active = c.id === openId;
         return (
-          <StripItem key={c.id} label={c.name} active={active} dim={!!c.left} badge={active ? 0 : convUnread(c)} onClick={() => openConv(c.id)}>
+          <StripItem key={c.id} label={c.name} active={active} dim={!!c.left} badge={active || isDnd(c) ? 0 : convUnread(c)} onClick={() => openConv(c.id)} onContextMenu={(e) => openMenu(e, convMenu(v.id, c))}>
             <ConvAvatar conv={c} peer={peer} size={42} />
           </StripItem>
         );
@@ -95,12 +96,14 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
           const active = c.id === openId;
           const peer = c.peerId ? v.users[c.peerId] : undefined;
           const n = active ? 0 : convUnread(c);
+          const dnd = isDnd(c);
           return (
             <motion.button
               layout="position"
               transition={spring}
               key={c.id}
               onClick={() => openConv(c.id)}
+              onContextMenu={(e) => openMenu(e, convMenu(v.id, c))}
               className={cx(
                 'lift flex w-full items-center gap-3 rounded-2xl p-2.5 text-left',
                 active ? 'bg-accent-100/90 shadow-[var(--shadow-card)] dark:bg-white/10' : 'hover:bg-white/70 dark:hover:bg-white/5',
@@ -113,6 +116,8 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
                   <span className="truncate font-medium">{c.name}</span>
                   {c.kind === 'group' && !c.public && <Lock size={12} className="shrink-0 text-ink-soft/70 dark:text-white/40" aria-label="私密频道" />}
                   <IdentityChip user={peer} short />
+                  {dnd && <BellOff size={12} className="shrink-0 text-ink-soft/70 dark:text-white/40" aria-label="免打扰" />}
+                  {c.pinnedOrder > 0 && <Pin size={12} className="shrink-0 rotate-45 text-accent/80" aria-label="已置顶" />}
                   {c.lastTime > 0 && <span className="ml-auto shrink-0 text-[0.75rem] text-ink-soft/80 dark:text-white/40">{listTime(c.lastTime)}</span>}
                 </div>
                 <div className="mt-0.5 flex items-center gap-2">
@@ -124,7 +129,7 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
                         transition={spring}
-                        className="ml-auto min-w-[20px] shrink-0 rounded-full bg-accent px-1.5 text-center text-[0.72rem] leading-5 font-semibold text-white"
+                        className={cx('ml-auto min-w-[20px] shrink-0 rounded-full px-1.5 text-center text-[0.72rem] leading-5 font-semibold text-white', dnd ? 'bg-zinc-400/80 dark:bg-white/25' : 'bg-accent')}
                       >
                         {n > 99 ? '99+' : n}
                       </motion.span>
@@ -193,4 +198,32 @@ export function OfflineBanner({ v }: { v: SessionView }) {
       )}
     </AnimatePresence>
   );
+}
+
+/** Right-click menu of a channel / DM: pin and do not disturb (my own settings, all my devices). */
+function convMenu(serverId: string, c: Conversation): MenuItem[] {
+  const s = () => session(serverId)!;
+  if (c.left) return [];
+  const items: MenuItem[] = [
+    c.pinnedOrder > 0
+      ? { label: '取消置顶', key: `unpin:${c.id}`, icon: <PinOff size={16} />, onClick: () => s().setPinned(c.id, false) }
+      : { label: '置顶', key: `pin:${c.id}`, icon: <Pin size={16} />, onClick: () => s().setPinned(c.id, true) },
+  ];
+  if (isDnd(c)) {
+    items.push({ label: c.dndUntil === -1 ? '关闭免打扰' : `关闭免打扰（到 ${dndEnd(c.dndUntil)}）`, key: `dnd-off:${c.id}`, icon: <Bell size={16} />, onClick: () => s().setDnd(c.id, 0) });
+  } else {
+    const at = (h: number) => Date.now() + h * 3_600_000;
+    items.push(
+      { label: '免打扰 1 小时', key: `dnd1:${c.id}`, icon: <BellOff size={16} />, onClick: () => s().setDnd(c.id, at(1)) },
+      { label: '免打扰 8 小时', key: `dnd8:${c.id}`, icon: <BellOff size={16} />, onClick: () => s().setDnd(c.id, at(8)) },
+      { label: '一直免打扰', key: `dnd:${c.id}`, icon: <BellOff size={16} />, onClick: () => s().setDnd(c.id, -1) },
+    );
+  }
+  return items;
+}
+
+function dndEnd(ms: number) {
+  const d = new Date(ms);
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return d.toDateString() === new Date().toDateString() ? hm : `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`;
 }

@@ -85,6 +85,7 @@ function attach(rec: ServerRecord): Session {
       if (focused) return;
       const v = s.view;
       const conv = v.convs[convId];
+      if (conv && (conv.dndUntil === -1 || conv.dndUntil > Date.now())) return; // do not disturb
       const who = s.nameOf(m.senderId);
       notify(conv?.kind === 'group' ? conv.name : who, (conv?.kind === 'group' ? `${who}：` : '') + previewText(m, s.nameOf));
     },

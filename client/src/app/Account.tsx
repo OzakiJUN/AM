@@ -1,4 +1,4 @@
-// 账号设置: profile editing (name, avatar, signature), invites, devices,
+// 账号设置: profile editing (name, avatar, signature, status / invisible), invites, devices,
 // login records and logging out. The profile page itself is Profile.tsx.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
@@ -17,6 +17,7 @@ import { copyText } from '@/lib/platform';
 import { chatTime } from '@/lib/format';
 import { Button, Dialog, Input, Segmented, Spinner, Toggle, ask, cx, inputClass, spring, toast, toastError } from '@/ui';
 import { UserAvatar } from './media';
+import { MyStatus } from './MyStatus';
 
 type Tab = 'invites' | 'devices' | 'logins';
 
@@ -30,6 +31,7 @@ export function AccountPage({ v }: { v: SessionView }) {
       <h1 className="mb-6 text-[1.35rem] font-bold">账号设置</h1>
       <Profile v={v} />
       <Bio v={v} />
+      <MyStatus v={v} key={v.id} />
       <SyncCard v={v} />
       <div className="mt-10 mb-5 flex items-center gap-3">
         <Segmented id="me" value={tab} onChange={setTab} options={[

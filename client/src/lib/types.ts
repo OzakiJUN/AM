@@ -56,6 +56,10 @@ export interface Conversation {
   readSeq: number;
   myRole: MemberRole;
   mutedUntil: number;
+  /** My pin (0 = not pinned; larger = higher). Shared by my devices. */
+  pinnedOrder: number;
+  /** My do-not-disturb end in ms (0 = off, -1 = until turned off). */
+  dndUntil: number;
   lastText: string;
   lastTime: number;
   /** Set when you left / were removed; the history stays readable. */

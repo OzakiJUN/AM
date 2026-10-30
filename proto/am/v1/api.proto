@@ -307,6 +307,19 @@ message TransferGroupRequest {
 
 // DELETE /api/v1/groups/{id}   -> Empty   (owner only; dissolves the group)
 
+// PUT /api/v1/conversations/{id}/pin -> Conversation. Pins a channel or DM
+// to the top of my list (my own setting, shared by my devices).
+message SetPinnedRequest {
+  bool pinned = 1;
+}
+
+// PUT /api/v1/conversations/{id}/dnd -> Conversation. Do not disturb: no
+// notifications, unread shown grey. until: unix ms, 0 = off, -1 = until
+// turned off.
+message SetDndRequest {
+  int64 until = 1;
+}
+
 // POST /api/v1/groups/{id}/mute   -> Empty
 message MuteMemberRequest {
   int64 user_id = 1;

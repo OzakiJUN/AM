@@ -37,9 +37,16 @@ function hash(s: string) {
  * online but hidden (hollow ring). statusAt puts the dot top-right
  * (presence in lists) or bottom-right (default).
  */
-export function Avatar({ src, name, size = 40, status, statusAt = 'bottom', square, className }: {
-  src?: string; name: string; size?: number; status?: boolean | 'invisible'; statusAt?: 'top' | 'bottom'; square?: boolean; className?: string;
+/**
+ * status: online (green), offline (grey) or invisible (hollow ring). Online
+ * on an avatar of 28px or more shows `emoji` in the dot (what they are doing),
+ * or a white check mark when they are just online.
+ */
+export function Avatar({ src, name, size = 40, status, statusAt = 'bottom', emoji, square, className }: {
+  src?: string; name: string; size?: number; status?: boolean | 'invisible'; statusAt?: 'top' | 'bottom'; emoji?: string; square?: boolean; className?: string;
 }) {
+  const rich = status === true && size >= 28;
+  const dot = rich ? Math.max(15, Math.round(size * 0.32)) : Math.max(8, size * 0.26);
   const [a, b] = GRADIENTS[hash(name || '?') % GRADIENTS.length];
   const radius = square ? Math.round(size * 0.3) : size / 2;
   const [broken, setBroken] = useState(false);
@@ -59,12 +66,18 @@ export function Avatar({ src, name, size = 40, status, statusAt = 'bottom', squa
       {status !== undefined && (
         <span
           className={cx(
-            'absolute right-0 rounded-full ring-2 ring-white transition-colors duration-300 dark:ring-[#1e1b36]',
+            'absolute flex items-center justify-center rounded-full ring-2 ring-white transition-colors duration-300 dark:ring-[#1e1b36]',
             statusAt === 'top' ? 'top-0' : 'bottom-0',
+            rich ? '-right-0.5' : 'right-0',
             status === 'invisible' ? 'border-[2.5px] border-zinc-400 bg-white dark:bg-[#1e1b36]' : status ? 'bg-emerald-400' : 'bg-zinc-300 dark:bg-zinc-600',
+            rich && statusAt === 'top' && '-top-0.5',
           )}
-          style={{ width: Math.max(8, size * 0.26), height: Math.max(8, size * 0.26) }}
-        />
+          style={{ width: dot, height: dot }}
+        >
+          {rich && (emoji
+            ? <span className="leading-none select-none" style={{ fontSize: dot * 0.6 }} aria-hidden>{emoji}</span>
+            : <svg viewBox="0 0 12 12" width={dot * 0.62} height={dot * 0.62} aria-hidden><path d="M2.5 6.3l2.3 2.2 4.7-5" fill="none" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>)}
+        </span>
       )}
     </span>
   );
