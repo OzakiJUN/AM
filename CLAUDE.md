@@ -1,7 +1,7 @@
 # CLAUDE.md — working on AM
 
-Read this first, then `docs/design.md` and `docs/protocol.md`, then the
-module you are changing. Do not rely on chat history for design decisions:
+Read this first, then `docs/todo.md` (open requests), `docs/design.md` and
+`docs/protocol.md`, then the module you are changing. Do not rely on chat history for design decisions:
 the docs in this repo are the source of truth. When a decision changes,
 update the docs in the same commit.
 
