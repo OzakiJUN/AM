@@ -14,7 +14,11 @@ interface Prefs {
   listFolded: boolean;
   /** Channel member list (right) folded into a column of avatars. */
   membersFolded: boolean;
-  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded'>>) => void;
+  /** Copy changes of my profile to my other servers (lib/sync.ts). */
+  profileSync: boolean;
+  /** Seconds to wait after the last change before syncing. */
+  syncDelay: number;
+  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay'>>) => void;
 }
 
 export const usePrefs = create<Prefs>()(
@@ -25,6 +29,8 @@ export const usePrefs = create<Prefs>()(
       setPortrait: (p) => set(p === 'corner' ? { portrait: p } : { portrait: p, portraitOpen: p }),
       listFolded: false,
       membersFolded: false,
+      profileSync: true,
+      syncDelay: 30,
       set: (p) => set(p),
     }),
     { name: 'am-prefs' },

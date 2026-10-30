@@ -4,6 +4,8 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.AM_E2E_URL ?? 'http://127.0.0.1:4173';
 const JOIN = process.env.AM_E2E_JOIN; // admin join code of a fresh server (tls.mode = "off")
+// Optional: admin join code of a second fresh server (vite with AM_DEV_SERVER2) to test 资料同步.
+const JOIN2 = process.env.AM_E2E_JOIN2;
 const IMAGE = process.env.AM_E2E_IMAGE; // any JPEG / PNG
 const OUT = process.env.AM_E2E_OUT ?? '.';
 if (!JOIN || !IMAGE) {
@@ -246,12 +248,47 @@ const pages = [];
   await B.click('button:has-text("下一步")');
   await B.click('button:has-text("我已经有这个服务器的账号，直接登录")');
   await B.waitForSelector('text=以前退出过这个服务器'); // login form is in (after the slide)
+  // The login from registering was saved on this device: nothing to type.
+  await B.waitForSelector('text=密码用这台设备保存的');
   await wait(400);
-  await B.fill('input[autocomplete="username"]', 'xiaoke');
-  await B.fill('input[type="password"]', 'password123');
   await B.click('form button[type="submit"]:has-text("登录")');
   await B.waitForSelector('text=已连接');
   await B.waitForSelector('aside button:has-text("大厅")');
+
+  if (JOIN2) {
+    // 资料同步: A joins a second server with "用我的资料" (saved login, no typing);
+    // name, signature, status and the profile board are copied over.
+    await A.click('button[aria-label="账号设置"]');
+    await A.click('button[role="radio"]:has-text("10 秒")');
+    await A.click('button[aria-label="频道"]');
+    await A.click('button[aria-label="服务器列表"]');
+    await A.click('button:has-text("加入新服务器")');
+    await A.fill('textarea[aria-label="加入码"]', JOIN2);
+    await A.click('button:has-text("下一步")');
+    await A.waitForSelector('text=用我的资料：Weiqi');
+    await A.waitForSelector('text=密码用这台设备保存的');
+    await wait(400);
+    await shot(A, '20-join-with-profile');
+    await A.click('button:has-text("注册并进入")');
+    await A.waitForSelector('text=已把你的资料复制到', { timeout: 20000 });
+    await A.click('button[aria-label="个人主页"]');
+    await A.waitForSelector('text=今天也在写 AM');
+    await A.waitForSelector('text=🎧 正在听歌：晴天');
+    await A.waitForSelector('text=关于我');
+    await wait(800);
+    await shot(A, '21-copied-profile');
+    // A change here reaches the first server after the delay.
+    await A.click('button[aria-label="账号设置"]');
+    await A.fill('textarea#bio', '两个服务器一个我');
+    await A.click('button:has-text("保存签名")');
+    await A.waitForSelector('text=都同步好了', { timeout: 25000 });
+    await shot(A, '22-sync-card');
+    await A.click('button[aria-label="频道"]');
+    await A.click('button[aria-label="服务器列表"]');
+    await A.click('button[aria-label^="切换到 "]:not([aria-label="切换到 第二服"])');
+    await A.click('button[aria-label="个人主页"]');
+    await A.waitForSelector('text=两个服务器一个我');
+  }
   await b.close();
   console.log('E2E OK');
 })().catch(async (e) => {

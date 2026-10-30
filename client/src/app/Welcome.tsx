@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ClipboardPaste, ImageUp, LayoutDashboard, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ClipboardPaste, ImageUp, KeyRound, LayoutDashboard, Sparkles, X } from 'lucide-react';
 import { findJoinCode, parseJoinCode, type Join } from '@/lib/joincode';
 import { readClipboardText, scanQRFromFile } from '@/lib/platform';
 import { addServer, removeServer, switchServer, useApp } from '@/lib/store';
 import { endpointFromJoin, fetchServerInfo } from '@/lib/transport';
 import { errorText } from '@/lib/errors';
-import { Button, Field, Input, cx, inputClass, spring } from '@/ui';
+import { rememberLogin, savedPassword, useIdentity } from '@/lib/identity';
+import { copyAll, forgetServer, profileSource, whenReady } from '@/lib/sync';
+import type { User } from '@/lib/types';
+import { Avatar, Button, Field, Input, Toggle, ask, cx, inputClass, spring, toast } from '@/ui';
+import { useMediaUrl } from './media';
 import logo from '@/assets/logo.png';
 
 interface Found {
@@ -211,29 +215,66 @@ function Start({ onFound }: { onFound: (f: Found) => void }) {
 }
 
 function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'; found: Found; onBack: () => void; onSwitch?: () => void }) {
-  const [username, setUsername] = useState('');
+  const saved = useIdentity();
+  const [source] = useState(profileSource); // where "my profile" is copied from
+  const [username, setUsername] = useState(saved.username);
   const [display, setDisplay] = useState('');
   const [password, setPassword] = useState('');
+  const [savedPw, setSavedPw] = useState<string | null>(null);
+  const [mine, setMine] = useState(true); // use my saved login + profile
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const me = source?.view.me;
+  const useSaved = mine && savedPw !== null;
+  const copy = mine && !!me;
+
+  useEffect(() => {
+    let alive = true;
+    savedPassword().then((p) => alive && setSavedPw(p));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError('');
-    setBusy(true);
     const ep = endpointFromJoin(found.join);
-    const existed = useApp.getState().servers.some((x) => x.endpoint.address === ep.address);
+    const old = useApp.getState().servers.find((x) => x.endpoint.address === ep.address);
+    if (old && (old.endpoint.pin !== ep.pin || old.endpoint.plain !== ep.plain)) {
+      const ok = await ask({
+        title: '替换这个服务器？',
+        text: `这个地址以前是「${old.name}」，现在的证书不一样了（多半是服务器重装过）。继续的话，这台设备上的「${old.name}」会换成「${found.name}」，旧的登录就不用了。`,
+        ok: '替换',
+        danger: true,
+      });
+      if (ok === null) return;
+      forgetServer(old.id);
+    }
+    setBusy(true);
+    const pw = useSaved ? savedPw : password;
+    const user = username.trim();
     const s = addServer({ endpoint: ep, name: found.name });
     try {
-      if (mode === 'register') await s.register(found.join.invite!, username.trim(), password, display.trim());
+      if (mode === 'register') await s.register(found.join.invite!, user, pw, (copy ? me.name : display.trim()) || user);
       // A join code with an invite also brings back an account that left the server.
-      else await s.login(username.trim(), password, found.join.invite ?? '');
+      else await s.login(user, pw, found.join.invite ?? '');
+      void rememberLogin(user, pw);
+      // (Not when the server being replaced was the source itself.)
+      if (copy && source!.record.id !== old?.id) {
+        const from = source!.record.id;
+        const to = s.record.id;
+        whenReady(to).then(() => copyAll(from, to)).then(
+          () => toast(`已把你的资料复制到「${s.view.name}」`),
+          (err) => toast(`复制资料没成功：${errorText(err)}（可以在账号设置里再同步）`, true),
+        );
+      }
       switchServer(s.record.id);
       useApp.setState({ page: 'channels' }); // land in the server's channels
     } catch (err) {
       setError(errorText(err));
       // Don't keep a server we never got into.
-      if (!existed && !s.record.token) removeServer(s.record.id);
+      if (!old && !s.record.token) removeServer(s.record.id);
     } finally {
       setBusy(false);
     }
@@ -257,17 +298,39 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
             <span className="font-mono font-semibold tracking-wider text-accent-700 dark:text-accent-200">{found.join.invite?.replace(/(.{4})(?=.)/g, '$1 ')} ✓</span>
           </div>
         )}
+        {(me || savedPw !== null) && (
+          <div className={cx('rounded-2xl p-3 transition-colors', mine ? 'bg-accent-50 dark:bg-accent/10' : 'bg-black/[0.03] dark:bg-white/[0.04]')}>
+            <div className="flex items-center gap-3">
+              {me && <SourceAvatar user={me} serverId={source!.record.id} />}
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">{me ? `用我的资料：${me.name}` : '用保存的账号'}</div>
+                <div className="text-[0.78rem] text-ink-soft dark:text-white/50">
+                  {me ? `昵称、头像、签名和主页从「${source!.view.name}」复制过来，以后改了也会同步` : '用户名和密码都填好了'}
+                </div>
+              </div>
+              <Toggle checked={mine} onChange={setMine} label="用我的资料" />
+            </div>
+          </div>
+        )}
         <Field label="用户名" hint={mode === 'register' ? '3–20 位字母、数字或下划线，用来登录，以后不能改' : undefined}>
-          <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={mode === 'register' ? '例如 weiqi' : ''} autoComplete="username" autoFocus required />
+          <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={mode === 'register' ? '例如 weiqi' : ''} autoComplete="username" autoFocus={!username} required />
         </Field>
-        {mode === 'register' && (
+        {mode === 'register' && !copy && (
           <Field label="昵称" hint="大家看到的名字，随时能改">
             <Input value={display} onChange={(e) => setDisplay(e.target.value)} placeholder="不填就用用户名" maxLength={32} />
           </Field>
         )}
-        <Field label="密码" hint={mode === 'register' ? '至少 8 位' : undefined}>
-          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} required />
-        </Field>
+        {useSaved ? (
+          <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-4 py-3 text-[0.9rem] dark:bg-white/[0.04]">
+            <KeyRound size={16} className="text-accent" />
+            <span className="flex-1">密码用这台设备保存的</span>
+            <button type="button" onClick={() => setSavedPw(null)} className="text-[0.85rem] text-accent-700 hover:underline dark:text-accent-200">换一个</button>
+          </div>
+        ) : (
+          <Field label="密码" hint={mode === 'register' ? '至少 8 位' : undefined}>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} autoFocus={!!username} required />
+          </Field>
+        )}
         <AnimatePresence>
           {error && (
             <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-[0.85rem] text-rose-500" role="alert">
@@ -289,4 +352,9 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
       </form>
     </>
   );
+}
+
+function SourceAvatar({ user, serverId }: { user: User; serverId: string }) {
+  const src = useMediaUrl(user.avatarStatic, serverId);
+  return <Avatar src={src} name={user.name} size={40} />;
 }

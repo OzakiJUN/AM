@@ -9,6 +9,7 @@ import * as pf from '@/gen/am/v1/profile_pb';
 import { ApiError, errorFromBody } from './errors';
 import { encodeJoinCode, joinUrl } from './joincode';
 import { createTransport, type Endpoint, type Socket, type Transport } from './transport';
+import type { Part as SyncPart } from './profileSync';
 import type { Background, LayoutModel, WidgetModel } from './widgets';
 import type { Activity, ActivityKind, ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, Presence, SysEvent, User } from './types';
 
@@ -279,6 +280,12 @@ export class Session {
   /** Strikes / deletions for messages not loaded yet. */
   private struckIds = new Set<string>();
   view: SessionView;
+  /**
+   * Called after I change my own profile, presence or profile board here
+   * (lib/sync.ts copies the change to my other servers). Writes made by the
+   * sync itself pass quiet = true.
+   */
+  onOwnChange?: (parts: SyncPart[]) => void;
 
   constructor(
     public record: ServerRecord,
@@ -884,21 +891,23 @@ export class Session {
 
   // ---- me ----
 
-  async updateProfile(value: { displayName?: string; avatarMediaId?: bigint; bio?: string }) {
+  async updateProfile(value: { displayName?: string; avatarMediaId?: bigint; bio?: string }, quiet = false) {
     const u = await this.call('PATCH', '/api/v1/me', common.UserSchema, { schema: api.UpdateProfileRequestSchema, value });
     this.addUsers([u]);
     this.view.me = toUser(u);
     this.emit();
+    if (!quiet) this.onOwnChange?.(['profile']);
   }
 
   /** Invisible mode and activity. Saved on the server (stays after restarting). */
-  async setPresence(invisible: boolean, activity?: Activity) {
+  async setPresence(invisible: boolean, activity?: Activity, quiet = false) {
     const p = await this.call('PUT', '/api/v1/me/presence', common.PresenceSchema, {
       schema: api.SetPresenceRequestSchema,
       value: { invisible, activity: activity ? { kind: ACTIVITY_CODE[activity.kind], text: activity.text } : undefined },
     });
     const me = this.view.me?.id;
     if (me && this.view.status === 'online') this.patch({ presence: { ...this.view.presence, [me]: toPresence(p) } });
+    if (!quiet) this.onOwnChange?.(['presence']);
   }
 
   // ---- profile pages (widgets) ----
@@ -913,10 +922,12 @@ export class Session {
   }
 
   /** Saves a new version; `layout.version` is the version the edit started from. */
-  async saveProfile(t: ProfileTarget, layout: LayoutModel): Promise<ProfileData> {
-    return toProfile(await this.call('PUT', profilePath(t), pf.ProfileViewSchema, {
+  async saveProfile(t: ProfileTarget, layout: LayoutModel, quiet = false): Promise<ProfileData> {
+    const v = toProfile(await this.call('PUT', profilePath(t), pf.ProfileViewSchema, {
       schema: pf.SaveProfileRequestSchema, value: { layout: fromLayout(layout), baseVersion: BigInt(layout.version) },
     }));
+    if (!quiet && t === this.view.me?.id) this.onOwnChange?.(['board']);
+    return v;
   }
 
   async guestbook(t: ProfileTarget, widgetId: string, before = ''): Promise<{ entries: GuestEntry[]; nextBefore: string; canHide: boolean }> {

@@ -1,9 +1,10 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Hash, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, UserRound } from 'lucide-react';
+import { Hash, KeyRound, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, UserRound } from 'lucide-react';
 import { current, openProfile, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
+import { rememberLogin, savedPassword, useIdentity } from '@/lib/identity';
 import { Button, Empty, Field, Input, cx, ease, spring } from '@/ui';
 import { AIPage } from './AI';
 import { ChatView } from './Chat';
@@ -116,16 +117,27 @@ function NoServer() {
 }
 
 function LoginAgain({ v }: { v: SessionView }) {
-  const [username, setUsername] = useState('');
+  const saved = useIdentity();
+  const [username, setUsername] = useState(saved.username);
   const [password, setPassword] = useState('');
+  const [savedPw, setSavedPw] = useState<string | null>(null);
   const [error, setError] = useState(v.error ?? '');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    savedPassword().then((p) => alive && setSavedPw(p));
+    return () => {
+      alive = false;
+    };
+  }, []);
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError('');
+    const pw = savedPw ?? password;
     try {
-      await current().login(username.trim(), password);
+      await current().login(username.trim(), pw);
+      void rememberLogin(username.trim(), pw);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -140,8 +152,16 @@ function LoginAgain({ v }: { v: SessionView }) {
           <h2 className="text-[1.3rem] font-semibold">登录「{v.name}」</h2>
           <p className="mt-1 text-ink-soft dark:text-white/55">登录已失效或者你退出了，重新登录一下</p>
         </div>
-        <Field label="用户名"><Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required autoFocus /></Field>
-        <Field label="密码"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></Field>
+        <Field label="用户名"><Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required autoFocus={!username} /></Field>
+        {savedPw !== null ? (
+          <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-4 py-3 text-[0.9rem] dark:bg-white/[0.04]">
+            <KeyRound size={16} className="text-accent" />
+            <span className="flex-1">密码用这台设备保存的</span>
+            <button type="button" onClick={() => setSavedPw(null)} className="text-[0.85rem] text-accent-700 hover:underline dark:text-accent-200">换一个</button>
+          </div>
+        ) : (
+          <Field label="密码"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required autoFocus={!!username} /></Field>
+        )}
         {error && <p className="text-[0.85rem] text-rose-500" role="alert">{error}</p>}
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>登录</Button>
       </form>

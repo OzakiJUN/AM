@@ -2,6 +2,7 @@
 //! do itself (certificate pinning). The UI is the React app in ../src.
 
 mod net;
+mod secrets;
 
 use net::{Endpoint, Net, Reply, WsEvent};
 use tauri::http::{Response, StatusCode};
@@ -62,6 +63,32 @@ async fn download(net: State<'_, Net>, id: String, path: String, dest: String) -
         return Err(format!("下载失败（{status}）"));
     }
     tokio::fs::write(&dest, data).await.map_err(|err| err.to_string())
+}
+
+/// Raw bytes of a media path (to copy an avatar or a profile picture to
+/// another server). Arrives in JS as an ArrayBuffer.
+#[tauri::command]
+async fn media_bytes(net: State<'_, Net>, id: String, path: String) -> Res<tauri::ipc::Response> {
+    let (status, _, data) = net.fetch(&id, &path).await.map_err(e)?;
+    if status != 200 {
+        return Err(format!("取文件失败（{status}）"));
+    }
+    Ok(tauri::ipc::Response::new(data))
+}
+
+#[tauri::command]
+fn secret_get(key: String) -> Res<Option<String>> {
+    secrets::get(&key)
+}
+
+#[tauri::command]
+fn secret_set(key: String, value: String) -> Res<()> {
+    secrets::set(&key, &value)
+}
+
+#[tauri::command]
+fn secret_delete(key: String) -> Res<()> {
+    secrets::delete(&key)
 }
 
 #[tauri::command]
@@ -158,7 +185,8 @@ pub fn run() {
             });
         })
         .invoke_handler(tauri::generate_handler![
-            server_info, register_server, set_token, api, upload, download, ws_open, ws_send, ws_close
+            server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
+            secret_delete, ws_open, ws_send, ws_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

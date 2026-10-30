@@ -107,7 +107,7 @@ export function boot() {
  * Adds a server (from a join code) or returns the existing one with the same
  * address. Same address but a different certificate means the server was
  * reinstalled: the saved record takes the new certificate and drops the old
- * login (it is gone with the old database).
+ * login (it is gone with the old database). The join screen asks before that.
  */
 export function addServer(rec: Omit<ServerRecord, 'id'>): Session {
   const servers = useApp.getState().servers;

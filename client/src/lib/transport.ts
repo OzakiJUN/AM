@@ -45,6 +45,39 @@ export interface Transport {
   mediaUrl(path: string): Promise<string>;
   /** Saves a media file to disk (asks where). */
   download(path: string, filename: string): Promise<boolean>;
+  /** The bytes of a media path (to copy it to another server). */
+  mediaBytes(path: string): Promise<Blob>;
+}
+
+// Browser development only: a second local server can be reached through
+// the Vite proxy under /s2 (AM_DEV_SERVER2), to try things across servers.
+const devPrefix = (ep: Endpoint) => (__AM_DEV_SERVER2__ && ep.address === __AM_DEV_SERVER2__ ? '/s2' : '');
+
+/**
+ * Small secrets kept by the operating system (the saved password for joining
+ * more servers, docs/design.md §3). Desktop: Windows Credential Manager via
+ * Rust. Browser development mode: localStorage (not secret; dev only).
+ */
+export async function secretGet(key: string): Promise<string | null> {
+  if (inTauri) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<string | null>('secret_get', { key });
+  }
+  return localStorage.getItem('am-dev-secret:' + key);
+}
+export async function secretSet(key: string, value: string): Promise<void> {
+  if (inTauri) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<void>('secret_set', { key, value });
+  }
+  localStorage.setItem('am-dev-secret:' + key, value);
+}
+export async function secretDelete(key: string): Promise<void> {
+  if (inTauri) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<void>('secret_delete', { key });
+  }
+  localStorage.removeItem('am-dev-secret:' + key);
 }
 
 /** Asks a not-yet-added server for its info (join screen). */
@@ -53,12 +86,12 @@ export async function fetchServerInfo(ep: Endpoint): Promise<Reply> {
     const { invoke } = await import('@tauri-apps/api/core');
     return invoke<Reply>('server_info', { join: wireEndpoint(ep) });
   }
-  const r = await fetch('/api/v1/server');
+  const r = await fetch(devPrefix(ep) + '/api/v1/server');
   return { status: r.status, body: await r.text() };
 }
 
 export function createTransport(id: string, ep: Endpoint): Transport {
-  return inTauri ? new TauriTransport(id, ep) : new BrowserTransport();
+  return inTauri ? new TauriTransport(id, ep) : new BrowserTransport(devPrefix(ep));
 }
 
 function b64ToBytes(s: string) {
@@ -121,11 +154,16 @@ class TauriTransport implements Transport {
     await this.invoke('download', { id: this.id, path, dest });
     return true;
   }
+  async mediaBytes(path: string) {
+    return new Blob([await this.invoke<ArrayBuffer>('media_bytes', { id: this.id, path })]);
+  }
 }
 
 class BrowserTransport implements Transport {
   private token: string | null = null;
   private blobs = new Map<string, Promise<string>>();
+  /** "" or "/s2" (second dev server, see devPrefix). */
+  constructor(private prefix: string) {}
   async setToken(token: string | null) {
     this.token = token;
   }
@@ -133,17 +171,17 @@ class BrowserTransport implements Transport {
     return { ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}), ...extra };
   }
   async api(method: string, path: string, body?: string) {
-    const r = await fetch(path, { method, body, headers: this.headers(body ? { 'Content-Type': 'application/json' } : {}) });
+    const r = await fetch(this.prefix + path, { method, body, headers: this.headers(body ? { 'Content-Type': 'application/json' } : {}) });
     return { status: r.status, body: await r.text() };
   }
   async upload(file: File) {
     const fd = new FormData();
     fd.append('file', file, file.name);
-    const r = await fetch('/api/v1/media', { method: 'POST', body: fd, headers: this.headers() });
+    const r = await fetch(this.prefix + '/api/v1/media', { method: 'POST', body: fd, headers: this.headers() });
     return { status: r.status, body: await r.text() };
   }
   async openSocket(onFrame: (d: Uint8Array) => void, onClose: (r: string) => void): Promise<Socket> {
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${this.prefix}/ws`);
     ws.binaryType = 'arraybuffer';
     await new Promise<void>((resolve, reject) => {
       ws.onopen = () => resolve();
@@ -156,7 +194,7 @@ class BrowserTransport implements Transport {
   mediaUrl(path: string) {
     let p = this.blobs.get(path);
     if (!p) {
-      p = fetch(path, { headers: this.headers() }).then(async (r) => {
+      p = fetch(this.prefix + path, { headers: this.headers() }).then(async (r) => {
         if (!r.ok) throw new Error(String(r.status));
         return URL.createObjectURL(await r.blob());
       });
@@ -164,6 +202,11 @@ class BrowserTransport implements Transport {
       p.catch(() => this.blobs.delete(path));
     }
     return p;
+  }
+  async mediaBytes(path: string) {
+    const r = await fetch(this.prefix + path, { headers: this.headers() });
+    if (!r.ok) throw new Error(`取文件失败（${r.status}）`);
+    return r.blob();
   }
   async download(path: string, filename: string) {
     const url = await this.mediaUrl(path);

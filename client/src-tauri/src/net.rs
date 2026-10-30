@@ -233,7 +233,8 @@ impl Net {
     /// Fetches a media path (/api/v1/media/...) with the session token.
     pub async fn fetch(&self, id: &str, path: &str) -> Result<(u16, String, Vec<u8>), NetError> {
         let c = self.get(id)?;
-        if !path.starts_with("/api/v1/media/") {
+        // Media files and the server icon only (the token is attached).
+        if !path.starts_with("/api/v1/media/") && !path.starts_with("/api/v1/server/icon") {
             return Err(NetError("bad media path".into()));
         }
         let mut req = c.http.get(format!("{}{}", c.ep.base_url(), path));

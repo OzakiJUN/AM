@@ -130,6 +130,16 @@ update the docs in the same commit.
   and unit-tested; default pack in `assets/portraits/default`). The portrait
   floats in the AI chat without covering messages; position is a per-device
   pref (`lib/prefs.ts`).
+- One person, many servers (docs/design.md §7 资料同步): each server has its
+  own account; the client copies my profile (name, avatar, bio, invisible /
+  activity, profile board + its pictures) between them. Engine is pure and
+  tested (`lib/profileSync.ts`); `lib/sync.ts` queues changes (persisted,
+  debounced by prefs `syncDelay`, newest wins) from `Session.onOwnChange`;
+  writes made by the sync pass `quiet = true` so they don't echo. New
+  profile fields must be added to the sync too.
+- The saved login (`lib/identity.ts`): username in localStorage, password in
+  the OS credential store via Rust (`src-tauri/src/secrets.rs`, Windows
+  Credential Manager). Never put secrets in localStorage outside browser dev mode.
 - Personalization (theme mode, accent, background, font scale) is per device
   in localStorage; workshop themes will set the same fields.
 - AI emotion keys and fallbacks are listed in docs/design.md §9; keep the

@@ -3,14 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { motion } from 'motion/react';
-import { Check, Copy, Download, ImageUp, LogOut, Monitor, Pencil, Plus, Ticket } from 'lucide-react';
-import { current } from '@/lib/store';
+import { Check, Copy, Download, ImageUp, KeyRound, LogOut, Monitor, Pencil, Plus, RefreshCw, Ticket } from 'lucide-react';
+import { current, useApp } from '@/lib/store';
+import { forgetLogin, useIdentity } from '@/lib/identity';
+import { usePrefs } from '@/lib/prefs';
+import { syncNow, useSync } from '@/lib/sync';
 import type { SessionView } from '@/lib/session';
 import type { Invite } from '@/lib/types';
 import type { DeviceSession, LoginRecord } from '@/gen/am/v1/api_pb';
 import { copyText } from '@/lib/platform';
 import { chatTime } from '@/lib/format';
-import { Button, Input, Segmented, Spinner, ask, cx, inputClass, spring, toast, toastError } from '@/ui';
+import { Button, Input, Segmented, Spinner, Toggle, ask, cx, inputClass, spring, toast, toastError } from '@/ui';
 import { UserAvatar } from './media';
 
 type Tab = 'invites' | 'devices' | 'logins';
@@ -25,6 +28,7 @@ export function AccountPage({ v }: { v: SessionView }) {
       <h1 className="mb-6 text-[1.35rem] font-bold">账号设置</h1>
       <Profile v={v} />
       <Bio v={v} />
+      <SyncCard v={v} />
       <div className="mt-10 mb-5 flex items-center gap-3">
         <Segmented id="me" value={tab} onChange={setTab} options={[
           { value: 'invites', label: '我的邀请' }, { value: 'devices', label: '登录设备' }, { value: 'logins', label: '登录记录' },
@@ -126,6 +130,72 @@ function Bio({ v }: { v: SessionView }) {
         <div className="flex-1" />
         {changed && <Button size="sm" variant="ghost" onClick={() => setBio(v.me?.bio ?? '')}>还原</Button>}
         <Button size="sm" variant="primary" disabled={!changed} onClick={() => current().updateProfile({ bio: bio.trim() }).then(() => toast('签名已保存'))}>保存签名</Button>
+      </div>
+    </div>
+  );
+}
+
+const DELAYS = [
+  { value: '10', label: '10 秒' }, { value: '30', label: '30 秒' }, { value: '120', label: '2 分钟' }, { value: '600', label: '10 分钟' },
+];
+
+/** 资料同步 (lib/sync.ts) and the login saved on this device (lib/identity.ts). */
+function SyncCard({ v }: { v: SessionView }) {
+  const prefs = usePrefs();
+  const sync = useSync();
+  const servers = useApp((s) => s.servers);
+  const id = useIdentity();
+  const waiting = Object.values(sync.pending).reduce((n, e) => n + Object.keys(e).length, 0);
+  const errors = Object.entries(sync.errors).filter(([sid]) => servers.some((x) => x.id === sid));
+  const nameOf = (sid: string) => servers.find((x) => x.id === sid)?.name ?? sid;
+  return (
+    <div className="mt-8 max-w-xl space-y-3">
+      <div className="card rounded-2xl p-4">
+        <div className="flex items-center gap-3">
+          <RefreshCw size={18} className="shrink-0 text-accent" />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">资料同步</div>
+            <div className="text-[0.8rem] text-ink-soft dark:text-white/50">在一个服务器改了昵称、头像、签名、状态或主页，其他服务器也跟着改。聊天记录和频道不会同步。</div>
+          </div>
+          <Toggle checked={prefs.profileSync} onChange={(on) => prefs.set({ profileSync: on })} label="资料同步" />
+        </div>
+        {prefs.profileSync && (
+          <div className="mt-3 space-y-3 border-t border-black/5 pt-3 dark:border-white/10">
+            <div className="flex flex-wrap items-center gap-3 text-[0.85rem]">
+              <span className="text-ink-soft dark:text-white/60">改完多久后同步</span>
+              <Segmented id="sync-delay" value={String(prefs.syncDelay)} onChange={(d) => prefs.set({ syncDelay: Number(d) })} options={DELAYS} />
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-[0.82rem] text-ink-soft dark:text-white/50">
+              <span className="flex-1">
+                {servers.length < 2 ? '现在只有一个服务器，加入别的服务器后就会同步' : sync.running ? '正在同步…' : waiting ? `还有 ${waiting} 项等着同步（对方服务器连上就会同步）` : sync.last ? `都同步好了 · ${chatTime(sync.last)}` : '都同步好了'}
+              </span>
+              {servers.length > 1 && (
+                <Button size="sm" variant="ghost" onClick={() => syncNow(v.id).then(() => toast(Object.keys(useSync.getState().errors).length ? '有的服务器没同步成功' : '已同步'))}>
+                  把这里的资料同步到其他服务器
+                </Button>
+              )}
+            </div>
+            {errors.map(([sid, msg]) => (
+              <p key={sid} className="text-[0.8rem] text-rose-500">「{nameOf(sid)}」：{msg}</p>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="card flex items-center gap-3 rounded-2xl p-4">
+        <KeyRound size={18} className="shrink-0 text-accent" />
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold">这台设备保存的登录</div>
+          <div className="text-[0.8rem] text-ink-soft dark:text-white/50">
+            {id.username
+              ? `用户名 ${id.username}${id.hasPassword ? '，密码保存在系统的凭据管理器里' : '（这台设备不能保存密码）'}。加入新服务器、重新登录时直接用。`
+              : '还没有保存。下次登录或注册成功后会自动保存。'}
+          </div>
+        </div>
+        {id.username && (
+          <Button size="sm" variant="ghost" onClick={() => ask({ title: '忘记保存的登录？', text: '这台设备上保存的用户名和密码会删掉，已经登录的服务器不受影响。下次登录成功后会重新保存。', ok: '忘记', danger: true, run: forgetLogin })}>
+            忘记
+          </Button>
+        )}
       </div>
     </div>
   );
