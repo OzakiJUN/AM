@@ -25,7 +25,16 @@ const mock = createServer((req, res) => {
     if (req.headers.authorization !== 'Bearer sk-test') return res.writeHead(401, cors).end('{"error":{"message":"bad key"}}');
     const last = j.messages?.at(-1)?.content ?? '';
     res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
-    for (const piece of ['[mood:', 'shy] 喵～', '收到：', last]) {
+    // Asked to use the clipboard: call the tool first, then answer.
+    const wantsTool = last.includes?.('剪贴板') && j.messages.at(-1).role === 'user' && j.tools?.some((t) => t.function.name === 'set_clipboard');
+    if (wantsTool) {
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_1', function: { name: 'set_clipboard', arguments: '{"text":"小鱼' } }] } }] })}\n\n`);
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '到此一游"}' } }] } }] })}\n\n`);
+      return res.end('data: [DONE]\n\n');
+    }
+    const toolResult = j.messages?.filter((m) => m.role === 'tool').at(-1)?.content;
+    const pieces = toolResult ? ['[mood:smug] 放好啦（', toolResult, '）'] : ['[mood:', 'shy] 喵～', '收到：', last];
+    for (const piece of pieces) {
       res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: piece } }] })}\n\n`);
       await new Promise((r) => setTimeout(r, 150));
     }
@@ -428,6 +437,28 @@ const pages = [];
   if (await A.locator('text=[mood:').count()) throw new Error('mood tag shown');
   await wait(800);
   await shot(A, '27-ai-chat');
+
+  // Operating the computer: the clipboard set to "问我"; the AI asks, A allows once.
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("电脑")');
+  await A.click('div[role="group"][aria-label="剪贴板"] button[role="radio"]:has-text("问我")');
+  await A.click('div[role="dialog"] button:has-text("保存")');
+  await A.waitForSelector('text=已保存');
+  await A.keyboard.press('Escape');
+  await A.fill('textarea[aria-label="消息"]', '帮我把一句话放进剪贴板');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
+  await A.waitForSelector('text=小鱼 想要剪贴板', { timeout: 15000 });
+  await A.waitForSelector('text=小鱼 正在操作电脑');
+  await shot(A, '28-ai-asks');
+  await A.click('div[role="dialog"] button:has-text("允许这一次")');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("放好啦（已放进剪贴板）")', { timeout: 15000 });
+  if ((await A.evaluate(() => navigator.clipboard.readText())) !== '小鱼到此一游') throw new Error('clipboard not set');
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("记录")');
+  await A.waitForSelector('div[role="dialog"] >> text=把「小鱼到此一游」放进剪贴板');
+  await wait(400);
+  await shot(A, '29-ai-log');
+  await A.keyboard.press('Escape');
 
   await b.close();
   mock.close();

@@ -172,6 +172,14 @@ update the docs in the same commit.
   connection); keys: `lib/ai/keys.ts` (one credential-store entry per key,
   synced in the encrypted device state). `TextMsg.mood` is kept only for
   ai / bot senders.
+- AI operating the computer (docs/design.md §9 操作电脑): tool calling for the
+  three providers in `providers.ts` (`AgentMsg`, `ToolCall`, streamed
+  arguments); tool list + permission categories in `lib/ai/agent.ts` (pure,
+  tested); execution in `lib/ai/tools.ts` → Rust `src-tauri/src/agent.rs`
+  (file tools re-check the work folders; Windows-only screen / input deps
+  behind `cfg(windows)`); the loop is `reply()` in `runner.ts`; asks, the
+  status bar, F12 stop and the action log are `lib/ai/agentState.ts` +
+  `app/AgentHost.tsx`. Never run a tool the permission level says no to.
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

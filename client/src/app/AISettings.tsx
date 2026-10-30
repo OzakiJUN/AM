@@ -2,7 +2,12 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, ImageUp, KeyRound, Monitor, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Cpu, Folder, ImageUp, KeyRound, Monitor, Pencil, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { CATEGORY_LABEL } from '@/lib/ai/agent';
+import { readLog, type LogEntry } from '@/lib/ai/agentState';
+import type { Level, ToolCategory } from '@/lib/ai/persona';
+import { chatTime } from '@/lib/format';
+import { inTauri } from '@/lib/platform';
 import { deviceId } from '@/lib/deviceId';
 import { errorText } from '@/lib/errors';
 import { newProviderId, putProvider, removeProvider, useProviders } from '@/lib/ai/keys';
@@ -80,7 +85,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
   );
 }
 
-type Tab = 'persona' | 'model' | 'profile' | 'run';
+type Tab = 'persona' | 'model' | 'computer' | 'profile' | 'run' | 'log';
 
 /** One AI's settings. */
 export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClose: () => void; aiId: string }) {
@@ -98,7 +103,8 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
     <Dialog open={open} onClose={onClose} title={`「${info?.user.name ?? 'AI'}」的设置`} width={600}>
       <div className="mb-4">
         <Segmented id="ai-tab" value={tab} onChange={setTab} options={[
-          { value: 'persona', label: '人格' }, { value: 'model', label: '模型' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' },
+          { value: 'persona', label: '人格' }, { value: 'model', label: '模型' }, { value: 'computer', label: '电脑' },
+          { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
         ]} />
       </div>
       {!info ? (
@@ -107,6 +113,8 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
         <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
           {tab === 'persona' && <PersonaTab draft={draft} set={set} save={save} />}
           {tab === 'model' && <ModelTab draft={draft} set={set} save={save} />}
+          {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
+          {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
           {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} />}
           {tab === 'run' && <RunTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} onDeleted={onClose} />}
         </div>
@@ -176,6 +184,118 @@ function ModelTab({ draft, set, save }: TabProps) {
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存模型设置</Button></div>
       <ProvidersDialog open={manage} onClose={() => setManage(false)} />
     </>
+  );
+}
+
+/** Operating this computer: on / off, work folders, what it may do. */
+function ComputerTab({ draft, set, save }: TabProps) {
+  const c = draft.computer;
+  const setC = (x: Partial<AISettings['computer']>) => set({ computer: { ...c, ...x } });
+  const setLevel = async (cat: ToolCategory, level: Level) => {
+    if (level === 'allow' && CATEGORY_LABEL[cat].risky) {
+      const ok = await ask({
+        title: `让它${CATEGORY_LABEL[cat].name}不用问你？`,
+        text: `${CATEGORY_LABEL[cat].hint}。打开后它会自己判断要不要做，做了也只记在「记录」里。确定吗？`,
+        ok: '确定', danger: true,
+      });
+      if (ok === null) return;
+    }
+    setC({ levels: { ...c.levels, [cat]: level } });
+  };
+  const addDir = async () => {
+    let dir: string | null = null;
+    if (inTauri) {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const r = await open({ directory: true, multiple: false, title: '选一个让 AI 用的文件夹' });
+      dir = typeof r === 'string' ? r : null;
+    } else {
+      dir = await ask({ title: '添加工作目录', ok: '添加', input: { label: '文件夹路径', placeholder: 'D:\\AI', required: true } });
+    }
+    if (dir && !c.workDirs.includes(dir)) setC({ workDirs: [...c.workDirs, dir] });
+  };
+  return (
+    <>
+      <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">让它操作运行它的这台电脑</div>
+          <div className="text-[0.8rem] text-ink-soft dark:text-white/50">只在 Windows 版可用。操作时屏幕上方有提示条，点「停止」或按 F12 马上停。</div>
+        </div>
+        <Toggle label="让它操作电脑" checked={c.enabled} onChange={(on) => setC({ enabled: on })} />
+      </div>
+      {c.enabled && draft.whoCanChat === 'everyone' && (
+        <p className="flex gap-2 rounded-xl bg-amber-50 p-2.5 text-[0.8rem] text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+          <ShieldAlert size={16} className="mt-0.5 shrink-0" />
+          「谁能和它聊」是所有人：服务器里的人都能让它操作你的电脑（按下面的权限）。它会知道是谁在说话，但最终怎么做由它自己判断。
+        </p>
+      )}
+      <Field label="工作目录" hint="文件只能在这些文件夹里读写，命令从第一个文件夹开始运行（命令本身能碰到别的地方）">
+        <div className="space-y-1.5">
+          {c.workDirs.map((d) => (
+            <div key={d} className="flex items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+              <Folder size={15} className="shrink-0 text-accent" />
+              <span className="min-w-0 flex-1 truncate font-mono text-[0.82rem]" title={d}>{d}</span>
+              <button type="button" onClick={() => setC({ workDirs: c.workDirs.filter((x) => x !== d) })} aria-label={`移除 ${d}`} className="press rounded-md p-1 text-ink-soft hover:bg-black/5 dark:hover:bg-white/10"><X size={14} /></button>
+            </div>
+          ))}
+          <Button size="sm" variant="soft" onClick={addDir}><Plus size={14} /> 添加文件夹</Button>
+        </div>
+      </Field>
+      <div>
+        <div className="mb-1.5 text-[0.85rem] font-medium text-ink-soft dark:text-white/60">它能做什么</div>
+        <div className="space-y-1.5">
+          {(Object.keys(CATEGORY_LABEL) as ToolCategory[]).map((cat) => (
+            <div key={cat} role="group" aria-label={CATEGORY_LABEL[cat].name} className="flex flex-wrap items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-[0.9rem] font-medium">{CATEGORY_LABEL[cat].name}{CATEGORY_LABEL[cat].risky && <ShieldAlert size={13} className="text-amber-500" aria-label="有风险" />}</div>
+                <div className="text-[0.75rem] text-ink-soft dark:text-white/45">{CATEGORY_LABEL[cat].hint}</div>
+              </div>
+              <Segmented id={`lvl-${cat}`} value={c.levels[cat]} onChange={(l) => void setLevel(cat, l)} options={[
+                { value: 'allow', label: '允许' }, { value: 'ask', label: '问我' }, { value: 'deny', label: '不行' },
+              ]} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="模型能看图" hint="能看图的模型才打开（截图会发给模型服务商）">
+          <Toggle label="模型能看图" checked={c.vision} onChange={(on) => setC({ vision: on })} />
+        </Field>
+        <Field label="一次最多几步" hint="防止它一直停不下来">
+          <Input type="number" min={1} max={100} value={c.maxSteps} onChange={(e) => setC({ maxSteps: Math.max(1, Math.min(100, Number(e.target.value) || 20)) })} />
+        </Field>
+        <Field label="让鼠标（秒）" hint="你动了鼠标键盘后，等你停手几秒它才继续">
+          <Input type="number" min={1} max={60} value={c.yieldSeconds} onChange={(e) => setC({ yieldSeconds: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} />
+        </Field>
+      </div>
+      <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
+    </>
+  );
+}
+
+const RESULT: Record<LogEntry['result'], { text: string; cls: string }> = {
+  ok: { text: '完成', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300' },
+  denied: { text: '没允许', cls: 'bg-zinc-200 text-zinc-700 dark:bg-white/10 dark:text-white/60' },
+  error: { text: '出错', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300' },
+  stopped: { text: '被叫停', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-200' },
+};
+
+/** What it did on this computer (kept on this device). */
+function LogTab({ logKey }: { logKey: string }) {
+  const [list] = useState(() => readLog(logKey));
+  if (!list.length) return <p className="py-8 text-center text-ink-soft dark:text-white/45">还没有操作过电脑。这里只记在运行它的这台设备上。</p>;
+  return (
+    <div className="space-y-1.5">
+      {list.map((e, i) => (
+        <div key={i} className="rounded-xl bg-black/[0.03] px-3 py-2 text-[0.85rem] dark:bg-white/[0.04]">
+          <div className="flex items-center gap-2">
+            <span className={cx('shrink-0 rounded-md px-1.5 text-[0.72rem]', RESULT[e.result].cls)}>{RESULT[e.result].text}</span>
+            <span className="min-w-0 flex-1 truncate">{e.action}</span>
+            <span className="shrink-0 text-[0.75rem] text-ink-soft dark:text-white/45">{chatTime(e.at)} · {e.speaker}</span>
+          </div>
+          {e.detail && <div className="mt-1 line-clamp-3 font-mono text-[0.75rem] break-all whitespace-pre-wrap text-ink-soft dark:text-white/50">{e.detail}</div>}
+        </div>
+      ))}
+    </div>
   );
 }
 

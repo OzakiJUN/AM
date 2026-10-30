@@ -5,6 +5,7 @@ import { boot } from './lib/store';
 import { startSync } from './lib/sync';
 import { startDevices } from './lib/devices';
 import { startAI } from './lib/ai/runner';
+import { startAgentKeys } from './lib/ai/agentState';
 import { watchTheme } from './lib/theme';
 import './styles.css';
 
@@ -13,6 +14,7 @@ boot();
 startSync();
 startDevices();
 startAI();
+startAgentKeys();
 // No browser context menu (we show our own); keep it for text fields.
 window.addEventListener('contextmenu', (e) => {
   const t = e.target as HTMLElement;

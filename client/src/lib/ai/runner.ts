@@ -13,8 +13,11 @@ import { session, useApp } from '../store';
 import { aiRequest, secretDelete, secretGet, secretSet } from '../transport';
 import type { Message } from '../types';
 import { loadProviders, useProviders } from './keys';
+import { argsOf, categoryOf, computerPrompt, describeCall, levelFor, toolsFor } from './agent';
+import { appendLog, askOwner, setActivity, stopped } from './agentState';
 import { parseSettings, previewText, systemPrompt, toChat, type AISettings } from './persona';
-import { buildRequest, errorOf, streamReader } from './providers';
+import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
+import { execTool, type ToolCtx } from './tools';
 
 interface AIState {
   /** My AI accounts per server (owner view, with settings). */
@@ -52,6 +55,7 @@ interface Run {
 }
 
 const runs = new Map<string, Run>();
+const starting = new Set<string>();
 
 /** Settings of one of my AIs as last loaded. */
 export function aiSettings(serverId: string, aiId: string): AISettings {
@@ -62,7 +66,13 @@ export function aiSettings(serverId: string, aiId: string): AISettings {
 export async function refreshAIs(serverId: string) {
   const owner = session(serverId);
   if (!owner || owner.view.status !== 'online') return;
-  const list = await owner.listAI();
+  const fetched = await owner.listAI();
+  // A slower, older answer must not undo a newer save: keep the newest per AI.
+  const known = new Map((useAI.getState().byServer[serverId] ?? []).map((a) => [a.user.id, a]));
+  const list = fetched.map((a) => {
+    const k0 = known.get(a.user.id);
+    return k0 && k0.updatedAt > a.updatedAt ? k0 : a;
+  });
   useAI.setState((st) => ({ byServer: { ...st.byServer, [serverId]: list } }));
   for (const ai of list) {
     const settings = parseSettings(ai.settings);
@@ -72,7 +82,11 @@ export async function refreshAIs(serverId: string) {
       if (run) {
         run.ai = ai;
         run.settings = settings;
-      } else await start(serverId, ai, settings);
+      } else if (!starting.has(key)) {
+        // Two refreshes at once must not start it twice (the second runner would answer too).
+        starting.add(key);
+        await start(serverId, ai, settings).finally(() => starting.delete(key));
+      }
     } else if (run) stop(key);
   }
   for (const key of [...runs.keys()]) {
@@ -160,6 +174,41 @@ function onMessage(run: Run, convId: string, m: Message) {
   setTimeout(() => void reply(run, convId), 0);
 }
 
+/** One tool call: permission (ask the owner when needed), run it, log it. */
+async function useTool(run: Run, key: string, c: ToolCall, ctx: ToolCtx, speaker: string, step: number): Promise<AgentMsg> {
+  const args = argsOf(c.args);
+  const action = describeCall(c.name, args);
+  const aiName = run.ai.user.name;
+  const result = (content: string, images?: string[]): AgentMsg => ({ role: 'tool', callId: c.id, name: c.name, content, images });
+  if (stopped(key)) {
+    appendLog(key, { at: Date.now(), speaker, action, result: 'stopped' });
+    return result('主人叫停了，不要再继续操作。');
+  }
+  setActivity(key, { aiName, action, step });
+  let level = levelFor(run.settings.computer, c.name);
+  const category = categoryOf(c.name);
+  if (level === 'ask' && category) {
+    const answer = await askOwner({ aiName, speaker, action, category });
+    if (answer === 'always') {
+      const cur = run.settings;
+      await saveSettings(run.serverId, run.ai.user.id, { ...cur, computer: { ...cur.computer, levels: { ...cur.computer.levels, [category]: 'allow' } } }).catch(() => {});
+    }
+    level = answer === 'deny' ? 'deny' : 'allow';
+  }
+  if (level === 'deny') {
+    appendLog(key, { at: Date.now(), speaker, action, result: 'denied' });
+    return result('主人没有允许这个操作。换个办法，或者在聊天里跟对方说明。');
+  }
+  try {
+    const r = await execTool(c.name, args, ctx);
+    appendLog(key, { at: Date.now(), speaker, action, result: 'ok', detail: r.text.slice(0, 300) });
+    return result(r.text, r.images);
+  } catch (e) {
+    appendLog(key, { at: Date.now(), speaker, action, result: 'error', detail: errorText(e) });
+    return result(`出错了：${errorText(e)}`);
+  }
+}
+
 function textOf(m: Message): string | null {
   const b = m.body;
   switch (b.kind) {
@@ -198,19 +247,47 @@ async function reply(run: Run, convId: string) {
     );
     if (!chat.length) return;
     const ownerName = session(run.serverId)?.view.me?.name ?? '主人';
-    const req = buildRequest(p, {
-      model: st.model, temperature: st.temperature, maxTokens: st.maxTokens, messages: chat,
-      system: systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() }),
-    });
-    const reader = streamReader(p.kind);
-    let full = '';
-    patch('streams', streamKey, '');
-    const status = await aiRequest(req.url, req.headers, req.body, (chunk) => {
-      full += reader.feed(chunk);
-      patch('streams', streamKey, previewText(full));
-    });
-    if (status >= 400) throw new Error(`模型服务返回 ${status}：${errorOf(reader.raw()) || '没有说明'}`);
-    const { mood, text } = splitMoodTag(full);
+    const speakerId = [...msgs].reverse().find((x) => x.senderId !== run.ai.user.id)?.senderId ?? '';
+    const speaker = { name: s.nameOf(speakerId), isOwner: speakerId === run.ai.user.ownerId };
+    const comp = st.computer;
+    const tools = toolsFor(comp);
+    let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
+    if (tools.length) system += '\n\n' + computerPrompt(comp, speaker);
+    const turn: AgentMsg[] = [...chat];
+    const ctx: ToolCtx = { computer: comp, scale: 1 };
+    const agentKey = errKey;
+    let final = '';
+    try {
+      for (let step = 0; ; step++) {
+        const req = buildRequest(p, { model: st.model, temperature: st.temperature, maxTokens: st.maxTokens, messages: turn, system, tools });
+        const reader = streamReader(p.kind);
+        let text = '';
+        patch('streams', streamKey, '');
+        const status = await aiRequest(req.url, req.headers, req.body, (chunk) => {
+          text += reader.feed(chunk);
+          patch('streams', streamKey, previewText(text));
+        });
+        if (status >= 400) throw new Error(`模型服务返回 ${status}：${errorOf(reader.raw()) || '没有说明'}`);
+        const calls = reader.toolCalls();
+        if (!calls.length) {
+          final = text;
+          break;
+        }
+        if (step >= comp.maxSteps) {
+          final = text || '[mood:worried] 步骤太多了，我先停在这里，要继续的话再跟我说。';
+          break;
+        }
+        turn.push({ role: 'assistant', content: text, toolCalls: calls });
+        for (const c of calls) turn.push(await useTool(run, agentKey, c, ctx, speaker.name, step + 1));
+        if (stopped(agentKey)) {
+          final = '[mood:speechless] 好，我停下了。';
+          break;
+        }
+      }
+    } finally {
+      setActivity(agentKey, null);
+    }
+    const { mood, text } = splitMoodTag(final);
     if (!text.trim()) throw new Error('模型没有回复内容');
     await s.sendText(convId, text.trim(), mood);
     patch('errors', errKey, undefined);

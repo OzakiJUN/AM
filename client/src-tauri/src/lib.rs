@@ -1,6 +1,7 @@
 //! AM desktop client: the window (Tauri) plus the networking the UI cannot
 //! do itself (certificate pinning). The UI is the React app in ../src.
 
+mod agent;
 mod ai_http;
 mod net;
 mod secrets;
@@ -83,6 +84,64 @@ async fn ai_request(url: String, headers: Vec<(String, String)>, body: String, o
     ai_http::post(url, headers, body, on_event).await
 }
 
+// ---------- tools for AIs that operate this computer (agent.rs) ----------
+
+#[tauri::command]
+fn agent_list_dir(path: String, roots: Vec<String>) -> Res<Vec<agent::Entry>> {
+    agent::list_dir(&path, &roots)
+}
+
+#[tauri::command]
+fn agent_read_file(path: String, roots: Vec<String>, max: usize) -> Res<String> {
+    agent::read_file(&path, &roots, max)
+}
+
+#[tauri::command]
+fn agent_write_file(path: String, roots: Vec<String>, content: String, append: bool) -> Res<()> {
+    agent::write_file(&path, &roots, &content, append)
+}
+
+#[tauri::command]
+fn agent_trash(path: String, roots: Vec<String>) -> Res<()> {
+    agent::trash(&path, &roots)
+}
+
+#[tauri::command]
+async fn agent_run(command: String, cwd: Option<String>, timeout: u64) -> Res<agent::Output> {
+    agent::run(&command, cwd.as_deref(), timeout).await
+}
+
+#[tauri::command]
+fn agent_open(target: String) -> Res<()> {
+    agent::open(&target)
+}
+
+#[tauri::command]
+async fn agent_screenshot(max_width: u32) -> Res<agent::Shot> {
+    tauri::async_runtime::spawn_blocking(move || agent::screenshot(max_width)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn agent_input(action: agent::Input, scale: f64, quiet_ms: u32) -> Res<()> {
+    agent::input(action, scale, quiet_ms).await
+}
+
+/// F12 stops every AI that is operating the computer. Only held while one
+/// is (games and other programs keep F12 the rest of the time).
+#[tauri::command]
+fn agent_stop_key(app: tauri::AppHandle, on: bool) -> Res<()> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_global_shortcut::GlobalShortcutExt;
+        let gs = app.global_shortcut();
+        let r = if on { if gs.is_registered("F12") { Ok(()) } else { gs.register("F12") } } else { gs.unregister("F12") };
+        r.map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(desktop))]
+    let _ = (app, on);
+    Ok(())
+}
+
 #[tauri::command]
 fn secret_get(key: String) -> Res<Option<String>> {
     secrets::get(&key)
@@ -160,6 +219,16 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }));
+        builder = builder.plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    use tauri::Emitter;
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        let _ = app.emit("agent-stop", ());
+                    }
+                })
+                .build(),
+        );
     }
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -193,7 +262,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
-            secret_delete, ai_request, ws_open, ws_send, ws_close
+            secret_delete, ai_request, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
+            agent_screenshot, agent_input, agent_stop_key, ws_open, ws_send, ws_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

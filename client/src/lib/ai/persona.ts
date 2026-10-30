@@ -31,7 +31,39 @@ export interface AISettings {
   runner?: { id: string; name: string };
   /** Let it rewrite its own persona from time to time (third batch). */
   evolve: boolean;
+  /** Operating this computer (lib/ai/agent.ts). */
+  computer: ComputerSettings;
 }
+
+/** What an AI may do on the computer that runs it (docs/design.md §9, 操作电脑). */
+export interface ComputerSettings {
+  enabled: boolean;
+  /** Folders its file tools may use; commands start in the first one. */
+  workDirs: string[];
+  levels: Record<ToolCategory, Level>;
+  /** The model can look at pictures (offers the screenshot tool). */
+  vision: boolean;
+  /** Most tool rounds for one reply. */
+  maxSteps: number;
+  /** Seconds the owner must leave mouse and keyboard alone before it uses them. */
+  yieldSeconds: number;
+}
+
+export type ToolCategory = 'files_read' | 'files_write' | 'files_delete' | 'command' | 'open' | 'clipboard' | 'screen' | 'input';
+export type Level = 'allow' | 'ask' | 'deny';
+
+/**
+ * Defaults for my own AI (Weiqi: as much as possible): everything allowed
+ * except deleting and running commands, which ask first. All can be raised.
+ */
+export const DEFAULT_LEVELS: Record<ToolCategory, Level> = {
+  files_read: 'allow', files_write: 'allow', files_delete: 'ask', command: 'ask',
+  open: 'allow', clipboard: 'allow', screen: 'allow', input: 'allow',
+};
+
+export const defaultComputer = (): ComputerSettings => ({
+  enabled: true, workDirs: [], levels: { ...DEFAULT_LEVELS }, vision: false, maxSteps: 20, yieldSeconds: 3,
+});
 
 export const TEMPLATES: { key: string; name: string; persona: Persona }[] = [
   {
@@ -69,7 +101,7 @@ export const TEMPLATES: { key: string; name: string; persona: Persona }[] = [
 export function defaultSettings(template = TEMPLATES[0]): AISettings {
   return {
     v: 1, persona: { ...template.persona }, template: template.key, providerId: '', model: '', temperature: 0.8,
-    contextSize: 30, maxTokens: 1000, whoCanChat: 'owner', evolve: false,
+    contextSize: 30, maxTokens: 1000, whoCanChat: 'owner', evolve: false, computer: defaultComputer(),
   };
 }
 
@@ -79,7 +111,8 @@ export function parseSettings(json: string): AISettings {
   if (!json) return d;
   try {
     const v = JSON.parse(json) as Partial<AISettings>;
-    return { ...d, ...v, persona: { ...d.persona, ...v.persona } };
+    const c = { ...d.computer, ...v.computer };
+    return { ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } } };
   } catch {
     return d;
   }

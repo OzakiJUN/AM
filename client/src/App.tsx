@@ -4,6 +4,7 @@ import { AskHost, MenuHost, ToastHost, ease } from '@/ui';
 import { Backdrop } from '@/app/Backdrop';
 import { Shell } from '@/app/Shell';
 import { Welcome } from '@/app/Welcome';
+import { AgentHost } from '@/app/AgentHost';
 
 export default function App() {
   const view = useApp((s) => s.view);
@@ -22,6 +23,7 @@ export default function App() {
           {view === 'welcome' ? <Welcome /> : <Shell />}
         </motion.div>
       </AnimatePresence>
+      <AgentHost />
       <AskHost />
       <MenuHost />
       <ToastHost />
