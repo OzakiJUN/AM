@@ -516,7 +516,10 @@ type Conversation struct {
 	MemberRoles []MemberRole `protobuf:"varint,11,rep,packed,name=member_roles,json=memberRoles,proto3,enum=am.v1.MemberRole" json:"member_roles,omitempty"`
 	// Group: public channel. Every member of the server can see and join it,
 	// and new accounts join it automatically. False = private (invite only).
-	Public        bool `protobuf:"varint,12,opt,name=public,proto3" json:"public,omitempty"`
+	Public bool `protobuf:"varint,12,opt,name=public,proto3" json:"public,omitempty"`
+	// Shared AI room: the AI (bot / ai account) this private group belongs to.
+	// Clients list it on the AI page; the AI answers everyone in it. 0 = none.
+	AiId          int64 `protobuf:"varint,13,opt,name=ai_id,json=aiId,proto3" json:"ai_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -633,6 +636,13 @@ func (x *Conversation) GetPublic() bool {
 		return x.Public
 	}
 	return false
+}
+
+func (x *Conversation) GetAiId() int64 {
+	if x != nil {
+		return x.AiId
+	}
+	return 0
 }
 
 // Per-user settings and state inside one conversation.
@@ -795,7 +805,7 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x16\n" +
 	"\x06online\x18\x02 \x01(\bR\x06online\x12\x1c\n" +
 	"\tinvisible\x18\x03 \x01(\bR\tinvisible\x12+\n" +
-	"\bactivity\x18\x04 \x01(\v2\x0f.am.v1.ActivityR\bactivity\"\xff\x02\n" +
+	"\bactivity\x18\x04 \x01(\v2\x0f.am.v1.ActivityR\bactivity\"\x94\x03\n" +
 	"\fConversation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12#\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x0f.am.v1.ConvKindR\x04kind\x12\x12\n" +
@@ -809,7 +819,8 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\rjoin_approval\x18\n" +
 	" \x01(\bR\fjoinApproval\x124\n" +
 	"\fmember_roles\x18\v \x03(\x0e2\x11.am.v1.MemberRoleR\vmemberRoles\x12\x16\n" +
-	"\x06public\x18\f \x01(\bR\x06public\"\xb0\x01\n" +
+	"\x06public\x18\f \x01(\bR\x06public\x12\x13\n" +
+	"\x05ai_id\x18\r \x01(\x03R\x04aiId\"\xb0\x01\n" +
 	"\vMemberState\x12%\n" +
 	"\x04role\x18\x01 \x01(\x0e2\x11.am.v1.MemberRoleR\x04role\x12\x19\n" +
 	"\bread_seq\x18\x02 \x01(\x03R\areadSeq\x12!\n" +

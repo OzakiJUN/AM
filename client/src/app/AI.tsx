@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { KeyRound, PanelLeftClose, Plus, Sparkles } from 'lucide-react';
 import { listTime } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
-import { isBotConv, isDeletedBotConv, openConv, useOpenConv } from '@/lib/store';
+import { botOf, isBotConv, isDeletedBotConv, openConv, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, User } from '@/lib/types';
 import { Button, IconButton, IdentityChip, cx, spring } from '@/ui';
@@ -36,7 +36,10 @@ function AIList({ v }: { v: SessionView }) {
   const { mine, added } = useMemo(() => {
     const rows: Row[] = Object.values(v.convs)
       .filter((c) => isBotConv(c, v.users) && !isDeletedBotConv(c, v.users))
-      .map((c) => ({ conv: c, peer: v.users[c.peerId!] }))
+      .flatMap((c) => {
+        const peer = botOf(c, v.users);
+        return peer ? [{ conv: c, peer }] : [];
+      })
       .sort((a, b) => b.conv.lastTime - a.conv.lastTime || b.conv.lastSeq - a.conv.lastSeq);
     return { mine: rows.filter((r) => r.peer.ownerId === v.me?.id), added: rows.filter((r) => r.peer.ownerId !== v.me?.id) };
   }, [v.convs, v.users, v.me?.id]);
@@ -67,13 +70,13 @@ function AIList({ v }: { v: SessionView }) {
                 <UserAvatar user={peer} size={44} presence />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate font-medium">{peer.name}</span>
+                    <span className="truncate font-medium">{conv.kind === 'group' ? conv.name : peer.name}</span>
                     <IdentityChip user={peer} short />
                     {conv.lastTime > 0 && <span className="ml-auto shrink-0 text-[0.75rem] text-ink-soft/80 dark:text-white/40">{listTime(conv.lastTime)}</span>}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2">
                     <span className="truncate text-[0.82rem] text-ink-soft dark:text-white/50">
-                      {peer.ownerId === v.me?.id ? '我的' : `主人：${peer.ownerName || '未知'}`}
+                      {conv.kind === 'group' ? `共享聊天 · ${conv.members.length} 人` : peer.ownerId === v.me?.id ? '我的' : `主人：${peer.ownerName || '未知'}`}
                     </span>
                     <AnimatePresence>
                       {n > 0 && (

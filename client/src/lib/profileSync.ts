@@ -56,7 +56,8 @@ export function remapLayout(l: LayoutModel, map: Record<string, string>): Layout
       if (Array.isArray(config.media_ids)) config.media_ids = config.media_ids.map(one).filter(Boolean);
       if ('cover_id' in config) config.cover_id = one(config.cover_id);
       if ('audio_id' in config) config.audio_id = one(config.audio_id);
-      if (Array.isArray(config.songs)) config.songs = songList(config.songs).map((s) => ({ ...s, audio_id: one(s.audio_id) })).filter((s) => s.audio_id);
+      // NetEase songs need no copy; uploaded ones without a copy drop out.
+      if (Array.isArray(config.songs)) config.songs = songList(config.songs).map((s) => (s.netease_id ? s : { ...s, audio_id: one(s.audio_id) })).filter((s) => s.audio_id || s.netease_id);
       return { ...w, config, snapshotMediaId: w.snapshotMediaId ? one(w.snapshotMediaId) || undefined : undefined };
     }),
     background: l.background.mediaId

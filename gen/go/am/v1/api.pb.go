@@ -2703,6 +2703,61 @@ func (x *RunAIRequest) GetDeviceName() string {
 	return ""
 }
 
+// POST /api/v1/ai/{id}/room -> Conversation: a shared room with my AI, a
+// private group owned by me with the AI and the people listed; I add or
+// remove people later like in any channel.
+type CreateAIRoomRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	MemberIds     []int64                `protobuf:"varint,2,rep,packed,name=member_ids,json=memberIds,proto3" json:"member_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAIRoomRequest) Reset() {
+	*x = CreateAIRoomRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAIRoomRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAIRoomRequest) ProtoMessage() {}
+
+func (x *CreateAIRoomRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAIRoomRequest.ProtoReflect.Descriptor instead.
+func (*CreateAIRoomRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *CreateAIRoomRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateAIRoomRequest) GetMemberIds() []int64 {
+	if x != nil {
+		return x.MemberIds
+	}
+	return nil
+}
+
 // One sticker in my collection: one of my own uploaded images plus tags.
 type Sticker struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -2717,7 +2772,7 @@ type Sticker struct {
 
 func (x *Sticker) Reset() {
 	*x = Sticker{}
-	mi := &file_am_v1_api_proto_msgTypes[45]
+	mi := &file_am_v1_api_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2729,7 +2784,7 @@ func (x *Sticker) String() string {
 func (*Sticker) ProtoMessage() {}
 
 func (x *Sticker) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[45]
+	mi := &file_am_v1_api_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2742,7 +2797,7 @@ func (x *Sticker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sticker.ProtoReflect.Descriptor instead.
 func (*Sticker) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{45}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *Sticker) GetId() int64 {
@@ -2783,7 +2838,7 @@ type ListStickersResponse struct {
 
 func (x *ListStickersResponse) Reset() {
 	*x = ListStickersResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[46]
+	mi := &file_am_v1_api_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2795,7 +2850,7 @@ func (x *ListStickersResponse) String() string {
 func (*ListStickersResponse) ProtoMessage() {}
 
 func (x *ListStickersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[46]
+	mi := &file_am_v1_api_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2808,7 +2863,7 @@ func (x *ListStickersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStickersResponse.ProtoReflect.Descriptor instead.
 func (*ListStickersResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{46}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListStickersResponse) GetStickers() []*Sticker {
@@ -2831,7 +2886,7 @@ type AddStickerRequest struct {
 
 func (x *AddStickerRequest) Reset() {
 	*x = AddStickerRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[47]
+	mi := &file_am_v1_api_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2843,7 +2898,7 @@ func (x *AddStickerRequest) String() string {
 func (*AddStickerRequest) ProtoMessage() {}
 
 func (x *AddStickerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[47]
+	mi := &file_am_v1_api_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2856,7 +2911,7 @@ func (x *AddStickerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddStickerRequest.ProtoReflect.Descriptor instead.
 func (*AddStickerRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{47}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *AddStickerRequest) GetMediaId() int64 {
@@ -2884,7 +2939,7 @@ type UpdateStickerRequest struct {
 
 func (x *UpdateStickerRequest) Reset() {
 	*x = UpdateStickerRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[48]
+	mi := &file_am_v1_api_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2896,7 +2951,7 @@ func (x *UpdateStickerRequest) String() string {
 func (*UpdateStickerRequest) ProtoMessage() {}
 
 func (x *UpdateStickerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[48]
+	mi := &file_am_v1_api_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2909,12 +2964,208 @@ func (x *UpdateStickerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateStickerRequest.ProtoReflect.Descriptor instead.
 func (*UpdateStickerRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{48}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *UpdateStickerRequest) GetTags() []string {
 	if x != nil {
 		return x.Tags
+	}
+	return nil
+}
+
+// POST /api/v1/music/resolve -> ResolveMusicResponse. Reads a NetEase Cloud
+// Music song or playlist link (also the short 163cn.tv ones): title,
+// artist, tracks, and the cover, which is copied into my uploads
+// (cover_media_id) so visitors load it from this server.
+// music_link_invalid / music_unavailable.
+type ResolveMusicRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveMusicRequest) Reset() {
+	*x = ResolveMusicRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveMusicRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveMusicRequest) ProtoMessage() {}
+
+func (x *ResolveMusicRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveMusicRequest.ProtoReflect.Descriptor instead.
+func (*ResolveMusicRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *ResolveMusicRequest) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+type MusicTrack struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NeteaseId     string                 `protobuf:"bytes,1,opt,name=netease_id,json=neteaseId,proto3" json:"netease_id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Artist        string                 `protobuf:"bytes,3,opt,name=artist,proto3" json:"artist,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MusicTrack) Reset() {
+	*x = MusicTrack{}
+	mi := &file_am_v1_api_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MusicTrack) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MusicTrack) ProtoMessage() {}
+
+func (x *MusicTrack) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MusicTrack.ProtoReflect.Descriptor instead.
+func (*MusicTrack) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *MusicTrack) GetNeteaseId() string {
+	if x != nil {
+		return x.NeteaseId
+	}
+	return ""
+}
+
+func (x *MusicTrack) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *MusicTrack) GetArtist() string {
+	if x != nil {
+		return x.Artist
+	}
+	return ""
+}
+
+type ResolveMusicResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// "song" or "playlist".
+	Kind      string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	NeteaseId string `protobuf:"bytes,2,opt,name=netease_id,json=neteaseId,proto3" json:"netease_id,omitempty"`
+	Title     string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	// Song: its artists; playlist: who made it.
+	Artist       string `protobuf:"bytes,4,opt,name=artist,proto3" json:"artist,omitempty"`
+	CoverMediaId int64  `protobuf:"varint,5,opt,name=cover_media_id,json=coverMediaId,proto3" json:"cover_media_id,omitempty"`
+	// Playlist: the first 50 tracks. Song: just that one.
+	Tracks        []*MusicTrack `protobuf:"bytes,6,rep,name=tracks,proto3" json:"tracks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveMusicResponse) Reset() {
+	*x = ResolveMusicResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveMusicResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveMusicResponse) ProtoMessage() {}
+
+func (x *ResolveMusicResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveMusicResponse.ProtoReflect.Descriptor instead.
+func (*ResolveMusicResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ResolveMusicResponse) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *ResolveMusicResponse) GetNeteaseId() string {
+	if x != nil {
+		return x.NeteaseId
+	}
+	return ""
+}
+
+func (x *ResolveMusicResponse) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ResolveMusicResponse) GetArtist() string {
+	if x != nil {
+		return x.Artist
+	}
+	return ""
+}
+
+func (x *ResolveMusicResponse) GetCoverMediaId() int64 {
+	if x != nil {
+		return x.CoverMediaId
+	}
+	return 0
+}
+
+func (x *ResolveMusicResponse) GetTracks() []*MusicTrack {
+	if x != nil {
+		return x.Tracks
 	}
 	return nil
 }
@@ -3111,7 +3362,11 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\x0fbase_updated_at\x18\x02 \x01(\x03R\rbaseUpdatedAt\"/\n" +
 	"\fRunAIRequest\x12\x1f\n" +
 	"\vdevice_name\x18\x01 \x01(\tR\n" +
-	"deviceName\"g\n" +
+	"deviceName\"H\n" +
+	"\x13CreateAIRoomRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"member_ids\x18\x02 \x03(\x03R\tmemberIds\"g\n" +
 	"\aSticker\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
 	"\bmedia_id\x18\x02 \x01(\x03R\amediaId\x12\x12\n" +
@@ -3124,7 +3379,23 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\x12\x12\n" +
 	"\x04tags\x18\x02 \x03(\tR\x04tags\"*\n" +
 	"\x14UpdateStickerRequest\x12\x12\n" +
-	"\x04tags\x18\x01 \x03(\tR\x04tags*k\n" +
+	"\x04tags\x18\x01 \x03(\tR\x04tags\"'\n" +
+	"\x13ResolveMusicRequest\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\"Y\n" +
+	"\n" +
+	"MusicTrack\x12\x1d\n" +
+	"\n" +
+	"netease_id\x18\x01 \x01(\tR\tneteaseId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
+	"\x06artist\x18\x03 \x01(\tR\x06artist\"\xc8\x01\n" +
+	"\x14ResolveMusicResponse\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"netease_id\x18\x02 \x01(\tR\tneteaseId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x16\n" +
+	"\x06artist\x18\x04 \x01(\tR\x06artist\x12$\n" +
+	"\x0ecover_media_id\x18\x05 \x01(\x03R\fcoverMediaId\x12)\n" +
+	"\x06tracks\x18\x06 \x03(\v2\x11.am.v1.MusicTrackR\x06tracks*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -3143,7 +3414,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -3191,38 +3462,43 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*CreateAIRequest)(nil),          // 43: am.v1.CreateAIRequest
 	(*PutAISettingsRequest)(nil),     // 44: am.v1.PutAISettingsRequest
 	(*RunAIRequest)(nil),             // 45: am.v1.RunAIRequest
-	(*Sticker)(nil),                  // 46: am.v1.Sticker
-	(*ListStickersResponse)(nil),     // 47: am.v1.ListStickersResponse
-	(*AddStickerRequest)(nil),        // 48: am.v1.AddStickerRequest
-	(*UpdateStickerRequest)(nil),     // 49: am.v1.UpdateStickerRequest
-	(*User)(nil),                     // 50: am.v1.User
-	(*Activity)(nil),                 // 51: am.v1.Activity
+	(*CreateAIRoomRequest)(nil),      // 46: am.v1.CreateAIRoomRequest
+	(*Sticker)(nil),                  // 47: am.v1.Sticker
+	(*ListStickersResponse)(nil),     // 48: am.v1.ListStickersResponse
+	(*AddStickerRequest)(nil),        // 49: am.v1.AddStickerRequest
+	(*UpdateStickerRequest)(nil),     // 50: am.v1.UpdateStickerRequest
+	(*ResolveMusicRequest)(nil),      // 51: am.v1.ResolveMusicRequest
+	(*MusicTrack)(nil),               // 52: am.v1.MusicTrack
+	(*ResolveMusicResponse)(nil),     // 53: am.v1.ResolveMusicResponse
+	(*User)(nil),                     // 54: am.v1.User
+	(*Activity)(nil),                 // 55: am.v1.Activity
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	50, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	54, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	50, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	54, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	50, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	50, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	50, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	50, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	50, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	51, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	54, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	54, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	54, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	54, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	54, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	55, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	50, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	50, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	54, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	54, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	50, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
-	46, // 18: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	54, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	47, // 18: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
+	52, // 19: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -3239,7 +3515,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   49,
+			NumMessages:   53,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

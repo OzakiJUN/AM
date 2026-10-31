@@ -60,3 +60,16 @@ func (a *API) deleteSticker(w http.ResponseWriter, r *http.Request, _ *store.Ses
 	}
 	a.ok(w, &amv1.Empty{})
 }
+
+func (a *API) resolveMusic(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	req := &amv1.ResolveMusicRequest{}
+	if !a.read(w, r, req) {
+		return
+	}
+	out, err := a.music.Resolve(r.Context(), me, req.GetUrl())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, out)
+}

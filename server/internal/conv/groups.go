@@ -107,7 +107,21 @@ func (s *Service) CreateGroup(ctx context.Context, me *store.User, req *amv1.Cre
 	return s.createGroup(ctx, me, req.GetName(), req.GetMemberIds(), req.GetPublic())
 }
 
+// CreateAIRoom makes a shared room for one of me's AIs: a private group
+// with me as owner, the AI and the people listed.
+func (s *Service) CreateAIRoom(ctx context.Context, me, ai *store.User, rawName string, memberIDs []int64) (*amv1.Conversation, error) {
+	if strings.TrimSpace(rawName) == "" {
+		rawName = ai.DisplayName + "和大家"
+	}
+	return s.createGroupFor(ctx, me, rawName, append([]int64{ai.ID}, memberIDs...), false, ai.ID)
+}
+
 func (s *Service) createGroup(ctx context.Context, me *store.User, rawName string, memberIDs []int64, public bool) (*amv1.Conversation, error) {
+	return s.createGroupFor(ctx, me, rawName, memberIDs, public, 0)
+}
+
+// createGroupFor creates a channel; aiID marks it as that AI's shared room.
+func (s *Service) createGroupFor(ctx context.Context, me *store.User, rawName string, memberIDs []int64, public bool, aiID int64) (*amv1.Conversation, error) {
 	name, err := validGroupName(rawName)
 	if err != nil {
 		return nil, err
@@ -131,7 +145,7 @@ func (s *Service) createGroup(ctx context.Context, me *store.User, rawName strin
 			return err
 		}
 		c := &store.Conversation{ID: convID, Kind: int16(amv1.ConvKind_CONV_KIND_GROUP), Name: name, OwnerID: me.ID,
-			Public: public, CreatedAt: now}
+			Public: public, CreatedAt: now, AIID: aiID}
 		if err := q.CreateConversation(ctx, c, ""); err != nil {
 			return err
 		}

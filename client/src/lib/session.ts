@@ -158,6 +158,19 @@ const ROLE: Record<number, MemberRole> = {
 const role = (r: common.MemberRole): MemberRole => ROLE[r] ?? 'member';
 const s = (v: bigint) => (v === 0n ? '' : v.toString());
 
+export interface RemoteToolAsk {
+  requestId: string;
+  ai: User;
+  tool: string;
+  argsJson: string;
+}
+
+export interface RemoteToolAnswer {
+  ok: boolean;
+  text: string;
+  images: string[];
+}
+
 export interface Sticker {
   id: string;
   mediaId: string;
@@ -310,6 +323,9 @@ export class Session {
   onClientState?: () => void;
   /** The server has a new public address (relay changed): lib/store.ts checks it and switches. */
   onMoved?: (address: string) => void;
+  /** Someone's AI asks this device to run a computer tool (lib/ai/remote.ts decides). */
+  onRemoteTool?: (r: RemoteToolAsk) => void;
+  private remoteWaits = new Map<string, { from: string; done: (r: RemoteToolAnswer) => void }>();
   /** Several connection attempts failed (lib/store.ts tries the addresses used before). */
   onUnreachable?: () => void;
 
@@ -448,6 +464,13 @@ export class Session {
   /** Takes my AI out of a channel (it is put in with inviteMembers). */
   aiLeaveChannel(id: string, convId: string) {
     return this.call('DELETE', `/api/v1/ai/${id}/channels/${convId}`, null);
+  }
+
+  /** A shared room with my AI (I add people to it like to any channel). */
+  async createAIRoom(id: string, memberIds: string[] = []) {
+    const c = await this.call('POST', `/api/v1/ai/${id}/room`, common.ConversationSchema, { schema: api.CreateAIRoomRequestSchema, value: { memberIds: memberIds.map(BigInt) } });
+    this.upsertConv(c);
+    return s(c.id);
   }
 
   async deleteAI(id: string) {
@@ -648,6 +671,21 @@ export class Session {
       case 'serverMoved':
         if (f.msg.value.address && f.msg.value.address !== this.record.endpoint.address) this.onMoved?.(f.msg.value.address);
         break;
+      case 'remoteTool': {
+        const p = f.msg.value;
+        if (p.fromAi) this.onRemoteTool?.({ requestId: p.requestId, ai: toUser(p.fromAi), tool: p.tool, argsJson: p.argsJson });
+        break;
+      }
+      case 'remoteToolResult': {
+        const p = f.msg.value;
+        const w = this.remoteWaits.get(p.requestId);
+        // Only the person it asked may answer.
+        if (w && w.from === s(p.fromUserId)) {
+          this.remoteWaits.delete(p.requestId);
+          w.done({ ok: p.ok, text: p.text, images: p.images });
+        }
+        break;
+      }
       case 'joinRequest': {
         const jr = f.msg.value;
         const id = s(jr.convId);
@@ -678,6 +716,7 @@ export class Session {
       notice: c.notice,
       joinApproval: c.joinApproval,
       public: c.public,
+      aiId: s(c.aiId) || undefined,
       lastSeq: Number(c.lastSeq),
       readSeq: Math.max(Number(c.self?.readSeq ?? 0n), prev?.readSeq ?? 0),
       myRole: role(c.self?.role ?? common.MemberRole.MEMBER),
@@ -866,9 +905,10 @@ export class Session {
   }
 
   /** mood: only for AI accounts (their portrait), see lib/ai/runner.ts. mentions: user ids @-mentioned in the text. */
-  sendText(convId: string, text: string, mood?: string, mentions?: string[]) {
+  sendText(convId: string, text: string, mood?: string, mentions?: string[], replyTo?: string) {
     const m = mentions?.length ? mentions : undefined;
-    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text, mood, mentions: m?.map(BigInt) }) }, { kind: 'text', text, mood, mentions: m });
+    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text, mood, mentions: m?.map(BigInt), replyTo: replyTo ? BigInt(replyTo) : undefined }) },
+      { kind: 'text', text, mood, mentions: m, replyTo });
   }
 
   /** Removes a failed message from the list (it was never sent). */
@@ -897,6 +937,43 @@ export class Session {
   sendSticker(convId: string, st: Sticker) {
     return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: BigInt(st.mediaId), stickerTags: st.tags }) },
       { kind: 'image', mediaId: st.mediaId, w: 0, h: 0, stickerTags: st.tags.length ? st.tags : undefined });
+  }
+
+  /** Reads a NetEase song / playlist link; the cover is copied into my uploads. */
+  async resolveMusic(url: string) {
+    const r = await this.call('POST', '/api/v1/music/resolve', api.ResolveMusicResponseSchema, { schema: api.ResolveMusicRequestSchema, value: { url } });
+    return {
+      kind: r.kind as 'song' | 'playlist', neteaseId: r.neteaseId, title: r.title, artist: r.artist,
+      coverId: r.coverMediaId ? s(r.coverMediaId) : '', tracks: r.tracks.map((t) => ({ neteaseId: t.neteaseId, title: t.title, artist: t.artist })),
+    };
+  }
+
+  // ---- someone else's computer (docs/design.md §9) ----
+
+  /** (An AI's session) asks a person's devices to run a tool; resolves with their answer. */
+  async remoteTool(toUserId: string, tool: string, argsJson: string, timeoutMs = 150_000): Promise<RemoteToolAnswer> {
+    const requestId = randomId();
+    const answer = new Promise<RemoteToolAnswer>((resolve) => {
+      const timer = setTimeout(() => {
+        this.remoteWaits.delete(requestId);
+        resolve({ ok: false, text: '对方的电脑没有回应（可能不在线，或者没有回答）', images: [] });
+      }, timeoutMs);
+      this.remoteWaits.set(requestId, { from: toUserId, done: (r) => { clearTimeout(timer); resolve(r); } });
+    });
+    try {
+      await this.request({ case: 'remoteTool', value: create(gw.RemoteToolRequestSchema, { requestId, toUserId: BigInt(toUserId), tool, argsJson }) });
+    } catch (e) {
+      this.remoteWaits.delete(requestId);
+      throw e;
+    }
+    return answer;
+  }
+
+  /** (A person's device) answers an AI's request. */
+  async remoteToolResult(ask: RemoteToolAsk, r: RemoteToolAnswer) {
+    await this.request({ case: 'remoteToolResult', value: create(gw.RemoteToolResultSchema, {
+      requestId: ask.requestId, toAiId: BigInt(ask.ai.id), ok: r.ok, text: r.text.slice(0, 60_000), images: r.images.slice(0, 2),
+    }) });
   }
 
   // ---- stickers (my collection, lib/stickers.ts) ----

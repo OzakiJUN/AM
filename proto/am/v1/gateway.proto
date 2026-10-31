@@ -24,6 +24,10 @@ message ClientFrame {
     SyncRequest sync = 12;
     MarkReadRequest mark_read = 13;
     Ping ping = 14;
+    // An AI asks a person's devices to run a computer tool (they decide).
+    RemoteToolRequest remote_tool = 15;
+    // A person's device answers an AI's remote_tool.
+    RemoteToolResult remote_tool_result = 16;
   }
 }
 
@@ -36,6 +40,8 @@ message ServerFrame {
     SyncResponse sync = 13;
     MarkReadResponse mark_read = 14;
     Pong pong = 15;
+    // Reply to remote_tool / remote_tool_result: the server passed it on.
+    Ack ack = 16;
 
     // Pushes (req_id = 0).
     EventPush event = 30;
@@ -47,6 +53,8 @@ message ServerFrame {
     PresencePush presence = 35;
     ClientStatePush client_state = 36;
     ServerMovedPush server_moved = 37;
+    RemoteToolPush remote_tool = 38;
+    RemoteToolResultPush remote_tool_result = 39;
   }
 }
 
@@ -184,4 +192,46 @@ message ClientStatePush {
 // same certificate pin and switches only when that works.
 message ServerMovedPush {
   string address = 1;
+}
+
+message Ack {}
+
+// ---- someone else's AI operating my computer (docs/design.md §9) ----
+// The server only relays: it checks who may ask whom, and the person's own
+// device decides with its local settings (off unless turned on for that AI).
+
+// From an AI (bot / ai account) to a person. request_id ≤ 64 characters,
+// args_json ≤ 16 KiB. Errors: user_not_found, blocked, no_permission,
+// rate_limited (more than 30 a minute).
+message RemoteToolRequest {
+  string request_id = 1;
+  int64 to_user_id = 2;
+  string tool = 3;
+  string args_json = 4;
+}
+
+message RemoteToolPush {
+  string request_id = 1;
+  User from_ai = 2;
+  string tool = 3;
+  string args_json = 4;
+}
+
+// From the person's device back to the AI. text ≤ 64 KiB, at most 2 images
+// (base64), all together under 900 KiB.
+message RemoteToolResult {
+  string request_id = 1;
+  int64 to_ai_id = 2;
+  bool ok = 3;
+  string text = 4;
+  repeated string images = 5;
+}
+
+message RemoteToolResultPush {
+  string request_id = 1;
+  // Who answered (the AI checks it is the person it asked).
+  int64 from_user_id = 2;
+  bool ok = 3;
+  string text = 4;
+  repeated string images = 5;
 }

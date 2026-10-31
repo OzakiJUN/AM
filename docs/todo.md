@@ -12,7 +12,7 @@
 8. 安卓端：存密码和共享密钥要接 Android Keystore（现在只有 Windows 凭据管理器），扫登录码 / 加入码用摄像头（Tauri 扫码插件）。
 9. **自动更新**（方案已定，见 design.md 第 3 节「更新」）：AI 功能做好、给朋友试之前完成。
 10. **AI 第 2 批收尾**（design.md 第 9 节「操作电脑」）：2a、2b 已完成，等 Weiqi 在 Windows 上整批测试（界面自动化、自己的浏览器、MCP 只有桌面版能用）。还差游戏（截图 + 虚拟手柄，小批）。用真的 DeepSeek key 测一遍工具调用（云端开发环境要先放开 api.deepseek.com）。
-11. **AI 第 3 批**：人格无感自我迭代、频道里离线时的补回、共享 AI、别人的 AI 操作我的电脑（经服务器转发）。（AI 进频道、被 @ 回复、自己接话已做。）
+11. **AI 第 3 批收尾**：已做人格无感迭代、离线补回、共享聊天、别人的 AI 操作我的电脑。还差：别人主动「申请共用」某个 AI（现在只能主人拉人）、频道里「添加 bot」按钮。
 12. AI 余额查询和低余额提醒；AI 形象包（自定义立绘）上传。
 13. **工坊默认小游戏**（第五阶段，Weiqi 提的）：跟 AI 一起玩、让不同人的 AI 坐一桌玩桌游（AI 们各自跑在主人的设备上，经服务器同步牌局）。
 14. **AI 玩游戏**：优先用游戏自己的接口 / mod（例如 Minecraft 用 mineflayer 机器人，不占鼠标），没有接口的才截图 + 键鼠 / 虚拟手柄。参考项目：dsh-game-bridge（DeepSeek Harness 的游戏插件：DXcam 截屏 + RapidOCR，虚拟 Xbox 手柄 ViGEmBus + SendInput；F12 一键收回控制、游戏窗口不在前台就不动、反作弊游戏直接拒绝、默认只演练不真按、操作留记录——第 2 批的「让鼠标」和急停照这个思路），ZerolanLiveRobot（B 站弹幕 + 看屏幕 + mineflayer 操作 Minecraft）、DeepSeek Harness（DeepSeek 开源的 agent 框架，插件式，开发者预览版）、AI-XiaoPi（弹幕 → 模型 → TTS 的直播助手）、digital-human-livestream（LiveTalking 二次开发：B 站弹幕 → DeepSeek → EdgeTTS → wav2lip / MuseTalk 数字人，要 CUDA 显卡）。以后做 AI 直播 / 语音时再细看。

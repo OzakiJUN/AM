@@ -83,7 +83,9 @@ type Retention struct {
 }
 
 type Media struct {
-	BlockDistance int `toml:"block_distance"`
+	BlockDistance int    `toml:"block_distance"`
+	Netease       bool   `toml:"netease"`
+	NeteaseAPI    string `toml:"netease_api"`
 }
 
 type Admin struct {

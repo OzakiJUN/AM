@@ -154,6 +154,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | PUT | `/api/v1/ai/{id}/settings` | `PutAISettingsRequest` | `AIAccount`：设置 JSON（最多 64 KiB，服务器原样保存）。`base_updated_at` 不是当前版本时 `state_conflict` |
 | POST | `/api/v1/ai/{id}/run` | `RunAIRequest` | `SessionResponse`：这台设备以 AI 身份登录，成为运行它的设备；AI 在别处的登录全部结束 |
 | DELETE | `/api/v1/ai/{id}` | — | `Empty`：AI 退出服务器（同 leave） |
+| POST | `/api/v1/ai/{id}/room` | `CreateAIRoomRequest` | `Conversation`：给我的 AI 开一个共享聊天（私密频道，`ai_id` = 这个 AI，我是群主，AI 和列出的人是成员） |
 | DELETE | `/api/v1/ai/{id}/channels/{conv}` | — | `Empty`：把我的 AI 从一个频道里拿出来（它自己退出；拉进去用普通的邀请成员） |
 
 不是我的 AI（或已删除）一律 `user_not_found`。删除、离开或被封的账号在 `User.gone` 里是 `true`（旧消息照样显示它，客户端列表里不再列出删掉的 bot / AI）。AI 的个人主页（`PUT /api/v1/users/{id}/profile`）主人也能存。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
@@ -183,8 +184,8 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
   | `countdown` | 1×1 | `title`（≤30）、`date`（毫秒） |
   | `stats` | 2×1 | `items`：`messages` `streak` `joined`（个人）/ `members` `messages` `channels` `age`（服务器） |
   | `guestbook` | 2×2 | `title`（≤30） |
-  | `song` | 2×1 | `title`（≤60）、`artist`（≤40）、`audio_id`（自己上传的音频）、`cover_id`（图片，可空） |
-  | `playlist` | 2×2 | `title`（≤40）、`cover_id`（图片，可空）、`songs`（最多 30 首：`title` ≤60、`artist` ≤40、`audio_id`） |
+  | `song` | 2×1 | `title`（≤60）、`artist`（≤40）、`audio_id`（自己上传的音频）或 `netease_id`（网易云歌曲 id，数字，两个只能有一个）、`cover_id`（图片，可空） |
+  | `playlist` | 2×2 | `title`（≤40）、`cover_id`（图片，可空）、`netease_id`（来自哪个网易云歌单，可空）、`songs`（最多 50 首：`title` ≤60、`artist` ≤40、`audio_id` 或 `netease_id`） |
   | `music` | 2×2 | 旧的网易云外链：`provider`（`netease`）、`playlist_id`（数字）、`title`（≤40）。客户端不再提供，已有的照常显示 |
   | `status` | 2×1 | 只能放在个人主页 |
   | `online` | 2×2 | 只能放在服务器主页 |
@@ -193,6 +194,12 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 - `song` / `playlist` 的 `audio_id` 必须是音频文件（`audio/*`，或者文件名是 .mp3 .m4a .aac .flac .ogg .opus .wav .webm 的），否则 `invalid_widget`；新放上去的也必须是保存的人自己上传的。
 - 权限：个人主页只有本人能存（bot / AI 的主页它的主人也能存）。服务器主页：站点管理员都行；加删、挪动、改大小、改背景要"谁能改布局"；改某个组件的 `config` 要"成员能改小组件内容"打开且这个组件不是 `WIDGET_EDITORS_ADMINS`；改 `content_editors` 只有站点管理员。新放上去的图片必须是保存的人自己上传的。
 - 每次保存是一个新版本，旧版本保留 `retention.evidence_days` 天。
+
+### 音乐链接
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| POST | `/api/v1/music/resolve` | `ResolveMusicRequest` | `ResolveMusicResponse`：读网易云的单曲 / 歌单链接（可以是整段分享文字、163cn.tv 短链）：类型、id、名字、歌手（歌单是创建者）、前 50 首；封面复制成我的上传（`cover_media_id`，读不到封面时是 0）。不是网易云歌曲 / 歌单链接 `music_link_invalid`；网易云没回答、关掉了（`media.netease = false`）`music_unavailable` |
 
 ### 表情
 
@@ -248,6 +255,12 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | `sys_member{ROLE_CHANGE}` | 角色变化（`new_role`），转让群主是两条 |
 | `admin_delete` | 管理员删除了某条消息 |
 
+### 别人的 AI 操作我的电脑（转发）
+
+- AI 账号的连接发 `remote_tool{request_id, to_user_id, tool, args_json}`：服务器回 `ack`，把 `remote_tool{request_id, from_ai, tool, args_json}` 推给那个人的所有在线设备。只能发给真人；双方（AI 或它的主人）有一方屏蔽了对方 `blocked`；真人发 `no_permission`；每个 AI 每分钟最多 30 个 `rate_limited`；`args_json` 最多 16 KiB。
+- 那个人的某台设备（打开了允许的那台）回 `remote_tool_result{request_id, to_ai_id, ok, text, images}`：服务器回 `ack`，把 `remote_tool_result{request_id, from_user_id, ...}` 推给那个 AI。只有真人能回；`text` 最多 64 KiB，`images` 最多 2 张，合计 900 KiB 以内（`too_long`）。
+- 服务器什么都不记，也不判断能不能做：允不允许、问不问人都在对方设备上决定（docs/design.md §9）。
+
 ## 错误码
 
 | code | HTTP | 含义 |
@@ -297,6 +310,8 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
 | `ai_limit` | 403 | AI 账号已经建到 `limits.max_ai_per_user` 个 |
 | `sticker_limit` | 403 | 表情已经存到 `limits.max_stickers` 个 |
+| `music_link_invalid` | 400 | 不是网易云的歌曲 / 歌单链接 |
+| `music_unavailable` | 502 | 没能从网易云读到（链接对不上、网易云没回答，或者服务器关掉了这个功能） |
 | `too_many_devices` | 403 | 这个账号登录的设备已经到 `limits.max_devices` 台，先退出一台（登录、生成登录码、用登录码时） |
 | `invalid_pair_code` | 400 | 登录码的 ticket 不对、用过了或过期了 |
 | `state_conflict` | 409 | 共享数据在你合并期间被另一台设备存过了，取回重新合并 |

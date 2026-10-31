@@ -31,6 +31,8 @@ export interface SelfApi {
   channels(): string;
   sendToChannel(channel: string, text: string): Promise<string>;
   messageOwner(text: string): Promise<void>;
+  /** Asks a person's computer to run a tool (they decide on their device). */
+  remote(person: string, tool: string, argsJson: string): Promise<ToolResult>;
 }
 
 interface UINode { id: number; depth: number; role: string; name: string; value: string; enabled: boolean }
@@ -179,6 +181,9 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
     case 'send_to_channel':
     case 'message_owner':
       return { text: await ownTool(name, a, ctx) };
+    case 'use_computer_of':
+      if (!ctx.self) return { text: '现在用不了这个工具' };
+      return ctx.self.remote(s(a.person), s(a.tool), s(a.args_json) || '{}');
     case 'wait':
       await new Promise((r) => setTimeout(r, Math.min(30, Math.max(0, n(a.seconds, 1))) * 1000));
       return { text: '等好了' };

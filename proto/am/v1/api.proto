@@ -412,6 +412,14 @@ message RunAIRequest {
 
 // DELETE /api/v1/ai/{id} -> Empty: the AI leaves the server for good.
 
+// POST /api/v1/ai/{id}/room -> Conversation: a shared room with my AI, a
+// private group owned by me with the AI and the people listed; I add or
+// remove people later like in any channel.
+message CreateAIRoomRequest {
+  string name = 1;
+  repeated int64 member_ids = 2;
+}
+
 // ---- stickers (docs/design.md §11) ----
 
 // One sticker in my collection: one of my own uploaded images plus tags.
@@ -440,4 +448,33 @@ message AddStickerRequest {
 // DELETE /api/v1/stickers/{id} -> Empty.
 message UpdateStickerRequest {
   repeated string tags = 1;
+}
+
+// ---- music links (docs/design.md §7, music widgets) ----
+
+// POST /api/v1/music/resolve -> ResolveMusicResponse. Reads a NetEase Cloud
+// Music song or playlist link (also the short 163cn.tv ones): title,
+// artist, tracks, and the cover, which is copied into my uploads
+// (cover_media_id) so visitors load it from this server.
+// music_link_invalid / music_unavailable.
+message ResolveMusicRequest {
+  string url = 1;
+}
+
+message MusicTrack {
+  string netease_id = 1;
+  string title = 2;
+  string artist = 3;
+}
+
+message ResolveMusicResponse {
+  // "song" or "playlist".
+  string kind = 1;
+  string netease_id = 2;
+  string title = 3;
+  // Song: its artists; playlist: who made it.
+  string artist = 4;
+  int64 cover_media_id = 5;
+  // Playlist: the first 50 tracks. Song: just that one.
+  repeated MusicTrack tracks = 6;
 }

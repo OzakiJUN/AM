@@ -20,6 +20,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/presence"
+	"github.com/OzakiJUN/am/server/internal/remote"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -192,11 +193,12 @@ type Gateway struct {
 	conv     *conv.Service
 	msg      *message.Service
 	presence *presence.Service
+	remote   *remote.Service
 	log      *slog.Logger
 }
 
-func New(hub *Hub, acct *account.Service, cs *conv.Service, ms *message.Service, ps *presence.Service, log *slog.Logger) *Gateway {
-	return &Gateway{hub: hub, acct: acct, conv: cs, msg: ms, presence: ps, log: log}
+func New(hub *Hub, acct *account.Service, cs *conv.Service, ms *message.Service, ps *presence.Service, rm *remote.Service, log *slog.Logger) *Gateway {
+	return &Gateway{hub: hub, acct: acct, conv: cs, msg: ms, presence: ps, remote: rm, log: log}
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -359,6 +361,14 @@ func (g *Gateway) handle(ctx context.Context, c *Conn, f *amv1.ClientFrame) *amv
 	case *amv1.ClientFrame_MarkRead:
 		if err = g.msg.MarkRead(ctx, c.user, m.MarkRead); err == nil {
 			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_MarkRead{MarkRead: &amv1.MarkReadResponse{}}}
+		}
+	case *amv1.ClientFrame_RemoteTool:
+		if err = g.remote.Request(ctx, c.user, m.RemoteTool); err == nil {
+			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}
+		}
+	case *amv1.ClientFrame_RemoteToolResult:
+		if err = g.remote.Result(ctx, c.user, m.RemoteToolResult); err == nil {
+			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}
 		}
 	case *amv1.ClientFrame_Auth:
 		err = apperr.New(http.StatusBadRequest, "already_authenticated", "already authenticated")

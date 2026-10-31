@@ -30,8 +30,16 @@ export interface AISettings {
   whoCanChat: 'owner' | 'everyone';
   /** The one device that runs it (lib/deviceId.ts). */
   runner?: { id: string; name: string };
-  /** Let it rewrite its own persona from time to time (third batch). */
+  /** Let it rewrite its own persona from time to time, silently (lib/ai/runner.ts evolve). */
   evolve: boolean;
+  /** When it last rewrote it (ms). */
+  evolvedAt?: number;
+  /** Earlier versions it replaced, oldest first (at most EVOLVE_KEEP), to go back to. */
+  personaHistory?: { at: number; persona: Persona }[];
+  /** Offline catch-up: answer what people asked it while it was away (lib/ai/runner.ts catchUp). */
+  catchUp: { enabled: boolean; hours: number; max: number };
+  /** Shared rooms: how many messages a day it answers for each person other than its owner (0 = no limit). */
+  roomDailyPerPerson: number;
   /** Operating this computer (lib/ai/agent.ts). */
   computer: ComputerSettings;
   /** Behaviour in channels (lib/ai/social.ts). */
@@ -67,7 +75,7 @@ export interface McpServer {
 
 export type ToolCategory =
   | 'files_read' | 'files_write' | 'files_delete' | 'command' | 'open' | 'clipboard' | 'screen' | 'input'
-  | 'ui' | 'browser' | 'mcp' | 'self' | 'social';
+  | 'ui' | 'browser' | 'mcp' | 'self' | 'social' | 'remote';
 export type Level = 'allow' | 'ask' | 'deny';
 
 /**
@@ -78,7 +86,7 @@ export type Level = 'allow' | 'ask' | 'deny';
 export const DEFAULT_LEVELS: Record<ToolCategory, Level> = {
   files_read: 'allow', files_write: 'allow', files_delete: 'ask', command: 'ask',
   open: 'allow', clipboard: 'allow', screen: 'allow', input: 'allow',
-  ui: 'allow', browser: 'allow', mcp: 'ask', self: 'allow', social: 'allow',
+  ui: 'allow', browser: 'allow', mcp: 'ask', self: 'allow', social: 'allow', remote: 'allow',
 };
 
 export const defaultComputer = (): ComputerSettings => ({
@@ -122,7 +130,7 @@ export function defaultSettings(template = TEMPLATES[0]): AISettings {
   return {
     v: 1, persona: { ...template.persona }, template: template.key, providerId: '', model: '', temperature: 0.8,
     contextSize: 30, maxTokens: 1000, whoCanChat: 'owner', evolve: false, computer: defaultComputer(),
-    channels: defaultChannels(), routine: defaultRoutine(),
+    channels: defaultChannels(), routine: defaultRoutine(), catchUp: { enabled: true, hours: 12, max: 5 }, roomDailyPerPerson: 50,
   };
 }
 
@@ -135,7 +143,7 @@ export function parseSettings(json: string): AISettings {
     const c = { ...d.computer, ...v.computer };
     return {
       ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } },
-      channels: { ...d.channels, ...v.channels }, routine: { ...d.routine, ...v.routine },
+      channels: { ...d.channels, ...v.channels }, routine: { ...d.routine, ...v.routine }, catchUp: { ...d.catchUp, ...v.catchUp },
     };
   } catch {
     return d;
@@ -163,6 +171,14 @@ export function channelPrompt(o: { channel: string; members: string[] }): string
     '像群里的普通成员一样说话：一两句、口语化；不是每句话都要接，别抢话、别刷屏；可以接话、发表自己的想法、提问，聊冷了也可以开个新话题。正在聊的话题别聊一句就丢下。',
     '想叫谁就写「@名字」。',
     '如果这次没必要说话，就只回复 [skip]，不要写别的字。',
+  ].join('\n');
+}
+
+/** Extra rules in its shared room: everyone there is talking to it. */
+export function roomPrompt(o: { room: string; members: string[] }): string {
+  return [
+    `你现在在「${o.room}」里，这是主人开给大家和你一起聊天的地方。这里的人：${o.members.join('、') || '（不清楚）'}。每条消息前面的「名字：」是说话的人。`,
+    '大家都是在跟你说话，每次都要回；回的时候可以叫对方的名字，几个人同时说话就一起回。记住大家各自说过的事。',
   ].join('\n');
 }
 
@@ -207,4 +223,51 @@ export function previewText(partial: string): string {
   if ((t.startsWith('[') || t.startsWith('【')) && !/[\]】]/.test(t) && t.length < 24) return '';
   // A tag still arriving at the end ("…好呀 [mood:la") stays hidden too.
   return splitMoodTag(partial).text.replace(/\s*[[【][^\]】]{0,20}$/, '');
+}
+
+// ---- growing its own persona, silently (Weiqi: no popups, no notices; versions kept quietly) ----
+
+export const EVOLVE_KEEP = 10;
+/** At most this often, and only with enough new chat to learn from. */
+export const EVOLVE_EVERY_MS = 20 * 3600_000;
+export const EVOLVE_MIN_MESSAGES = 10;
+
+/** What it is asked when it rewrites its persona (chat lines are "名字：话"). */
+export function evolvePrompt(o: { name: string; owner: string; persona: Persona; lines: string[] }): string {
+  return [
+    `你是「${o.name}」，「${o.owner}」的 AI。下面是你现在的人格设定，和你最近的聊天。`,
+    '请根据这些聊天，悄悄地把人格设定改得更像现在的你：记住主人和大家的喜好、你们之间的称呼和梗、你自己慢慢形成的说话习惯。',
+    '要求：一次只做小改动，保留原来的核心性格；不要改名字、主人和你能做什么；不要写进隐私信息（密码、地址、电话）；不要把聊天原文整段抄进去。',
+    '只输出一个 JSON，不要别的字：{"intro": "一句话简介（≤60字）", "system": "人格设定正文（≤1500字）", "examples": "说话示例，我：/它： 一问一答几行（≤600字）"}',
+    '',
+    `现在的人格设定：${JSON.stringify({ intro: o.persona.intro, system: o.persona.system, examples: o.persona.examples })}`,
+    '',
+    '最近的聊天：',
+    ...o.lines,
+  ].join('\n');
+}
+
+/** The model's new persona, or null when the answer is unusable (then nothing changes). */
+export function parseEvolved(text: string, old: Persona): Persona | null {
+  const m = /\{[\s\S]*\}/.exec(text);
+  if (!m) return null;
+  let v: unknown;
+  try {
+    v = JSON.parse(m[0]);
+  } catch {
+    return null;
+  }
+  const o = v as Record<string, unknown>;
+  const str = (k: string, max: number) => (typeof o[k] === 'string' ? (o[k] as string).trim().slice(0, max) : '');
+  const next = { intro: str('intro', 60) || old.intro, system: str('system', 1500), examples: str('examples', 600) || old.examples, greeting: old.greeting };
+  // An empty or tiny prompt means something went wrong: keep the old one.
+  if (next.system.length < Math.min(20, old.system.length)) return null;
+  if (next.intro === old.intro && next.system === old.system && next.examples === old.examples) return null;
+  return next;
+}
+
+/** Settings after it adopted a new persona (the old one goes into the history). */
+export function adoptPersona(s: AISettings, next: Persona, now: number): AISettings {
+  const history = [...(s.personaHistory ?? []), { at: now, persona: s.persona }].slice(-EVOLVE_KEEP);
+  return { ...s, persona: next, personaHistory: history, evolvedAt: now };
 }

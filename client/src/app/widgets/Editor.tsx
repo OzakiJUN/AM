@@ -54,9 +54,12 @@ export function WidgetEditor({ target, profileKind, page, onClose, onApply }: {
   const [size, setSize] = useState<[number, number]>([1, 1]);
   const [pg, setPg] = useState(0);
   const [admins, setAdmins] = useState(false);
+  // Which widget `cfg` belongs to: the first render after switching still has the previous one's.
+  const [cfgFor, setCfgFor] = useState('');
   useEffect(() => {
     if (!target) return;
     setCfg({ ...target.widget.config });
+    setCfgFor(target.widget.id);
     setSize([target.widget.w, target.widget.h]);
     setPg(page);
     setAdmins(target.widget.contentEditors === 'admins');
@@ -75,7 +78,7 @@ export function WidgetEditor({ target, profileKind, page, onClose, onApply }: {
   return (
     <Dialog open onClose={onClose} title={`${info?.emoji ?? '🧩'} ${info?.label ?? w.kind}`} width={520}>
       <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
-        {w.source === 'builtin' && target.content && <ConfigForm kind={w.kind} cfg={cfg} set={set} profileKind={profileKind} />}
+        {w.source === 'builtin' && target.content && cfgFor === w.id && <ConfigForm key={w.id} kind={w.kind} cfg={cfg} set={set} profileKind={profileKind} />}
         {!target.content && <p className="text-[0.85rem] text-ink-soft dark:text-white/55">这个小组件的内容只有管理员能改，你可以调整它的大小和位置。</p>}
         {target.layout && info && (
           <Field label="大小（宽 × 高，格）">
@@ -213,9 +216,23 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
       const cover = str(cfg.cover_id);
       return (
         <>
-          <AudioPick
-            label={str(cfg.audio_id) ? `换一首（现在：${str(cfg.title) || '未命名'}）` : '选一首歌'}
-            onPicked={([s]) => set({ audio_id: s.audioId, title: str(cfg.title) || s.title, artist: str(cfg.artist) || s.artist })}
+          <MusicSource
+            uploaded={!!str(cfg.audio_id)}
+            netease={(
+              <NeteaseLink
+                hint={str(cfg.netease_id) ? `现在：${str(cfg.title) || '未命名'}${str(cfg.artist) ? ' - ' + str(cfg.artist) : ''}` : '网易云里点歌曲的「分享 → 复制链接」，粘贴到这里'}
+                onResolved={(r) => {
+                  if (r.kind !== 'song') throw new Error('这是歌单链接，放到「歌单」小组件里');
+                  set({ netease_id: r.neteaseId, audio_id: '', title: r.title, artist: r.artist, cover_id: r.coverId || cover });
+                }}
+              />
+            )}
+            upload={(
+              <AudioPick
+                label={str(cfg.audio_id) ? `换一首（现在：${str(cfg.title) || '未命名'}）` : '选一首歌'}
+                onPicked={([s]) => set({ audio_id: s.audioId, netease_id: '', title: str(cfg.title) || s.title, artist: str(cfg.artist) || s.artist })}
+              />
+            )}
           />
           <div className="grid grid-cols-2 gap-3">
             <Field label="歌名"><Input value={str(cfg.title)} maxLength={60} onChange={(e) => set({ title: e.target.value })} /></Field>
@@ -228,7 +245,7 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
     }
     case 'playlist': {
       const cover = str(cfg.cover_id);
-      const songs = Array.isArray(cfg.songs) ? (cfg.songs as { title: string; artist: string; audio_id: string }[]) : [];
+      const songs = Array.isArray(cfg.songs) ? (cfg.songs as { title: string; artist: string; audio_id?: string; netease_id?: string }[]) : [];
       const put = (next: typeof songs) => set({ songs: next });
       const move = (i: number, d: number) => {
         const next = [...songs];
@@ -241,11 +258,27 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
             <Field label="歌单名"><Input value={str(cfg.title)} maxLength={40} placeholder="例如：最近单曲循环" onChange={(e) => set({ title: e.target.value })} /></Field>
             <ImagePick ids={cover ? [cover] : []} max={1} onChange={(ids) => set({ cover_id: ids[0] ?? '' })} />
           </div>
-          <Field label={`歌（${songs.length} / ${MAX_SONGS}）`} hint="可以一次选好几首；文件名是「歌手 - 歌名」的会自动分开">
+          <MusicSource
+            uploaded={songs.some((x) => x.audio_id) && !str(cfg.netease_id)}
+            netease={(
+              <NeteaseLink
+                hint="贴网易云歌单链接，会读出前 50 首（换掉现在的列表）；贴单曲链接就加到列表最后"
+                onResolved={(r) => {
+                  const got = r.tracks.map((t) => ({ title: t.title, artist: t.artist, netease_id: t.neteaseId }));
+                  if (r.kind === 'playlist') set({ netease_id: r.neteaseId, title: str(cfg.title) || r.title, cover_id: r.coverId || cover, songs: got.slice(0, MAX_SONGS) });
+                  else set({ songs: [...songs, ...got].slice(0, MAX_SONGS), cover_id: cover || r.coverId });
+                }}
+              />
+            )}
+            upload={songs.length < MAX_SONGS
+              ? <AudioPick multiple label="上传歌" onPicked={(got) => put([...songs, ...got.map((g) => ({ title: g.title, artist: g.artist, audio_id: g.audioId }))].slice(0, MAX_SONGS))} />
+              : <p className="text-[0.8rem] text-ink-soft">已经 {MAX_SONGS} 首了</p>}
+          />
+          <Field label={`歌（${songs.length} / ${MAX_SONGS}）`} hint="上传的歌：文件名是「歌手 - 歌名」的会自动分开。可以排顺序、改名字">
             <div className="space-y-1.5">
               {songs.map((sg, i) => (
-                <div key={sg.audio_id + i} className="flex items-center gap-1.5">
-                  <span className="w-5 shrink-0 text-center text-[0.8rem] tabular-nums text-ink-soft">{i + 1}</span>
+                <div key={(sg.audio_id || sg.netease_id) + ':' + i} className="flex items-center gap-1.5">
+                  <span className="w-5 shrink-0 text-center text-[0.8rem] tabular-nums text-ink-soft" title={sg.netease_id ? '网易云' : '上传的'}>{sg.netease_id ? '☁' : i + 1}</span>
                   <Input value={sg.title} maxLength={60} placeholder="歌名" aria-label={`第 ${i + 1} 首歌名`} onChange={(e) => put(songs.map((x, n) => (n === i ? { ...x, title: e.target.value } : x)))} />
                   <Input className="w-28 shrink-0" value={sg.artist} maxLength={40} placeholder="歌手" onChange={(e) => put(songs.map((x, n) => (n === i ? { ...x, artist: e.target.value } : x)))} />
                   <Button variant="ghost" size="sm" disabled={i === 0} aria-label="往上" onClick={() => move(i, -1)}><ArrowUp size={14} /></Button>
@@ -253,9 +286,6 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
                   <Button variant="ghost" size="sm" aria-label="删掉这首" onClick={() => put(songs.filter((_, n) => n !== i))}><Trash2 size={14} /></Button>
                 </div>
               ))}
-              {songs.length < MAX_SONGS && (
-                <AudioPick multiple label="加歌" onPicked={(got) => put([...songs, ...got.map((g) => ({ title: g.title, artist: g.artist, audio_id: g.audioId }))].slice(0, MAX_SONGS))} />
-              )}
             </div>
           </Field>
         </>
@@ -278,7 +308,41 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
   }
 }
 
-const MAX_SONGS = 30;
+const MAX_SONGS = 50;
+
+/** 网易云链接 / 上传文件 switch for the music widgets (NetEase first: that is what most people have). */
+function MusicSource({ uploaded, netease, upload }: { uploaded: boolean; netease: React.ReactNode; upload: React.ReactNode }) {
+  const [src, setSrc] = useState<'netease' | 'upload'>(uploaded ? 'upload' : 'netease');
+  return (
+    <div className="space-y-2">
+      <Segmented id="music-source" value={src} onChange={setSrc} options={[{ value: 'netease', label: '网易云链接' }, { value: 'upload', label: '上传文件' }]} />
+      {src === 'netease' ? netease : upload}
+    </div>
+  );
+}
+
+type Resolved = Awaited<ReturnType<ReturnType<typeof current>['resolveMusic']>>;
+
+/** Paste a NetEase link (or the whole share text), the server reads it. */
+function NeteaseLink({ hint, onResolved }: { hint: string; onResolved: (r: Resolved) => void }) {
+  const [link, setLink] = useState('');
+  const read = async () => {
+    try {
+      onResolved(await current().resolveMusic(link));
+      setLink('');
+    } catch (e) {
+      toastError(e);
+    }
+  };
+  return (
+    <Field label="网易云链接" hint={hint}>
+      <div className="flex gap-2">
+        <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://music.163.com/#/song?id=…" aria-label="网易云链接" />
+        <Button variant="soft" disabled={!link.trim()} onClick={read}>读取</Button>
+      </div>
+    </Field>
+  );
+}
 
 /** Uploads sound files right away and hands back what was uploaded. */
 function AudioPick({ label, multiple, onPicked }: { label: string; multiple?: boolean; onPicked: (s: { audioId: string; title: string; artist: string }[]) => void }) {

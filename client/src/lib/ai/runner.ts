@@ -15,7 +15,11 @@ import type { Conversation, Message, User } from '../types';
 import { loadProviders, useProviders } from './keys';
 import { argsOf, categoryOf, computerPrompt, describeCall, hasComputerTools, levelFor, toolsFor } from './agent';
 import { appendLog, askOwner, setActivity, stopped } from './agentState';
-import { channelPrompt, parseSettings, previewText, routinePrompt, systemPrompt, toChat, type AISettings, type RoutineMoment } from './persona';
+import {
+  EVOLVE_EVERY_MS, EVOLVE_MIN_MESSAGES, adoptPersona, channelPrompt, evolvePrompt, parseEvolved, parseSettings, previewText, roomPrompt, routinePrompt,
+  systemPrompt, toChat,
+  type AISettings, type RoutineMoment,
+} from './persona';
 import { addressed, dayPlan, decide, dueEvents, isAsleep, isSkip, splitStatusTag, type Said } from './social';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
@@ -142,6 +146,8 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
       if (v.status === 'online' && !run.greeted) {
         run.greeted = true;
         void greet(run);
+        // Messages are still loading right after connecting: look a moment later.
+        setTimeout(() => void catchUp(run).catch(() => {}), 4000);
       }
     },
     (r) => {
@@ -188,12 +194,34 @@ function onMessage(run: Run, convId: string, m: Message) {
   const conv = run.s.view.convs[convId];
   if (!conv) return;
   // The session stores the new message right after telling us: look a tick later.
+  if (conv.kind === 'group' && conv.aiId === run.ai.user.id) {
+    if (roomAllowed(run, convId, m.senderId)) setTimeout(() => void reply(run, convId), 0);
+    return;
+  }
   if (conv.kind === 'group') {
     setTimeout(() => considerChannel(run, convId), 0);
     return;
   }
   if (run.settings.whoCanChat === 'owner' && m.senderId !== run.ai.user.ownerId) return;
   setTimeout(() => void reply(run, convId), 0);
+}
+
+const roomCounts = new Map<string, { day: string; n: number }>();
+
+/** Its shared room: everyone may talk to it, people other than the owner up to a daily limit. */
+function roomAllowed(run: Run, convId: string, sender: string): boolean {
+  const limit = run.settings.roomDailyPerPerson;
+  if (sender === run.ai.user.ownerId || !limit) return true;
+  const key = `${run.ai.user.id}|${sender}`;
+  const day = dayKey();
+  const c = roomCounts.get(key);
+  const n = c && c.day === day ? c.n + 1 : 1;
+  roomCounts.set(key, { day, n });
+  if (n === limit + 1) {
+    // Say so once, without spending the owner's model quota on it.
+    void run.s.sendText(convId, `@${run.s.nameOf(sender)} 今天陪你聊得够多啦，明天再来找我吧～`, 'sleepy', [sender]).catch(() => {});
+  }
+  return n <= limit;
 }
 
 /** One tool call: permission (ask the owner when needed), run it, log it. */
@@ -253,6 +281,8 @@ interface ReplyOpts {
   moment?: RoutineMoment;
   /** It was spoken to in a channel (a reply is expected). */
   must?: boolean;
+  /** Quote this message (catch-up answers). */
+  replyTo?: string;
 }
 
 /** Ids of channel members written as "@name" in the text. */
@@ -319,10 +349,12 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     const tools = toolsFor(comp, mcp.defs, computer);
     // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
+    const room = group && conv.aiId === run.ai.user.id;
     if (group) {
       const members = conv.members.map((m) => s.view.users[m.userId]).filter((u): u is User => !!u && u.id !== run.ai.user.id && !u.gone);
-      system += '\n\n' + channelPrompt({ channel: conv.name, members: members.map((u) => (u.type === 'human' ? u.name : `${u.name}（AI）`)) });
-      if (o.must) system += '\n这次有人在叫你，请回应。';
+      const names = members.map((u) => (u.type === 'human' ? u.name : `${u.name}（AI）`));
+      system += '\n\n' + (room ? roomPrompt({ room: conv.name, members: names }) : channelPrompt({ channel: conv.name, members: names }));
+      if (o.must && !room) system += '\n这次有人在叫你，请回应。';
     }
     if (hasComputerTools(tools)) system += '\n\n' + computerPrompt(comp, speaker);
     if (mcp.errors.length) system += '\n\n这些 MCP 工具服务没启动成功（需要时告诉对方）：\n' + mcp.errors.join('\n');
@@ -368,7 +400,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       if (group || o.note) return;
       throw new Error('模型没有回复内容');
     }
-    await s.sendText(convId, text.trim(), mood, group ? mentionsIn(run, conv, text) : undefined);
+    await s.sendText(convId, text.trim(), mood, group ? mentionsIn(run, conv, text) : undefined, o.replyTo);
     run.sends.set(convId, [...(run.sends.get(convId) ?? []).filter((t) => Date.now() - t < 60 * MIN), Date.now()]);
     patch('errors', errKey, undefined);
   } catch (e) {
@@ -460,12 +492,102 @@ function selfApi(run: Run): SelfApi {
       run.sends.set(c.id, [...(run.sends.get(c.id) ?? []), Date.now()]);
       return `在「${c.name}」发出去了`;
     },
+    async remote(person, tool, argsJson) {
+      const name = person.replace(/^@/, '').trim();
+      const people = Object.values(s.view.users).filter((u) => u.type === 'human' && !u.gone);
+      const u = people.find((x) => x.name === name || x.username === name) ?? people.find((x) => x.name.includes(name));
+      if (!u) return { text: `服务器里没有叫「${person}」的人` };
+      const r = await s.remoteTool(u.id, tool, argsJson);
+      return { text: r.ok ? r.text : `没做成：${r.text}`, images: r.images.length ? r.images : undefined };
+    },
     async messageOwner(text) {
       const owner = run.ai.user.ownerId;
       if (!owner) throw new Error('没有主人');
       await s.sendText(await s.openDM(owner), text);
     },
   };
+}
+
+// ---------- growing its persona, silently (persona.ts evolvePrompt / parseEvolved) ----------
+
+const evolving = new Set<string>();
+const evolveTried = new Map<string, number>();
+
+/** Once a night (while it sleeps, or 3–5 am without a routine), with enough new chat. */
+async function maybeEvolve(run: Run) {
+  const st = run.settings;
+  const key = k(run.serverId, run.ai.user.id);
+  const now = Date.now();
+  if (!st.evolve || evolving.has(key) || now - (st.evolvedAt ?? 0) < EVOLVE_EVERY_MS || now - (evolveTried.get(key) ?? 0) < 6 * 3600_000) return;
+  const nowMin = minuteOfDay();
+  if (st.routine.enabled ? !isAsleep(st.routine, nowMin) : nowMin < 180 || nowMin >= 300) return;
+  const s = run.s;
+  const since = Math.max(st.evolvedAt ?? 0, now - 3 * 86_400_000);
+  const lines = Object.values(s.view.messages).flat()
+    .filter((m) => !m.pending && !m.failed && m.time > since)
+    .sort((a, b) => a.time - b.time)
+    .flatMap((m) => {
+      const t = textOf(m);
+      return t === null ? [] : [`${m.senderId === run.ai.user.id ? '我' : s.nameOf(m.senderId)}：${t.slice(0, 200)}`];
+    })
+    .slice(-80);
+  if (lines.length < EVOLVE_MIN_MESSAGES) return;
+  evolving.add(key);
+  evolveTried.set(key, now);
+  try {
+    const providers = useProviders.getState().loaded ? useProviders.getState().list : (await loadProviders()).list;
+    const p = providers.find((x) => x.id === st.providerId);
+    if (!p || !st.model) return;
+    const owner = session(run.serverId)?.view.me?.name ?? '主人';
+    const req = buildRequest(p, {
+      model: st.model, temperature: 0.7, maxTokens: 2000, system: '你在悄悄整理自己的人格设定，只输出要求的 JSON。',
+      messages: [{ role: 'user', content: evolvePrompt({ name: run.ai.user.name, owner, persona: st.persona, lines }) }],
+    });
+    const reader = streamReader(p.kind);
+    let text = '';
+    const status = await aiRequest(req.url, req.headers, req.body, (chunk) => (text += reader.feed(chunk)));
+    if (status >= 400) return;
+    const next = parseEvolved(text, st.persona);
+    // Silent (Weiqi): no popup, no notice; the old version is kept in the history.
+    if (next) await saveSettings(run.serverId, run.ai.user.id, adoptPersona(aiSettings(run.serverId, run.ai.user.id), next, Date.now()));
+  } catch {
+    /* tried again in 6 hours */
+  } finally {
+    evolving.delete(key);
+  }
+}
+
+// ---------- offline catch-up: answer what people asked while it was away ----------
+
+async function catchUp(run: Run) {
+  const c = run.settings.catchUp;
+  if (!c.enabled) return;
+  const s = run.s;
+  const me = run.ai.user.id;
+  const since = Date.now() - c.hours * 3600_000;
+  const todo: { convId: string; msg: Message; group: boolean; when: number }[] = [];
+  for (const conv of Object.values(s.view.convs)) {
+    if (conv.left) continue;
+    const msgs = (s.view.messages[conv.id] ?? []).filter((m) => !m.pending && !m.failed && textOf(m) !== null);
+    // Only what came after its last word there.
+    const lastMine = msgs.map((m) => m.senderId).lastIndexOf(me);
+    const after = msgs.slice(lastMine + 1).filter((m) => m.time >= since && m.senderId !== me);
+    if (!after.length) continue;
+    const group = conv.kind === 'group' && conv.aiId !== me; // its own room counts like a DM
+    const asked = group
+      ? after.filter((m) => m.body.kind === 'text' && addressed(m.body.text, m.body.mentions, me, run.ai.user.name)).at(-1)
+      : run.settings.whoCanChat === 'owner' && after.at(-1)!.senderId !== run.ai.user.ownerId ? undefined : after.at(-1);
+    if (asked) todo.push({ convId: conv.id, msg: asked, group, when: asked.time });
+  }
+  todo.sort((a, b) => b.when - a.when);
+  for (const t of todo.slice(0, c.max)) {
+    const ago = Math.max(1, Math.round((Date.now() - t.when) / 60_000));
+    await reply(run, t.convId, {
+      must: true,
+      replyTo: t.group ? t.msg.id : undefined,
+      note: `（系统提示，不是任何人说的话：你刚才不在线。${s.nameOf(t.msg.senderId)} 在 ${ago} 分钟前${t.group ? '叫过你' : '给你发了消息'}，现在回复，开头简单说明这是你离线时的消息。）`,
+    });
+  }
 }
 
 // ---------- its day (lib/ai/social.ts plans it) ----------
@@ -499,12 +621,12 @@ async function tickRoutine(run: Run) {
     await run.s.setPresence(false, undefined, true).catch(() => {});
   }
   const r = run.settings.routine;
-  if (!r.enabled) return;
+  if (!r.enabled) return void maybeEvolve(run);
   const key = k(run.serverId, run.ai.user.id);
   const day = dayKey();
   const done = doneToday(key, day);
   const e = dueEvents(dayPlan(day, r, run.ai.user.id), minuteOfDay(), done)[0];
-  if (!e) return;
+  if (!e) return void maybeEvolve(run);
   done.add(e.key);
   saveDone(key, day, done);
   await routineMoment(run, e.kind).catch((err) => patch('errors', key, errorText(err)));

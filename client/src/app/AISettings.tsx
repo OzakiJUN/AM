@@ -2,7 +2,7 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, Folder, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Cpu, Folder, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
 import { CATEGORY_LABEL } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
@@ -151,6 +151,21 @@ function PersonaTab({ draft, set, save }: TabProps) {
         <Input value={p.greeting} onChange={(e) => setP({ greeting: e.target.value })} maxLength={200} />
       </Field>
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存人格</Button></div>
+      {!!draft.personaHistory?.length && (
+        <details className="rounded-2xl bg-black/[0.03] p-3 text-[0.85rem] dark:bg-white/[0.04]">
+          <summary className="cursor-pointer text-ink-soft dark:text-white/55">它自己改过 {draft.personaHistory.length} 次人格，可以退回以前的版本</summary>
+          <div className="mt-2 space-y-1.5">
+            {[...draft.personaHistory].reverse().map((h) => (
+              <div key={h.at} className="flex items-center gap-2 rounded-xl bg-white/60 px-3 py-2 dark:bg-white/5">
+                <span className="shrink-0 text-ink-soft tabular-nums dark:text-white/50">{new Date(h.at).toLocaleDateString('zh-CN')} 以前</span>
+                <span className="min-w-0 flex-1 truncate" title={h.persona.system}>{h.persona.intro || h.persona.system.slice(0, 40)}</span>
+                <Button size="sm" variant="ghost" onClick={() => setP({ ...h.persona })}>用这个版本</Button>
+              </div>
+            ))}
+            <p className="text-[0.78rem] text-ink-soft dark:text-white/45">点「用这个版本」后记得保存。</p>
+          </div>
+        </details>
+      )}
     </>
   );
 }
@@ -282,7 +297,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
   const r = draft.routine;
   const setCh = (x: Partial<AISettings['channels']>) => set({ channels: { ...ch, ...x } });
   const setR = (x: Partial<AISettings['routine']>) => set({ routine: { ...r, ...x } });
-  const groups = Object.values(v?.convs ?? {}).filter((c) => c.kind === 'group' && !c.left).sort((a, b) => a.name.localeCompare(b.name));
+  const groups = Object.values(v?.convs ?? {}).filter((c) => c.kind === 'group' && !c.left && !c.aiId).sort((a, b) => a.name.localeCompare(b.name));
   const toggle = async (convId: string, on: boolean) => {
     const s = session(serverId)!;
     if (on) {
@@ -312,6 +327,21 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           ))}
         </div>
       </Field>
+      <Field label="共享聊天" hint="开一个只属于它的聊天，把想一起聊的人拉进去：大家说什么它都回，聊天记录大家都看得到。用的是你的模型 key">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="soft" onClick={async () => {
+            const id = await session(serverId)!.createAIRoom(aiId);
+            toast('建好了，在聊天顶上「邀请成员」拉人进来');
+            openConv(id);
+          }}><Users size={15} /> 开一个共享聊天</Button>
+          <span className="flex items-center gap-1.5 text-[0.85rem] text-ink-soft dark:text-white/55">
+            每人每天最多回
+            <Input type="number" min={0} max={1000} value={draft.roomDailyPerPerson} className="h-8 w-20" aria-label="每人每天最多回几条"
+              onChange={(e) => set({ roomDailyPerPerson: Math.max(0, Math.min(1000, Number(e.target.value) || 0)) })} />
+            条（0 = 不限，你自己不限）
+          </span>
+        </div>
+      </Field>
       <Field label="在频道里">
         <Segmented id="ai-ch-mode" value={ch.mode} onChange={(mode) => setCh({ mode })} options={[
           { value: 'active', label: '会自己接话' }, { value: 'mention', label: '只在被 @ 或叫名字时说话' },
@@ -330,6 +360,22 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
         <Field label="两句之间至少（秒）" hint="被 @ 时不受限制">{num(ch.minGapSeconds, 0, 3600, (minGapSeconds) => setCh({ minGapSeconds }), '两句之间至少几秒')}</Field>
         <Field label="每小时最多几句" hint="每个频道分开算">{num(ch.maxPerHour, 1, 200, (maxPerHour) => setCh({ maxPerHour }), '每小时最多几句')}</Field>
         <Field label="AI 连着说几句就停" hint="几个 AI 聊起来时，等真人说话">{num(ch.maxAIChain, 1, 50, (maxAIChain) => setCh({ maxAIChain }), 'AI 连着说几句就停')}</Field>
+      </div>
+
+      <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">上线后补回离线时的消息</div>
+          <div className="text-[0.8rem] text-ink-soft dark:text-white/50">运行它的设备关着时，频道里有人 @ 它、私信里有人找它，等它上线后会挑最近的回一下，并说明是离线时的消息。</div>
+          {draft.catchUp.enabled && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[0.82rem]">
+              最近 <Input type="number" min={1} max={72} value={draft.catchUp.hours} className="h-8 w-16" aria-label="补回几小时内的"
+                onChange={(e) => set({ catchUp: { ...draft.catchUp, hours: Math.max(1, Math.min(72, Number(e.target.value) || 12)) } })} /> 小时内，最多
+              <Input type="number" min={1} max={20} value={draft.catchUp.max} className="h-8 w-16" aria-label="最多补回几条"
+                onChange={(e) => set({ catchUp: { ...draft.catchUp, max: Math.max(1, Math.min(20, Number(e.target.value) || 5)) } })} /> 条
+            </div>
+          )}
+        </div>
+        <Toggle label="补回离线消息" checked={draft.catchUp.enabled} onChange={(enabled) => set({ catchUp: { ...draft.catchUp, enabled } })} />
       </div>
 
       <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
@@ -559,7 +605,7 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
       <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
         <div className="min-w-0 flex-1">
           <div className="font-medium">自己维护人格</div>
-          <div className="text-[0.8rem] text-ink-soft dark:text-white/50">打开后它会定期根据聊天慢慢调整自己的人格设定，不打扰你。（下一批上线）</div>
+          <div className="text-[0.8rem] text-ink-soft dark:text-white/50">打开后它每晚睡觉时（没开作息就是凌晨 3–5 点）根据这几天的聊天，悄悄把人格设定改一点点，不弹窗也不通知。改之前的版本留在「人格」页最下面，随时能退回。</div>
         </div>
         <Toggle label="自己维护人格" checked={draft.evolve} onChange={(on) => set({ evolve: on })} />
       </div>

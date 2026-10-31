@@ -106,6 +106,9 @@ message Conversation {
   // Group: public channel. Every member of the server can see and join it,
   // and new accounts join it automatically. False = private (invite only).
   bool public = 12;
+  // Shared AI room: the AI (bot / ai account) this private group belongs to.
+  // Clients list it on the AI page; the AI answers everyone in it. 0 = none.
+  int64 ai_id = 13;
 }
 
 // Per-user settings and state inside one conversation.

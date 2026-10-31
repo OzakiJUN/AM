@@ -57,7 +57,8 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
     );
   }
   const group = conv.kind === 'group';
-  const peer = conv.peerId ? v.users[conv.peerId] : undefined;
+  // The DM peer, or the AI of a shared AI room.
+  const peer = conv.peerId ? v.users[conv.peerId] : conv.aiId ? v.users[conv.aiId] : undefined;
   const blocked = !!peer && v.blocked.includes(peer.id);
   const ai = page === 'ai';
   const peerPresence = peer ? v.presence[peer.id] : undefined;
@@ -107,7 +108,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {!group && peer && !myAI && (
             <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
           )}
-          {myAI && <IconButton label="删除 AI" onClick={() => askDeleteAI(v.id, peer.id, () => closeConv('ai', v.id))}><Trash2 size={18} /></IconButton>}
+          {myAI && !group && <IconButton label="删除 AI" onClick={() => askDeleteAI(v.id, peer.id, () => closeConv('ai', v.id))}><Trash2 size={18} /></IconButton>}
           {myAI && <IconButton label="AI 设置" onClick={() => setAIOpen(true)}><Settings2 size={19} /></IconButton>}
           {ai && peer && <PortraitPosButton />}
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} />}

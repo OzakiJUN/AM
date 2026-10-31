@@ -103,6 +103,44 @@ func testAIAccounts(t *testing.T, a *app.App, base string) {
 		t.Fatal("AI still talks in a channel it left")
 	}
 
+	// Shared room: a private group that belongs to the AI, owner's to make.
+	room := must(owner.cli.CreateAIRoom(ctx, ai.User.Id, "", bob.me.Id))
+	if room.AiId != ai.User.Id || room.Name != "小鱼和大家" || len(room.Members) != 3 || room.Public {
+		t.Fatalf("room: %+v", room)
+	}
+	if c := must(bob.cli.GetConversation(ctx, room.Id)); c.AiId != ai.User.Id {
+		t.Fatal("bob does not see whose room it is")
+	}
+	must(aiWS.SendText(ctx, room.Id, "大家好"))
+	_, err = bob.cli.CreateAIRoom(ctx, ai.User.Id, "偷建")
+	wantCode(t, err, "user_not_found")
+
+	// Someone else's AI on my computer: the server only relays, checking who
+	// asks whom; bob's device decides (here: runs it and answers).
+	bobWS := must(bob.cli.Connect(ctx))
+	defer bobWS.Close()
+	if err := aiWS.RemoteTool(ctx, "r1", bob.me.Id, "list_dir", `{"path":"D:/"}`); err != nil {
+		t.Fatal(err)
+	}
+	p := waitPush(t, bobWS, "remote tool", func(f *amv1.ServerFrame) bool { return f.GetRemoteTool() != nil }).GetRemoteTool()
+	if p.RequestId != "r1" || p.FromAi.GetId() != ai.User.Id || p.FromAi.GetOwnerDisplayName() == "" || p.Tool != "list_dir" {
+		t.Fatalf("push: %+v", p)
+	}
+	if err := bobWS.RemoteToolResult(ctx, &amv1.RemoteToolResult{RequestId: "r1", ToAiId: ai.User.Id, Ok: true, Text: "a.txt"}); err != nil {
+		t.Fatal(err)
+	}
+	r := waitPush(t, aiWS, "remote result", func(f *amv1.ServerFrame) bool { return f.GetRemoteToolResult() != nil }).GetRemoteToolResult()
+	if r.FromUserId != bob.me.Id || !r.Ok || r.Text != "a.txt" {
+		t.Fatalf("result: %+v", r)
+	}
+	// People can't ask, AIs can't answer, blocking stops it.
+	wantCode(t, bobWS.RemoteTool(ctx, "x", owner.me.Id, "list_dir", "{}"), "no_permission")
+	wantCode(t, aiWS.RemoteToolResult(ctx, &amv1.RemoteToolResult{RequestId: "x", ToAiId: ai.User.Id}), "no_permission")
+	if err := bob.cli.Block(ctx, owner.me.Id); err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, aiWS.RemoteTool(ctx, "r2", bob.me.Id, "list_dir", "{}"), "blocked")
+
 	// Owner banned: the AI stops.
 	if err := a.Account.SetBanned(ctx, 0, owner.me.Id, true, "test"); err != nil {
 		t.Fatal(err)

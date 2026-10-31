@@ -31,12 +31,12 @@ assert.equal(r2.widgets[0].config.media_id, '');
 // Songs and covers of the music widgets travel too; songs without a copy drop out of the list.
 const music: LayoutModel = { ...board(), widgets: [
   { id: 's', kind: 'song', source: 'builtin', w: 2, h: 1, land: { page: 0, x: 0, y: 0 }, config: { audio_id: '21', cover_id: '22', title: '晴天' }, contentEditors: 'everyone' },
-  { id: 'p', kind: 'playlist', source: 'builtin', w: 2, h: 2, land: { page: 0, x: 2, y: 0 }, config: { songs: [{ title: 'a', audio_id: '23' }, { title: 'b', audio_id: '24' }] }, contentEditors: 'everyone' },
+  { id: 'p', kind: 'playlist', source: 'builtin', w: 2, h: 2, land: { page: 0, x: 2, y: 0 }, config: { songs: [{ title: 'a', audio_id: '23' }, { title: 'b', audio_id: '24' }, { title: 'c', netease_id: '186016' }] }, contentEditors: 'everyone' },
 ] };
 assert.deepEqual(layoutMedia(music).sort(), ['14', '21', '22', '23', '24']);
 const rm = remapLayout(music, { '21': 'x', '22': 'y', '23': 'z' });
 assert.deepEqual(rm.widgets[0].config, { audio_id: 'x', cover_id: 'y', title: '晴天' });
-assert.deepEqual(rm.widgets[1].config.songs, [{ title: 'a', audio_id: 'z' }]);
+assert.deepEqual(rm.widgets[1].config.songs, [{ title: 'a', audio_id: 'z' }, { title: 'c', netease_id: '186016' }]); // NetEase songs need no copy
 
 // markChanged: newest change wins, nothing copied back onto its source
 let p = markChanged({}, 'A', ['profile'], ['A', 'B', 'C'], 1);

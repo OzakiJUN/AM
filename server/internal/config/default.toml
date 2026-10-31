@@ -83,6 +83,11 @@ login_record_days = 180
 # Images whose fingerprint is within this distance of a blocked image are
 # rejected (0-64; lower = stricter match). 6 catches re-saved / resized copies.
 block_distance = 6
+# Music widgets may take NetEase Cloud Music links: the server reads the
+# song / playlist (title, artist, cover) from this address. Playing still
+# streams from NetEase on the listener's device, only after they press play.
+netease = true
+netease_api = "https://music.163.com"
 
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so

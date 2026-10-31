@@ -67,8 +67,9 @@ update the docs in the same commit.
   `profile_media` (visible to everyone, kept by media GC). Keep the kind list
   in `validate.go`, `client/src/lib/widgetKinds.ts` and docs/protocol.md in sync.
 - Music widgets (`song`, `playlist`) play sound files the owner uploaded
-  (`media.IsAudio`, checked on save); the client has one app-wide player
-  (`lib/player.ts`). The old NetEase `music` kind is still valid, just hidden.
+  (`media.IsAudio`, checked on save) or NetEase songs by id (links read by
+  `server/internal/music`, covers copied into uploads; listeners stream from
+  NetEase's outer url); the client has one app-wide player (`lib/player.ts`). The old NetEase `music` kind is still valid, just hidden.
 - Stickers (docs/design.md §11, first step): `server/internal/sticker` keeps
   each person's collection (own uploads + tags, `stickers` table, GC keeps
   their media); a sent sticker is an image with `ImageMsg.sticker_tags`,
@@ -210,6 +211,13 @@ update the docs in the same commit.
   routine every 30 s, prompts in `persona.ts` (`channelPrompt`,
   `routinePrompt`). @-mentions: `lib/mentions.ts`. Portrait pokes hit-test the
   picture's alpha (`hitPortrait`) and send "[戳一戳] …".
+- AI batch 3: silent persona evolution (`maybeEvolve` in runner, pure helpers
+  `evolvePrompt` / `parseEvolved` / `adoptPersona`), offline `catchUp`,
+  shared AI rooms (`Conversation.ai_id`, `POST /api/v1/ai/{id}/room`, listed
+  on the AI page via `botOf`), and someone else's AI on my computer: the
+  server only relays (`server/internal/remote`, gateway `remote_tool*`
+  frames); this device decides with `lib/ai/remote.ts` (local, per AI, off
+  by default, every raise warns).
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

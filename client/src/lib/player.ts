@@ -8,7 +8,9 @@ export interface Track {
   /** Unique per widget and position: `${owner}:${widgetId}:${index}`. */
   key: string;
   serverId: string;
-  mediaId: string;
+  /** An uploaded file on that server, or a NetEase song id (played from NetEase). */
+  mediaId?: string;
+  neteaseId?: string;
   title: string;
   artist: string;
 }
@@ -39,7 +41,10 @@ function el(): HTMLAudioElement {
   audio.addEventListener('pause', () => set({ playing: false }));
   audio.addEventListener('waiting', () => set({ loading: true }));
   audio.addEventListener('ended', () => void next(true));
-  audio.addEventListener('error', () => set({ playing: false, loading: false, error: '这首放不了（文件格式不支持或者已经被删了）' }));
+  audio.addEventListener('error', () => set({
+    playing: false, loading: false,
+    error: usePlayer.getState().track?.neteaseId ? '网易云不让外链播放这首（会员或版权歌曲）' : '这首放不了（文件格式不支持或者已经被删了）',
+  }));
   return audio;
 }
 
@@ -48,7 +53,7 @@ export async function play(track: Track, queue: Track[] = [track]) {
   const a = el();
   usePlayer.setState({ track, queue, loading: true, time: 0, duration: 0, error: undefined });
   try {
-    const url = await session(track.serverId)?.t.mediaUrl(`/api/v1/media/${track.mediaId}`);
+    const url = track.neteaseId ? neteaseUrl(track.neteaseId) : await session(track.serverId)?.t.mediaUrl(`/api/v1/media/${track.mediaId}`);
     if (!url || usePlayer.getState().track?.key !== track.key) return; // another song was picked meanwhile
     a.src = url;
     await a.play();
@@ -100,6 +105,9 @@ export function stopPlayer() {
   audio?.pause();
   usePlayer.setState({ track: undefined, queue: [], playing: false, time: 0, duration: 0 });
 }
+
+/** NetEase's own link for playing a song outside its app (free songs only). */
+export const neteaseUrl = (id: string) => `https://music.163.com/song/media/outer/url?id=${id}.mp3`;
 
 /** "3:07" */
 export function clock(sec: number): string {

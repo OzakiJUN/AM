@@ -67,6 +67,7 @@ func Conversation(c *store.ConvWithSelf, members []*amv1.User, roles []amv1.Memb
 		Notice:       c.Notice,
 		JoinApproval: c.JoinApproval,
 		Public:       c.Public,
+		AiId:         c.AIID,
 	}
 }
 

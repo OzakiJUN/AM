@@ -45,6 +45,10 @@ const TEXT: Record<string, string> = {
   invalid_pair_code: '登录码不对、已经用过或者过期了，在旧设备上重新生成一个',
   state_conflict: '另一台设备刚改过，稍后再试',
   rate_limited: '操作太频繁了，等一会儿再试',
+  ai_limit: 'AI 已经建到上限了',
+  sticker_limit: '表情存满了，删掉一些再导入',
+  music_link_invalid: '这不是网易云的歌曲或歌单链接',
+  music_unavailable: '没能从网易云读到（链接不对，或者服务器连不上网易云）',
   internal_error: '服务器出错了',
 };
 

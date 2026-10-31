@@ -12,6 +12,17 @@ export interface SongConfig {
   title: string;
   artist: string;
   audioId: string;
+  /** A NetEase song instead of an uploaded file. */
+  neteaseId: string;
+}
+
+const trackOf = (key: string, serverId: string, s: SongConfig): Track | undefined =>
+  s.neteaseId ? { key, serverId, neteaseId: s.neteaseId, title: s.title || '未命名', artist: s.artist }
+    : s.audioId ? { key, serverId, mediaId: s.audioId, title: s.title || '未命名', artist: s.artist } : undefined;
+
+/** Small mark on NetEase songs (they play from NetEase, not from this server). */
+function Netease() {
+  return <span className="shrink-0 rounded bg-rose-500/90 px-1 text-[0.62rem] leading-[1.2rem] font-medium text-white" title="从网易云播放">网易云</span>;
 }
 
 /** Three bars bouncing while a song plays (eased, never linear). */
@@ -93,7 +104,7 @@ function Progress({ keys, editing }: { keys: string[]; editing: boolean }) {
 export function SongWidget({ serverId, keyBase, song, coverId, editing, tall }: {
   serverId: string; keyBase: string; song: SongConfig; coverId: string; editing: boolean; tall: boolean;
 }) {
-  const track: Track | undefined = song.audioId ? { key: `${keyBase}:0`, serverId, mediaId: song.audioId, title: song.title || '未命名', artist: song.artist } : undefined;
+  const track = trackOf(`${keyBase}:0`, serverId, song);
   const error = usePlayer((s) => (track && s.track?.key === track.key ? s.error : undefined));
   const playing = usePlayer((s) => !!track && s.track?.key === track.key && s.playing);
   if (!track && !editing) return <Placeholder text="还没选歌" />;
@@ -105,7 +116,7 @@ export function SongWidget({ serverId, keyBase, song, coverId, editing, tall }: 
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold">{song.title || '未命名'}</div>
+            <div className="flex items-center gap-1.5"><span className="truncate font-semibold">{song.title || '未命名'}</span>{song.neteaseId && <Netease />}</div>
             <div className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">{error ?? (song.artist || ' ')}</div>
           </div>
           <PlayButton track={track} disabled={editing} />
@@ -119,7 +130,8 @@ export function SongWidget({ serverId, keyBase, song, coverId, editing, tall }: 
 export function PlaylistWidget({ serverId, keyBase, title, coverId, songs, editing }: {
   serverId: string; keyBase: string; title: string; coverId: string; songs: SongConfig[]; editing: boolean;
 }) {
-  const queue: Track[] = songs.flatMap((s, i) => (s.audioId ? [{ key: `${keyBase}:${i}`, serverId, mediaId: s.audioId, title: s.title || '未命名', artist: s.artist }] : []));
+  const queue: Track[] = songs.flatMap((s, i) => trackOf(`${keyBase}:${i}`, serverId, s) ?? []);
+  const fromNetease = songs.some((s) => s.neteaseId);
   const keys = queue.map((t) => t.key);
   const cur = usePlayer((s) => (s.track && keys.includes(s.track.key) ? s : null));
   const current = cur?.track;
@@ -129,7 +141,7 @@ export function PlaylistWidget({ serverId, keyBase, title, coverId, songs, editi
       <div className="flex items-center gap-3 p-3 pb-2">
         <Cover id={coverId} className="h-12 w-12 rounded-xl" />
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">{title || '歌单'}</div>
+          <div className="flex items-center gap-1.5"><span className="truncate font-semibold">{title || '歌单'}</span>{fromNetease && <Netease />}</div>
           <div className="truncate text-[0.78rem] text-ink-soft dark:text-white/50">{current ? `正在放：${current.title}` : `${queue.length} 首`}</div>
         </div>
         <PlayButton track={current ?? queue[0]} queue={queue} disabled={editing} big />
@@ -182,6 +194,6 @@ export function songsOf(v: unknown): SongConfig[] {
   return v.map((x) => {
     const o = (x ?? {}) as Record<string, unknown>;
     const s = (k: string) => (typeof o[k] === 'string' ? (o[k] as string) : '');
-    return { title: s('title'), artist: s('artist'), audioId: s('audio_id') };
+    return { title: s('title'), artist: s('artist'), audioId: s('audio_id'), neteaseId: s('netease_id') };
   });
 }

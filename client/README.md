@@ -60,7 +60,7 @@ AI 自己的浏览器测试（可选，要一个 Chromium）：`AM_BROWSER=<chro
 
 ## 端到端测试
 
-起一个全新的、关掉 TLS 的 am-server（同上），然后：
+起一个全新的、关掉 TLS 的 am-server（同上；config.toml 里加 `[media] netease_api = "http://127.0.0.1:8460"`，让网易云链接走脚本里的假网易云），然后：
 
 ```sh
 npm i --no-save playwright && npx playwright install chromium

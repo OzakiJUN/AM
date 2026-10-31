@@ -85,3 +85,9 @@ func (c *Client) DeleteAI(ctx context.Context, id int64) error {
 func (c *Client) AILeaveChannel(ctx context.Context, id, convID int64) error {
 	return c.call(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/ai/%d/channels/%d", id, convID), nil, nil)
 }
+
+// CreateAIRoom makes a shared room with my AI and the people listed.
+func (c *Client) CreateAIRoom(ctx context.Context, aiID int64, name string, memberIDs ...int64) (*amv1.Conversation, error) {
+	out := &amv1.Conversation{}
+	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/ai/%d/room", aiID), &amv1.CreateAIRoomRequest{Name: name, MemberIds: memberIDs}, out)
+}

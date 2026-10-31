@@ -26,11 +26,21 @@ export const CATEGORY_LABEL: Record<ToolCategory, { name: string; hint: string; 
   mcp: { name: 'MCP 工具', hint: '你在下面添加的工具服务；能做什么取决于那个服务，权限跟它的程序一样大', risky: true },
   self: { name: '改自己的资料', hint: '改自己的状态（正在玩什么）、个性签名、主页上的一张便签（不用开「操作电脑」）' },
   social: { name: '主动找人说话', hint: '自己去频道里发消息、给你发私信（作息、找人玩）（不用开「操作电脑」）' },
+  remote: { name: '操作别人的电脑', hint: '请别人的电脑帮它做事；做不做、能做什么由对方在他的电脑上决定（默认都不让）' },
 };
 
 const obj = (props: Record<string, unknown>, required: string[] = []) => ({ type: 'object', properties: props, required });
 const str = (description: string) => ({ type: 'string', description });
 const num = (description: string) => ({ type: 'number', description });
+
+/** Tools someone else's AI may ask this computer to run (never MCP or its own-account tools). */
+export const REMOTE_TOOLS = [
+  'list_dir', 'read_file', 'write_file', 'delete', 'run_command', 'open', 'get_clipboard', 'set_clipboard', 'screenshot', 'mouse', 'keyboard',
+  'ui_windows', 'ui_read', 'ui_act', 'ui_focus_window', 'browser_open', 'browser_read', 'browser_click', 'browser_type', 'browser_scroll', 'browser_back', 'wait',
+];
+
+/** Categories shown in 「别人的 AI 操作这台电脑」 (everything about this computer). */
+export const REMOTE_CATEGORIES: ToolCategory[] = ['files_read', 'files_write', 'files_delete', 'command', 'open', 'clipboard', 'screen', 'input', 'ui', 'browser'];
 
 export const TOOLS: ToolDef[] = [
   { name: 'list_dir', category: 'files_read', description: '列出文件夹里的文件和子文件夹（只能在工作目录里）。', parameters: obj({ path: str('文件夹的完整路径') }, ['path']) },
@@ -88,6 +98,15 @@ export const TOOLS: ToolDef[] = [
     name: 'send_to_channel', category: 'social', own: true,
     description: '在你在的某个频道里发一条消息（可以 @ 里面的人，写「@名字」）。',
     parameters: obj({ channel: str('频道名'), text: str('要说的话') }, ['channel', 'text']),
+  },
+  {
+    name: 'use_computer_of', category: 'remote', own: true,
+    description: '请服务器里另一个人的电脑做一件事（用他允许的工具，比如看文件、运行命令、截图）。对方没开、不在线或者不允许就会失败。只在别人请你帮忙操作他的电脑时用。',
+    parameters: obj({
+      person: str('对方的名字'),
+      tool: { type: 'string', enum: REMOTE_TOOLS, description: '要用的工具，和你自己的同名工具一样' },
+      args_json: str('那个工具的参数，JSON 字符串，例如 {"path":"D:/"}'),
+    }, ['person', 'tool']),
   },
   { name: 'message_owner', category: 'social', own: true, description: '给你的主人发一条私信。', parameters: obj({ text: str('要说的话') }, ['text']) },
   { name: 'wait', description: '等几秒（等程序打开、页面加载）。', parameters: obj({ seconds: num('秒数，最多 30') }, ['seconds']) },
@@ -182,6 +201,7 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'list_my_channels': return '看看自己在哪些频道';
     case 'send_to_channel': return `在频道「${short(args.channel, 20)}」说：${short(args.text, 60)}`;
     case 'message_owner': return `私信主人：${short(args.text, 60)}`;
+    case 'use_computer_of': return `请 ${short(args.person, 20)} 的电脑：${describeCall(String(args.tool ?? ''), argsOf(String(args.args_json ?? '')))}`;
     case 'wait': return `等 ${args.seconds} 秒`;
     default:
       if (name.startsWith(MCP_PREFIX)) {

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/api.proto.
  */
 export const file_am_v1_api: GenFile = /*@__PURE__*/
-  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiUwoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uEhMKC21heF9kZXZpY2VzGAIgASgFIikKF0NyZWF0ZVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBmJ1bmRsZRgBIAEoDCIwCgpQYWlyVGlja2V0Eg4KBnRpY2tldBgBIAEoCRISCgpleHBpcmVzX2F0GAIgASgDIj4KF1JlZGVlbVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBnRpY2tldBgBIAEoCRITCgtkZXZpY2VfbmFtZRgCIAEoCSJMChJQYWlyUmVkZWVtUmVzcG9uc2USDQoFdG9rZW4YASABKAkSFwoCbWUYAiABKAsyCy5hbS52MS5Vc2VyEg4KBmJ1bmRsZRgDIAEoDCIvCgtDbGllbnRTdGF0ZRIMCgRkYXRhGAEgASgMEhIKCnVwZGF0ZWRfYXQYAiABKAMiPgoVUHV0Q2xpZW50U3RhdGVSZXF1ZXN0EgwKBGRhdGEYASABKAwSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJImQKClNlcnZlckluZm8SDAoEbmFtZRgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGRvd25sb2FkX3VybBgDIAEoCRIMCgRpY29uGAQgASgJEhMKC2luc3RhbmNlX2lkGAUgASgJIrwBCg1TZXJ2ZXJQcm9maWxlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSDAoEaWNvbhgDIAEoCRIUCgxtZW1iZXJfY291bnQYBCABKAUSFAoMb25saW5lX2NvdW50GAUgASgFEi0KDmxheW91dF9lZGl0b3JzGAYgASgOMhUuYW0udjEuUHJvZmlsZUVkaXRvcnMSHwoXd2lkZ2V0X2NvbnRlbnRfZWRpdGFibGUYByABKAgicQoTTGlzdEZyaWVuZHNSZXNwb25zZRIcCgdmcmllbmRzGAEgAygLMgsuYW0udjEuVXNlchIdCghpbmNvbWluZxgCIAMoCzILLmFtLnYxLlVzZXISHQoIb3V0Z29pbmcYAyADKAsyCy5hbS52MS5Vc2VyIiEKDUZyaWVuZFJlcXVlc3QSEAoIdXNlcm5hbWUYASABKAkiHwoMRnJpZW5kQWNjZXB0Eg8KB3VzZXJfaWQYASABKAMiIAoNT3BlbkRNUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIkMKEUxpc3RVc2Vyc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlchISCgpuZXh0X2FmdGVyGAIgASgDIjAKEkxpc3RCbG9ja3NSZXNwb25zZRIaCgV1c2VycxgBIAMoCzILLmFtLnYxLlVzZXIijgEKFFVwZGF0ZVByb2ZpbGVSZXF1ZXN0EhkKDGRpc3BsYXlfbmFtZRgBIAEoCUgAiAEBEhwKD2F2YXRhcl9tZWRpYV9pZBgCIAEoA0gBiAEBEhAKA2JpbxgDIAEoCUgCiAEBQg8KDV9kaXNwbGF5X25hbWVCEgoQX2F2YXRhcl9tZWRpYV9pZEIGCgRfYmlvIkoKElNldFByZXNlbmNlUmVxdWVzdBIRCglpbnZpc2libGUYASABKAgSIQoIYWN0aXZpdHkYAiABKAsyDy5hbS52MS5BY3Rpdml0eSI/ChhMaXN0TG9naW5SZWNvcmRzUmVzcG9uc2USIwoHcmVjb3JkcxgBIAMoCzISLmFtLnYxLkxvZ2luUmVjb3JkIlAKC0xvZ2luUmVjb3JkEgwKBGtpbmQYASABKAkSCgoCaXAYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyJGChJDcmVhdGVHcm91cFJlcXVlc3QSDAoEbmFtZRgBIAEoCRISCgptZW1iZXJfaWRzGAIgAygDEg4KBnB1YmxpYxgDIAEoCCI8ChRMaXN0Q2hhbm5lbHNSZXNwb25zZRIkCghjaGFubmVscxgBIAMoCzISLmFtLnYxLkNoYW5uZWxJbmZvIm0KC0NoYW5uZWxJbmZvEgoKAmlkGAEgASgDEgwKBG5hbWUYAiABKAkSDgoGYXZhdGFyGAMgASgJEg4KBm5vdGljZRgEIAEoCRIUCgxtZW1iZXJfY291bnQYBSABKAUSDgoGam9pbmVkGAYgASgIIigKFEludml0ZU1lbWJlcnNSZXF1ZXN0EhAKCHVzZXJfaWRzGAEgAygDIjkKFUludml0ZU1lbWJlcnNSZXNwb25zZRINCgVhZGRlZBgBIAMoAxIRCglyZXF1ZXN0ZWQYAiADKAMisAEKElVwZGF0ZUdyb3VwUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEwoGbm90aWNlGAMgASgJSAKIAQESGgoNam9pbl9hcHByb3ZhbBgEIAEoCEgDiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbCInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIiIKEFNldFBpbm5lZFJlcXVlc3QSDgoGcGlubmVkGAEgASgIIh4KDVNldERuZFJlcXVlc3QSDQoFdW50aWwYASABKAMiPgoRTXV0ZU1lbWJlclJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoAxIYChBkdXJhdGlvbl9zZWNvbmRzGAIgASgDIkQKGExpc3RKb2luUmVxdWVzdHNSZXNwb25zZRIoCghyZXF1ZXN0cxgBIAMoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0SW5mbyJeCg9Kb2luUmVxdWVzdEluZm8SGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgCIAEoCzILLmFtLnYxLlVzZXISEgoKY3JlYXRlZF9hdBgDIAEoAyI5ChJBZG1pbkRlbGV0ZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJEhMKC2Jsb2NrX21lZGlhGAIgASgIIpIBCglNZWRpYUluZm8SCgoCaWQYASABKAMSDAoEbWltZRgCIAEoCRIMCgRzaXplGAMgASgDEg0KBXdpZHRoGAQgASgFEg4KBmhlaWdodBgFIAEoBRIMCgRuYW1lGAYgASgJEhAKCGlzX2ltYWdlGAcgASgIEgsKA3VybBgIIAEoCRIRCgl0aHVtYl91cmwYCSABKAkiBwoFRW1wdHkiLwoOTGlzdEFJUmVzcG9uc2USHQoDYWlzGAEgAygLMhAuYW0udjEuQUlBY2NvdW50IlUKCUFJQWNjb3VudBIZCgR1c2VyGAEgASgLMgsuYW0udjEuVXNlchIQCghzZXR0aW5ncxgCIAEoCRIbChNzZXR0aW5nc191cGRhdGVkX2F0GAMgASgDIicKD0NyZWF0ZUFJUmVxdWVzdBIUCgxkaXNwbGF5X25hbWUYASABKAkiQQoUUHV0QUlTZXR0aW5nc1JlcXVlc3QSEAoIc2V0dGluZ3MYASABKAkSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDIiMKDFJ1bkFJUmVxdWVzdBITCgtkZXZpY2VfbmFtZRgBIAEoCSJJCgdTdGlja2VyEgoKAmlkGAEgASgDEhAKCG1lZGlhX2lkGAIgASgDEgwKBHRhZ3MYAyADKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyI4ChRMaXN0U3RpY2tlcnNSZXNwb25zZRIgCghzdGlja2VycxgBIAMoCzIOLmFtLnYxLlN0aWNrZXIiMwoRQWRkU3RpY2tlclJlcXVlc3QSEAoIbWVkaWFfaWQYASABKAMSDAoEdGFncxgCIAMoCSIkChRVcGRhdGVTdGlja2VyUmVxdWVzdBIMCgR0YWdzGAEgAygJKmsKDlByb2ZpbGVFZGl0b3JzEh8KG1BST0ZJTEVfRURJVE9SU19VTlNQRUNJRklFRBAAEhoKFlBST0ZJTEVfRURJVE9SU19BRE1JTlMQARIcChhQUk9GSUxFX0VESVRPUlNfRVZFUllPTkUQAkIqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM", [file_am_v1_common]);
+  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiUwoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uEhMKC21heF9kZXZpY2VzGAIgASgFIikKF0NyZWF0ZVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBmJ1bmRsZRgBIAEoDCIwCgpQYWlyVGlja2V0Eg4KBnRpY2tldBgBIAEoCRISCgpleHBpcmVzX2F0GAIgASgDIj4KF1JlZGVlbVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBnRpY2tldBgBIAEoCRITCgtkZXZpY2VfbmFtZRgCIAEoCSJMChJQYWlyUmVkZWVtUmVzcG9uc2USDQoFdG9rZW4YASABKAkSFwoCbWUYAiABKAsyCy5hbS52MS5Vc2VyEg4KBmJ1bmRsZRgDIAEoDCIvCgtDbGllbnRTdGF0ZRIMCgRkYXRhGAEgASgMEhIKCnVwZGF0ZWRfYXQYAiABKAMiPgoVUHV0Q2xpZW50U3RhdGVSZXF1ZXN0EgwKBGRhdGEYASABKAwSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJImQKClNlcnZlckluZm8SDAoEbmFtZRgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGRvd25sb2FkX3VybBgDIAEoCRIMCgRpY29uGAQgASgJEhMKC2luc3RhbmNlX2lkGAUgASgJIrwBCg1TZXJ2ZXJQcm9maWxlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSDAoEaWNvbhgDIAEoCRIUCgxtZW1iZXJfY291bnQYBCABKAUSFAoMb25saW5lX2NvdW50GAUgASgFEi0KDmxheW91dF9lZGl0b3JzGAYgASgOMhUuYW0udjEuUHJvZmlsZUVkaXRvcnMSHwoXd2lkZ2V0X2NvbnRlbnRfZWRpdGFibGUYByABKAgicQoTTGlzdEZyaWVuZHNSZXNwb25zZRIcCgdmcmllbmRzGAEgAygLMgsuYW0udjEuVXNlchIdCghpbmNvbWluZxgCIAMoCzILLmFtLnYxLlVzZXISHQoIb3V0Z29pbmcYAyADKAsyCy5hbS52MS5Vc2VyIiEKDUZyaWVuZFJlcXVlc3QSEAoIdXNlcm5hbWUYASABKAkiHwoMRnJpZW5kQWNjZXB0Eg8KB3VzZXJfaWQYASABKAMiIAoNT3BlbkRNUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIkMKEUxpc3RVc2Vyc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlchISCgpuZXh0X2FmdGVyGAIgASgDIjAKEkxpc3RCbG9ja3NSZXNwb25zZRIaCgV1c2VycxgBIAMoCzILLmFtLnYxLlVzZXIijgEKFFVwZGF0ZVByb2ZpbGVSZXF1ZXN0EhkKDGRpc3BsYXlfbmFtZRgBIAEoCUgAiAEBEhwKD2F2YXRhcl9tZWRpYV9pZBgCIAEoA0gBiAEBEhAKA2JpbxgDIAEoCUgCiAEBQg8KDV9kaXNwbGF5X25hbWVCEgoQX2F2YXRhcl9tZWRpYV9pZEIGCgRfYmlvIkoKElNldFByZXNlbmNlUmVxdWVzdBIRCglpbnZpc2libGUYASABKAgSIQoIYWN0aXZpdHkYAiABKAsyDy5hbS52MS5BY3Rpdml0eSI/ChhMaXN0TG9naW5SZWNvcmRzUmVzcG9uc2USIwoHcmVjb3JkcxgBIAMoCzISLmFtLnYxLkxvZ2luUmVjb3JkIlAKC0xvZ2luUmVjb3JkEgwKBGtpbmQYASABKAkSCgoCaXAYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyJGChJDcmVhdGVHcm91cFJlcXVlc3QSDAoEbmFtZRgBIAEoCRISCgptZW1iZXJfaWRzGAIgAygDEg4KBnB1YmxpYxgDIAEoCCI8ChRMaXN0Q2hhbm5lbHNSZXNwb25zZRIkCghjaGFubmVscxgBIAMoCzISLmFtLnYxLkNoYW5uZWxJbmZvIm0KC0NoYW5uZWxJbmZvEgoKAmlkGAEgASgDEgwKBG5hbWUYAiABKAkSDgoGYXZhdGFyGAMgASgJEg4KBm5vdGljZRgEIAEoCRIUCgxtZW1iZXJfY291bnQYBSABKAUSDgoGam9pbmVkGAYgASgIIigKFEludml0ZU1lbWJlcnNSZXF1ZXN0EhAKCHVzZXJfaWRzGAEgAygDIjkKFUludml0ZU1lbWJlcnNSZXNwb25zZRINCgVhZGRlZBgBIAMoAxIRCglyZXF1ZXN0ZWQYAiADKAMisAEKElVwZGF0ZUdyb3VwUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEwoGbm90aWNlGAMgASgJSAKIAQESGgoNam9pbl9hcHByb3ZhbBgEIAEoCEgDiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbCInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIiIKEFNldFBpbm5lZFJlcXVlc3QSDgoGcGlubmVkGAEgASgIIh4KDVNldERuZFJlcXVlc3QSDQoFdW50aWwYASABKAMiPgoRTXV0ZU1lbWJlclJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoAxIYChBkdXJhdGlvbl9zZWNvbmRzGAIgASgDIkQKGExpc3RKb2luUmVxdWVzdHNSZXNwb25zZRIoCghyZXF1ZXN0cxgBIAMoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0SW5mbyJeCg9Kb2luUmVxdWVzdEluZm8SGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgCIAEoCzILLmFtLnYxLlVzZXISEgoKY3JlYXRlZF9hdBgDIAEoAyI5ChJBZG1pbkRlbGV0ZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJEhMKC2Jsb2NrX21lZGlhGAIgASgIIpIBCglNZWRpYUluZm8SCgoCaWQYASABKAMSDAoEbWltZRgCIAEoCRIMCgRzaXplGAMgASgDEg0KBXdpZHRoGAQgASgFEg4KBmhlaWdodBgFIAEoBRIMCgRuYW1lGAYgASgJEhAKCGlzX2ltYWdlGAcgASgIEgsKA3VybBgIIAEoCRIRCgl0aHVtYl91cmwYCSABKAkiBwoFRW1wdHkiLwoOTGlzdEFJUmVzcG9uc2USHQoDYWlzGAEgAygLMhAuYW0udjEuQUlBY2NvdW50IlUKCUFJQWNjb3VudBIZCgR1c2VyGAEgASgLMgsuYW0udjEuVXNlchIQCghzZXR0aW5ncxgCIAEoCRIbChNzZXR0aW5nc191cGRhdGVkX2F0GAMgASgDIicKD0NyZWF0ZUFJUmVxdWVzdBIUCgxkaXNwbGF5X25hbWUYASABKAkiQQoUUHV0QUlTZXR0aW5nc1JlcXVlc3QSEAoIc2V0dGluZ3MYASABKAkSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDIiMKDFJ1bkFJUmVxdWVzdBITCgtkZXZpY2VfbmFtZRgBIAEoCSI3ChNDcmVhdGVBSVJvb21SZXF1ZXN0EgwKBG5hbWUYASABKAkSEgoKbWVtYmVyX2lkcxgCIAMoAyJJCgdTdGlja2VyEgoKAmlkGAEgASgDEhAKCG1lZGlhX2lkGAIgASgDEgwKBHRhZ3MYAyADKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyI4ChRMaXN0U3RpY2tlcnNSZXNwb25zZRIgCghzdGlja2VycxgBIAMoCzIOLmFtLnYxLlN0aWNrZXIiMwoRQWRkU3RpY2tlclJlcXVlc3QSEAoIbWVkaWFfaWQYASABKAMSDAoEdGFncxgCIAMoCSIkChRVcGRhdGVTdGlja2VyUmVxdWVzdBIMCgR0YWdzGAEgAygJIiIKE1Jlc29sdmVNdXNpY1JlcXVlc3QSCwoDdXJsGAEgASgJIj8KCk11c2ljVHJhY2sSEgoKbmV0ZWFzZV9pZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIOCgZhcnRpc3QYAyABKAkikgEKFFJlc29sdmVNdXNpY1Jlc3BvbnNlEgwKBGtpbmQYASABKAkSEgoKbmV0ZWFzZV9pZBgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZhcnRpc3QYBCABKAkSFgoOY292ZXJfbWVkaWFfaWQYBSABKAMSIQoGdHJhY2tzGAYgAygLMhEuYW0udjEuTXVzaWNUcmFjayprCg5Qcm9maWxlRWRpdG9ycxIfChtQUk9GSUxFX0VESVRPUlNfVU5TUEVDSUZJRUQQABIaChZQUk9GSUxFX0VESVRPUlNfQURNSU5TEAESHAoYUFJPRklMRV9FRElUT1JTX0VWRVJZT05FEAJCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common]);
 
 /**
  * POST /api/v1/register
@@ -1287,6 +1287,32 @@ export const RunAIRequestSchema: GenMessage<RunAIRequest> = /*@__PURE__*/
   messageDesc(file_am_v1_api, 44);
 
 /**
+ * POST /api/v1/ai/{id}/room -> Conversation: a shared room with my AI, a
+ * private group owned by me with the AI and the people listed; I add or
+ * remove people later like in any channel.
+ *
+ * @generated from message am.v1.CreateAIRoomRequest
+ */
+export type CreateAIRoomRequest = Message<"am.v1.CreateAIRoomRequest"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: repeated int64 member_ids = 2;
+   */
+  memberIds: bigint[];
+};
+
+/**
+ * Describes the message am.v1.CreateAIRoomRequest.
+ * Use `create(CreateAIRoomRequestSchema)` to create a new message.
+ */
+export const CreateAIRoomRequestSchema: GenMessage<CreateAIRoomRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 45);
+
+/**
  * One sticker in my collection: one of my own uploaded images plus tags.
  *
  * @generated from message am.v1.Sticker
@@ -1320,7 +1346,7 @@ export type Sticker = Message<"am.v1.Sticker"> & {
  * Use `create(StickerSchema)` to create a new message.
  */
 export const StickerSchema: GenMessage<Sticker> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 45);
+  messageDesc(file_am_v1_api, 46);
 
 /**
  * GET /api/v1/stickers -> ListStickersResponse: mine, newest first.
@@ -1339,7 +1365,7 @@ export type ListStickersResponse = Message<"am.v1.ListStickersResponse"> & {
  * Use `create(ListStickersResponseSchema)` to create a new message.
  */
 export const ListStickersResponseSchema: GenMessage<ListStickersResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 46);
+  messageDesc(file_am_v1_api, 47);
 
 /**
  * POST /api/v1/stickers -> Sticker. The image must be my own upload; adding
@@ -1365,7 +1391,7 @@ export type AddStickerRequest = Message<"am.v1.AddStickerRequest"> & {
  * Use `create(AddStickerRequestSchema)` to create a new message.
  */
 export const AddStickerRequestSchema: GenMessage<AddStickerRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 47);
+  messageDesc(file_am_v1_api, 48);
 
 /**
  * PATCH /api/v1/stickers/{id} -> Sticker (replaces the tags).
@@ -1385,7 +1411,105 @@ export type UpdateStickerRequest = Message<"am.v1.UpdateStickerRequest"> & {
  * Use `create(UpdateStickerRequestSchema)` to create a new message.
  */
 export const UpdateStickerRequestSchema: GenMessage<UpdateStickerRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 48);
+  messageDesc(file_am_v1_api, 49);
+
+/**
+ * POST /api/v1/music/resolve -> ResolveMusicResponse. Reads a NetEase Cloud
+ * Music song or playlist link (also the short 163cn.tv ones): title,
+ * artist, tracks, and the cover, which is copied into my uploads
+ * (cover_media_id) so visitors load it from this server.
+ * music_link_invalid / music_unavailable.
+ *
+ * @generated from message am.v1.ResolveMusicRequest
+ */
+export type ResolveMusicRequest = Message<"am.v1.ResolveMusicRequest"> & {
+  /**
+   * @generated from field: string url = 1;
+   */
+  url: string;
+};
+
+/**
+ * Describes the message am.v1.ResolveMusicRequest.
+ * Use `create(ResolveMusicRequestSchema)` to create a new message.
+ */
+export const ResolveMusicRequestSchema: GenMessage<ResolveMusicRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 50);
+
+/**
+ * @generated from message am.v1.MusicTrack
+ */
+export type MusicTrack = Message<"am.v1.MusicTrack"> & {
+  /**
+   * @generated from field: string netease_id = 1;
+   */
+  neteaseId: string;
+
+  /**
+   * @generated from field: string title = 2;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string artist = 3;
+   */
+  artist: string;
+};
+
+/**
+ * Describes the message am.v1.MusicTrack.
+ * Use `create(MusicTrackSchema)` to create a new message.
+ */
+export const MusicTrackSchema: GenMessage<MusicTrack> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 51);
+
+/**
+ * @generated from message am.v1.ResolveMusicResponse
+ */
+export type ResolveMusicResponse = Message<"am.v1.ResolveMusicResponse"> & {
+  /**
+   * "song" or "playlist".
+   *
+   * @generated from field: string kind = 1;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: string netease_id = 2;
+   */
+  neteaseId: string;
+
+  /**
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * Song: its artists; playlist: who made it.
+   *
+   * @generated from field: string artist = 4;
+   */
+  artist: string;
+
+  /**
+   * @generated from field: int64 cover_media_id = 5;
+   */
+  coverMediaId: bigint;
+
+  /**
+   * Playlist: the first 50 tracks. Song: just that one.
+   *
+   * @generated from field: repeated am.v1.MusicTrack tracks = 6;
+   */
+  tracks: MusicTrack[];
+};
+
+/**
+ * Describes the message am.v1.ResolveMusicResponse.
+ * Use `create(ResolveMusicResponseSchema)` to create a new message.
+ */
+export const ResolveMusicResponseSchema: GenMessage<ResolveMusicResponse> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 52);
 
 /**
  * Who may rearrange the widgets on the server profile.

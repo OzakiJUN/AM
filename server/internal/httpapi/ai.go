@@ -153,3 +153,27 @@ func (a *API) aiLeaveChannel(w http.ResponseWriter, r *http.Request, _ *store.Se
 	}
 	a.ok(w, &amv1.Empty{})
 }
+
+// createAIRoom makes a shared room for my AI (it answers everyone in it).
+func (a *API) createAIRoom(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	req := &amv1.CreateAIRoomRequest{}
+	if !a.read(w, r, req) {
+		return
+	}
+	ai, err := a.acct.OwnedAI(r.Context(), me, id)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	c, err := a.conv.CreateAIRoom(r.Context(), me, ai, req.GetName(), req.GetMemberIds())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, c)
+}

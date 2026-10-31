@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { defaultSettings, parseSettings, previewText, systemPrompt, toChat, TEMPLATES } from './persona.ts';
+import { EVOLVE_KEEP, adoptPersona, defaultSettings, evolvePrompt, parseEvolved, parseSettings, previewText, systemPrompt, toChat, TEMPLATES } from './persona.ts';
 
 // Settings survive missing / unknown fields.
 assert.equal(parseSettings('').contextSize, 30);
@@ -27,5 +27,20 @@ assert.equal(previewText('[mood:ha'), '');
 assert.equal(previewText('[mood:happy] 你好'), '你好');
 assert.equal(previewText('没有标签'), '没有标签');
 assert.equal(previewText('好呀 [mood:la'), '好呀');
+
+// Growing its persona: small JSON answers only; bad / empty ones change nothing.
+const old = TEMPLATES[0].persona;
+assert.equal(parseEvolved('好的', old), null);
+assert.equal(parseEvolved('{"system":""}', old), null);
+assert.equal(parseEvolved(JSON.stringify({ intro: old.intro, system: old.system, examples: old.examples }), old), null);
+const grown = parseEvolved('当然！{"intro":"会陪你打游戏的朋友","system":"' + old.system + '主人喜欢叫我小鱼干。","examples":""}', old)!;
+assert.ok(grown.system.endsWith('小鱼干。') && grown.intro === '会陪你打游戏的朋友' && grown.examples === old.examples && grown.greeting === old.greeting);
+let st = defaultSettings();
+for (let i = 0; i < 12; i++) st = adoptPersona(st, { ...grown, intro: String(i) }, i);
+assert.equal(st.personaHistory!.length, EVOLVE_KEEP);
+assert.equal(st.evolvedAt, 11);
+assert.equal(st.persona.intro, '11');
+assert.ok(evolvePrompt({ name: '小鱼', owner: 'Weiqi', persona: old, lines: ['Weiqi：今天好累'] }).includes('Weiqi：今天好累'));
+assert.deepEqual(parseSettings('{}').catchUp, { enabled: true, hours: 12, max: 5 });
 
 console.log('ai persona ok');

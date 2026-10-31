@@ -1,5 +1,6 @@
 // App state: the list of servers (kept on this device), one Session per
 // server, and UI state. Components read from here; actions go to sessions.
+import { handleRemote } from './ai/remote';
 import { create } from 'zustand';
 import { Session, previewText, type ServerRecord, type SessionView } from './session';
 import { notify } from './platform';
@@ -92,6 +93,7 @@ function attach(rec: ServerRecord): Session {
     },
   );
   s.onMoved = (address) => void moveServer(rec.id, address);
+  s.onRemoteTool = (ask) => void handleRemote(rec.id, s, ask);
   s.onUnreachable = () => void tryOldAddresses(rec.id);
   live.set(rec.id, s);
   useApp.setState((st) => ({ sessions: { ...st.sessions, [rec.id]: s.view } }));
@@ -232,22 +234,30 @@ export function removeServer(id: string) {
 
 export const openKey = (page: ConvPage, serverId: string) => `${page}:${serverId}`;
 
-/** A DM with a bot / AI its owner deleted: hidden from the lists. */
-export function isDeletedBotConv(c: Conversation, users: Record<string, User>) {
-  return isBotConv(c, users) && !!users[c.peerId!]?.gone;
+/** The bot / AI a conversation is with: the DM peer, or the AI of a shared room. */
+export function botOf(c: Conversation, users: Record<string, User>): User | undefined {
+  const id = c.kind === 'dm' ? c.peerId : c.aiId;
+  const u = id ? users[id] : undefined;
+  return u && (u.type === 'bot' || u.type === 'ai') ? u : undefined;
 }
 
-/** DMs with bot / AI accounts live on the AI page, not with the other DMs. */
+/** A chat with a bot / AI its owner deleted: hidden from the lists. */
+export function isDeletedBotConv(c: Conversation, users: Record<string, User>) {
+  return isBotConv(c, users) && !!botOf(c, users)?.gone;
+}
+
+/** DMs with bot / AI accounts and shared AI rooms live on the AI page. */
 export function isBotConv(c: Conversation, users: Record<string, User>) {
-  if (c.kind !== 'dm' || !c.peerId) return false;
+  if (c.kind === 'group') return !!c.aiId;
+  if (!c.peerId) return false;
   const t = users[c.peerId]?.type;
   return t === 'bot' || t === 'ai';
 }
 
 /** Which page lists a conversation: channels, DMs, or the AI page. */
 export function convPage(c: Conversation, users: Record<string, User>): ConvPage {
-  if (c.kind === 'group') return 'channels';
-  return isBotConv(c, users) ? 'ai' : 'dms';
+  if (isBotConv(c, users)) return 'ai';
+  return c.kind === 'group' ? 'channels' : 'dms';
 }
 
 /** The conversation open on a page of a server. */

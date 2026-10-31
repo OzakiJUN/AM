@@ -54,6 +54,8 @@ export interface Conversation {
   joinApproval: boolean;
   /** Channel (group) open to everyone on the server. */
   public: boolean;
+  /** Shared AI room: the AI it belongs to (listed on the AI page). */
+  aiId?: string;
   lastSeq: number;
   readSeq: number;
   myRole: MemberRole;

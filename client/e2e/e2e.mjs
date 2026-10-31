@@ -1,6 +1,6 @@
 // Two-user browser test of the client against a real am-server.
 // See client/README.md ("端到端测试") for how to run it.
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright';
 
@@ -18,6 +18,15 @@ if (!JOIN || !IMAGE) {
 const MOCK_PORT = Number(process.env.AM_E2E_MOCK_PORT ?? 8460);
 let seenTools = [];
 const mock = createServer((req, res) => {
+  // Also a fake NetEase for the music widgets (the test server's media.netease_api points here).
+  if (req.method === 'GET' && req.url.startsWith('/api/song/detail/')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ code: 200, songs: [{ id: 186016, name: '晴天', artists: [{ name: '周杰伦' }], album: { picUrl: `http://127.0.0.1:${MOCK_PORT}/cover.png` } }] }));
+  }
+  if (req.method === 'GET' && req.url.startsWith('/cover.png')) {
+    res.writeHead(200, { 'Content-Type': 'image/png' });
+    return res.end(readFileSync(IMAGE));
+  }
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
   if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
   let body = '';
@@ -30,6 +39,13 @@ const mock = createServer((req, res) => {
     res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
     // Asked to use the clipboard: call the tool first, then answer.
     const wantsTool = last.includes?.('剪贴板') && j.messages.at(-1).role === 'user' && j.tools?.some((t) => t.function.name === 'set_clipboard');
+    // Asked to look at someone else's computer: use_computer_of, then answer with what came back.
+    const wantsRemote = last.includes?.('小克的电脑') && j.messages.at(-1).role === 'user' && j.tools?.some((t) => t.function.name === 'use_computer_of');
+    if (wantsRemote) {
+      const args = JSON.stringify({ person: '小克', tool: 'get_clipboard', args_json: '{}' });
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_r', function: { name: 'use_computer_of', arguments: args } }] } }] })}\n\n`);
+      return res.end('data: [DONE]\n\n');
+    }
     if (wantsTool) {
       res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_1', function: { name: 'set_clipboard', arguments: '{"text":"小鱼' } }] } }] })}\n\n`);
       res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '到此一游"}' } }] } }] })}\n\n`);
@@ -229,9 +245,16 @@ const pages = [];
   await A.click('div[role="dialog"] button:has-text("好了")');
   // Our own music player: a song uploaded to the server (a short silent WAV made here).
   await addWidget('一首歌');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("上传文件")');
   await A.setInputFiles('div[role="dialog"] input[type="file"][accept^="audio"]', SONG);
   await A.waitForSelector('div[role="dialog"] button:has-text("换一首")');
   await A.fill('div[role="dialog"] input[maxlength="40"]', '测试乐队');
+  await A.click('div[role="dialog"] button:has-text("好了")');
+  // …and a NetEase song by its share link: title, artist and cover are read by the server.
+  await addWidget('一首歌');
+  await A.fill('div[role="dialog"] input[aria-label="网易云链接"]', '分享周杰伦的单曲《晴天》: https://music.163.com/#/song?id=186016 (来自@网易云音乐)');
+  await A.click('div[role="dialog"] button:has-text("读取")');
+  await A.waitForSelector('div[role="dialog"] >> text=现在：晴天 - 周杰伦');
   await A.click('div[role="dialog"] button:has-text("好了")');
   await A.click('button:has-text("背景")');
   await A.click('div[role="dialog"] button[role="radio"]:has-text("渐变")');
@@ -586,6 +609,34 @@ const pages = [];
   await A.click('div[role="dialog"] button[role="radio"]:has-text("电脑")');
   await A.waitForSelector('div[role="group"][aria-label="MCP 文件系统"]');
   await A.keyboard.press('Escape');
+
+  // Shared room: everyone in it talks to the AI, which answers each time.
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("频道与作息")');
+  await A.click('div[role="dialog"] button:has-text("开一个共享聊天")');
+  await A.waitForSelector('aside button:has-text("小鱼和大家")');
+  await A.keyboard.press('Escape');
+  await A.waitForSelector('header h2:has-text("小鱼和大家")');
+  await A.fill('textarea[aria-label="消息"]', '大家好呀');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：Weiqi：大家好呀")', { timeout: 15000 });
+  await wait(400);
+  await shot(A, '29c-ai-room');
+
+  // Someone else's AI on my computer: 小克 lets 小鱼 read what she copied; Weiqi asks 小鱼 to look.
+  await B.evaluate(() => navigator.clipboard.writeText('小克复制的字'));
+  await B.click('button[aria-label="设置"]');
+  await B.click('button:has-text("隐私")');
+  await B.click('button[role="switch"][aria-label="让 小鱼 操作这台电脑"]');
+  await B.click('div[role="dialog"] button:has-text("打开")');
+  await B.click('div[role="group"][aria-label="远程 剪贴板"] button[role="radio"]:has-text("允许")');
+  await B.click('div[role="dialog"] button:has-text("确定")');
+  await wait(400);
+  await shot(B, '29d-remote-allow');
+  await A.click('aside button:has-text("小鱼"):has-text("我的")');
+  await A.fill('textarea[aria-label="消息"]', '去小克的电脑看看她复制了什么');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("放好啦（小克复制的字）")', { timeout: 20000 });
 
   // Deleting my AI from its chat header: gone from the AI list.
   if (await A.locator('header button[aria-label="屏蔽"]').count()) throw new Error('block button on my own AI');

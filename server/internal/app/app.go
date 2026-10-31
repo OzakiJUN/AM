@@ -17,8 +17,10 @@ import (
 	"github.com/OzakiJUN/am/server/internal/janitor"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/music"
 	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/profile"
+	"github.com/OzakiJUN/am/server/internal/remote"
 	"github.com/OzakiJUN/am/server/internal/sticker"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
@@ -71,8 +73,9 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	prof := profile.New(st, ids, acct, cs, md, cfg.Retention)
 
 	mux := http.NewServeMux()
-	httpapi.New(acct, cs, ms, md, ps, prof, sticker.New(st, ids, md, cfg.Limits.MaxStickers), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
-	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, log))
+	httpapi.New(acct, cs, ms, md, ps, prof, sticker.New(st, ids, md, cfg.Limits.MaxStickers),
+		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
+	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
 
 	return &App{
 		Store:   st,

@@ -20,8 +20,8 @@ const (
 	portCols   = 4
 	portRows   = 8
 	maxSide    = 4
-	maxWidgets = 3 * 24 // can't have more than the cells anyway
-	maxConfig  = 8 << 10
+	maxWidgets = 3 * 24   // can't have more than the cells anyway
+	maxConfig  = 16 << 10 // a 50-song playlist with long titles
 )
 
 var (
@@ -41,16 +41,20 @@ type kindSpec struct {
 	check func(cfg []byte) ([]int64, error)
 }
 
-// song is one track of the music widgets: an uploaded sound file.
+// song is one track of the music widgets: an uploaded sound file, or a
+// NetEase song (played from NetEase by each listener).
 type song struct {
-	Title   string
-	Artist  string
-	AudioID string `json:"audio_id"`
+	Title     string
+	Artist    string
+	AudioID   string `json:"audio_id"`
+	NeteaseID string `json:"netease_id"`
 }
 
-func (s song) ok() bool { return maxLen(s.Title, 60) && maxLen(s.Artist, 40) }
+func (s song) ok() bool {
+	return maxLen(s.Title, 60) && maxLen(s.Artist, 40) && (s.NeteaseID == "" || (digitsRe.MatchString(s.NeteaseID) && s.AudioID == ""))
+}
 
-const maxSongs = 30
+const maxSongs = 50
 
 var kinds = map[string]kindSpec{
 	"text": {2, 1, 0, func(c []byte) ([]int64, error) {
@@ -148,12 +152,13 @@ var kinds = map[string]kindSpec{
 	}},
 	"playlist": {2, 2, 0, func(c []byte) ([]int64, error) {
 		var v struct {
-			Title   string
-			CoverID string `json:"cover_id"`
-			Songs   []song
+			Title     string
+			CoverID   string `json:"cover_id"`
+			NeteaseID string `json:"netease_id"`
+			Songs     []song
 		}
 		if err := check(c, &v, func() bool {
-			if !maxLen(v.Title, 40) || len(v.Songs) > maxSongs {
+			if !maxLen(v.Title, 40) || len(v.Songs) > maxSongs || (v.NeteaseID != "" && !digitsRe.MatchString(v.NeteaseID)) {
 				return false
 			}
 			for _, s := range v.Songs {

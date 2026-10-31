@@ -22,6 +22,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/music"
 	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/profile"
 	"github.com/OzakiJUN/am/server/internal/sticker"
@@ -43,14 +44,15 @@ type API struct {
 	presence  *presence.Service
 	profile   *profile.Service
 	stickers  *sticker.Service
+	music     *music.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	maxUpload int64
 }
 
 func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service, ps *presence.Service,
-	prof *profile.Service, sk *sticker.Service, loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
-	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, profile: prof, stickers: sk, log: log,
+	prof *profile.Service, sk *sticker.Service, mu *music.Service, loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
+	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, profile: prof, stickers: sk, music: mu, log: log,
 		limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
 }
 
@@ -73,6 +75,8 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/ai/{id}/run", a.authed(a.runAI))
 	mux.HandleFunc("DELETE /api/v1/ai/{id}", a.authed(a.deleteAI))
 	mux.HandleFunc("DELETE /api/v1/ai/{id}/channels/{conv}", a.authed(a.aiLeaveChannel))
+	mux.HandleFunc("POST /api/v1/ai/{id}/room", a.authed(a.createAIRoom))
+	mux.HandleFunc("POST /api/v1/music/resolve", a.authed(a.resolveMusic))
 	mux.HandleFunc("GET /api/v1/stickers", a.authed(a.listStickers))
 	mux.HandleFunc("POST /api/v1/stickers", a.authed(a.addSticker))
 	mux.HandleFunc("PATCH /api/v1/stickers/{id}", a.authed(a.updateSticker))
