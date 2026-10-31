@@ -41,6 +41,17 @@ type kindSpec struct {
 	check func(cfg []byte) ([]int64, error)
 }
 
+// song is one track of the music widgets: an uploaded sound file.
+type song struct {
+	Title   string
+	Artist  string
+	AudioID string `json:"audio_id"`
+}
+
+func (s song) ok() bool { return maxLen(s.Title, 60) && maxLen(s.Artist, 40) }
+
+const maxSongs = 30
+
 var kinds = map[string]kindSpec{
 	"text": {2, 1, 0, func(c []byte) ([]int64, error) {
 		var v struct{ Title, Text string }
@@ -124,8 +135,64 @@ var kinds = map[string]kindSpec{
 				(v.PlaylistID == "" || digitsRe.MatchString(v.PlaylistID)) && maxLen(v.Title, 40)
 		})
 	}},
+	// Our own players: one song, or a playlist, of sound files the owner uploaded.
+	"song": {2, 1, 0, func(c []byte) ([]int64, error) {
+		var v struct {
+			song
+			CoverID string `json:"cover_id"`
+		}
+		if err := check(c, &v, func() bool { return v.song.ok() }); err != nil {
+			return nil, err
+		}
+		return mediaIDs(v.CoverID, v.AudioID)
+	}},
+	"playlist": {2, 2, 0, func(c []byte) ([]int64, error) {
+		var v struct {
+			Title   string
+			CoverID string `json:"cover_id"`
+			Songs   []song
+		}
+		if err := check(c, &v, func() bool {
+			if !maxLen(v.Title, 40) || len(v.Songs) > maxSongs {
+				return false
+			}
+			for _, s := range v.Songs {
+				if !s.ok() {
+					return false
+				}
+			}
+			return true
+		}); err != nil {
+			return nil, err
+		}
+		ids := []string{v.CoverID}
+		for _, s := range v.Songs {
+			ids = append(ids, s.AudioID)
+		}
+		return mediaIDs(ids...)
+	}},
 	"status": {2, 1, store.ProfileUser, func(c []byte) ([]int64, error) { return nil, check(c, &struct{}{}, nil) }},
 	"online": {2, 2, store.ProfileServer, func(c []byte) ([]int64, error) { return nil, check(c, &struct{}{}, nil) }},
+}
+
+// audioOf says which media of a kind must be sound files (the rest are images).
+var audioOf = map[string]func(cfg []byte) []int64{
+	"song": func(c []byte) []int64 {
+		var v song
+		_ = json.Unmarshal(c, &v)
+		ids, _ := mediaIDs(v.AudioID)
+		return ids
+	},
+	"playlist": func(c []byte) []int64 {
+		var v struct{ Songs []song }
+		_ = json.Unmarshal(c, &v)
+		var ids []string
+		for _, s := range v.Songs {
+			ids = append(ids, s.AudioID)
+		}
+		out, _ := mediaIDs(ids...)
+		return out
+	},
 }
 
 // check parses a widget config into v, then runs ok (nil = no limits).
@@ -156,19 +223,20 @@ func mediaIDs(ids ...string) ([]int64, error) {
 
 // validate checks a layout for profile kind `owner` and returns the media
 // every widget uses (by widget id; "" = background).
-func validate(l *amv1.ProfileLayout, owner int16) (map[string][]int64, error) {
+func validate(l *amv1.ProfileLayout, owner int16) (map[string][]int64, map[int64]bool, error) {
 	if len(l.GetWidgets()) > maxWidgets {
-		return nil, apperr.ErrInvalidWidget
+		return nil, nil, apperr.ErrInvalidWidget
 	}
 	media := map[string][]int64{}
+	audio := map[int64]bool{}
 	land := map[int32]*board{}
 	port := map[int32]*board{}
 	for _, w := range l.GetWidgets() {
 		if !widgetIDRe.MatchString(w.GetId()) || media[w.GetId()] != nil {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 		if len(w.GetConfig()) > maxConfig || (w.GetConfig() != "" && !json.Valid([]byte(w.GetConfig()))) {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 		minW, minH := 1, 1
 		var ids []int64
@@ -176,7 +244,7 @@ func validate(l *amv1.ProfileLayout, owner int16) (map[string][]int64, error) {
 		case amv1.WidgetSource_WIDGET_SOURCE_BUILTIN:
 			spec, ok := kinds[w.GetKind()]
 			if !ok || (spec.only != 0 && spec.only != owner) {
-				return nil, apperr.ErrInvalidWidget
+				return nil, nil, apperr.ErrInvalidWidget
 			}
 			cfg := []byte(w.GetConfig())
 			if len(cfg) == 0 {
@@ -184,28 +252,33 @@ func validate(l *amv1.ProfileLayout, owner int16) (map[string][]int64, error) {
 			}
 			var err error
 			if ids, err = spec.check(cfg); err != nil {
-				return nil, err
+				return nil, nil, err
+			}
+			if f := audioOf[w.GetKind()]; f != nil {
+				for _, id := range f(cfg) {
+					audio[id] = true
+				}
 			}
 			minW, minH = spec.minW, spec.minH
 		case amv1.WidgetSource_WIDGET_SOURCE_WORKSHOP:
 			if w.GetWorkshopId() == "" || len(w.GetWorkshopId()) > 100 || len(w.GetWorkshopVersion()) > 40 ||
 				!shaRe.MatchString(w.GetPackageSha256()) || len(w.GetKind()) > 64 {
-				return nil, apperr.ErrInvalidWidget
+				return nil, nil, apperr.ErrInvalidWidget
 			}
 		default:
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 		if w.GetSnapshotMediaId() != 0 {
 			ids = append(ids, w.GetSnapshotMediaId())
 		}
 		if w.GetW() < int32(minW) || w.GetH() < int32(minH) || w.GetW() > maxSide || w.GetH() > maxSide {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 		if !place(land, w.GetLandscape(), w.GetW(), w.GetH(), landCols, landRows) {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 		if l.GetPortraitCustom() && !place(port, w.GetPortrait(), w.GetW(), w.GetH(), portCols, portRows) {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 		if ids == nil {
 			ids = []int64{}
@@ -217,24 +290,24 @@ func validate(l *amv1.ProfileLayout, owner int16) (map[string][]int64, error) {
 	case "":
 	case "color":
 		if !colorRe.MatchString(bg.GetValue()) {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 	case "gradient":
 		if !presetRe.MatchString(bg.GetValue()) {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 	case "image":
 		if bg.GetMediaId() <= 0 {
-			return nil, apperr.ErrInvalidWidget
+			return nil, nil, apperr.ErrInvalidWidget
 		}
 		media[""] = []int64{bg.GetMediaId()}
 	default:
-		return nil, apperr.ErrInvalidWidget
+		return nil, nil, apperr.ErrInvalidWidget
 	}
 	if bg.GetBlur() < 0 || bg.GetBlur() > 40 || bg.GetDim() < 0 || bg.GetDim() > 80 {
-		return nil, apperr.ErrInvalidWidget
+		return nil, nil, apperr.ErrInvalidWidget
 	}
-	return media, nil
+	return media, audio, nil
 }
 
 // board marks the cells taken on one page of one orientation.

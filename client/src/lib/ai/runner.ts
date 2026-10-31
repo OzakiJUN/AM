@@ -237,7 +237,7 @@ function textOf(m: Message): string | null {
     case 'text':
       return m.struck ? null : b.text;
     case 'image':
-      return '[发了一张图片]';
+      return b.stickerTags?.length ? `[发了一个表情：${b.stickerTags.join('、')}]` : '[发了一张图片]';
     case 'file':
       return `[发了一个文件：${b.name}]`;
     default:

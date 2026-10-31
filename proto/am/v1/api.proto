@@ -411,3 +411,33 @@ message RunAIRequest {
 }
 
 // DELETE /api/v1/ai/{id} -> Empty: the AI leaves the server for good.
+
+// ---- stickers (docs/design.md §11) ----
+
+// One sticker in my collection: one of my own uploaded images plus tags.
+message Sticker {
+  int64 id = 1;
+  int64 media_id = 2;
+  // At most 10 tags, 20 characters each (trimmed, no duplicates).
+  repeated string tags = 3;
+  int64 created_at = 4;
+}
+
+// GET /api/v1/stickers -> ListStickersResponse: mine, newest first.
+message ListStickersResponse {
+  repeated Sticker stickers = 1;
+}
+
+// POST /api/v1/stickers -> Sticker. The image must be my own upload; adding
+// the same image again returns the sticker already there. At most
+// limits.max_stickers per person (sticker_limit).
+message AddStickerRequest {
+  int64 media_id = 1;
+  repeated string tags = 2;
+}
+
+// PATCH /api/v1/stickers/{id} -> Sticker (replaces the tags).
+// DELETE /api/v1/stickers/{id} -> Empty.
+message UpdateStickerRequest {
+  repeated string tags = 1;
+}

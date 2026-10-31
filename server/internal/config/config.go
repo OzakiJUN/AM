@@ -74,6 +74,7 @@ type Limits struct {
 	MaxDevices             int `toml:"max_devices"`
 	PairCodeMinutes        int `toml:"pair_code_minutes"`
 	MaxAIPerUser           int `toml:"max_ai_per_user"`
+	MaxStickers            int `toml:"max_stickers"`
 }
 
 type Retention struct {
@@ -239,6 +240,9 @@ func (c *Config) validate() error {
 	}
 	if c.Limits.MaxTextLength < 1 {
 		return errors.New("limits.max_text_length must be >= 1")
+	}
+	if c.Limits.MaxStickers < 0 {
+		return errors.New("limits.max_stickers must be >= 0")
 	}
 	if c.Limits.MaxAIPerUser < 0 {
 		return errors.New("limits.max_ai_per_user must be >= 0")

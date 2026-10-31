@@ -2,7 +2,8 @@
 // page, who may edit it), the "add a widget" picker and the background.
 // Changes go into the board's draft; the board saves them all at once.
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ImagePlus, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ImagePlus, Music2, Plus, Trash2, X } from 'lucide-react';
+import { isAudioFile, titleFromFile } from '@/lib/player';
 import { current } from '@/lib/store';
 import { GRADIENTS, KINDS, STAT_ITEMS, kindInfo, neteasePlaylistId, type KindInfo, type ProfileKind } from '@/lib/widgetKinds';
 import { MAX_PAGES, MAX_SIDE, type Background, type WidgetModel } from '@/lib/widgets';
@@ -208,6 +209,58 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
     }
     case 'guestbook':
       return <Field label="标题"><Input value={str(cfg.title)} maxLength={30} onChange={(e) => set({ title: e.target.value })} /></Field>;
+    case 'song': {
+      const cover = str(cfg.cover_id);
+      return (
+        <>
+          <AudioPick
+            label={str(cfg.audio_id) ? `换一首（现在：${str(cfg.title) || '未命名'}）` : '选一首歌'}
+            onPicked={([s]) => set({ audio_id: s.audioId, title: str(cfg.title) || s.title, artist: str(cfg.artist) || s.artist })}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="歌名"><Input value={str(cfg.title)} maxLength={60} onChange={(e) => set({ title: e.target.value })} /></Field>
+            <Field label="歌手"><Input value={str(cfg.artist)} maxLength={40} onChange={(e) => set({ artist: e.target.value })} /></Field>
+          </div>
+          <Field label="封面（可以不放）"><ImagePick ids={cover ? [cover] : []} max={1} onChange={(ids) => set({ cover_id: ids[0] ?? '' })} /></Field>
+          <p className="text-[0.8rem] text-ink-soft dark:text-white/45">歌传到这个服务器上，看你主页的人都能听。mp3、m4a、flac、ogg、wav 都行。</p>
+        </>
+      );
+    }
+    case 'playlist': {
+      const cover = str(cfg.cover_id);
+      const songs = Array.isArray(cfg.songs) ? (cfg.songs as { title: string; artist: string; audio_id: string }[]) : [];
+      const put = (next: typeof songs) => set({ songs: next });
+      const move = (i: number, d: number) => {
+        const next = [...songs];
+        [next[i], next[i + d]] = [next[i + d], next[i]];
+        put(next);
+      };
+      return (
+        <>
+          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+            <Field label="歌单名"><Input value={str(cfg.title)} maxLength={40} placeholder="例如：最近单曲循环" onChange={(e) => set({ title: e.target.value })} /></Field>
+            <ImagePick ids={cover ? [cover] : []} max={1} onChange={(ids) => set({ cover_id: ids[0] ?? '' })} />
+          </div>
+          <Field label={`歌（${songs.length} / ${MAX_SONGS}）`} hint="可以一次选好几首；文件名是「歌手 - 歌名」的会自动分开">
+            <div className="space-y-1.5">
+              {songs.map((sg, i) => (
+                <div key={sg.audio_id + i} className="flex items-center gap-1.5">
+                  <span className="w-5 shrink-0 text-center text-[0.8rem] tabular-nums text-ink-soft">{i + 1}</span>
+                  <Input value={sg.title} maxLength={60} placeholder="歌名" aria-label={`第 ${i + 1} 首歌名`} onChange={(e) => put(songs.map((x, n) => (n === i ? { ...x, title: e.target.value } : x)))} />
+                  <Input className="w-28 shrink-0" value={sg.artist} maxLength={40} placeholder="歌手" onChange={(e) => put(songs.map((x, n) => (n === i ? { ...x, artist: e.target.value } : x)))} />
+                  <Button variant="ghost" size="sm" disabled={i === 0} aria-label="往上" onClick={() => move(i, -1)}><ArrowUp size={14} /></Button>
+                  <Button variant="ghost" size="sm" disabled={i === songs.length - 1} aria-label="往下" onClick={() => move(i, 1)}><ArrowDown size={14} /></Button>
+                  <Button variant="ghost" size="sm" aria-label="删掉这首" onClick={() => put(songs.filter((_, n) => n !== i))}><Trash2 size={14} /></Button>
+                </div>
+              ))}
+              {songs.length < MAX_SONGS && (
+                <AudioPick multiple label="加歌" onPicked={(got) => put([...songs, ...got.map((g) => ({ title: g.title, artist: g.artist, audio_id: g.audioId }))].slice(0, MAX_SONGS))} />
+              )}
+            </div>
+          </Field>
+        </>
+      );
+    }
     case 'music': {
       const id = str(cfg.playlist_id);
       return (
@@ -223,6 +276,43 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
     default:
       return <p className="text-ink-soft dark:text-white/55">这个小组件没有要设置的内容。</p>;
   }
+}
+
+const MAX_SONGS = 30;
+
+/** Uploads sound files right away and hands back what was uploaded. */
+function AudioPick({ label, multiple, onPicked }: { label: string; multiple?: boolean; onPicked: (s: { audioId: string; title: string; artist: string }[]) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState('');
+  const pick = async (files: File[]) => {
+    const bad = files.find((f) => !isAudioFile(f));
+    if (bad) {
+      toastError(new Error(`「${bad.name}」不是音频文件`));
+      return;
+    }
+    const out: { audioId: string; title: string; artist: string }[] = [];
+    try {
+      for (const [i, f] of files.entries()) {
+        setBusy(files.length > 1 ? `上传中 ${i + 1}/${files.length}…` : '上传中…');
+        const info = await current().upload(f);
+        out.push({ audioId: info.id.toString(), ...titleFromFile(f.name) });
+      }
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy('');
+      if (out.length) onPicked(out);
+    }
+  };
+  return (
+    <>
+      <Button variant="soft" size="sm" disabled={!!busy} onClick={() => ref.current?.click()}>
+        {busy ? <Spinner size={14} /> : <Music2 size={15} />} {busy || label}
+      </Button>
+      <input ref={ref} type="file" accept="audio/*,.mp3,.m4a,.aac,.flac,.ogg,.opus,.wav" multiple={multiple} hidden
+        onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ''; if (f.length) void pick(f); }} />
+    </>
+  );
 }
 
 /** Pick / reorder / remove images (uploads right away). */
@@ -276,7 +366,7 @@ export function AddWidgetDialog({ open, profileKind, onClose, onPick }: { open: 
   return (
     <Dialog open={open} onClose={onClose} title="添加小组件" width={560}>
       <div className="grid max-h-[60vh] grid-cols-2 gap-2.5 overflow-y-auto pr-1">
-        {KINDS.filter((k) => !k.only || k.only === profileKind).map((k) => (
+        {KINDS.filter((k) => !k.hidden && (!k.only || k.only === profileKind)).map((k) => (
           <button key={k.kind} onClick={() => onPick(k)} className="lift flex items-start gap-3 rounded-2xl bg-black/[0.03] p-3 text-left hover:bg-accent-50 dark:bg-white/[0.04] dark:hover:bg-white/10">
             <span className="text-[1.6rem] leading-none">{k.emoji}</span>
             <span className="min-w-0">

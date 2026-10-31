@@ -172,4 +172,25 @@ func testProfileWidgets(t *testing.T, a *app.App, base string) {
 	if v := must(bob.cli.GetProfile(ctx, alice.me.Id)); len(v.Layout.Widgets) != 0 || v.Layout.Version != 2 {
 		t.Fatalf("after clear: %+v", v.Layout)
 	}
+
+	// Music: our own players play sound files the owner uploaded; a picture is not a song.
+	mp3 := must(alice.cli.Upload(ctx, "晴天.mp3", bytes.NewReader(append([]byte("ID3\x03\x00\x00\x00\x00\x00\x00"), make([]byte, 64)...))))
+	ver := must(alice.cli.GetProfile(ctx, alice.me.Id)).Layout.Version
+	for _, w := range []*amv1.Widget{
+		widget("a", "song", 2, 1, 0, 0, 0, `{"audio_id":"`+itoa(img.Id)+`"}`),
+		widget("a", "playlist", 2, 2, 0, 0, 0, `{"songs":[{"title":"`+strings.Repeat("x", 61)+`"}]}`),
+	} {
+		_, err := alice.cli.SaveProfile(ctx, alice.me.Id, &amv1.ProfileLayout{Widgets: []*amv1.Widget{w}}, ver)
+		wantCode(t, err, "invalid_widget")
+	}
+	music := must(alice.cli.SaveProfile(ctx, alice.me.Id, &amv1.ProfileLayout{Widgets: []*amv1.Widget{
+		widget("s", "song", 2, 1, 0, 0, 0, `{"title":"晴天","artist":"周杰伦","audio_id":"`+itoa(mp3.Id)+`","cover_id":"`+itoa(img.Id)+`"}`),
+		widget("p", "playlist", 2, 2, 0, 2, 0, `{"title":"单曲循环","songs":[{"title":"晴天","audio_id":"`+itoa(mp3.Id)+`"},{"title":"空的","audio_id":""}]}`),
+	}}, ver))
+	if len(music.Layout.Widgets) != 2 {
+		t.Fatalf("music widgets: %+v", music.Layout)
+	}
+	if _, _, err := bob.cli.Download(ctx, "/api/v1/media/"+itoa(mp3.Id)); err != nil {
+		t.Fatalf("bob cannot play alice's song: %v", err)
+	}
 }

@@ -27,13 +27,18 @@ export interface SyncSide {
   upload(data: Blob, name: string): Promise<string>;
 }
 
-/** Media ids a layout uses (widget pictures, the background, snapshots). */
+const songList = (v: unknown) => (Array.isArray(v) ? (v as Record<string, unknown>[]).filter((x) => x && typeof x === 'object') : []);
+
+/** Media ids a layout uses (widget pictures and songs, the background, snapshots). */
 export function layoutMedia(l: LayoutModel): string[] {
   const out = new Set<string>();
   const add = (id: unknown) => typeof id === 'string' && id && out.add(id);
   for (const w of l.widgets) {
     add(w.config.media_id);
     if (Array.isArray(w.config.media_ids)) w.config.media_ids.forEach(add);
+    add(w.config.cover_id);
+    add(w.config.audio_id);
+    songList(w.config.songs).forEach((s) => add(s.audio_id));
     add(w.snapshotMediaId);
   }
   add(l.background.mediaId);
@@ -49,6 +54,9 @@ export function remapLayout(l: LayoutModel, map: Record<string, string>): Layout
       const config = { ...w.config };
       if ('media_id' in config) config.media_id = one(config.media_id);
       if (Array.isArray(config.media_ids)) config.media_ids = config.media_ids.map(one).filter(Boolean);
+      if ('cover_id' in config) config.cover_id = one(config.cover_id);
+      if ('audio_id' in config) config.audio_id = one(config.audio_id);
+      if (Array.isArray(config.songs)) config.songs = songList(config.songs).map((s) => ({ ...s, audio_id: one(s.audio_id) })).filter((s) => s.audio_id);
       return { ...w, config, snapshotMediaId: w.snapshotMediaId ? one(w.snapshotMediaId) || undefined : undefined };
     }),
     background: l.background.mediaId

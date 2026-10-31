@@ -1,5 +1,6 @@
 // Two-user browser test of the client against a real am-server.
 // See client/README.md ("端到端测试") for how to run it.
+import { writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright';
 
@@ -50,6 +51,17 @@ const mock = createServer((req, res) => {
     res.end('data: [DONE]\n\n');
   });
 }).listen(MOCK_PORT, '127.0.0.1');
+// A short silent WAV for the music widget (8 kHz, 8-bit, mono, 0.6 s).
+// (ASCII name: Playwright silently drops files whose path has Chinese characters.)
+const SONG = `${OUT}/Test Band - Quiet.wav`;
+{
+  const n = 4800;
+  const b = Buffer.alloc(44 + n, 128);
+  b.write('RIFF', 0); b.writeUInt32LE(36 + n, 4); b.write('WAVE', 8); b.write('fmt ', 12);
+  b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(8000, 24);
+  b.writeUInt32LE(8000, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34); b.write('data', 36); b.writeUInt32LE(n, 40);
+  writeFileSync(SONG, b);
+}
 const shot = (p, n) => p.screenshot({ path: `${OUT}/e2e-${n}.png` });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const pages = [];
@@ -215,6 +227,12 @@ const pages = [];
   await A.click('div[role="dialog"] button:has-text("好了")');
   await addWidget('留言板');
   await A.click('div[role="dialog"] button:has-text("好了")');
+  // Our own music player: a song uploaded to the server (a short silent WAV made here).
+  await addWidget('一首歌');
+  await A.setInputFiles('div[role="dialog"] input[type="file"][accept^="audio"]', SONG);
+  await A.waitForSelector('div[role="dialog"] button:has-text("换一首")');
+  await A.fill('div[role="dialog"] input[maxlength="40"]', '测试乐队');
+  await A.click('div[role="dialog"] button:has-text("好了")');
   await A.click('button:has-text("背景")');
   await A.click('div[role="dialog"] button[role="radio"]:has-text("渐变")');
   await A.click('div[role="dialog"] button[aria-label="ocean"]');
@@ -223,6 +241,9 @@ const pages = [];
   await A.waitForSelector('text=主页已保存');
   await wait(800);
   await shot(A, '18-profile-widgets');
+  await A.click('button[aria-label="播放"]');
+  await A.waitForSelector('button[aria-label="暂停"]', { timeout: 8000 });
+  await A.click('button[aria-label="暂停"]');
   await B.click('aside[aria-label="频道成员"] button:has-text("Weiqi")');
   await B.click('button[role="menuitem"]:has-text("查看主页")');
   await B.waitForSelector('text=关于我');
@@ -472,6 +493,23 @@ const pages = [];
   await A.mouse.click(pbox.x + pbox.width / 2, pbox.y + pbox.height * 0.3);
   await A.waitForSelector('section div.whitespace-pre-wrap:has-text("[戳一戳] 戳了戳小鱼的脸")');
   await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：[戳一戳]")', { timeout: 15000 });
+
+  // Stickers: bulk import, tag one by hand, send it; the AI reads the tags, not the picture.
+  await A.click('button[aria-label="表情包"]');
+  await A.click('button[aria-label="管理表情"]');
+  await A.setInputFiles('div[role="dialog"] input[type="file"][accept="image/*"]', [IMAGE, `${OUT}/e2e-01-register.png`]);
+  await A.waitForSelector('text=导入了 2 个表情');
+  if (!(await A.locator('div[role="dialog"] button:has-text("自动识别标签")').isDisabled())) throw new Error('auto-recognise should wait');
+  const tag = A.locator('div[role="dialog"] input[aria-label="表情标签"]').first();
+  await tag.fill('开心 狗头');
+  await tag.press('Enter');
+  await A.waitForSelector('div[role="dialog"] button:has-text("没标签的（1）")');
+  await wait(400);
+  await shot(A, '27e-stickers');
+  await A.keyboard.press('Escape');
+  await A.click('button[aria-label="表情包"]');
+  await A.click('button[aria-label="发表情 开心、狗头"]');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：[发了一个表情：开心、狗头]")', { timeout: 15000 });
 
   // Channels and its day: put it into 「AM 内测」; its routine goes off for the test.
   await A.click('button[aria-label="AI 设置"]');

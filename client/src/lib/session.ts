@@ -158,6 +158,14 @@ const ROLE: Record<number, MemberRole> = {
 const role = (r: common.MemberRole): MemberRole => ROLE[r] ?? 'member';
 const s = (v: bigint) => (v === 0n ? '' : v.toString());
 
+export interface Sticker {
+  id: string;
+  mediaId: string;
+  tags: string[];
+}
+
+const toSticker = (x: api.Sticker): Sticker => ({ id: s(x.id), mediaId: s(x.mediaId), tags: x.tags });
+
 export function toUser(u: common.User): User {
   return {
     id: s(u.id),
@@ -198,7 +206,7 @@ function toBody(e: ev.Event): MessageBody | null {
     case 'text':
       return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined, mentions: b.value.mentions.length ? b.value.mentions.map(s) : undefined };
     case 'image':
-      return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height };
+      return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height, stickerTags: b.value.stickerTags.length ? b.value.stickerTags : undefined };
     case 'file':
       return { kind: 'file', mediaId: s(b.value.mediaId), name: b.value.name, size: Number(b.value.size) };
     case 'sysConv': {
@@ -265,7 +273,7 @@ export function previewText(m: Message, name: (id: string) => string): string {
   const b = m.body;
   switch (b.kind) {
     case 'text': return b.text;
-    case 'image': return '[图片]';
+    case 'image': return b.stickerTags ? '[表情]' : '[图片]';
     case 'file': return `[文件] ${b.name}`;
     case 'deleted': return '[消息已被删除]';
     case 'system': return systemText(b.sys, name);
@@ -883,6 +891,30 @@ export class Session {
     }
     return this.sendBody(convId, { case: 'file', value: create(ev.FileMsgSchema, { mediaId: info.id, name: file.name }) },
       { kind: 'file', mediaId: s(info.id), name: file.name, size: Number(info.size) });
+  }
+
+  /** Sends one of my stickers: the picture with its tags (AIs read the tags). */
+  sendSticker(convId: string, st: Sticker) {
+    return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: BigInt(st.mediaId), stickerTags: st.tags }) },
+      { kind: 'image', mediaId: st.mediaId, w: 0, h: 0, stickerTags: st.tags.length ? st.tags : undefined });
+  }
+
+  // ---- stickers (my collection, lib/stickers.ts) ----
+
+  async listStickers(): Promise<Sticker[]> {
+    return (await this.call('GET', '/api/v1/stickers', api.ListStickersResponseSchema)).stickers.map(toSticker);
+  }
+
+  async addSticker(mediaId: string, tags: string[] = []): Promise<Sticker> {
+    return toSticker(await this.call('POST', '/api/v1/stickers', api.StickerSchema, { schema: api.AddStickerRequestSchema, value: { mediaId: BigInt(mediaId), tags } }));
+  }
+
+  async setStickerTags(id: string, tags: string[]): Promise<Sticker> {
+    return toSticker(await this.call('PATCH', `/api/v1/stickers/${id}`, api.StickerSchema, { schema: api.UpdateStickerRequestSchema, value: { tags } }));
+  }
+
+  deleteSticker(id: string) {
+    return this.call('DELETE', `/api/v1/stickers/${id}`, null);
   }
 
   async strike(convId: string, eventId: string) {

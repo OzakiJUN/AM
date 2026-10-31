@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type R
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle, Ban, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Paperclip, PanelRight, RotateCw,
-  SendHorizontal, Settings2, Smile, Sparkles, Strikethrough, Trash2, Upload, UserPlus,
+  SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
@@ -14,6 +14,7 @@ import { applyMention, matchPeople, mentionParts, mentionQuery, mentionedIds } f
 import { copyText } from '@/lib/platform';
 import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
+import { StickerManager, StickerPanel } from './Stickers';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait } from './Portrait';
@@ -353,6 +354,15 @@ function StreamingReply({ v, aiId, text }: { v: SessionView; aiId: string; text:
 function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id: string) => void }) {
   const b = msg.body;
   const thumb = useMediaUrl(b.kind === 'image' ? mediaPath(b.mediaId, true) : undefined);
+  if (b.kind === 'image' && b.stickerTags) {
+    // A sticker: small, no frame, its tags as the tooltip.
+    const ratio = b.w && b.h ? b.w / b.h : 1;
+    return (
+      <button onClick={() => onView(b.mediaId)} className={cx('press block', msg.struck && 'opacity-60 grayscale')} style={{ width: Math.min(150, 150 * ratio), aspectRatio: String(ratio) }} aria-label={`表情：${b.stickerTags.join('、')}`} title={b.stickerTags.join('、')}>
+        {thumb && <img src={thumb} alt={b.stickerTags.join('、')} className="h-full w-full object-contain" draggable={false} />}
+      </button>
+    );
+  }
   if (b.kind === 'image') {
     const ratio = b.w && b.h ? b.w / b.h : 4 / 3;
     const w = Math.min(320, ratio >= 1 ? 320 : 240 * ratio);
@@ -456,6 +466,8 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
     ? matchPeople(conv.members.map((m) => v.users[m.userId]).filter((u): u is User => !!u && u.id !== v.me?.id && !u.gone), at.query)
     : [];
   const [emoji, setEmoji] = useState(false);
+  const [stickers, setStickers] = useState(false);
+  const [manage, setManage] = useState(false);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -564,10 +576,30 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
       </AnimatePresence>
       <div className={cx('rounded-2xl border border-black/5 bg-white/95 p-2 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-300 focus-within:border-accent-300 focus-within:shadow-[var(--shadow-lift)] dark:border-white/10 dark:bg-white/5', disabled && 'opacity-70')}>
         <div className="relative flex items-center gap-0.5 px-1">
-          <IconButton label="表情" active={emoji} onClick={() => setEmoji(!emoji)} disabled={disabled}><Smile size={19} /></IconButton>
+          <IconButton label="表情" active={emoji} onClick={() => { setEmoji(!emoji); setStickers(false); }} disabled={disabled}><Smile size={19} /></IconButton>
+          <IconButton label="表情包" active={stickers} onClick={() => { setStickers(!stickers); setEmoji(false); }} disabled={disabled}><Sticker size={19} /></IconButton>
           <IconButton label="发送图片" onClick={() => imgRef.current?.click()} disabled={disabled}><ImagePlus size={19} /></IconButton>
           <IconButton label="发送文件" onClick={() => fileRef.current?.click()} disabled={disabled}><Paperclip size={19} /></IconButton>
           {busy && <span className="ml-2 flex items-center gap-1.5 text-[0.8rem] text-ink-soft"><Spinner size={13} /> 上传中…</span>}
+          <AnimatePresence>
+            {stickers && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.98, transition: { duration: 0.12 } }}
+                transition={spring}
+                style={{ transformOrigin: 'bottom left' }}
+                className="glass-strong absolute bottom-full left-0 z-20 mb-2 rounded-2xl p-1.5 shadow-xl"
+              >
+                <StickerPanel
+                  serverId={v.id}
+                  onSend={(s) => { current().sendSticker(conv.id, s).catch(toastError); setStickers(false); }}
+                  onManage={() => { setStickers(false); setManage(true); }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <StickerManager serverId={v.id} open={manage} onClose={() => setManage(false)} />
           <AnimatePresence>
             {at && people.length > 0 && (
               <motion.div
@@ -661,7 +693,7 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
                 sendFiles(files);
               }
             }}
-            onFocus={() => setEmoji(false)}
+            onFocus={() => { setEmoji(false); setStickers(false); }}
             disabled={disabled}
             rows={1}
             placeholder={placeholder}

@@ -19,6 +19,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/profile"
+	"github.com/OzakiJUN/am/server/internal/sticker"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -70,7 +71,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	prof := profile.New(st, ids, acct, cs, md, cfg.Retention)
 
 	mux := http.NewServeMux()
-	httpapi.New(acct, cs, ms, md, ps, prof, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
+	httpapi.New(acct, cs, ms, md, ps, prof, sticker.New(st, ids, md, cfg.Limits.MaxStickers), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, log))
 
 	return &App{

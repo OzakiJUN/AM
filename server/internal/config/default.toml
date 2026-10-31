@@ -69,6 +69,8 @@ max_devices = 3
 pair_code_minutes = 5
 # How many AI accounts one person may create (they run on the owner's device).
 max_ai_per_user = 5
+# How many stickers one person may keep in their collection.
+max_stickers = 1000
 
 [retention]
 # How long admin-deleted content is kept in the evidence store before it is

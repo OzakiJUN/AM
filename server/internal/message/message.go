@@ -21,6 +21,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/idgen"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/push"
+	"github.com/OzakiJUN/am/server/internal/sticker"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -106,7 +107,7 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 		if err != nil {
 			return nil, err
 		}
-		body.Body = &amv1.Event_Image{Image: &amv1.ImageMsg{MediaId: m.ID, Width: int32(m.Width), Height: int32(m.Height)}}
+		body.Body = &amv1.Event_Image{Image: &amv1.ImageMsg{MediaId: m.ID, Width: int32(m.Width), Height: int32(m.Height), StickerTags: sticker.CleanTags(b.Image.GetStickerTags())}}
 		kind, mediaID = KindImage, m.ID
 	case *amv1.SendRequest_File:
 		m, err := s.media.OwnUpload(ctx, me.ID, b.File.GetMediaId(), false)

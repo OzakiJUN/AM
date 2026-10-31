@@ -14,6 +14,8 @@ export interface KindInfo {
   w: number;
   h: number;
   only?: ProfileKind;
+  /** Still shown on pages that have it, but not offered any more. */
+  hidden?: boolean;
   config: () => Record<string, unknown>;
 }
 
@@ -25,7 +27,9 @@ export const KINDS: KindInfo[] = [
   { kind: 'countdown', label: '倒计时', emoji: '⏳', desc: '离某一天还有几天', minW: 1, minH: 1, w: 2, h: 1, config: () => ({ title: '', date: 0 }) },
   { kind: 'stats', label: '统计', emoji: '📊', desc: '发过多少消息、连续在线几天…', minW: 2, minH: 1, w: 4, h: 1, config: () => ({ items: [] }) },
   { kind: 'guestbook', label: '留言板', emoji: '💌', desc: '大家可以在这里留言', minW: 2, minH: 2, w: 2, h: 2, config: () => ({ title: '留言板' }) },
-  { kind: 'music', label: '网易云歌单', emoji: '🎵', desc: '贴一个网易云歌单链接，放一个播放器', minW: 2, minH: 2, w: 2, h: 2, config: () => ({ provider: 'netease', playlist_id: '', title: '' }) },
+  { kind: 'song', label: '一首歌', emoji: '🎵', desc: '上传一首歌，放一个播放器', minW: 2, minH: 1, w: 2, h: 1, config: () => ({ title: '', artist: '', audio_id: '', cover_id: '' }) },
+  { kind: 'playlist', label: '歌单', emoji: '💿', desc: '上传好几首歌，排成一个歌单', minW: 2, minH: 2, w: 2, h: 2, config: () => ({ title: '', cover_id: '', songs: [] }) },
+  { kind: 'music', label: '网易云歌单（旧）', emoji: '🎵', desc: '网易云的外链播放器', minW: 2, minH: 2, w: 2, h: 2, hidden: true, config: () => ({ provider: 'netease', playlist_id: '', title: '' }) },
   { kind: 'status', label: '我的状态', emoji: '🟢', desc: '在线、正在听歌、正在打游戏…', minW: 2, minH: 1, w: 2, h: 1, only: 'user', config: () => ({}) },
   { kind: 'online', label: '在线成员', emoji: '👥', desc: '现在谁在线', minW: 2, minH: 2, w: 2, h: 2, only: 'server', config: () => ({}) },
 ];

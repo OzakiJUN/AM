@@ -231,7 +231,7 @@ func (s *Service) Save(ctx context.Context, actor *store.User, o Owner, req *amv
 			w.ContentEditors = amv1.WidgetEditors_WIDGET_EDITORS_UNSPECIFIED
 		}
 	}
-	media, err := validate(next, o.Kind)
+	used, audio, err := validate(next, o.Kind)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (s *Service) Save(ctx context.Context, actor *store.User, o Owner, req *amv
 	}
 	// New media must be the actor's own uploads (images).
 	old := map[int64]bool{}
-	if curMedia, err := validate(cur, o.Kind); err == nil {
+	if curMedia, _, err := validate(cur, o.Kind); err == nil {
 		for _, ids := range curMedia {
 			for _, id := range ids {
 				old[id] = true
@@ -262,11 +262,18 @@ func (s *Service) Save(ctx context.Context, actor *store.User, o Owner, req *amv
 		}
 	}
 	var all []int64
-	for _, ids := range media {
+	for _, ids := range used {
 		for _, id := range ids {
 			if !old[id] {
-				if _, err := s.media.OwnUpload(ctx, actor.ID, id, true); err != nil {
+				if _, err := s.media.OwnUpload(ctx, actor.ID, id, !audio[id]); err != nil {
 					return nil, err
+				}
+			}
+			// A picture already on the page must not become a song either.
+			if audio[id] {
+				m, err := s.st.GetMedia(ctx, id)
+				if err != nil || !media.IsAudio(m) {
+					return nil, apperr.ErrInvalidWidget
 				}
 			}
 			all = append(all, id)

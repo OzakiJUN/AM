@@ -85,7 +85,7 @@ export type SysEvent =
 
 export type MessageBody =
   | { kind: 'text'; text: string; replyTo?: string; mood?: string; mentions?: string[] }
-  | { kind: 'image'; mediaId: string; w: number; h: number }
+  | { kind: 'image'; mediaId: string; w: number; h: number; /** Sent from the sticker panel. */ stickerTags?: string[] }
   | { kind: 'file'; mediaId: string; name: string; size: number }
   | { kind: 'deleted'; byId: string; reason: string }
   | { kind: 'system'; sys: SysEvent };

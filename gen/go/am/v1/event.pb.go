@@ -383,10 +383,13 @@ func (x *TextMsg) GetMood() string {
 }
 
 type ImageMsg struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	MediaId       int64                  `protobuf:"varint,1,opt,name=media_id,json=mediaId,proto3" json:"media_id,omitempty"`
-	Width         int32                  `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`
-	Height        int32                  `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	MediaId int64                  `protobuf:"varint,1,opt,name=media_id,json=mediaId,proto3" json:"media_id,omitempty"`
+	Width   int32                  `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`
+	Height  int32                  `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
+	// Sent from the sticker panel: the sticker's tags (at most 10, 20 characters
+	// each). AIs read these instead of looking at the picture.
+	StickerTags   []string `protobuf:"bytes,4,rep,name=sticker_tags,json=stickerTags,proto3" json:"sticker_tags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -440,6 +443,13 @@ func (x *ImageMsg) GetHeight() int32 {
 		return x.Height
 	}
 	return 0
+}
+
+func (x *ImageMsg) GetStickerTags() []string {
+	if x != nil {
+		return x.StickerTags
+	}
+	return nil
 }
 
 type FileMsg struct {
@@ -866,11 +876,12 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x19\n" +
 	"\breply_to\x18\x02 \x01(\x03R\areplyTo\x12\x1a\n" +
 	"\bmentions\x18\x03 \x03(\x03R\bmentions\x12\x12\n" +
-	"\x04mood\x18\x04 \x01(\tR\x04mood\"S\n" +
+	"\x04mood\x18\x04 \x01(\tR\x04mood\"v\n" +
 	"\bImageMsg\x12\x19\n" +
 	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\x12\x14\n" +
 	"\x05width\x18\x02 \x01(\x05R\x05width\x12\x16\n" +
-	"\x06height\x18\x03 \x01(\x05R\x06height\"L\n" +
+	"\x06height\x18\x03 \x01(\x05R\x06height\x12!\n" +
+	"\fsticker_tags\x18\x04 \x03(\tR\vstickerTags\"L\n" +
 	"\aFileMsg\x12\x19\n" +
 	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +

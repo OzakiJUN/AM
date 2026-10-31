@@ -66,6 +66,14 @@ update the docs in the same commit.
   (`profile_layouts`, purged after retention). Widget media goes in
   `profile_media` (visible to everyone, kept by media GC). Keep the kind list
   in `validate.go`, `client/src/lib/widgetKinds.ts` and docs/protocol.md in sync.
+- Music widgets (`song`, `playlist`) play sound files the owner uploaded
+  (`media.IsAudio`, checked on save); the client has one app-wide player
+  (`lib/player.ts`). The old NetEase `music` kind is still valid, just hidden.
+- Stickers (docs/design.md §11, first step): `server/internal/sticker` keeps
+  each person's collection (own uploads + tags, `stickers` table, GC keeps
+  their media); a sent sticker is an image with `ImageMsg.sticker_tags`,
+  which AIs read instead of the picture. Client: `lib/stickers.ts`,
+  `lib/stickerTags.ts` (tested), `app/Stickers.tsx`.
 - Server profile settings (description, widget permissions) live in the
   `server_settings` table and are edited in the panel (no restart); the icon
   is `data/media/server_icon.png` via the `media` package.

@@ -99,6 +99,22 @@ func thumbMime(mime string) string {
 
 var imageMimes = map[string]bool{"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true}
 
+// Sound files the music widgets may play. Sniffing can't name every format
+// (an MP3 without an ID3 tag, FLAC, AAC), so the file name counts too.
+var (
+	audioMimes = map[string]bool{"application/ogg": true, "video/mp4": true, "video/webm": true}
+	audioExts  = map[string]bool{".mp3": true, ".m4a": true, ".aac": true, ".flac": true, ".ogg": true, ".opus": true, ".wav": true, ".webm": true}
+)
+
+// IsAudio reports whether a stored file is a sound file.
+func IsAudio(m *store.Media) bool {
+	if strings.HasPrefix(m.Mime, "audio/") {
+		return true
+	}
+	ext := strings.ToLower(filepath.Ext(m.Name))
+	return audioExts[ext] && (audioMimes[m.Mime] || m.Mime == "application/octet-stream")
+}
+
 // Upload stores a file from r. name is the original file name.
 func (s *Service) Upload(ctx context.Context, uploaderID int64, name string, r io.Reader) (*store.Media, error) {
 	tmp, err := os.CreateTemp(filepath.Join(s.root, "tmp"), "up-*")

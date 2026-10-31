@@ -2703,6 +2703,222 @@ func (x *RunAIRequest) GetDeviceName() string {
 	return ""
 }
 
+// One sticker in my collection: one of my own uploaded images plus tags.
+type Sticker struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Id      int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	MediaId int64                  `protobuf:"varint,2,opt,name=media_id,json=mediaId,proto3" json:"media_id,omitempty"`
+	// At most 10 tags, 20 characters each (trimmed, no duplicates).
+	Tags          []string `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
+	CreatedAt     int64    `protobuf:"varint,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Sticker) Reset() {
+	*x = Sticker{}
+	mi := &file_am_v1_api_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Sticker) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Sticker) ProtoMessage() {}
+
+func (x *Sticker) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Sticker.ProtoReflect.Descriptor instead.
+func (*Sticker) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *Sticker) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Sticker) GetMediaId() int64 {
+	if x != nil {
+		return x.MediaId
+	}
+	return 0
+}
+
+func (x *Sticker) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *Sticker) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+// GET /api/v1/stickers -> ListStickersResponse: mine, newest first.
+type ListStickersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stickers      []*Sticker             `protobuf:"bytes,1,rep,name=stickers,proto3" json:"stickers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStickersResponse) Reset() {
+	*x = ListStickersResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStickersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStickersResponse) ProtoMessage() {}
+
+func (x *ListStickersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStickersResponse.ProtoReflect.Descriptor instead.
+func (*ListStickersResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListStickersResponse) GetStickers() []*Sticker {
+	if x != nil {
+		return x.Stickers
+	}
+	return nil
+}
+
+// POST /api/v1/stickers -> Sticker. The image must be my own upload; adding
+// the same image again returns the sticker already there. At most
+// limits.max_stickers per person (sticker_limit).
+type AddStickerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MediaId       int64                  `protobuf:"varint,1,opt,name=media_id,json=mediaId,proto3" json:"media_id,omitempty"`
+	Tags          []string               `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddStickerRequest) Reset() {
+	*x = AddStickerRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddStickerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddStickerRequest) ProtoMessage() {}
+
+func (x *AddStickerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddStickerRequest.ProtoReflect.Descriptor instead.
+func (*AddStickerRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *AddStickerRequest) GetMediaId() int64 {
+	if x != nil {
+		return x.MediaId
+	}
+	return 0
+}
+
+func (x *AddStickerRequest) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+// PATCH /api/v1/stickers/{id} -> Sticker (replaces the tags).
+// DELETE /api/v1/stickers/{id} -> Empty.
+type UpdateStickerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tags          []string               `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateStickerRequest) Reset() {
+	*x = UpdateStickerRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateStickerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateStickerRequest) ProtoMessage() {}
+
+func (x *UpdateStickerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateStickerRequest.ProtoReflect.Descriptor instead.
+func (*UpdateStickerRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *UpdateStickerRequest) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -2895,7 +3111,20 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\x0fbase_updated_at\x18\x02 \x01(\x03R\rbaseUpdatedAt\"/\n" +
 	"\fRunAIRequest\x12\x1f\n" +
 	"\vdevice_name\x18\x01 \x01(\tR\n" +
-	"deviceName*k\n" +
+	"deviceName\"g\n" +
+	"\aSticker\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
+	"\bmedia_id\x18\x02 \x01(\x03R\amediaId\x12\x12\n" +
+	"\x04tags\x18\x03 \x03(\tR\x04tags\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"B\n" +
+	"\x14ListStickersResponse\x12*\n" +
+	"\bstickers\x18\x01 \x03(\v2\x0e.am.v1.StickerR\bstickers\"B\n" +
+	"\x11AddStickerRequest\x12\x19\n" +
+	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\x12\x12\n" +
+	"\x04tags\x18\x02 \x03(\tR\x04tags\"*\n" +
+	"\x14UpdateStickerRequest\x12\x12\n" +
+	"\x04tags\x18\x01 \x03(\tR\x04tags*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -2914,7 +3143,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -2962,33 +3191,38 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*CreateAIRequest)(nil),          // 43: am.v1.CreateAIRequest
 	(*PutAISettingsRequest)(nil),     // 44: am.v1.PutAISettingsRequest
 	(*RunAIRequest)(nil),             // 45: am.v1.RunAIRequest
-	(*User)(nil),                     // 46: am.v1.User
-	(*Activity)(nil),                 // 47: am.v1.Activity
+	(*Sticker)(nil),                  // 46: am.v1.Sticker
+	(*ListStickersResponse)(nil),     // 47: am.v1.ListStickersResponse
+	(*AddStickerRequest)(nil),        // 48: am.v1.AddStickerRequest
+	(*UpdateStickerRequest)(nil),     // 49: am.v1.UpdateStickerRequest
+	(*User)(nil),                     // 50: am.v1.User
+	(*Activity)(nil),                 // 51: am.v1.Activity
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	46, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	50, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	46, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	50, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	46, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	46, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	46, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	46, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	46, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	47, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	50, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	50, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	50, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	50, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	50, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	51, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	46, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	46, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	50, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	50, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	46, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	50, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	46, // 18: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -3005,7 +3239,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   45,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

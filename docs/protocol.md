@@ -183,13 +183,27 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
   | `countdown` | 1×1 | `title`（≤30）、`date`（毫秒） |
   | `stats` | 2×1 | `items`：`messages` `streak` `joined`（个人）/ `members` `messages` `channels` `age`（服务器） |
   | `guestbook` | 2×2 | `title`（≤30） |
-  | `music` | 2×2 | `provider`（`netease`）、`playlist_id`（数字）、`title`（≤40） |
+  | `song` | 2×1 | `title`（≤60）、`artist`（≤40）、`audio_id`（自己上传的音频）、`cover_id`（图片，可空） |
+  | `playlist` | 2×2 | `title`（≤40）、`cover_id`（图片，可空）、`songs`（最多 30 首：`title` ≤60、`artist` ≤40、`audio_id`） |
+  | `music` | 2×2 | 旧的网易云外链：`provider`（`netease`）、`playlist_id`（数字）、`title`（≤40）。客户端不再提供，已有的照常显示 |
   | `status` | 2×1 | 只能放在个人主页 |
   | `online` | 2×2 | 只能放在服务器主页 |
 
 - 工坊组件（`source = WORKSHOP`）要有 `workshop_id`、`workshop_version`、`package_sha256`，可带截图 `snapshot_media_id`（第五阶段运行）。
+- `song` / `playlist` 的 `audio_id` 必须是音频文件（`audio/*`，或者文件名是 .mp3 .m4a .aac .flac .ogg .opus .wav .webm 的），否则 `invalid_widget`；新放上去的也必须是保存的人自己上传的。
 - 权限：个人主页只有本人能存（bot / AI 的主页它的主人也能存）。服务器主页：站点管理员都行；加删、挪动、改大小、改背景要"谁能改布局"；改某个组件的 `config` 要"成员能改小组件内容"打开且这个组件不是 `WIDGET_EDITORS_ADMINS`；改 `content_editors` 只有站点管理员。新放上去的图片必须是保存的人自己上传的。
 - 每次保存是一个新版本，旧版本保留 `retention.evidence_days` 天。
+
+### 表情
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/stickers` | — | `ListStickersResponse`：我的表情，最新的在前 |
+| POST | `/api/v1/stickers` | `AddStickerRequest` | `Sticker`：把我上传的一张图加进表情（不是图片 `not_image`，不是我上传的 `media_not_found`）。同一张图再加一次返回原来那个，标签合并。每人最多 `limits.max_stickers` 个（`sticker_limit`） |
+| PATCH | `/api/v1/stickers/{id}` | `UpdateStickerRequest` | `Sticker`：换标签 |
+| DELETE | `/api/v1/stickers/{id}` | — | `Empty`：从我的表情里删掉（发过的消息不受影响） |
+
+不是我的表情一律 `not_found`。
 
 ## WebSocket 流程
 
@@ -213,7 +227,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 `SendRequest` 必须带 `client_msg_id`（客户端随机生成，≤ 64 字符）。同一个账号重复发送同一个 `client_msg_id`，服务器返回第一次存下的事件。
 
 - 文字：`text`，可带 `reply_to` 和 `mentions`（文字里「@名字」对应的用户 id；客户端高亮这些名字，AI 被 @ 时会回）。
-- 图片：先上传，再发 `image{media_id}`，宽高由服务器填。
+- 图片：先上传，再发 `image{media_id}`，宽高由服务器填。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。
 - 文件：先上传，再发 `file{media_id, name}`，`name` 为空时用上传时的文件名。
 - 划掉：`strike{target_event_id}`，只能划自己的文字 / 图片 / 文件消息，每条只能划一次。
 
@@ -282,6 +296,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | `invalid_widget` | 400 | 小组件类型不认识、大小或位置不对（出界、重叠、第 4 页）、或设置内容不对 |
 | `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
 | `ai_limit` | 403 | AI 账号已经建到 `limits.max_ai_per_user` 个 |
+| `sticker_limit` | 403 | 表情已经存到 `limits.max_stickers` 个 |
 | `too_many_devices` | 403 | 这个账号登录的设备已经到 `limits.max_devices` 台，先退出一台（登录、生成登录码、用登录码时） |
 | `invalid_pair_code` | 400 | 登录码的 ticket 不对、用过了或过期了 |
 | `state_conflict` | 409 | 共享数据在你合并期间被另一台设备存过了，取回重新合并 |

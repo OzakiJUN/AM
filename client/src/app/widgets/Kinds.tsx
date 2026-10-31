@@ -12,6 +12,7 @@ import type { WidgetModel } from '@/lib/widgets';
 import { Dialog, ask, cx } from '@/ui';
 import { UserAvatar, mediaPath, useMediaUrl } from '../media';
 import { Guestbook } from './Guestbook';
+import { PlaylistWidget, SongWidget, songsOf } from './Music';
 
 export interface WidgetCtx {
   v: SessionView;
@@ -39,6 +40,12 @@ export function WidgetView({ w, ctx }: { w: WidgetModel; ctx: WidgetCtx }) {
     case 'countdown': return <CountdownWidget title={str(c.title)} date={num(c.date)} />;
     case 'stats': return <StatsWidget ctx={ctx} items={strs(c.items)} wide={w.w >= 3} />;
     case 'guestbook': return <Guestbook ctx={ctx} widgetId={w.id} title={str(c.title) || '留言板'} />;
+    case 'song': return (
+      <SongWidget serverId={ctx.v.id} keyBase={`${ctx.target}:${w.id}`} coverId={str(c.cover_id)} editing={ctx.editing} tall={w.h >= 3}
+        song={{ title: str(c.title), artist: str(c.artist), audioId: str(c.audio_id) }} />
+    );
+    case 'playlist': return <PlaylistWidget serverId={ctx.v.id} keyBase={`${ctx.target}:${w.id}`} title={str(c.title)} coverId={str(c.cover_id)} songs={songsOf(c.songs)} editing={ctx.editing} />;
+    // Old NetEase player: still shown on pages that have it, no longer offered.
     case 'music': return <MusicWidget id={str(c.playlist_id)} title={str(c.title)} editing={ctx.editing} tall={w.h >= 3} />;
     case 'status': return <StatusWidget ctx={ctx} />;
     case 'online': return <OnlineWidget ctx={ctx} />;
