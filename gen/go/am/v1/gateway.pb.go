@@ -278,6 +278,9 @@ type ServerFrame struct {
 	//	*ServerFrame_Friend
 	//	*ServerFrame_ConvRemoved
 	//	*ServerFrame_JoinRequest
+	//	*ServerFrame_Presence
+	//	*ServerFrame_ClientState
+	//	*ServerFrame_ServerMoved
 	Msg           isServerFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -426,6 +429,33 @@ func (x *ServerFrame) GetJoinRequest() *JoinRequestPush {
 	return nil
 }
 
+func (x *ServerFrame) GetPresence() *PresencePush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_Presence); ok {
+			return x.Presence
+		}
+	}
+	return nil
+}
+
+func (x *ServerFrame) GetClientState() *ClientStatePush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_ClientState); ok {
+			return x.ClientState
+		}
+	}
+	return nil
+}
+
+func (x *ServerFrame) GetServerMoved() *ServerMovedPush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_ServerMoved); ok {
+			return x.ServerMoved
+		}
+	}
+	return nil
+}
+
 type isServerFrame_Msg interface {
 	isServerFrame_Msg()
 }
@@ -476,6 +506,18 @@ type ServerFrame_JoinRequest struct {
 	JoinRequest *JoinRequestPush `protobuf:"bytes,34,opt,name=join_request,json=joinRequest,proto3,oneof"`
 }
 
+type ServerFrame_Presence struct {
+	Presence *PresencePush `protobuf:"bytes,35,opt,name=presence,proto3,oneof"`
+}
+
+type ServerFrame_ClientState struct {
+	ClientState *ClientStatePush `protobuf:"bytes,36,opt,name=client_state,json=clientState,proto3,oneof"`
+}
+
+type ServerFrame_ServerMoved struct {
+	ServerMoved *ServerMovedPush `protobuf:"bytes,37,opt,name=server_moved,json=serverMoved,proto3,oneof"`
+}
+
 func (*ServerFrame_Error) isServerFrame_Msg() {}
 
 func (*ServerFrame_Auth) isServerFrame_Msg() {}
@@ -498,10 +540,19 @@ func (*ServerFrame_ConvRemoved) isServerFrame_Msg() {}
 
 func (*ServerFrame_JoinRequest) isServerFrame_Msg() {}
 
+func (*ServerFrame_Presence) isServerFrame_Msg() {}
+
+func (*ServerFrame_ClientState) isServerFrame_Msg() {}
+
+func (*ServerFrame_ServerMoved) isServerFrame_Msg() {}
+
 type AuthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Session token from /api/v1/login or /api/v1/register.
-	Token         string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	// The address (host:port) the client connected to, so the admin panel
+	// can tell how many devices still use an old relay address.
+	Address       string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -543,6 +594,13 @@ func (x *AuthRequest) GetToken() string {
 	return ""
 }
 
+func (x *AuthRequest) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
 type AuthResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Me    *User                  `protobuf:"bytes,1,opt,name=me,proto3" json:"me,omitempty"`
@@ -550,7 +608,15 @@ type AuthResponse struct {
 	// compares each last_seq with what it has locally and then syncs.
 	Conversations []*Conversation `protobuf:"bytes,2,rep,name=conversations,proto3" json:"conversations,omitempty"`
 	// Site admin of this server: may create public channels.
-	IsSiteAdmin   bool `protobuf:"varint,3,opt,name=is_site_admin,json=isSiteAdmin,proto3" json:"is_site_admin,omitempty"`
+	IsSiteAdmin bool `protobuf:"varint,3,opt,name=is_site_admin,json=isSiteAdmin,proto3" json:"is_site_admin,omitempty"`
+	// Everyone who is online as this user sees it (includes the user
+	// themselves, with `invisible` set if they are). Changes arrive as
+	// `presence` pushes.
+	Presences []*Presence `protobuf:"bytes,4,rep,name=presences,proto3" json:"presences,omitempty"`
+	// The server's public address (server.public_address), "" when not set.
+	// A client using another address checks the new one (same certificate)
+	// and switches to it (docs/design.md §3, 更换中转地址).
+	PublicAddress string `protobuf:"bytes,5,opt,name=public_address,json=publicAddress,proto3" json:"public_address,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -604,6 +670,20 @@ func (x *AuthResponse) GetIsSiteAdmin() bool {
 		return x.IsSiteAdmin
 	}
 	return false
+}
+
+func (x *AuthResponse) GetPresences() []*Presence {
+	if x != nil {
+		return x.Presences
+	}
+	return nil
+}
+
+func (x *AuthResponse) GetPublicAddress() string {
+	if x != nil {
+		return x.PublicAddress
+	}
+	return ""
 }
 
 type SendRequest struct {
@@ -1362,6 +1442,146 @@ func (x *JoinRequestPush) GetInviter() *User {
 	return nil
 }
 
+// Someone's online state or activity changed, as the receiver sees it.
+// Sent to everyone online on the server. online = false means offline (or
+// invisible, for everyone but the user and their own bot / ai accounts).
+type PresencePush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Presence      *Presence              `protobuf:"bytes,1,opt,name=presence,proto3" json:"presence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PresencePush) Reset() {
+	*x = PresencePush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresencePush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresencePush) ProtoMessage() {}
+
+func (x *PresencePush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresencePush.ProtoReflect.Descriptor instead.
+func (*PresencePush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *PresencePush) GetPresence() *Presence {
+	if x != nil {
+		return x.Presence
+	}
+	return nil
+}
+
+// One of my devices saved the state my devices share (PUT
+// /api/v1/me/client-state): load it again. Sent to all my connections.
+type ClientStatePush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UpdatedAt     int64                  `protobuf:"varint,1,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientStatePush) Reset() {
+	*x = ClientStatePush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientStatePush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientStatePush) ProtoMessage() {}
+
+func (x *ClientStatePush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientStatePush.ProtoReflect.Descriptor instead.
+func (*ClientStatePush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ClientStatePush) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+// The server moved to a new public address (the admin changed the relay).
+// Sent to everyone online; the client connects to the new address with the
+// same certificate pin and switches only when that works.
+type ServerMovedPush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerMovedPush) Reset() {
+	*x = ServerMovedPush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerMovedPush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerMovedPush) ProtoMessage() {}
+
+func (x *ServerMovedPush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerMovedPush.ProtoReflect.Descriptor instead.
+func (*ServerMovedPush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ServerMovedPush) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
 var File_am_v1_gateway_proto protoreflect.FileDescriptor
 
 const file_am_v1_gateway_proto_rawDesc = "" +
@@ -1375,7 +1595,7 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x04sync\x18\f \x01(\v2\x12.am.v1.SyncRequestH\x00R\x04sync\x125\n" +
 	"\tmark_read\x18\r \x01(\v2\x16.am.v1.MarkReadRequestH\x00R\bmarkRead\x12!\n" +
 	"\x04ping\x18\x0e \x01(\v2\v.am.v1.PingH\x00R\x04pingB\x05\n" +
-	"\x03msg\"\xa5\x04\n" +
+	"\x03msg\"\xd2\x05\n" +
 	"\vServerFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12$\n" +
 	"\x05error\x18\n" +
@@ -1389,14 +1609,20 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x04conv\x18\x1f \x01(\v2\x0f.am.v1.ConvPushH\x00R\x04conv\x12+\n" +
 	"\x06friend\x18  \x01(\v2\x11.am.v1.FriendPushH\x00R\x06friend\x12;\n" +
 	"\fconv_removed\x18! \x01(\v2\x16.am.v1.ConvRemovedPushH\x00R\vconvRemoved\x12;\n" +
-	"\fjoin_request\x18\" \x01(\v2\x16.am.v1.JoinRequestPushH\x00R\vjoinRequestB\x05\n" +
-	"\x03msg\"#\n" +
+	"\fjoin_request\x18\" \x01(\v2\x16.am.v1.JoinRequestPushH\x00R\vjoinRequest\x121\n" +
+	"\bpresence\x18# \x01(\v2\x13.am.v1.PresencePushH\x00R\bpresence\x12;\n" +
+	"\fclient_state\x18$ \x01(\v2\x16.am.v1.ClientStatePushH\x00R\vclientState\x12;\n" +
+	"\fserver_moved\x18% \x01(\v2\x16.am.v1.ServerMovedPushH\x00R\vserverMovedB\x05\n" +
+	"\x03msg\"=\n" +
 	"\vAuthRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\x8a\x01\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\"\xe0\x01\n" +
 	"\fAuthResponse\x12\x1b\n" +
 	"\x02me\x18\x01 \x01(\v2\v.am.v1.UserR\x02me\x129\n" +
 	"\rconversations\x18\x02 \x03(\v2\x13.am.v1.ConversationR\rconversations\x12\"\n" +
-	"\ris_site_admin\x18\x03 \x01(\bR\visSiteAdmin\"\xf3\x01\n" +
+	"\ris_site_admin\x18\x03 \x01(\bR\visSiteAdmin\x12-\n" +
+	"\tpresences\x18\x04 \x03(\v2\x0f.am.v1.PresenceR\tpresences\x12%\n" +
+	"\x0epublic_address\x18\x05 \x01(\tR\rpublicAddress\"\xf3\x01\n" +
 	"\vSendRequest\x12\x17\n" +
 	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x12\"\n" +
 	"\rclient_msg_id\x18\x02 \x01(\tR\vclientMsgId\x12$\n" +
@@ -1447,7 +1673,14 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x0fJoinRequestPush\x12\x17\n" +
 	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x12\x1f\n" +
 	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04user\x12%\n" +
-	"\ainviter\x18\x03 \x01(\v2\v.am.v1.UserR\ainviterB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\ainviter\x18\x03 \x01(\v2\v.am.v1.UserR\ainviter\";\n" +
+	"\fPresencePush\x12+\n" +
+	"\bpresence\x18\x01 \x01(\v2\x0f.am.v1.PresenceR\bpresence\"0\n" +
+	"\x0fClientStatePush\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x01 \x01(\x03R\tupdatedAt\"+\n" +
+	"\x0fServerMovedPush\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddressB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_gateway_proto_rawDescOnce sync.Once
@@ -1462,7 +1695,7 @@ func file_am_v1_gateway_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_am_v1_gateway_proto_goTypes = []any{
 	(FriendPush_Kind)(0),        // 0: am.v1.FriendPush.Kind
 	(ConvRemovedPush_Reason)(0), // 1: am.v1.ConvRemovedPush.Reason
@@ -1484,14 +1717,18 @@ var file_am_v1_gateway_proto_goTypes = []any{
 	(*FriendPush)(nil),          // 17: am.v1.FriendPush
 	(*ConvRemovedPush)(nil),     // 18: am.v1.ConvRemovedPush
 	(*JoinRequestPush)(nil),     // 19: am.v1.JoinRequestPush
-	(*Error)(nil),               // 20: am.v1.Error
-	(*User)(nil),                // 21: am.v1.User
-	(*Conversation)(nil),        // 22: am.v1.Conversation
-	(*TextMsg)(nil),             // 23: am.v1.TextMsg
-	(*ImageMsg)(nil),            // 24: am.v1.ImageMsg
-	(*FileMsg)(nil),             // 25: am.v1.FileMsg
-	(*StrikeAct)(nil),           // 26: am.v1.StrikeAct
-	(*Event)(nil),               // 27: am.v1.Event
+	(*PresencePush)(nil),        // 20: am.v1.PresencePush
+	(*ClientStatePush)(nil),     // 21: am.v1.ClientStatePush
+	(*ServerMovedPush)(nil),     // 22: am.v1.ServerMovedPush
+	(*Error)(nil),               // 23: am.v1.Error
+	(*User)(nil),                // 24: am.v1.User
+	(*Conversation)(nil),        // 25: am.v1.Conversation
+	(*Presence)(nil),            // 26: am.v1.Presence
+	(*TextMsg)(nil),             // 27: am.v1.TextMsg
+	(*ImageMsg)(nil),            // 28: am.v1.ImageMsg
+	(*FileMsg)(nil),             // 29: am.v1.FileMsg
+	(*StrikeAct)(nil),           // 30: am.v1.StrikeAct
+	(*Event)(nil),               // 31: am.v1.Event
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
 	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
@@ -1499,7 +1736,7 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	8,  // 2: am.v1.ClientFrame.sync:type_name -> am.v1.SyncRequest
 	11, // 3: am.v1.ClientFrame.mark_read:type_name -> am.v1.MarkReadRequest
 	13, // 4: am.v1.ClientFrame.ping:type_name -> am.v1.Ping
-	20, // 5: am.v1.ServerFrame.error:type_name -> am.v1.Error
+	23, // 5: am.v1.ServerFrame.error:type_name -> am.v1.Error
 	5,  // 6: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
 	7,  // 7: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
 	10, // 8: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
@@ -1510,27 +1747,32 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	17, // 13: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
 	18, // 14: am.v1.ServerFrame.conv_removed:type_name -> am.v1.ConvRemovedPush
 	19, // 15: am.v1.ServerFrame.join_request:type_name -> am.v1.JoinRequestPush
-	21, // 16: am.v1.AuthResponse.me:type_name -> am.v1.User
-	22, // 17: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
-	23, // 18: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
-	24, // 19: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
-	25, // 20: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
-	26, // 21: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
-	27, // 22: am.v1.SendResponse.event:type_name -> am.v1.Event
-	9,  // 23: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
-	27, // 24: am.v1.SyncResponse.events:type_name -> am.v1.Event
-	27, // 25: am.v1.EventPush.event:type_name -> am.v1.Event
-	22, // 26: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
-	0,  // 27: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
-	21, // 28: am.v1.FriendPush.user:type_name -> am.v1.User
-	1,  // 29: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
-	21, // 30: am.v1.JoinRequestPush.user:type_name -> am.v1.User
-	21, // 31: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
-	32, // [32:32] is the sub-list for method output_type
-	32, // [32:32] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	20, // 16: am.v1.ServerFrame.presence:type_name -> am.v1.PresencePush
+	21, // 17: am.v1.ServerFrame.client_state:type_name -> am.v1.ClientStatePush
+	22, // 18: am.v1.ServerFrame.server_moved:type_name -> am.v1.ServerMovedPush
+	24, // 19: am.v1.AuthResponse.me:type_name -> am.v1.User
+	25, // 20: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
+	26, // 21: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
+	27, // 22: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
+	28, // 23: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
+	29, // 24: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
+	30, // 25: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
+	31, // 26: am.v1.SendResponse.event:type_name -> am.v1.Event
+	9,  // 27: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
+	31, // 28: am.v1.SyncResponse.events:type_name -> am.v1.Event
+	31, // 29: am.v1.EventPush.event:type_name -> am.v1.Event
+	25, // 30: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
+	0,  // 31: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
+	24, // 32: am.v1.FriendPush.user:type_name -> am.v1.User
+	1,  // 33: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
+	24, // 34: am.v1.JoinRequestPush.user:type_name -> am.v1.User
+	24, // 35: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
+	26, // 36: am.v1.PresencePush.presence:type_name -> am.v1.Presence
+	37, // [37:37] is the sub-list for method output_type
+	37, // [37:37] is the sub-list for method input_type
+	37, // [37:37] is the sub-list for extension type_name
+	37, // [37:37] is the sub-list for extension extendee
+	0,  // [0:37] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }
@@ -1559,6 +1801,9 @@ func file_am_v1_gateway_proto_init() {
 		(*ServerFrame_Friend)(nil),
 		(*ServerFrame_ConvRemoved)(nil),
 		(*ServerFrame_JoinRequest)(nil),
+		(*ServerFrame_Presence)(nil),
+		(*ServerFrame_ClientState)(nil),
+		(*ServerFrame_ServerMoved)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[4].OneofWrappers = []any{
 		(*SendRequest_Text)(nil),
@@ -1572,7 +1817,7 @@ func file_am_v1_gateway_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_gateway_proto_rawDesc), len(file_am_v1_gateway_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   18,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -33,6 +33,18 @@ func (c *Client) UpdateProfile(ctx context.Context, req *amv1.UpdateProfileReque
 	return out, c.call(ctx, http.MethodPatch, "/api/v1/me", req, out)
 }
 
+// Leave takes this account off the server (coming back needs a new invite
+// code: LoginRequest.InviteCode).
+func (c *Client) Leave(ctx context.Context) error {
+	return c.call(ctx, http.MethodPost, "/api/v1/me/leave", nil, nil)
+}
+
+// SetPresence saves invisible mode and the activity ("listening to ...").
+func (c *Client) SetPresence(ctx context.Context, req *amv1.SetPresenceRequest) (*amv1.Presence, error) {
+	out := &amv1.Presence{}
+	return out, c.call(ctx, http.MethodPut, "/api/v1/me/presence", req, out)
+}
+
 func (c *Client) ListLogins(ctx context.Context) (*amv1.ListLoginRecordsResponse, error) {
 	out := &amv1.ListLoginRecordsResponse{}
 	return out, c.call(ctx, http.MethodGet, "/api/v1/me/logins", nil, out)
@@ -183,4 +195,16 @@ func (c *Conn) SendImage(ctx context.Context, convID, mediaID int64) (*amv1.Even
 // SendFile sends an uploaded file.
 func (c *Conn) SendFile(ctx context.Context, convID, mediaID int64, name string) (*amv1.Event, error) {
 	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_File{File: &amv1.FileMsg{MediaId: mediaID, Name: name}}})
+}
+
+// SetPinned pins a conversation to the top of my list, or unpins it.
+func (c *Client) SetPinned(ctx context.Context, convID int64, pinned bool) (*amv1.Conversation, error) {
+	out := &amv1.Conversation{}
+	return out, c.call(ctx, http.MethodPut, fmt.Sprintf("/api/v1/conversations/%d/pin", convID), &amv1.SetPinnedRequest{Pinned: pinned}, out)
+}
+
+// SetDnd sets do-not-disturb for a conversation: until unix ms, 0 = off, -1 = until turned off.
+func (c *Client) SetDnd(ctx context.Context, convID, until int64) (*amv1.Conversation, error) {
+	out := &amv1.Conversation{}
+	return out, c.call(ctx, http.MethodPut, fmt.Sprintf("/api/v1/conversations/%d/dnd", convID), &amv1.SetDndRequest{Until: until}, out)
 }

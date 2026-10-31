@@ -60,6 +60,9 @@ type Runtime interface {
 	Restart()
 	Quit()
 	ClearBootstrap()
+	// SetPublicAddress changes server.public_address of the running server
+	// (join codes, what clients are told) without a restart.
+	SetPublicAddress(addr string)
 }
 
 const cookieName = "am_admin"
@@ -139,6 +142,14 @@ func (h *handler) routes() {
 	api("POST /api/users/{id}/admin", h.setAdmin)
 	api("POST /api/users/{id}/reset-password", h.resetPassword)
 	api("GET /api/users/{id}/logins", h.userLogins)
+	api("POST /api/users/{id}/clear-profile", h.clearProfile)
+	api("GET /api/server-profile", h.getServerProfile)
+	api("PUT /api/server-profile", h.putServerProfile)
+	api("GET /api/server-icon", h.serverIcon)
+	api("PUT /api/server-icon", h.putServerIcon)
+	api("DELETE /api/server-icon", h.deleteServerIcon)
+	api("GET /api/channels", h.listChannels)
+	api("GET /api/channels/{id}/events", h.channelEvents)
 	api("GET /api/evidence", h.listEvidence)
 	api("GET /api/media/{id}", h.media)
 	api("GET /api/audit", h.listAudit)
@@ -148,6 +159,9 @@ func (h *handler) routes() {
 	api("GET /api/config", h.getConfig)
 	api("PUT /api/config", h.putConfig)
 	api("PUT /api/autostart", h.putAutostart)
+	api("GET /api/relay", h.getRelay)
+	api("POST /api/relay/test", h.testRelay)
+	api("POST /api/relay/move", h.moveRelay)
 	api("POST /api/restart", h.restart)
 	api("POST /api/quit", h.quit)
 }

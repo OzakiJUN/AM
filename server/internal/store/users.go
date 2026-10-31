@@ -14,17 +14,34 @@ type User struct {
 	IsSiteAdmin   bool
 	Banned        bool
 	CreatedAt     int64
+	Bio           string
+	Invisible     bool
+	ActivityKind  int16
+	ActivityText  string
+	// LeftAt is when the user left the server (0 = still a member).
+	LeftAt int64
 }
 
+// Gone reports whether the account is banned or has left the server: it is
+// not listed, cannot be messaged or added, and cannot log in.
+func (u *User) Gone() bool { return u.Banned || u.LeftAt != 0 }
+
 const userCols = `id, username, display_name, avatar, COALESCE(avatar_media_id, 0), COALESCE(password_hash, ''),
-	account_type, COALESCE(owner_id, 0), is_site_admin, banned, created_at`
+	account_type, COALESCE(owner_id, 0), is_site_admin, banned, created_at, bio, invisible, activity_kind, activity_text,
+	COALESCE(left_at, 0)`
 
 type scanner interface{ Scan(...any) error }
 
+// scanTargets lists u's fields in userCols order.
+func (u *User) scanTargets() []any {
+	return []any{&u.ID, &u.Username, &u.DisplayName, &u.Avatar, &u.AvatarMediaID, &u.PasswordHash,
+		&u.AccountType, &u.OwnerID, &u.IsSiteAdmin, &u.Banned, &u.CreatedAt,
+		&u.Bio, &u.Invisible, &u.ActivityKind, &u.ActivityText, &u.LeftAt}
+}
+
 func scanUser(row scanner) (*User, error) {
 	u := &User{}
-	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Avatar, &u.AvatarMediaID, &u.PasswordHash,
-		&u.AccountType, &u.OwnerID, &u.IsSiteAdmin, &u.Banned, &u.CreatedAt)
+	err := row.Scan(u.scanTargets()...)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -93,6 +110,23 @@ func (q *Queries) UpdateProfile(ctx context.Context, userID int64, displayName s
 	return nil
 }
 
+// SetBio changes the profile signature.
+func (q *Queries) SetBio(ctx context.Context, userID int64, bio string) error {
+	_, err := q.exec(ctx, `UPDATE users SET bio=? WHERE id=?`, bio, userID)
+	return err
+}
+
+// SetPresence saves the invisible flag and the activity.
+func (q *Queries) SetPresence(ctx context.Context, userID int64, invisible bool, activityKind int16, activityText string) error {
+	return affected(q.exec(ctx, `UPDATE users SET invisible=?, activity_kind=?, activity_text=? WHERE id=?`,
+		invisible, activityKind, activityText, userID))
+}
+
+// SetLeft marks the user as having left the server at `at`, or back (at = 0).
+func (q *Queries) SetLeft(ctx context.Context, userID, at int64) error {
+	return affected(q.exec(ctx, `UPDATE users SET left_at=? WHERE id=?`, nullInt(at), userID))
+}
+
 // AdminUser is a row of the admin panel's user list.
 type AdminUser struct {
 	User
@@ -139,9 +173,7 @@ func (q *Queries) ListUsersAdmin(ctx context.Context, search string, limit, offs
 	var out []*AdminUser
 	for rows.Next() {
 		u := &AdminUser{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Avatar, &u.AvatarMediaID, &u.PasswordHash,
-			&u.AccountType, &u.OwnerID, &u.IsSiteAdmin, &u.Banned, &u.CreatedAt,
-			&u.BanReason, &u.BannedAt, &u.LastSeen, &u.Sessions); err != nil {
+		if err := rows.Scan(append(u.scanTargets(), &u.BanReason, &u.BannedAt, &u.LastSeen, &u.Sessions)...); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, u)
@@ -169,7 +201,7 @@ func (q *Queries) SetPasswordHash(ctx context.Context, userID int64, hash string
 // CountSiteAdmins counts site admins that are not banned.
 func (q *Queries) CountSiteAdmins(ctx context.Context) (int64, error) {
 	var n int64
-	err := q.queryRow(ctx, `SELECT count(*) FROM users WHERE is_site_admin AND NOT banned`).Scan(&n)
+	err := q.queryRow(ctx, `SELECT count(*) FROM users WHERE is_site_admin AND NOT banned AND left_at IS NULL`).Scan(&n)
 	return n, err
 }
 

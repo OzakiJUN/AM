@@ -132,6 +132,16 @@ func (q *Queries) SetMemberRole(ctx context.Context, convID, userID int64, role 
 	return affected(q.exec(ctx, `UPDATE conv_members SET role=? WHERE conv_id=? AND user_id=?`, role, convID, userID))
 }
 
+// SetMemberPinned sets my pin order in a conversation (0 = not pinned).
+func (q *Queries) SetMemberPinned(ctx context.Context, convID, userID, order int64) error {
+	return affected(q.exec(ctx, `UPDATE conv_members SET pinned_order=? WHERE conv_id=? AND user_id=?`, order, convID, userID))
+}
+
+// SetMemberDnd sets my do-not-disturb end (0 = off, -1 = until turned off).
+func (q *Queries) SetMemberDnd(ctx context.Context, convID, userID, until int64) error {
+	return affected(q.exec(ctx, `UPDATE conv_members SET dnd_until=? WHERE conv_id=? AND user_id=?`, until, convID, userID))
+}
+
 func (q *Queries) SetMemberMute(ctx context.Context, convID, userID, until int64) error {
 	return affected(q.exec(ctx, `UPDATE conv_members SET muted_until=? WHERE conv_id=? AND user_id=?`, until, convID, userID))
 }
@@ -145,6 +155,16 @@ func (q *Queries) GetMember(ctx context.Context, convID, userID int64) (*Member,
 		return nil, notFound(err)
 	}
 	return m, nil
+}
+
+// NextOwner picks who takes over a channel when its owner leaves the server:
+// the highest role, then whoever joined first, among members still active.
+func (q *Queries) NextOwner(ctx context.Context, convID, leaving int64) (int64, error) {
+	var id int64
+	err := q.queryRow(ctx, `SELECT m.user_id FROM conv_members m JOIN users u ON u.id = m.user_id
+		WHERE m.conv_id = ? AND m.user_id <> ? AND NOT u.banned AND u.left_at IS NULL
+		ORDER BY m.role DESC, m.joined_at, m.user_id LIMIT 1`, convID, leaving).Scan(&id)
+	return id, notFound(err)
 }
 
 func (q *Queries) CountMembers(ctx context.Context, convID int64) (int, error) {

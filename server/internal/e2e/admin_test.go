@@ -2,7 +2,9 @@ package e2e
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"image/png"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +25,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/app"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/logx"
+	"github.com/OzakiJUN/am/server/internal/supervisor"
 )
 
 func TestAdminPanel(t *testing.T) { forEachDB(t, testAdminPanel) }
@@ -45,6 +49,12 @@ func (f *fakeRuntime) Snapshot() admin.Snapshot {
 func (f *fakeRuntime) Restart()        { f.restarts++ }
 func (f *fakeRuntime) Quit()           {}
 func (f *fakeRuntime) ClearBootstrap() {}
+func (f *fakeRuntime) SetPublicAddress(addr string) {
+	cfg := *f.cfg
+	cfg.Server.PublicAddress = addr
+	f.cfg = &cfg
+	f.a.Account.SetServer(supervisor.ServerMeta(&cfg, "test", bytes.Repeat([]byte{7}, 32)))
+}
 
 // panelClient talks to the admin panel's JSON API.
 type panelClient struct {
@@ -267,6 +277,98 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 		t.Fatalf("evidence: %+v", evl)
 	}
 
+	// Channel history: private channels too, read-only, never DMs.
+	secret := must(owner.cli.CreateGroup(ctx, "秘密基地", bobID))
+	struck := must(ownerWS.SendText(ctx, secret.Id, "说错了"))
+	must(ownerWS.Strike(ctx, secret.Id, struck.EventId))
+	must(ownerWS.SendText(ctx, secret.Id, "频道里的话"))
+	chImg := must(owner.cli.Upload(ctx, "a.png", bytes.NewReader(encodePNG(testImage(8, 8)))))
+	must(ownerWS.SendImage(ctx, secret.Id, chImg.Id))
+	dmImg := must(owner.cli.Upload(ctx, "b.png", bytes.NewReader(encodePNG(testImage(9, 9)))))
+	must(ownerWS.SendImage(ctx, dm.Id, dmImg.Id))
+	var chl struct {
+		Items []struct {
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			Public  bool   `json:"public"`
+			Members int    `json:"members"`
+		} `json:"items"`
+	}
+	pc.do("GET", "/api/channels?q=秘密", nil, &chl)
+	if len(chl.Items) != 1 || chl.Items[0].ID != itoa(secret.Id) || chl.Items[0].Public || chl.Items[0].Members != 2 {
+		t.Fatalf("channels: %+v", chl)
+	}
+	var hist struct {
+		Items []struct {
+			Kind    string `json:"kind"`
+			Text    string `json:"text"`
+			Struck  bool   `json:"struck"`
+			MediaID string `json:"media_id"`
+		} `json:"items"`
+		Before int64 `json:"before"`
+	}
+	if code := pc.do("GET", "/api/channels/"+itoa(secret.Id)+"/events", nil, &hist); code != 200 {
+		t.Fatalf("channel history: %d", code)
+	}
+	// created, bob joined, struck text, text, image
+	if n := len(hist.Items); n != 5 || hist.Items[1].Text != "owner 邀请 bob 加入了频道" || !hist.Items[2].Struck ||
+		hist.Items[3].Text != "频道里的话" || hist.Items[4].Kind != "image" || hist.Before != 0 {
+		t.Fatalf("history: %+v", hist)
+	}
+	if code := pc.do("GET", "/api/media/"+hist.Items[4].MediaID+"?thumb=1", nil, nil); code != 200 {
+		t.Fatalf("channel image: %d", code)
+	}
+	// Paging backwards.
+	for i := 0; i < 50; i++ {
+		must(ownerWS.SendText(ctx, secret.Id, "刷屏"))
+	}
+	pc.do("GET", "/api/channels/"+itoa(secret.Id)+"/events", nil, &hist)
+	if len(hist.Items) != 50 || hist.Before == 0 {
+		t.Fatalf("first page: %d items, before %d", len(hist.Items), hist.Before)
+	}
+	pc.do("GET", "/api/channels/"+itoa(secret.Id)+"/events?before="+strconv.FormatInt(hist.Before, 10), nil, &hist)
+	if len(hist.Items) != 5 || hist.Items[0].Kind != "sys" || hist.Before != 0 {
+		t.Fatalf("second page: %+v", hist)
+	}
+	if code := pc.do("GET", "/api/channels/"+itoa(dm.Id)+"/events", nil, nil); code != 404 {
+		t.Fatalf("DM history visible in the panel: %d", code)
+	}
+	if code := pc.do("GET", "/api/media/"+itoa(dmImg.Id), nil, nil); code != 404 {
+		t.Fatalf("DM image visible in the panel: %d", code)
+	}
+
+	// Server profile: set in the panel, applies at once, seen by clients.
+	if code := pc.do("PUT", "/api/server-profile", map[string]any{"description": "  欢迎来玩  ", "layout_editors": "nobody"}, nil); code != 400 {
+		t.Fatalf("bad layout editors: %d", code)
+	}
+	if code := pc.do("PUT", "/api/server-profile", map[string]any{
+		"description": "  欢迎来玩  ", "layout_editors": "everyone", "widget_content_editable": true,
+	}, nil); code != 200 {
+		t.Fatalf("server profile: %d", code)
+	}
+	if code := pc.do("PUT", "/api/server-icon", map[string]string{"data": base64.StdEncoding.EncodeToString([]byte("not an image"))}, nil); code != 400 {
+		t.Fatalf("bad icon: %d", code)
+	}
+	icon := base64.StdEncoding.EncodeToString(encodePNG(testImage(600, 300)))
+	if code := pc.do("PUT", "/api/server-icon", map[string]string{"data": icon}, nil); code != 200 {
+		t.Fatalf("server icon: %d", code)
+	}
+	sp := must(daveCli.ServerProfile(ctx))
+	if sp.Description != "欢迎来玩" || sp.LayoutEditors != amv1.ProfileEditors_PROFILE_EDITORS_EVERYONE ||
+		!sp.WidgetContentEditable || sp.MemberCount != 4 || sp.Icon == "" || sp.Icon != must(daveCli.ServerInfo(ctx)).Icon {
+		t.Fatalf("server profile: %+v", sp)
+	}
+	resp := must(http.Get(base + sp.Icon)) // public, no token
+	img, err := png.Decode(resp.Body)
+	resp.Body.Close()
+	if err != nil || img.Bounds().Dx() != 256 || img.Bounds().Dy() != 128 {
+		t.Fatalf("server icon: %v %v", err, img)
+	}
+	pc.do("DELETE", "/api/server-icon", nil, nil)
+	if must(daveCli.ServerInfo(ctx)).Icon != "" {
+		t.Fatal("icon still set after delete")
+	}
+
 	// Audit log has the panel's actions.
 	var al struct {
 		Items []struct {
@@ -279,7 +381,8 @@ func testAdminPanel(t *testing.T, a *app.App, base string) {
 	for _, it := range al.Items {
 		seen[it.Action] = true
 	}
-	for _, want := range []string{"ban", "unban", "password_reset", "site_admin_grant", "invite_delete", "admin_delete"} {
+	for _, want := range []string{"ban", "unban", "password_reset", "site_admin_grant", "invite_delete", "admin_delete", "channel_view",
+		"server_profile"} {
 		if !seen[want] {
 			t.Errorf("audit log missing %s: %+v", want, al.Items)
 		}

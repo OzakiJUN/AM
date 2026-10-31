@@ -1,15 +1,19 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Hash, LogIn, MessageCircle, Settings, Sparkles } from 'lucide-react';
-import { current, useApp, useCurrent, type Page } from '@/lib/store';
+import { Hash, KeyRound, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, UserRound } from 'lucide-react';
+import { current, openProfile, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
-import { Button, Empty, Field, Input, cx, ease, spring } from '@/ui';
+import { rememberLogin, savedPassword, useIdentity } from '@/lib/identity';
+import { useDevices } from '@/lib/devices';
+import { Button, Empty, Field, Input, cx, ease, spring, toast } from '@/ui';
 import { AIPage } from './AI';
 import { ChatView } from './Chat';
 import { ConvList } from './ConvList';
+import { AccountPage } from './Account';
 import { UserAvatar } from './media';
-import { MePage } from './Me';
+import { ProfilePage } from './Profile';
+import { ServerProfilePage } from './ServerProfile';
 import { SettingsPage } from './Settings';
 import { unread } from './unread';
 import logo from '@/assets/logo.png';
@@ -18,12 +22,15 @@ import logo from '@/assets/logo.png';
 export function Shell() {
   const page = useApp((s) => s.page);
   const v = useCurrent();
+  useOfferToast();
   let content;
-  if (!v) content = <Empty title="还没有服务器" text="点左下角的设置 → 服务器，或者重新粘贴加入码。" />;
+  if (!v) content = page === 'settings' ? <SettingsPage /> : <NoServer />;
   else if (v.status === 'logged_out' && page !== 'settings') content = <LoginAgain v={v} />;
   else if (page === 'channels' || page === 'dms') content = <><ConvList v={v} page={page} /><ChatView v={v} page={page} /></>;
   else if (page === 'ai') content = <AIPage v={v} />;
-  else if (page === 'me') content = <MePage v={v} />;
+  else if (page === 'account') content = <AccountPage v={v} />;
+  else if (page === 'profile') content = <ProfilePage v={v} />;
+  else if (page === 'server') content = <ServerProfilePage v={v} />;
   else content = <SettingsPage />;
   return (
     <div className="flex h-full gap-3 p-3">
@@ -83,25 +90,53 @@ function NavBar({ v }: { v?: SessionView }) {
       {item('dms', '私信', MessageCircle, unread(v, 'dms'))}
       {item('ai', 'AI', Sparkles, unread(v, 'ai'))}
       <div className="flex-1" />
+      {item('account', '账号设置', UserRound)}
       {item('settings', '设置', Settings)}
-      <button onClick={() => set({ page: 'me' })} aria-label="我" title="我" className="press mt-1 rounded-full">
-        <UserAvatar user={v?.me} size={40} status={v?.status === 'online'} />
+      <button
+        onClick={() => openProfile(null)}
+        aria-label="个人主页"
+        title="个人主页"
+        aria-current={page === 'profile' ? 'page' : undefined}
+        className={cx('press mt-1 rounded-full ring-offset-2 ring-offset-transparent transition-shadow duration-300', page === 'profile' && 'ring-2 ring-accent')}
+      >
+        <UserAvatar user={v?.me} size={40} presence />
       </button>
     </nav>
   );
 }
 
+function NoServer() {
+  return (
+    <section className="glass flex flex-1 flex-col rounded-3xl">
+      <Empty icon={<Server size={28} />} title="还没有服务器" text="向服主要一个加入码，粘贴进来就能加入。">
+        <Button variant="primary" onClick={() => useApp.setState({ view: 'welcome' })}><Plus size={16} /> 加入服务器</Button>
+      </Empty>
+    </section>
+  );
+}
+
 function LoginAgain({ v }: { v: SessionView }) {
-  const [username, setUsername] = useState('');
+  const saved = useIdentity();
+  const [username, setUsername] = useState(saved.username);
   const [password, setPassword] = useState('');
+  const [savedPw, setSavedPw] = useState<string | null>(null);
   const [error, setError] = useState(v.error ?? '');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    savedPassword().then((p) => alive && setSavedPw(p));
+    return () => {
+      alive = false;
+    };
+  }, []);
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError('');
+    const pw = savedPw ?? password;
     try {
-      await current().login(username.trim(), password);
+      await current().login(username.trim(), pw);
+      void rememberLogin(username.trim(), pw);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -116,11 +151,30 @@ function LoginAgain({ v }: { v: SessionView }) {
           <h2 className="text-[1.3rem] font-semibold">登录「{v.name}」</h2>
           <p className="mt-1 text-ink-soft dark:text-white/55">登录已失效或者你退出了，重新登录一下</p>
         </div>
-        <Field label="用户名"><Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required autoFocus /></Field>
-        <Field label="密码"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></Field>
+        <Field label="用户名"><Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required autoFocus={!username} /></Field>
+        {savedPw !== null ? (
+          <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-4 py-3 text-[0.9rem] dark:bg-white/[0.04]">
+            <KeyRound size={16} className="text-accent" />
+            <span className="flex-1">密码用这台设备保存的</span>
+            <button type="button" onClick={() => setSavedPw(null)} className="text-[0.85rem] text-accent-700 hover:underline dark:text-accent-200">换一个</button>
+          </div>
+        ) : (
+          <Field label="密码"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required autoFocus={!!username} /></Field>
+        )}
         {error && <p className="text-[0.85rem] text-rose-500" role="alert">{error}</p>}
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy}>登录</Button>
       </form>
     </section>
   );
+}
+
+/** Tells once when another device of mine joined a server (offered in the server list). */
+function useOfferToast() {
+  const offers = useDevices((s) => s.offers);
+  const seen = useRef(new Set<string>());
+  useEffect(() => {
+    const fresh = offers.filter((o) => !seen.current.has(o.endpoint.address + o.endpoint.pin));
+    for (const o of offers) seen.current.add(o.endpoint.address + o.endpoint.pin);
+    if (fresh.length) toast(`你在另一台设备上加入了「${fresh.map((o) => o.name).join('」「')}」，点上面的服务器列表就能在这里加入`);
+  }, [offers]);
 }

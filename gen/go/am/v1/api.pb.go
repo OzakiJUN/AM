@@ -21,6 +21,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Who may rearrange the widgets on the server profile.
+type ProfileEditors int32
+
+const (
+	ProfileEditors_PROFILE_EDITORS_UNSPECIFIED ProfileEditors = 0
+	// Site admins only (default).
+	ProfileEditors_PROFILE_EDITORS_ADMINS   ProfileEditors = 1
+	ProfileEditors_PROFILE_EDITORS_EVERYONE ProfileEditors = 2
+)
+
+// Enum value maps for ProfileEditors.
+var (
+	ProfileEditors_name = map[int32]string{
+		0: "PROFILE_EDITORS_UNSPECIFIED",
+		1: "PROFILE_EDITORS_ADMINS",
+		2: "PROFILE_EDITORS_EVERYONE",
+	}
+	ProfileEditors_value = map[string]int32{
+		"PROFILE_EDITORS_UNSPECIFIED": 0,
+		"PROFILE_EDITORS_ADMINS":      1,
+		"PROFILE_EDITORS_EVERYONE":    2,
+	}
+)
+
+func (x ProfileEditors) Enum() *ProfileEditors {
+	p := new(ProfileEditors)
+	*p = x
+	return p
+}
+
+func (x ProfileEditors) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ProfileEditors) Descriptor() protoreflect.EnumDescriptor {
+	return file_am_v1_api_proto_enumTypes[0].Descriptor()
+}
+
+func (ProfileEditors) Type() protoreflect.EnumType {
+	return &file_am_v1_api_proto_enumTypes[0]
+}
+
+func (x ProfileEditors) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ProfileEditors.Descriptor instead.
+func (ProfileEditors) EnumDescriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{0}
+}
+
 // POST /api/v1/register
 type RegisterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -100,10 +151,13 @@ func (x *RegisterRequest) GetDeviceName() string {
 
 // POST /api/v1/login
 type LoginRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	DeviceName    string                 `protobuf:"bytes,3,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Username   string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Password   string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	DeviceName string                 `protobuf:"bytes,3,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	// Only for accounts that left the server: an unused invite code lets them
+	// back in (used up like a registration). Ignored for everyone else.
+	InviteCode    string `protobuf:"bytes,4,opt,name=invite_code,json=inviteCode,proto3" json:"invite_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -155,6 +209,13 @@ func (x *LoginRequest) GetPassword() string {
 func (x *LoginRequest) GetDeviceName() string {
 	if x != nil {
 		return x.DeviceName
+	}
+	return ""
+}
+
+func (x *LoginRequest) GetInviteCode() string {
+	if x != nil {
+		return x.InviteCode
 	}
 	return ""
 }
@@ -214,8 +275,11 @@ func (x *SessionResponse) GetMe() *User {
 
 // GET /api/v1/sessions
 type ListSessionsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Sessions      []*DeviceSession       `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Sessions []*DeviceSession       `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	// Most devices a human account may be logged in on (limits.max_devices);
+	// 0 = no limit.
+	MaxDevices    int32 `protobuf:"varint,2,opt,name=max_devices,json=maxDevices,proto3" json:"max_devices,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -257,6 +321,337 @@ func (x *ListSessionsResponse) GetSessions() []*DeviceSession {
 	return nil
 }
 
+func (x *ListSessionsResponse) GetMaxDevices() int32 {
+	if x != nil {
+		return x.MaxDevices
+	}
+	return 0
+}
+
+// POST /api/v1/pair: a one-time ticket that logs in a new device of mine
+// (docs/design.md §7, 多设备). Refused with too_many_devices when the
+// account is already on limits.max_devices devices. A new ticket replaces
+// the previous unused one.
+type CreatePairTicketRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Encrypted data for the new device, at most 32 KiB; kept with the ticket
+	// and handed over when it is redeemed. Opaque to the server.
+	Bundle        []byte `protobuf:"bytes,1,opt,name=bundle,proto3" json:"bundle,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreatePairTicketRequest) Reset() {
+	*x = CreatePairTicketRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreatePairTicketRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreatePairTicketRequest) ProtoMessage() {}
+
+func (x *CreatePairTicketRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreatePairTicketRequest.ProtoReflect.Descriptor instead.
+func (*CreatePairTicketRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CreatePairTicketRequest) GetBundle() []byte {
+	if x != nil {
+		return x.Bundle
+	}
+	return nil
+}
+
+type PairTicket struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ticket        string                 `protobuf:"bytes,1,opt,name=ticket,proto3" json:"ticket,omitempty"`
+	ExpiresAt     int64                  `protobuf:"varint,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PairTicket) Reset() {
+	*x = PairTicket{}
+	mi := &file_am_v1_api_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PairTicket) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PairTicket) ProtoMessage() {}
+
+func (x *PairTicket) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PairTicket.ProtoReflect.Descriptor instead.
+func (*PairTicket) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *PairTicket) GetTicket() string {
+	if x != nil {
+		return x.Ticket
+	}
+	return ""
+}
+
+func (x *PairTicket) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+// POST /api/v1/pair/redeem (no token): uses up the ticket and logs the new
+// device in. invalid_pair_code when it is wrong, used or expired.
+type RedeemPairTicketRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ticket        string                 `protobuf:"bytes,1,opt,name=ticket,proto3" json:"ticket,omitempty"`
+	DeviceName    string                 `protobuf:"bytes,2,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RedeemPairTicketRequest) Reset() {
+	*x = RedeemPairTicketRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RedeemPairTicketRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RedeemPairTicketRequest) ProtoMessage() {}
+
+func (x *RedeemPairTicketRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RedeemPairTicketRequest.ProtoReflect.Descriptor instead.
+func (*RedeemPairTicketRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RedeemPairTicketRequest) GetTicket() string {
+	if x != nil {
+		return x.Ticket
+	}
+	return ""
+}
+
+func (x *RedeemPairTicketRequest) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
+type PairRedeemResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Me            *User                  `protobuf:"bytes,2,opt,name=me,proto3" json:"me,omitempty"`
+	Bundle        []byte                 `protobuf:"bytes,3,opt,name=bundle,proto3" json:"bundle,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PairRedeemResponse) Reset() {
+	*x = PairRedeemResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PairRedeemResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PairRedeemResponse) ProtoMessage() {}
+
+func (x *PairRedeemResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PairRedeemResponse.ProtoReflect.Descriptor instead.
+func (*PairRedeemResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PairRedeemResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *PairRedeemResponse) GetMe() *User {
+	if x != nil {
+		return x.Me
+	}
+	return nil
+}
+
+func (x *PairRedeemResponse) GetBundle() []byte {
+	if x != nil {
+		return x.Bundle
+	}
+	return nil
+}
+
+// GET /api/v1/me/client-state: data shared by my devices (the list of my
+// servers), encrypted by the client. Empty data and updated_at 0 = none yet.
+type ClientState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	UpdatedAt     int64                  `protobuf:"varint,2,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientState) Reset() {
+	*x = ClientState{}
+	mi := &file_am_v1_api_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientState) ProtoMessage() {}
+
+func (x *ClientState) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientState.ProtoReflect.Descriptor instead.
+func (*ClientState) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ClientState) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ClientState) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+// PUT /api/v1/me/client-state (replies ClientState). At most 32 KiB.
+// state_conflict when another device saved since base_updated_at.
+type PutClientStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	BaseUpdatedAt int64                  `protobuf:"varint,2,opt,name=base_updated_at,json=baseUpdatedAt,proto3" json:"base_updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PutClientStateRequest) Reset() {
+	*x = PutClientStateRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PutClientStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PutClientStateRequest) ProtoMessage() {}
+
+func (x *PutClientStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PutClientStateRequest.ProtoReflect.Descriptor instead.
+func (*PutClientStateRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PutClientStateRequest) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *PutClientStateRequest) GetBaseUpdatedAt() int64 {
+	if x != nil {
+		return x.BaseUpdatedAt
+	}
+	return 0
+}
+
 type DeviceSession struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	Id         int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -271,7 +666,7 @@ type DeviceSession struct {
 
 func (x *DeviceSession) Reset() {
 	*x = DeviceSession{}
-	mi := &file_am_v1_api_proto_msgTypes[4]
+	mi := &file_am_v1_api_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -283,7 +678,7 @@ func (x *DeviceSession) String() string {
 func (*DeviceSession) ProtoMessage() {}
 
 func (x *DeviceSession) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[4]
+	mi := &file_am_v1_api_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -296,7 +691,7 @@ func (x *DeviceSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceSession.ProtoReflect.Descriptor instead.
 func (*DeviceSession) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{4}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DeviceSession) GetId() int64 {
@@ -347,7 +742,7 @@ type ListInvitesResponse struct {
 
 func (x *ListInvitesResponse) Reset() {
 	*x = ListInvitesResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[5]
+	mi := &file_am_v1_api_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -359,7 +754,7 @@ func (x *ListInvitesResponse) String() string {
 func (*ListInvitesResponse) ProtoMessage() {}
 
 func (x *ListInvitesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[5]
+	mi := &file_am_v1_api_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -372,7 +767,7 @@ func (x *ListInvitesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitesResponse.ProtoReflect.Descriptor instead.
 func (*ListInvitesResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{5}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListInvitesResponse) GetInvites() []*Invite {
@@ -408,7 +803,7 @@ type Invite struct {
 
 func (x *Invite) Reset() {
 	*x = Invite{}
-	mi := &file_am_v1_api_proto_msgTypes[6]
+	mi := &file_am_v1_api_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +815,7 @@ func (x *Invite) String() string {
 func (*Invite) ProtoMessage() {}
 
 func (x *Invite) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[6]
+	mi := &file_am_v1_api_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +828,7 @@ func (x *Invite) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Invite.ProtoReflect.Descriptor instead.
 func (*Invite) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{6}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Invite) GetCode() string {
@@ -484,14 +879,19 @@ type ServerInfo struct {
 	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Version string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	// Client download page; QR codes point here.
-	DownloadUrl   string `protobuf:"bytes,3,opt,name=download_url,json=downloadUrl,proto3" json:"download_url,omitempty"`
+	DownloadUrl string `protobuf:"bytes,3,opt,name=download_url,json=downloadUrl,proto3" json:"download_url,omitempty"`
+	// Server icon ("/api/v1/server/icon?v=..."), "" when none is set. Public.
+	Icon string `protobuf:"bytes,4,opt,name=icon,proto3" json:"icon,omitempty"`
+	// Random id of the running server process: lets the server (and clients)
+	// check that a new address really reaches this same server.
+	InstanceId    string `protobuf:"bytes,5,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerInfo) Reset() {
 	*x = ServerInfo{}
-	mi := &file_am_v1_api_proto_msgTypes[7]
+	mi := &file_am_v1_api_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +903,7 @@ func (x *ServerInfo) String() string {
 func (*ServerInfo) ProtoMessage() {}
 
 func (x *ServerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[7]
+	mi := &file_am_v1_api_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +916,7 @@ func (x *ServerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerInfo.ProtoReflect.Descriptor instead.
 func (*ServerInfo) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{7}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ServerInfo) GetName() string {
@@ -540,6 +940,119 @@ func (x *ServerInfo) GetDownloadUrl() string {
 	return ""
 }
 
+func (x *ServerInfo) GetIcon() string {
+	if x != nil {
+		return x.Icon
+	}
+	return ""
+}
+
+func (x *ServerInfo) GetInstanceId() string {
+	if x != nil {
+		return x.InstanceId
+	}
+	return ""
+}
+
+// GET /api/v1/server/profile: the server's profile page. Set up by the site
+// admin in the admin panel.
+type ServerProfile struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Name        string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Same as ServerInfo.icon.
+	Icon string `protobuf:"bytes,3,opt,name=icon,proto3" json:"icon,omitempty"`
+	// Accounts that are not banned and have not left.
+	MemberCount int32 `protobuf:"varint,4,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`
+	// Online and not invisible.
+	OnlineCount   int32          `protobuf:"varint,5,opt,name=online_count,json=onlineCount,proto3" json:"online_count,omitempty"`
+	LayoutEditors ProfileEditors `protobuf:"varint,6,opt,name=layout_editors,json=layoutEditors,proto3,enum=am.v1.ProfileEditors" json:"layout_editors,omitempty"`
+	// Members may change what is inside widgets (never their kind or place).
+	// When on, each widget can also get its own rule (widgets: later batch).
+	WidgetContentEditable bool `protobuf:"varint,7,opt,name=widget_content_editable,json=widgetContentEditable,proto3" json:"widget_content_editable,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ServerProfile) Reset() {
+	*x = ServerProfile{}
+	mi := &file_am_v1_api_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerProfile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerProfile) ProtoMessage() {}
+
+func (x *ServerProfile) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerProfile.ProtoReflect.Descriptor instead.
+func (*ServerProfile) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ServerProfile) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ServerProfile) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ServerProfile) GetIcon() string {
+	if x != nil {
+		return x.Icon
+	}
+	return ""
+}
+
+func (x *ServerProfile) GetMemberCount() int32 {
+	if x != nil {
+		return x.MemberCount
+	}
+	return 0
+}
+
+func (x *ServerProfile) GetOnlineCount() int32 {
+	if x != nil {
+		return x.OnlineCount
+	}
+	return 0
+}
+
+func (x *ServerProfile) GetLayoutEditors() ProfileEditors {
+	if x != nil {
+		return x.LayoutEditors
+	}
+	return ProfileEditors_PROFILE_EDITORS_UNSPECIFIED
+}
+
+func (x *ServerProfile) GetWidgetContentEditable() bool {
+	if x != nil {
+		return x.WidgetContentEditable
+	}
+	return false
+}
+
 // Removed: GET /api/v1/friends
 type ListFriendsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -552,7 +1065,7 @@ type ListFriendsResponse struct {
 
 func (x *ListFriendsResponse) Reset() {
 	*x = ListFriendsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[8]
+	mi := &file_am_v1_api_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -564,7 +1077,7 @@ func (x *ListFriendsResponse) String() string {
 func (*ListFriendsResponse) ProtoMessage() {}
 
 func (x *ListFriendsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[8]
+	mi := &file_am_v1_api_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -577,7 +1090,7 @@ func (x *ListFriendsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFriendsResponse.ProtoReflect.Descriptor instead.
 func (*ListFriendsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{8}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListFriendsResponse) GetFriends() []*User {
@@ -611,7 +1124,7 @@ type FriendRequest struct {
 
 func (x *FriendRequest) Reset() {
 	*x = FriendRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[9]
+	mi := &file_am_v1_api_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -623,7 +1136,7 @@ func (x *FriendRequest) String() string {
 func (*FriendRequest) ProtoMessage() {}
 
 func (x *FriendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[9]
+	mi := &file_am_v1_api_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -636,7 +1149,7 @@ func (x *FriendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendRequest.ProtoReflect.Descriptor instead.
 func (*FriendRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{9}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *FriendRequest) GetUsername() string {
@@ -656,7 +1169,7 @@ type FriendAccept struct {
 
 func (x *FriendAccept) Reset() {
 	*x = FriendAccept{}
-	mi := &file_am_v1_api_proto_msgTypes[10]
+	mi := &file_am_v1_api_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -668,7 +1181,7 @@ func (x *FriendAccept) String() string {
 func (*FriendAccept) ProtoMessage() {}
 
 func (x *FriendAccept) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[10]
+	mi := &file_am_v1_api_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -681,7 +1194,7 @@ func (x *FriendAccept) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendAccept.ProtoReflect.Descriptor instead.
 func (*FriendAccept) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{10}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *FriendAccept) GetUserId() int64 {
@@ -703,7 +1216,7 @@ type OpenDMRequest struct {
 
 func (x *OpenDMRequest) Reset() {
 	*x = OpenDMRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[11]
+	mi := &file_am_v1_api_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -715,7 +1228,7 @@ func (x *OpenDMRequest) String() string {
 func (*OpenDMRequest) ProtoMessage() {}
 
 func (x *OpenDMRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[11]
+	mi := &file_am_v1_api_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,7 +1241,7 @@ func (x *OpenDMRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenDMRequest.ProtoReflect.Descriptor instead.
 func (*OpenDMRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{11}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *OpenDMRequest) GetUserId() int64 {
@@ -752,7 +1265,7 @@ type ListUsersResponse struct {
 
 func (x *ListUsersResponse) Reset() {
 	*x = ListUsersResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[12]
+	mi := &file_am_v1_api_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -764,7 +1277,7 @@ func (x *ListUsersResponse) String() string {
 func (*ListUsersResponse) ProtoMessage() {}
 
 func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[12]
+	mi := &file_am_v1_api_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -777,7 +1290,7 @@ func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
 func (*ListUsersResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{12}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListUsersResponse) GetUsers() []*User {
@@ -807,7 +1320,7 @@ type ListBlocksResponse struct {
 
 func (x *ListBlocksResponse) Reset() {
 	*x = ListBlocksResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[13]
+	mi := &file_am_v1_api_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +1332,7 @@ func (x *ListBlocksResponse) String() string {
 func (*ListBlocksResponse) ProtoMessage() {}
 
 func (x *ListBlocksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[13]
+	mi := &file_am_v1_api_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -832,7 +1345,7 @@ func (x *ListBlocksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBlocksResponse.ProtoReflect.Descriptor instead.
 func (*ListBlocksResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{13}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListBlocksResponse) GetUsers() []*User {
@@ -848,13 +1361,15 @@ type UpdateProfileRequest struct {
 	DisplayName *string                `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
 	// Media id of an uploaded image (GIF allowed). 0 removes the avatar.
 	AvatarMediaId *int64 `protobuf:"varint,2,opt,name=avatar_media_id,json=avatarMediaId,proto3,oneof" json:"avatar_media_id,omitempty"`
+	// Personal signature, at most 100 characters. Empty clears it.
+	Bio           *string `protobuf:"bytes,3,opt,name=bio,proto3,oneof" json:"bio,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateProfileRequest) Reset() {
 	*x = UpdateProfileRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[14]
+	mi := &file_am_v1_api_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -866,7 +1381,7 @@ func (x *UpdateProfileRequest) String() string {
 func (*UpdateProfileRequest) ProtoMessage() {}
 
 func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[14]
+	mi := &file_am_v1_api_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +1394,7 @@ func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProfileRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProfileRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{14}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateProfileRequest) GetDisplayName() string {
@@ -896,6 +1411,70 @@ func (x *UpdateProfileRequest) GetAvatarMediaId() int64 {
 	return 0
 }
 
+func (x *UpdateProfileRequest) GetBio() string {
+	if x != nil && x.Bio != nil {
+		return *x.Bio
+	}
+	return ""
+}
+
+// PUT /api/v1/me/presence -> Presence (as the user themselves sees it).
+// Saved on the server, so it stays after reconnecting or restarting.
+type SetPresenceRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Appear offline to everyone except yourself and your own bot / ai
+	// accounts (so your AI knows you are around and may give it away).
+	Invisible bool `protobuf:"varint,1,opt,name=invisible,proto3" json:"invisible,omitempty"`
+	// Empty / UNSPECIFIED clears the activity.
+	Activity      *Activity `protobuf:"bytes,2,opt,name=activity,proto3" json:"activity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPresenceRequest) Reset() {
+	*x = SetPresenceRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPresenceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPresenceRequest) ProtoMessage() {}
+
+func (x *SetPresenceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPresenceRequest.ProtoReflect.Descriptor instead.
+func (*SetPresenceRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *SetPresenceRequest) GetInvisible() bool {
+	if x != nil {
+		return x.Invisible
+	}
+	return false
+}
+
+func (x *SetPresenceRequest) GetActivity() *Activity {
+	if x != nil {
+		return x.Activity
+	}
+	return nil
+}
+
 // GET /api/v1/me/logins
 type ListLoginRecordsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -906,7 +1485,7 @@ type ListLoginRecordsResponse struct {
 
 func (x *ListLoginRecordsResponse) Reset() {
 	*x = ListLoginRecordsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[15]
+	mi := &file_am_v1_api_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -918,7 +1497,7 @@ func (x *ListLoginRecordsResponse) String() string {
 func (*ListLoginRecordsResponse) ProtoMessage() {}
 
 func (x *ListLoginRecordsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[15]
+	mi := &file_am_v1_api_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -931,7 +1510,7 @@ func (x *ListLoginRecordsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLoginRecordsResponse.ProtoReflect.Descriptor instead.
 func (*ListLoginRecordsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{15}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListLoginRecordsResponse) GetRecords() []*LoginRecord {
@@ -954,7 +1533,7 @@ type LoginRecord struct {
 
 func (x *LoginRecord) Reset() {
 	*x = LoginRecord{}
-	mi := &file_am_v1_api_proto_msgTypes[16]
+	mi := &file_am_v1_api_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -966,7 +1545,7 @@ func (x *LoginRecord) String() string {
 func (*LoginRecord) ProtoMessage() {}
 
 func (x *LoginRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[16]
+	mi := &file_am_v1_api_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -979,7 +1558,7 @@ func (x *LoginRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginRecord.ProtoReflect.Descriptor instead.
 func (*LoginRecord) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{16}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *LoginRecord) GetKind() string {
@@ -1024,7 +1603,7 @@ type CreateGroupRequest struct {
 
 func (x *CreateGroupRequest) Reset() {
 	*x = CreateGroupRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[17]
+	mi := &file_am_v1_api_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1036,7 +1615,7 @@ func (x *CreateGroupRequest) String() string {
 func (*CreateGroupRequest) ProtoMessage() {}
 
 func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[17]
+	mi := &file_am_v1_api_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1049,7 +1628,7 @@ func (x *CreateGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGroupRequest.ProtoReflect.Descriptor instead.
 func (*CreateGroupRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{17}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CreateGroupRequest) GetName() string {
@@ -1084,7 +1663,7 @@ type ListChannelsResponse struct {
 
 func (x *ListChannelsResponse) Reset() {
 	*x = ListChannelsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[18]
+	mi := &file_am_v1_api_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1096,7 +1675,7 @@ func (x *ListChannelsResponse) String() string {
 func (*ListChannelsResponse) ProtoMessage() {}
 
 func (x *ListChannelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[18]
+	mi := &file_am_v1_api_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1109,7 +1688,7 @@ func (x *ListChannelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListChannelsResponse.ProtoReflect.Descriptor instead.
 func (*ListChannelsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{18}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListChannelsResponse) GetChannels() []*ChannelInfo {
@@ -1134,7 +1713,7 @@ type ChannelInfo struct {
 
 func (x *ChannelInfo) Reset() {
 	*x = ChannelInfo{}
-	mi := &file_am_v1_api_proto_msgTypes[19]
+	mi := &file_am_v1_api_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1146,7 +1725,7 @@ func (x *ChannelInfo) String() string {
 func (*ChannelInfo) ProtoMessage() {}
 
 func (x *ChannelInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[19]
+	mi := &file_am_v1_api_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1159,7 +1738,7 @@ func (x *ChannelInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChannelInfo.ProtoReflect.Descriptor instead.
 func (*ChannelInfo) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{19}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ChannelInfo) GetId() int64 {
@@ -1216,7 +1795,7 @@ type InviteMembersRequest struct {
 
 func (x *InviteMembersRequest) Reset() {
 	*x = InviteMembersRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[20]
+	mi := &file_am_v1_api_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1228,7 +1807,7 @@ func (x *InviteMembersRequest) String() string {
 func (*InviteMembersRequest) ProtoMessage() {}
 
 func (x *InviteMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[20]
+	mi := &file_am_v1_api_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1241,7 +1820,7 @@ func (x *InviteMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteMembersRequest.ProtoReflect.Descriptor instead.
 func (*InviteMembersRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{20}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *InviteMembersRequest) GetUserIds() []int64 {
@@ -1261,7 +1840,7 @@ type InviteMembersResponse struct {
 
 func (x *InviteMembersResponse) Reset() {
 	*x = InviteMembersResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[21]
+	mi := &file_am_v1_api_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1273,7 +1852,7 @@ func (x *InviteMembersResponse) String() string {
 func (*InviteMembersResponse) ProtoMessage() {}
 
 func (x *InviteMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[21]
+	mi := &file_am_v1_api_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +1865,7 @@ func (x *InviteMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteMembersResponse.ProtoReflect.Descriptor instead.
 func (*InviteMembersResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{21}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *InviteMembersResponse) GetAdded() []int64 {
@@ -1317,7 +1896,7 @@ type UpdateGroupRequest struct {
 
 func (x *UpdateGroupRequest) Reset() {
 	*x = UpdateGroupRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[22]
+	mi := &file_am_v1_api_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1329,7 +1908,7 @@ func (x *UpdateGroupRequest) String() string {
 func (*UpdateGroupRequest) ProtoMessage() {}
 
 func (x *UpdateGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[22]
+	mi := &file_am_v1_api_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1342,7 +1921,7 @@ func (x *UpdateGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGroupRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGroupRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{22}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *UpdateGroupRequest) GetName() string {
@@ -1383,7 +1962,7 @@ type TransferGroupRequest struct {
 
 func (x *TransferGroupRequest) Reset() {
 	*x = TransferGroupRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[23]
+	mi := &file_am_v1_api_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1395,7 +1974,7 @@ func (x *TransferGroupRequest) String() string {
 func (*TransferGroupRequest) ProtoMessage() {}
 
 func (x *TransferGroupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[23]
+	mi := &file_am_v1_api_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1408,12 +1987,105 @@ func (x *TransferGroupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferGroupRequest.ProtoReflect.Descriptor instead.
 func (*TransferGroupRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{23}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *TransferGroupRequest) GetUserId() int64 {
 	if x != nil {
 		return x.UserId
+	}
+	return 0
+}
+
+// PUT /api/v1/conversations/{id}/pin -> Conversation. Pins a channel or DM
+// to the top of my list (my own setting, shared by my devices).
+type SetPinnedRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pinned        bool                   `protobuf:"varint,1,opt,name=pinned,proto3" json:"pinned,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPinnedRequest) Reset() {
+	*x = SetPinnedRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPinnedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPinnedRequest) ProtoMessage() {}
+
+func (x *SetPinnedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPinnedRequest.ProtoReflect.Descriptor instead.
+func (*SetPinnedRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *SetPinnedRequest) GetPinned() bool {
+	if x != nil {
+		return x.Pinned
+	}
+	return false
+}
+
+// PUT /api/v1/conversations/{id}/dnd -> Conversation. Do not disturb: no
+// notifications, unread shown grey. until: unix ms, 0 = off, -1 = until
+// turned off.
+type SetDndRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Until         int64                  `protobuf:"varint,1,opt,name=until,proto3" json:"until,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetDndRequest) Reset() {
+	*x = SetDndRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetDndRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetDndRequest) ProtoMessage() {}
+
+func (x *SetDndRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetDndRequest.ProtoReflect.Descriptor instead.
+func (*SetDndRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *SetDndRequest) GetUntil() int64 {
+	if x != nil {
+		return x.Until
 	}
 	return 0
 }
@@ -1430,7 +2102,7 @@ type MuteMemberRequest struct {
 
 func (x *MuteMemberRequest) Reset() {
 	*x = MuteMemberRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[24]
+	mi := &file_am_v1_api_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1442,7 +2114,7 @@ func (x *MuteMemberRequest) String() string {
 func (*MuteMemberRequest) ProtoMessage() {}
 
 func (x *MuteMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[24]
+	mi := &file_am_v1_api_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1455,7 +2127,7 @@ func (x *MuteMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuteMemberRequest.ProtoReflect.Descriptor instead.
 func (*MuteMemberRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{24}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *MuteMemberRequest) GetUserId() int64 {
@@ -1482,7 +2154,7 @@ type ListJoinRequestsResponse struct {
 
 func (x *ListJoinRequestsResponse) Reset() {
 	*x = ListJoinRequestsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[25]
+	mi := &file_am_v1_api_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1494,7 +2166,7 @@ func (x *ListJoinRequestsResponse) String() string {
 func (*ListJoinRequestsResponse) ProtoMessage() {}
 
 func (x *ListJoinRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[25]
+	mi := &file_am_v1_api_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1507,7 +2179,7 @@ func (x *ListJoinRequestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJoinRequestsResponse.ProtoReflect.Descriptor instead.
 func (*ListJoinRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{25}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListJoinRequestsResponse) GetRequests() []*JoinRequestInfo {
@@ -1528,7 +2200,7 @@ type JoinRequestInfo struct {
 
 func (x *JoinRequestInfo) Reset() {
 	*x = JoinRequestInfo{}
-	mi := &file_am_v1_api_proto_msgTypes[26]
+	mi := &file_am_v1_api_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1540,7 +2212,7 @@ func (x *JoinRequestInfo) String() string {
 func (*JoinRequestInfo) ProtoMessage() {}
 
 func (x *JoinRequestInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[26]
+	mi := &file_am_v1_api_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1553,7 +2225,7 @@ func (x *JoinRequestInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinRequestInfo.ProtoReflect.Descriptor instead.
 func (*JoinRequestInfo) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{26}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *JoinRequestInfo) GetUser() *User {
@@ -1590,7 +2262,7 @@ type AdminDeleteRequest struct {
 
 func (x *AdminDeleteRequest) Reset() {
 	*x = AdminDeleteRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[27]
+	mi := &file_am_v1_api_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1602,7 +2274,7 @@ func (x *AdminDeleteRequest) String() string {
 func (*AdminDeleteRequest) ProtoMessage() {}
 
 func (x *AdminDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[27]
+	mi := &file_am_v1_api_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1615,7 +2287,7 @@ func (x *AdminDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminDeleteRequest.ProtoReflect.Descriptor instead.
 func (*AdminDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{27}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *AdminDeleteRequest) GetReason() string {
@@ -1652,7 +2324,7 @@ type MediaInfo struct {
 
 func (x *MediaInfo) Reset() {
 	*x = MediaInfo{}
-	mi := &file_am_v1_api_proto_msgTypes[28]
+	mi := &file_am_v1_api_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1664,7 +2336,7 @@ func (x *MediaInfo) String() string {
 func (*MediaInfo) ProtoMessage() {}
 
 func (x *MediaInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[28]
+	mi := &file_am_v1_api_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1677,7 +2349,7 @@ func (x *MediaInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MediaInfo.ProtoReflect.Descriptor instead.
 func (*MediaInfo) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{28}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *MediaInfo) GetId() int64 {
@@ -1751,7 +2423,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_am_v1_api_proto_msgTypes[29]
+	mi := &file_am_v1_api_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1763,7 +2435,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[29]
+	mi := &file_am_v1_api_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1776,7 +2448,259 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{29}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{39}
+}
+
+// GET /api/v1/ai
+type ListAIResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ais           []*AIAccount           `protobuf:"bytes,1,rep,name=ais,proto3" json:"ais,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAIResponse) Reset() {
+	*x = ListAIResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAIResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAIResponse) ProtoMessage() {}
+
+func (x *ListAIResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAIResponse.ProtoReflect.Descriptor instead.
+func (*ListAIResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ListAIResponse) GetAis() []*AIAccount {
+	if x != nil {
+		return x.Ais
+	}
+	return nil
+}
+
+type AIAccount struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	User  *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	// The owner's settings for it (persona, model, runner device, ...), JSON
+	// kept as it is by the server; only the owner can read it.
+	Settings          string `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	SettingsUpdatedAt int64  `protobuf:"varint,3,opt,name=settings_updated_at,json=settingsUpdatedAt,proto3" json:"settings_updated_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AIAccount) Reset() {
+	*x = AIAccount{}
+	mi := &file_am_v1_api_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIAccount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIAccount) ProtoMessage() {}
+
+func (x *AIAccount) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIAccount.ProtoReflect.Descriptor instead.
+func (*AIAccount) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *AIAccount) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *AIAccount) GetSettings() string {
+	if x != nil {
+		return x.Settings
+	}
+	return ""
+}
+
+func (x *AIAccount) GetSettingsUpdatedAt() int64 {
+	if x != nil {
+		return x.SettingsUpdatedAt
+	}
+	return 0
+}
+
+// POST /api/v1/ai -> AIAccount
+type CreateAIRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAIRequest) Reset() {
+	*x = CreateAIRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAIRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAIRequest) ProtoMessage() {}
+
+func (x *CreateAIRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAIRequest.ProtoReflect.Descriptor instead.
+func (*CreateAIRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *CreateAIRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+// PUT /api/v1/ai/{id}/settings -> AIAccount. At most 64 KiB of JSON.
+// state_conflict when saved elsewhere since base_updated_at.
+type PutAISettingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Settings      string                 `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	BaseUpdatedAt int64                  `protobuf:"varint,2,opt,name=base_updated_at,json=baseUpdatedAt,proto3" json:"base_updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PutAISettingsRequest) Reset() {
+	*x = PutAISettingsRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PutAISettingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PutAISettingsRequest) ProtoMessage() {}
+
+func (x *PutAISettingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PutAISettingsRequest.ProtoReflect.Descriptor instead.
+func (*PutAISettingsRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *PutAISettingsRequest) GetSettings() string {
+	if x != nil {
+		return x.Settings
+	}
+	return ""
+}
+
+func (x *PutAISettingsRequest) GetBaseUpdatedAt() int64 {
+	if x != nil {
+		return x.BaseUpdatedAt
+	}
+	return 0
+}
+
+// POST /api/v1/ai/{id}/run -> SessionResponse: logs this device in as the
+// AI (it becomes the device that runs it); the AI's other sessions end.
+type RunAIRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceName    string                 `protobuf:"bytes,1,opt,name=device_name,json=deviceName,proto3" json:"device_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunAIRequest) Reset() {
+	*x = RunAIRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunAIRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunAIRequest) ProtoMessage() {}
+
+func (x *RunAIRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunAIRequest.ProtoReflect.Descriptor instead.
+func (*RunAIRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *RunAIRequest) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
 }
 
 var File_am_v1_api_proto protoreflect.FileDescriptor
@@ -1791,17 +2715,43 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\bpassword\x18\x03 \x01(\tR\bpassword\x12!\n" +
 	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x1f\n" +
 	"\vdevice_name\x18\x05 \x01(\tR\n" +
-	"deviceName\"g\n" +
+	"deviceName\"\x88\x01\n" +
 	"\fLoginRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1f\n" +
 	"\vdevice_name\x18\x03 \x01(\tR\n" +
-	"deviceName\"D\n" +
+	"deviceName\x12\x1f\n" +
+	"\vinvite_code\x18\x04 \x01(\tR\n" +
+	"inviteCode\"D\n" +
 	"\x0fSessionResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1b\n" +
-	"\x02me\x18\x02 \x01(\v2\v.am.v1.UserR\x02me\"H\n" +
+	"\x02me\x18\x02 \x01(\v2\v.am.v1.UserR\x02me\"i\n" +
 	"\x14ListSessionsResponse\x120\n" +
-	"\bsessions\x18\x01 \x03(\v2\x14.am.v1.DeviceSessionR\bsessions\"\x96\x01\n" +
+	"\bsessions\x18\x01 \x03(\v2\x14.am.v1.DeviceSessionR\bsessions\x12\x1f\n" +
+	"\vmax_devices\x18\x02 \x01(\x05R\n" +
+	"maxDevices\"1\n" +
+	"\x17CreatePairTicketRequest\x12\x16\n" +
+	"\x06bundle\x18\x01 \x01(\fR\x06bundle\"C\n" +
+	"\n" +
+	"PairTicket\x12\x16\n" +
+	"\x06ticket\x18\x01 \x01(\tR\x06ticket\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x02 \x01(\x03R\texpiresAt\"R\n" +
+	"\x17RedeemPairTicketRequest\x12\x16\n" +
+	"\x06ticket\x18\x01 \x01(\tR\x06ticket\x12\x1f\n" +
+	"\vdevice_name\x18\x02 \x01(\tR\n" +
+	"deviceName\"_\n" +
+	"\x12PairRedeemResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1b\n" +
+	"\x02me\x18\x02 \x01(\v2\v.am.v1.UserR\x02me\x12\x16\n" +
+	"\x06bundle\x18\x03 \x01(\fR\x06bundle\"@\n" +
+	"\vClientState\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x02 \x01(\x03R\tupdatedAt\"S\n" +
+	"\x15PutClientStateRequest\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12&\n" +
+	"\x0fbase_updated_at\x18\x02 \x01(\x03R\rbaseUpdatedAt\"\x96\x01\n" +
 	"\rDeviceSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
 	"\vdevice_name\x18\x02 \x01(\tR\n" +
@@ -1821,12 +2771,23 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fused_by_name\x18\x04 \x01(\tR\n" +
 	"usedByName\x12\x1b\n" +
 	"\tjoin_code\x18\x05 \x01(\tR\bjoinCode\x12\x19\n" +
-	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"]\n" +
+	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\x92\x01\n" +
 	"\n" +
 	"ServerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12!\n" +
-	"\fdownload_url\x18\x03 \x01(\tR\vdownloadUrl\"\x8e\x01\n" +
+	"\fdownload_url\x18\x03 \x01(\tR\vdownloadUrl\x12\x12\n" +
+	"\x04icon\x18\x04 \x01(\tR\x04icon\x12\x1f\n" +
+	"\vinstance_id\x18\x05 \x01(\tR\n" +
+	"instanceId\"\x95\x02\n" +
+	"\rServerProfile\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04icon\x18\x03 \x01(\tR\x04icon\x12!\n" +
+	"\fmember_count\x18\x04 \x01(\x05R\vmemberCount\x12!\n" +
+	"\fonline_count\x18\x05 \x01(\x05R\vonlineCount\x12<\n" +
+	"\x0elayout_editors\x18\x06 \x01(\x0e2\x15.am.v1.ProfileEditorsR\rlayoutEditors\x126\n" +
+	"\x17widget_content_editable\x18\a \x01(\bR\x15widgetContentEditable\"\x8e\x01\n" +
 	"\x13ListFriendsResponse\x12%\n" +
 	"\afriends\x18\x01 \x03(\v2\v.am.v1.UserR\afriends\x12'\n" +
 	"\bincoming\x18\x02 \x03(\v2\v.am.v1.UserR\bincoming\x12'\n" +
@@ -1842,12 +2803,17 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\n" +
 	"next_after\x18\x02 \x01(\x03R\tnextAfter\"7\n" +
 	"\x12ListBlocksResponse\x12!\n" +
-	"\x05users\x18\x01 \x03(\v2\v.am.v1.UserR\x05users\"\x90\x01\n" +
+	"\x05users\x18\x01 \x03(\v2\v.am.v1.UserR\x05users\"\xaf\x01\n" +
 	"\x14UpdateProfileRequest\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12+\n" +
-	"\x0favatar_media_id\x18\x02 \x01(\x03H\x01R\ravatarMediaId\x88\x01\x01B\x0f\n" +
+	"\x0favatar_media_id\x18\x02 \x01(\x03H\x01R\ravatarMediaId\x88\x01\x01\x12\x15\n" +
+	"\x03bio\x18\x03 \x01(\tH\x02R\x03bio\x88\x01\x01B\x0f\n" +
 	"\r_display_nameB\x12\n" +
-	"\x10_avatar_media_id\"H\n" +
+	"\x10_avatar_media_idB\x06\n" +
+	"\x04_bio\"_\n" +
+	"\x12SetPresenceRequest\x12\x1c\n" +
+	"\tinvisible\x18\x01 \x01(\bR\tinvisible\x12+\n" +
+	"\bactivity\x18\x02 \x01(\v2\x0f.am.v1.ActivityR\bactivity\"H\n" +
 	"\x18ListLoginRecordsResponse\x12,\n" +
 	"\arecords\x18\x01 \x03(\v2\x12.am.v1.LoginRecordR\arecords\"q\n" +
 	"\vLoginRecord\x12\x12\n" +
@@ -1886,7 +2852,11 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\a_noticeB\x10\n" +
 	"\x0e_join_approval\"/\n" +
 	"\x14TransferGroupRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x03R\x06userId\"W\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"*\n" +
+	"\x10SetPinnedRequest\x12\x16\n" +
+	"\x06pinned\x18\x01 \x01(\bR\x06pinned\"%\n" +
+	"\rSetDndRequest\x12\x14\n" +
+	"\x05until\x18\x01 \x01(\x03R\x05until\"W\n" +
 	"\x11MuteMemberRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12)\n" +
 	"\x10duration_seconds\x18\x02 \x01(\x03R\x0fdurationSeconds\"N\n" +
@@ -1911,7 +2881,25 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\bis_image\x18\a \x01(\bR\aisImage\x12\x10\n" +
 	"\x03url\x18\b \x01(\tR\x03url\x12\x1b\n" +
 	"\tthumb_url\x18\t \x01(\tR\bthumbUrl\"\a\n" +
-	"\x05EmptyB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\x05Empty\"4\n" +
+	"\x0eListAIResponse\x12\"\n" +
+	"\x03ais\x18\x01 \x03(\v2\x10.am.v1.AIAccountR\x03ais\"x\n" +
+	"\tAIAccount\x12\x1f\n" +
+	"\x04user\x18\x01 \x01(\v2\v.am.v1.UserR\x04user\x12\x1a\n" +
+	"\bsettings\x18\x02 \x01(\tR\bsettings\x12.\n" +
+	"\x13settings_updated_at\x18\x03 \x01(\x03R\x11settingsUpdatedAt\"4\n" +
+	"\x0fCreateAIRequest\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\"Z\n" +
+	"\x14PutAISettingsRequest\x12\x1a\n" +
+	"\bsettings\x18\x01 \x01(\tR\bsettings\x12&\n" +
+	"\x0fbase_updated_at\x18\x02 \x01(\x03R\rbaseUpdatedAt\"/\n" +
+	"\fRunAIRequest\x12\x1f\n" +
+	"\vdevice_name\x18\x01 \x01(\tR\n" +
+	"deviceName*k\n" +
+	"\x0eProfileEditors\x12\x1f\n" +
+	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
+	"\x18PROFILE_EDITORS_EVERYONE\x10\x02B*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_api_proto_rawDescOnce sync.Once
@@ -1925,59 +2913,82 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 	return file_am_v1_api_proto_rawDescData
 }
 
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
 var file_am_v1_api_proto_goTypes = []any{
-	(*RegisterRequest)(nil),          // 0: am.v1.RegisterRequest
-	(*LoginRequest)(nil),             // 1: am.v1.LoginRequest
-	(*SessionResponse)(nil),          // 2: am.v1.SessionResponse
-	(*ListSessionsResponse)(nil),     // 3: am.v1.ListSessionsResponse
-	(*DeviceSession)(nil),            // 4: am.v1.DeviceSession
-	(*ListInvitesResponse)(nil),      // 5: am.v1.ListInvitesResponse
-	(*Invite)(nil),                   // 6: am.v1.Invite
-	(*ServerInfo)(nil),               // 7: am.v1.ServerInfo
-	(*ListFriendsResponse)(nil),      // 8: am.v1.ListFriendsResponse
-	(*FriendRequest)(nil),            // 9: am.v1.FriendRequest
-	(*FriendAccept)(nil),             // 10: am.v1.FriendAccept
-	(*OpenDMRequest)(nil),            // 11: am.v1.OpenDMRequest
-	(*ListUsersResponse)(nil),        // 12: am.v1.ListUsersResponse
-	(*ListBlocksResponse)(nil),       // 13: am.v1.ListBlocksResponse
-	(*UpdateProfileRequest)(nil),     // 14: am.v1.UpdateProfileRequest
-	(*ListLoginRecordsResponse)(nil), // 15: am.v1.ListLoginRecordsResponse
-	(*LoginRecord)(nil),              // 16: am.v1.LoginRecord
-	(*CreateGroupRequest)(nil),       // 17: am.v1.CreateGroupRequest
-	(*ListChannelsResponse)(nil),     // 18: am.v1.ListChannelsResponse
-	(*ChannelInfo)(nil),              // 19: am.v1.ChannelInfo
-	(*InviteMembersRequest)(nil),     // 20: am.v1.InviteMembersRequest
-	(*InviteMembersResponse)(nil),    // 21: am.v1.InviteMembersResponse
-	(*UpdateGroupRequest)(nil),       // 22: am.v1.UpdateGroupRequest
-	(*TransferGroupRequest)(nil),     // 23: am.v1.TransferGroupRequest
-	(*MuteMemberRequest)(nil),        // 24: am.v1.MuteMemberRequest
-	(*ListJoinRequestsResponse)(nil), // 25: am.v1.ListJoinRequestsResponse
-	(*JoinRequestInfo)(nil),          // 26: am.v1.JoinRequestInfo
-	(*AdminDeleteRequest)(nil),       // 27: am.v1.AdminDeleteRequest
-	(*MediaInfo)(nil),                // 28: am.v1.MediaInfo
-	(*Empty)(nil),                    // 29: am.v1.Empty
-	(*User)(nil),                     // 30: am.v1.User
+	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
+	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
+	(*LoginRequest)(nil),             // 2: am.v1.LoginRequest
+	(*SessionResponse)(nil),          // 3: am.v1.SessionResponse
+	(*ListSessionsResponse)(nil),     // 4: am.v1.ListSessionsResponse
+	(*CreatePairTicketRequest)(nil),  // 5: am.v1.CreatePairTicketRequest
+	(*PairTicket)(nil),               // 6: am.v1.PairTicket
+	(*RedeemPairTicketRequest)(nil),  // 7: am.v1.RedeemPairTicketRequest
+	(*PairRedeemResponse)(nil),       // 8: am.v1.PairRedeemResponse
+	(*ClientState)(nil),              // 9: am.v1.ClientState
+	(*PutClientStateRequest)(nil),    // 10: am.v1.PutClientStateRequest
+	(*DeviceSession)(nil),            // 11: am.v1.DeviceSession
+	(*ListInvitesResponse)(nil),      // 12: am.v1.ListInvitesResponse
+	(*Invite)(nil),                   // 13: am.v1.Invite
+	(*ServerInfo)(nil),               // 14: am.v1.ServerInfo
+	(*ServerProfile)(nil),            // 15: am.v1.ServerProfile
+	(*ListFriendsResponse)(nil),      // 16: am.v1.ListFriendsResponse
+	(*FriendRequest)(nil),            // 17: am.v1.FriendRequest
+	(*FriendAccept)(nil),             // 18: am.v1.FriendAccept
+	(*OpenDMRequest)(nil),            // 19: am.v1.OpenDMRequest
+	(*ListUsersResponse)(nil),        // 20: am.v1.ListUsersResponse
+	(*ListBlocksResponse)(nil),       // 21: am.v1.ListBlocksResponse
+	(*UpdateProfileRequest)(nil),     // 22: am.v1.UpdateProfileRequest
+	(*SetPresenceRequest)(nil),       // 23: am.v1.SetPresenceRequest
+	(*ListLoginRecordsResponse)(nil), // 24: am.v1.ListLoginRecordsResponse
+	(*LoginRecord)(nil),              // 25: am.v1.LoginRecord
+	(*CreateGroupRequest)(nil),       // 26: am.v1.CreateGroupRequest
+	(*ListChannelsResponse)(nil),     // 27: am.v1.ListChannelsResponse
+	(*ChannelInfo)(nil),              // 28: am.v1.ChannelInfo
+	(*InviteMembersRequest)(nil),     // 29: am.v1.InviteMembersRequest
+	(*InviteMembersResponse)(nil),    // 30: am.v1.InviteMembersResponse
+	(*UpdateGroupRequest)(nil),       // 31: am.v1.UpdateGroupRequest
+	(*TransferGroupRequest)(nil),     // 32: am.v1.TransferGroupRequest
+	(*SetPinnedRequest)(nil),         // 33: am.v1.SetPinnedRequest
+	(*SetDndRequest)(nil),            // 34: am.v1.SetDndRequest
+	(*MuteMemberRequest)(nil),        // 35: am.v1.MuteMemberRequest
+	(*ListJoinRequestsResponse)(nil), // 36: am.v1.ListJoinRequestsResponse
+	(*JoinRequestInfo)(nil),          // 37: am.v1.JoinRequestInfo
+	(*AdminDeleteRequest)(nil),       // 38: am.v1.AdminDeleteRequest
+	(*MediaInfo)(nil),                // 39: am.v1.MediaInfo
+	(*Empty)(nil),                    // 40: am.v1.Empty
+	(*ListAIResponse)(nil),           // 41: am.v1.ListAIResponse
+	(*AIAccount)(nil),                // 42: am.v1.AIAccount
+	(*CreateAIRequest)(nil),          // 43: am.v1.CreateAIRequest
+	(*PutAISettingsRequest)(nil),     // 44: am.v1.PutAISettingsRequest
+	(*RunAIRequest)(nil),             // 45: am.v1.RunAIRequest
+	(*User)(nil),                     // 46: am.v1.User
+	(*Activity)(nil),                 // 47: am.v1.Activity
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	30, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
-	4,  // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	6,  // 2: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
-	30, // 3: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	30, // 4: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	30, // 5: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	30, // 6: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	30, // 7: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	16, // 8: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
-	19, // 9: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
-	26, // 10: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	30, // 11: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	30, // 12: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	46, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
+	46, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
+	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
+	46, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	46, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	46, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	46, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	46, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	47, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
+	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
+	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
+	46, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	46, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
+	46, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -1986,20 +2997,21 @@ func file_am_v1_api_proto_init() {
 		return
 	}
 	file_am_v1_common_proto_init()
-	file_am_v1_api_proto_msgTypes[14].OneofWrappers = []any{}
-	file_am_v1_api_proto_msgTypes[22].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[21].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[30].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   30,
+			NumEnums:      1,
+			NumMessages:   45,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_am_v1_api_proto_goTypes,
 		DependencyIndexes: file_am_v1_api_proto_depIdxs,
+		EnumInfos:         file_am_v1_api_proto_enumTypes,
 		MessageInfos:      file_am_v1_api_proto_msgTypes,
 	}.Build()
 	File_am_v1_api_proto = out.File

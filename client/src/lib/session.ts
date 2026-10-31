@@ -5,14 +5,26 @@ import * as api from '@/gen/am/v1/api_pb';
 import * as common from '@/gen/am/v1/common_pb';
 import * as ev from '@/gen/am/v1/event_pb';
 import * as gw from '@/gen/am/v1/gateway_pb';
+import * as pf from '@/gen/am/v1/profile_pb';
 import { ApiError, errorFromBody } from './errors';
 import { encodeJoinCode, joinUrl } from './joincode';
 import { createTransport, type Endpoint, type Socket, type Transport } from './transport';
-import type { ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, SysEvent, User } from './types';
+import type { Part as SyncPart } from './profileSync';
+import type { Background, LayoutModel, WidgetModel } from './widgets';
+import type { Activity, ActivityKind, ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, Presence, SysEvent, User } from './types';
+
+/** One of my AI accounts; settings is its JSON (lib/ai/persona.ts parses it). */
+export interface AIInfo {
+  user: User;
+  settings: string;
+  updatedAt: number;
+}
 
 export interface ServerRecord {
   id: string;
   endpoint: Endpoint;
+  /** Addresses this server had before (newest first): tried when the current one stops working. */
+  oldAddresses?: string[];
   name: string;
   token?: string;
   userId?: string;
@@ -37,6 +49,102 @@ export interface SessionView {
   blocked: string[];
   joinRequests: Record<string, JoinRequest[]>;
   downloadUrl: string;
+  /** Who is online, as I see them (user id -> presence). Empty while disconnected. */
+  presence: Record<string, Presence>;
+  /** Server icon (media path), '' when none. */
+  icon: string;
+}
+
+/** A profile page: the widget board and what the viewer may do with it. */
+export interface ProfileData {
+  layout: LayoutModel;
+  canEditLayout: boolean;
+  /** Widgets whose contents the viewer may change. */
+  editable: string[];
+  /** Site admin on the server profile: may set who edits each widget. */
+  canSetEditors: boolean;
+  stats: { messages: number; streakDays: number; joinedAt: number; members: number; channels: number; createdAt: number };
+  /** User profiles: the user. */
+  user?: User;
+}
+
+export interface GuestEntry {
+  id: string;
+  author?: User;
+  text: string;
+  time: number;
+  hidden: boolean;
+}
+
+/** 'server' or a user id. */
+export type ProfileTarget = string;
+const profilePath = (t: ProfileTarget) => (t === 'server' ? '/api/v1/profiles/server' : `/api/v1/profiles/users/${t}`);
+
+const cellFrom = (c?: pf.Cell) => ({ page: c?.page ?? 0, x: c?.x ?? 0, y: c?.y ?? 0 });
+
+function toWidget(w: pf.Widget): WidgetModel {
+  let config: Record<string, unknown> = {};
+  try {
+    const c = JSON.parse(w.config || '{}');
+    if (c && typeof c === 'object' && !Array.isArray(c)) config = c;
+  } catch {
+    /* bad JSON from an old client: show defaults */
+  }
+  return {
+    id: w.id, kind: w.kind, source: w.source === pf.WidgetSource.WORKSHOP ? 'workshop' : 'builtin',
+    w: w.w, h: w.h, land: cellFrom(w.landscape), port: w.portrait ? cellFrom(w.portrait) : undefined, config,
+    contentEditors: w.contentEditors === pf.WidgetEditors.ADMINS ? 'admins' : 'everyone',
+    workshop: w.workshopId ? { id: w.workshopId, version: w.workshopVersion, sha256: w.packageSha256 } : undefined,
+    snapshotMediaId: s(w.snapshotMediaId) || undefined,
+  };
+}
+
+function toLayout(l?: pf.ProfileLayout): LayoutModel {
+  const bg = l?.background;
+  const background: Background = {
+    kind: (['color', 'gradient', 'image'].includes(bg?.kind ?? '') ? bg!.kind : '') as Background['kind'],
+    value: bg?.value ?? '', mediaId: bg ? s(bg.mediaId) || undefined : undefined, blur: bg?.blur ?? 0, dim: bg?.dim ?? 0,
+  };
+  return { widgets: (l?.widgets ?? []).map(toWidget), portraitCustom: !!l?.portraitCustom, background, version: Number(l?.version ?? 0n) };
+}
+
+function fromLayout(l: LayoutModel) {
+  return {
+    portraitCustom: l.portraitCustom,
+    background: { kind: l.background.kind, value: l.background.value, mediaId: BigInt(l.background.mediaId || 0), blur: l.background.blur, dim: l.background.dim },
+    widgets: l.widgets.map((w) => ({
+      id: w.id, kind: w.kind, source: w.source === 'workshop' ? pf.WidgetSource.WORKSHOP : pf.WidgetSource.BUILTIN,
+      w: w.w, h: w.h, landscape: w.land, portrait: l.portraitCustom ? w.port : undefined, config: JSON.stringify(w.config),
+      contentEditors: w.contentEditors === 'admins' ? pf.WidgetEditors.ADMINS : pf.WidgetEditors.UNSPECIFIED,
+      workshopId: w.workshop?.id ?? '', workshopVersion: w.workshop?.version ?? '', packageSha256: w.workshop?.sha256 ?? '',
+      snapshotMediaId: BigInt(w.snapshotMediaId || 0),
+    })),
+  };
+}
+
+function toProfile(v: pf.ProfileView): ProfileData {
+  const st = v.stats;
+  return {
+    layout: toLayout(v.layout), canEditLayout: v.canEditLayout, editable: v.editableWidgetIds, canSetEditors: v.canSetWidgetEditors,
+    stats: {
+      messages: Number(st?.messages ?? 0n), streakDays: st?.streakDays ?? 0, joinedAt: Number(st?.joinedAt ?? 0n),
+      members: st?.members ?? 0, channels: st?.channels ?? 0, createdAt: Number(st?.createdAt ?? 0n),
+    },
+    user: v.user ? toUser(v.user) : undefined,
+  };
+}
+
+/** The server's profile page (GET /api/v1/server/profile). */
+export interface ServerProfileView {
+  name: string;
+  description: string;
+  icon: string;
+  members: number;
+  online: number;
+  /** Who may rearrange the profile's widgets. */
+  layoutEditors: 'admins' | 'everyone';
+  /** Members may change widget contents (not their kind or place). */
+  widgetContentEditable: boolean;
 }
 
 const INITIAL_PAGE = 50;
@@ -60,6 +168,24 @@ export function toUser(u: common.User): User {
     ownerName: u.ownerDisplayName || undefined,
     avatar: u.avatar || undefined,
     avatarStatic: u.avatarStatic || u.avatar || undefined,
+    bio: u.bio,
+  };
+}
+
+const ACTIVITY: Record<number, ActivityKind> = {
+  [common.ActivityKind.LISTENING]: 'listening',
+  [common.ActivityKind.PLAYING]: 'playing',
+  [common.ActivityKind.TUNING_AI]: 'tuning_ai',
+  [common.ActivityKind.WORKING]: 'working',
+  [common.ActivityKind.CUSTOM]: 'custom',
+};
+const ACTIVITY_CODE = Object.fromEntries(Object.entries(ACTIVITY).map(([k, v]) => [v, Number(k)])) as Record<ActivityKind, common.ActivityKind>;
+
+function toPresence(p: common.Presence): Presence {
+  const kind = p.activity ? ACTIVITY[p.activity.kind] : undefined;
+  return {
+    invisible: p.invisible || undefined,
+    activity: kind ? { kind, text: p.activity!.text } : undefined,
   };
 }
 
@@ -69,7 +195,7 @@ function toBody(e: ev.Event): MessageBody | null {
   const op = (v: bigint) => s(v) || s(e.senderId);
   switch (b.case) {
     case 'text':
-      return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined };
+      return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined };
     case 'image':
       return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height };
     case 'file':
@@ -163,6 +289,18 @@ export class Session {
   /** Strikes / deletions for messages not loaded yet. */
   private struckIds = new Set<string>();
   view: SessionView;
+  /**
+   * Called after I change my own profile, presence or profile board here
+   * (lib/sync.ts copies the change to my other servers). Writes made by the
+   * sync itself pass quiet = true.
+   */
+  onOwnChange?: (parts: SyncPart[]) => void;
+  /** Another device of mine saved my server list (lib/devices.ts loads it again). */
+  onClientState?: () => void;
+  /** The server has a new public address (relay changed): lib/store.ts checks it and switches. */
+  onMoved?: (address: string) => void;
+  /** Several connection attempts failed (lib/store.ts tries the addresses used before). */
+  onUnreachable?: () => void;
 
   constructor(
     public record: ServerRecord,
@@ -174,6 +312,8 @@ export class Session {
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
       users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '',
+      presence: {},
+      icon: '',
     };
   }
 
@@ -228,9 +368,10 @@ export class Session {
     await this.loggedIn(r.token, r.me!);
   }
 
-  async login(username: string, password: string) {
+  /** invite: only used when the account left this server (coming back costs a new invite code). */
+  async login(username: string, password: string, invite = '') {
     const r = await this.call('POST', '/api/v1/login', api.SessionResponseSchema, {
-      schema: api.LoginRequestSchema, value: { username, password, deviceName: deviceName() },
+      schema: api.LoginRequestSchema, value: { username, password, deviceName: deviceName(), inviteCode: invite },
     });
     await this.loggedIn(r.token, r.me!);
   }
@@ -249,8 +390,103 @@ export class Session {
     this.patch({ status: 'logged_out', error: reason });
   }
 
+  /** Logs out here; the server frees this device's place (limits.max_devices). */
   async logout() {
+    if (this.record.token) await this.call('POST', '/api/v1/logout', null).catch(() => {});
     this.loggedOut('');
+  }
+
+  // ---- my AI accounts (lib/ai) ----
+
+  async listAI(): Promise<AIInfo[]> {
+    const r = await this.call('GET', '/api/v1/ai', api.ListAIResponseSchema);
+    return r.ais.map((a) => this.aiInfo(a));
+  }
+
+  private aiInfo(a: api.AIAccount): AIInfo {
+    const user = toUser(a.user!);
+    this.view.users = { ...this.view.users, [user.id]: { ...this.view.users[user.id], ...user } };
+    this.emit();
+    return { user, settings: a.settings, updatedAt: Number(a.settingsUpdatedAt) };
+  }
+
+  async createAI(displayName: string) {
+    return this.aiInfo(await this.call('POST', '/api/v1/ai', api.AIAccountSchema, { schema: api.CreateAIRequestSchema, value: { displayName } }));
+  }
+
+  async updateAI(id: string, value: { displayName?: string; avatarMediaId?: bigint; bio?: string }) {
+    const u = toUser(await this.call('PATCH', `/api/v1/ai/${id}`, common.UserSchema, { schema: api.UpdateProfileRequestSchema, value }));
+    this.view.users = { ...this.view.users, [u.id]: { ...this.view.users[u.id], ...u } };
+    this.emit();
+    return u;
+  }
+
+  /** Saves settings JSON; base = updatedAt it was edited from (state_conflict otherwise). */
+  async putAISettings(id: string, settings: string, base: number) {
+    return this.aiInfo(await this.call('PUT', `/api/v1/ai/${id}/settings`, api.AIAccountSchema, {
+      schema: api.PutAISettingsRequestSchema, value: { settings, baseUpdatedAt: BigInt(base) },
+    }));
+  }
+
+  /** A session token of my AI for this device (which then runs it). */
+  async runAI(id: string) {
+    const r = await this.call('POST', `/api/v1/ai/${id}/run`, api.SessionResponseSchema, { schema: api.RunAIRequestSchema, value: { deviceName: deviceName() } });
+    return r.token;
+  }
+
+  deleteAI(id: string) {
+    return this.call('DELETE', `/api/v1/ai/${id}`, null);
+  }
+
+  // ---- several devices (lib/devices.ts) ----
+
+  /** One-time ticket that logs in another device of mine; bundle goes along to it. */
+  async createPairTicket(bundle?: Uint8Array) {
+    const r = await this.call('POST', '/api/v1/pair', api.PairTicketSchema, {
+      schema: api.CreatePairTicketRequestSchema, value: { bundle: bundle ?? new Uint8Array() },
+    });
+    return { ticket: r.ticket, expiresAt: Number(r.expiresAt) };
+  }
+
+  /** Logs this device in with a pairing ticket; returns the bundle that came with it. */
+  async redeemPair(ticket: string): Promise<Uint8Array> {
+    const r = await this.call('POST', '/api/v1/pair/redeem', api.PairRedeemResponseSchema, {
+      schema: api.RedeemPairTicketRequestSchema, value: { ticket, deviceName: deviceName() },
+    });
+    await this.loggedIn(r.token, r.me!);
+    return r.bundle;
+  }
+
+  /** The encrypted state my devices share (my server list). */
+  async clientState() {
+    const r = await this.call('GET', '/api/v1/me/client-state', api.ClientStateSchema);
+    return { data: r.data, updatedAt: Number(r.updatedAt) };
+  }
+
+  async putClientState(data: Uint8Array, base: number) {
+    const r = await this.call('PUT', '/api/v1/me/client-state', api.ClientStateSchema, {
+      schema: api.PutClientStateRequestSchema, value: { data, baseUpdatedAt: BigInt(base) },
+    });
+    return Number(r.updatedAt);
+  }
+
+  /**
+   * Leaves the server for good: logged out everywhere, out of every channel,
+   * hidden from the member list. Coming back needs a new invite code.
+   */
+  async leaveServer() {
+    await this.call('POST', '/api/v1/me/leave', null);
+    this.stop();
+  }
+
+  async serverProfile(): Promise<ServerProfileView> {
+    const p = await this.call('GET', '/api/v1/server/profile', api.ServerProfileSchema);
+    if (p.icon !== this.view.icon || p.name !== this.view.name) this.patch({ icon: p.icon, name: p.name || this.view.name });
+    return {
+      name: p.name, description: p.description, icon: p.icon, members: p.memberCount, online: p.onlineCount,
+      layoutEditors: p.layoutEditors === api.ProfileEditors.EVERYONE ? 'everyone' : 'admins',
+      widgetContentEditable: p.widgetContentEditable,
+    };
   }
 
   // ---- connection ----
@@ -264,7 +500,7 @@ export class Session {
         this.record = { ...this.record, name: i.name };
         this.onRecord(this.record);
       }
-      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl });
+      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon });
     }).catch(() => {});
     await this.connect();
   }
@@ -286,10 +522,12 @@ export class Session {
       return;
     }
     try {
-      const f = await this.request({ case: 'auth', value: create(gw.AuthRequestSchema, { token: this.record.token! }) });
+      const f = await this.request({ case: 'auth', value: create(gw.AuthRequestSchema, { token: this.record.token!, address: this.record.endpoint.address }) });
       if (f.msg.case !== 'auth') throw new Error('unexpected reply');
       this.retry = 0;
       await this.onAuth(f.msg.value);
+      const pub = f.msg.value.publicAddress;
+      if (pub && pub !== this.record.endpoint.address) this.onMoved?.(pub);
       this.patch({ status: 'online', error: undefined });
       this.loadBlocks().catch(() => {});
     } catch (e) {
@@ -305,6 +543,7 @@ export class Session {
       p.reject(new Error('连接断开了'));
     }
     this.pending.clear();
+    this.patch({ presence: {} });
     if (this.stopped || this.view.status === 'logged_out') return;
     this.patch({ status: 'offline', error: reason === 'closed' ? undefined : reason });
     this.scheduleReconnect();
@@ -312,6 +551,8 @@ export class Session {
 
   private scheduleReconnect() {
     if (this.stopped) return;
+    // Several tries failed: maybe the relay changed while we were away.
+    if (this.retry === 3) this.onUnreachable?.();
     const delay = Math.min(30_000, 1000 * 2 ** this.retry++) * (0.8 + Math.random() * 0.4);
     this.retryTimer = setTimeout(() => this.connect(), delay);
   }
@@ -373,6 +614,22 @@ export class Session {
         this.emit();
         break;
       }
+      case 'presence': {
+        const p = f.msg.value.presence;
+        if (!p) break;
+        const id = s(p.userId);
+        const presence = { ...this.view.presence };
+        if (p.online) presence[id] = toPresence(p);
+        else delete presence[id];
+        this.patch({ presence });
+        break;
+      }
+      case 'clientState':
+        this.onClientState?.();
+        break;
+      case 'serverMoved':
+        if (f.msg.value.address && f.msg.value.address !== this.record.endpoint.address) this.onMoved?.(f.msg.value.address);
+        break;
       case 'joinRequest': {
         const jr = f.msg.value;
         const id = s(jr.convId);
@@ -407,6 +664,8 @@ export class Session {
       readSeq: Math.max(Number(c.self?.readSeq ?? 0n), prev?.readSeq ?? 0),
       myRole: role(c.self?.role ?? common.MemberRole.MEMBER),
       mutedUntil: Number(c.self?.mutedUntil ?? 0n),
+      pinnedOrder: Number(c.self?.pinnedOrder ?? 0n),
+      dndUntil: Number(c.self?.dndUntil ?? 0n),
       lastText: prev?.lastText ?? '',
       lastTime: prev?.lastTime ?? 0,
       left: undefined,
@@ -427,6 +686,7 @@ export class Session {
       this.view.me = toUser(a.me);
     }
     this.view.isAdmin = a.isSiteAdmin;
+    this.view.presence = Object.fromEntries(a.presences.filter((p) => p.online).map((p) => [s(p.userId), toPresence(p)]));
     const convs: Record<string, Conversation> = {};
     for (const c of a.conversations) {
       const id = s(c.id);
@@ -584,8 +844,9 @@ export class Session {
     }
   }
 
-  sendText(convId: string, text: string) {
-    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text }) }, { kind: 'text', text });
+  /** mood: only for AI accounts (their portrait), see lib/ai/runner.ts. */
+  sendText(convId: string, text: string, mood?: string) {
+    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text, mood }) }, { kind: 'text', text, mood });
   }
 
   /** Removes a failed message from the list (it was never sent). */
@@ -732,13 +993,80 @@ export class Session {
     this.emit();
   }
 
+  /** Pins a channel / DM to the top of my list (all my devices). */
+  async setPinned(convId: string, pinned: boolean) {
+    this.upsertConv(await this.call('PUT', `/api/v1/conversations/${convId}/pin`, common.ConversationSchema, {
+      schema: api.SetPinnedRequestSchema, value: { pinned },
+    }));
+  }
+
+  /** Do not disturb until a time in ms (0 = off, -1 = until turned off). */
+  async setDnd(convId: string, until: number) {
+    this.upsertConv(await this.call('PUT', `/api/v1/conversations/${convId}/dnd`, common.ConversationSchema, {
+      schema: api.SetDndRequestSchema, value: { until: BigInt(until) },
+    }));
+  }
+
   // ---- me ----
 
-  async updateProfile(value: { displayName?: string; avatarMediaId?: bigint }) {
+  async updateProfile(value: { displayName?: string; avatarMediaId?: bigint; bio?: string }, quiet = false) {
     const u = await this.call('PATCH', '/api/v1/me', common.UserSchema, { schema: api.UpdateProfileRequestSchema, value });
     this.addUsers([u]);
     this.view.me = toUser(u);
     this.emit();
+    if (!quiet) this.onOwnChange?.(['profile']);
+  }
+
+  /** Invisible mode and activity. Saved on the server (stays after restarting). */
+  async setPresence(invisible: boolean, activity?: Activity, quiet = false) {
+    const p = await this.call('PUT', '/api/v1/me/presence', common.PresenceSchema, {
+      schema: api.SetPresenceRequestSchema,
+      value: { invisible, activity: activity ? { kind: ACTIVITY_CODE[activity.kind], text: activity.text } : undefined },
+    });
+    const me = this.view.me?.id;
+    if (me && this.view.status === 'online') this.patch({ presence: { ...this.view.presence, [me]: toPresence(p) } });
+    if (!quiet) this.onOwnChange?.(['presence']);
+  }
+
+  // ---- profile pages (widgets) ----
+
+  async getProfile(t: ProfileTarget): Promise<ProfileData> {
+    const v = toProfile(await this.call('GET', profilePath(t), pf.ProfileViewSchema));
+    if (v.user) {
+      this.view.users = { ...this.view.users, [v.user.id]: { ...this.view.users[v.user.id], ...v.user } };
+      this.emit();
+    }
+    return v;
+  }
+
+  /** Saves a new version; `layout.version` is the version the edit started from. */
+  async saveProfile(t: ProfileTarget, layout: LayoutModel, quiet = false): Promise<ProfileData> {
+    const v = toProfile(await this.call('PUT', profilePath(t), pf.ProfileViewSchema, {
+      schema: pf.SaveProfileRequestSchema, value: { layout: fromLayout(layout), baseVersion: BigInt(layout.version) },
+    }));
+    if (!quiet && t === this.view.me?.id) this.onOwnChange?.(['board']);
+    return v;
+  }
+
+  async guestbook(t: ProfileTarget, widgetId: string, before = ''): Promise<{ entries: GuestEntry[]; nextBefore: string; canHide: boolean }> {
+    const r = await this.call('GET', `${profilePath(t)}/guestbook/${widgetId}?before=${before || 0}`, pf.ListGuestbookResponseSchema);
+    return {
+      entries: r.entries.map((e) => ({ id: s(e.id), author: e.author ? toUser(e.author) : undefined, text: e.text, time: Number(e.createdAt), hidden: e.hidden })),
+      nextBefore: s(r.nextBefore), canHide: r.canHide,
+    };
+  }
+
+  async postGuestbook(t: ProfileTarget, widgetId: string, text: string): Promise<GuestEntry> {
+    const e = await this.call('POST', `${profilePath(t)}/guestbook/${widgetId}`, pf.GuestbookEntrySchema, { schema: pf.PostGuestbookRequestSchema, value: { text } });
+    return { id: s(e.id), author: e.author ? toUser(e.author) : undefined, text: e.text, time: Number(e.createdAt), hidden: e.hidden };
+  }
+
+  hideGuestbook(id: string, hidden: boolean) {
+    return this.call('POST', `/api/v1/guestbook/${id}/hide`, null, { schema: pf.HideGuestbookRequestSchema, value: { hidden } });
+  }
+
+  deleteGuestbook(id: string, reason: string) {
+    return this.call('POST', `/api/v1/guestbook/${id}/delete`, null, { schema: pf.DeleteGuestbookRequestSchema, value: { reason } });
   }
 
   async invites(): Promise<{ list: Invite[]; remaining: number }> {
@@ -764,8 +1092,10 @@ export class Session {
     await this.call('POST', '/api/v1/invites', api.InviteSchema);
   }
 
+  /** Devices I am logged in on, and the most allowed (0 = no limit). */
   async sessions() {
-    return (await this.call('GET', '/api/v1/sessions', api.ListSessionsResponseSchema)).sessions;
+    const r = await this.call('GET', '/api/v1/sessions', api.ListSessionsResponseSchema);
+    return { list: r.sessions, max: r.maxDevices };
   }
 
   revokeSession(id: bigint) {
@@ -777,7 +1107,7 @@ export class Session {
   }
 }
 
-function deviceName() {
+export function deviceName() {
   const ua = navigator.userAgent;
   const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '设备';
   return `AM ${os}`;

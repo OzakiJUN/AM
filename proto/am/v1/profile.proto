@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package am.v1;
+
+import "am/v1/common.proto";
+
+option go_package = "github.com/OzakiJUN/am/gen/go/am/v1;amv1";
+
+// Profile pages (a user's, or the server's) are boards of widgets, like a
+// phone home screen: up to 3 pages, each 8 x 4 cells in landscape (desktop)
+// and 4 x 8 in portrait (phone). A widget is 1x1 to 4x4 cells and may sit
+// anywhere; empty cells are fine. Empty pages are not shown.
+
+enum WidgetSource {
+  WIDGET_SOURCE_UNSPECIFIED = 0;
+  // Built into the client (kinds listed in docs/protocol.md).
+  WIDGET_SOURCE_BUILTIN = 1;
+  // From the creative workshop (stage 5). Visitors load the package from
+  // this server, check its workshop signature and SHA-256, and run it in a
+  // sandbox; when it cannot run they see `snapshot_media_id`.
+  WIDGET_SOURCE_WORKSHOP = 2;
+}
+
+// Who may change a server-profile widget's contents (not its kind or place).
+// Only used when the server allows members to edit widget contents.
+enum WidgetEditors {
+  WIDGET_EDITORS_UNSPECIFIED = 0; // = everyone
+  WIDGET_EDITORS_EVERYONE = 1;
+  WIDGET_EDITORS_ADMINS = 2;
+}
+
+// Top-left cell of a widget in one orientation. page 0..2.
+message Cell {
+  int32 page = 1;
+  int32 x = 2;
+  int32 y = 3;
+}
+
+message Widget {
+  // Unique within the profile, chosen by the client (1-32 chars [A-Za-z0-9_-]).
+  string id = 1;
+  // Built-in: text, image, gallery, links, countdown, stats, guestbook,
+  // music, status (user profiles), online (server profile).
+  string kind = 2;
+  WidgetSource source = 3;
+  // Workshop widgets only.
+  string workshop_id = 4;
+  string workshop_version = 5;
+  string package_sha256 = 6;
+  // Picture shown when the widget cannot run (e.g. sideloaded, removed).
+  int64 snapshot_media_id = 7;
+  // Kind-specific settings as JSON (max 8 KB). Media ids inside are strings.
+  string config = 8;
+  // Server profile only; set by site admins.
+  WidgetEditors content_editors = 9;
+  // Size in cells, the same in both orientations (1..4 each).
+  int32 w = 10;
+  int32 h = 11;
+  Cell landscape = 12;
+  // Only when the layout's portrait_custom is set; otherwise clients lay
+  // the portrait board out from the landscape one (reading order).
+  Cell portrait = 13;
+}
+
+message ProfileBackground {
+  // "" (default look), "color", "gradient" (value = preset name) or "image".
+  string kind = 1;
+  // "#rrggbb" for color, preset name for gradient.
+  string value = 2;
+  int64 media_id = 3;
+  // Blur in px (0-40) and darkening in percent (0-80), for images.
+  int32 blur = 4;
+  int32 dim = 5;
+}
+
+message ProfileLayout {
+  repeated Widget widgets = 1;
+  // The portrait board was arranged by hand (else it follows landscape).
+  bool portrait_custom = 2;
+  ProfileBackground background = 3;
+  // Set by the server: every save is a new version; old ones are kept for
+  // a while (evidence / undo) and then purged.
+  int64 version = 4;
+  int64 updated_at = 5;
+  int64 updated_by = 6;
+}
+
+// Numbers for the stats widget.
+message ProfileStats {
+  // User profile: messages sent, days in a row with at least one login
+  // (counted since stage 1 batch 4), when the account joined the server.
+  int64 messages = 1;
+  int32 streak_days = 2;
+  int64 joined_at = 3;
+  // Server profile: members, messages, channels, when the server started.
+  int32 members = 4;
+  int32 channels = 5;
+  int64 created_at = 6;
+}
+
+// GET /api/v1/profiles/users/{id} and /api/v1/profiles/server.
+message ProfileView {
+  ProfileLayout layout = 1;
+  // The viewer may add, remove, move and resize widgets and change the background.
+  bool can_edit_layout = 2;
+  // Widgets whose contents the viewer may change.
+  repeated string editable_widget_ids = 3;
+  // Site admin on the server profile: may set each widget's content_editors.
+  bool can_set_widget_editors = 4;
+  ProfileStats stats = 5;
+  // User profiles: the user.
+  User user = 6;
+}
+
+// PUT /api/v1/profiles/users/{id} and /api/v1/profiles/server -> ProfileView.
+message SaveProfileRequest {
+  ProfileLayout layout = 1;
+  // The version the edit started from; a newer one means someone else saved
+  // in between: `layout_conflict`.
+  int64 base_version = 2;
+}
+
+message GuestbookEntry {
+  int64 id = 1;
+  User author = 2;
+  string text = 3;
+  int64 created_at = 4;
+  // Hidden by the profile's owner (or a site admin). Only they still see it.
+  bool hidden = 5;
+}
+
+// GET .../guestbook/{widget_id}?before=<id> (newest first, 30 per page).
+message ListGuestbookResponse {
+  repeated GuestbookEntry entries = 1;
+  // Pass as ?before= for the next page; 0 = no more.
+  int64 next_before = 2;
+  // The viewer may hide entries here (profile owner / site admin).
+  bool can_hide = 3;
+}
+
+// POST .../guestbook/{widget_id} -> GuestbookEntry.
+message PostGuestbookRequest {
+  // 1-200 characters.
+  string text = 1;
+}
+
+// POST /api/v1/guestbook/{id}/hide -> Empty.
+message HideGuestbookRequest {
+  bool hidden = 1;
+}
+
+// POST /api/v1/guestbook/{id}/delete -> Empty. Site admins; the text is kept
+// as evidence for retention.evidence_days, then purged.
+message DeleteGuestbookRequest {
+  string reason = 1;
+}

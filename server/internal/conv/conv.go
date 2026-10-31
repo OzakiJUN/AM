@@ -77,6 +77,11 @@ func (s *Service) UserView(ctx context.Context, u *store.User) (*amv1.User, erro
 	return m[u.ID], nil
 }
 
+// UsersView loads and converts users (missing ids are left out).
+func (s *Service) UsersView(ctx context.Context, ids []int64) (map[int64]*amv1.User, error) {
+	return s.usersView(ctx, ids)
+}
+
 // UserViewByID loads and converts one user.
 func (s *Service) UserViewByID(ctx context.Context, id int64) (*amv1.User, error) {
 	m, err := s.usersView(ctx, []int64{id})
@@ -159,6 +164,36 @@ func (s *Service) pushConv(ctx context.Context, convID int64, userIDs []int64) {
 	}
 }
 
+// ---- my own settings ----
+
+// SetPinned pins a conversation to the top of my list (newest pin first) or
+// unpins it. My other devices get the change as a conv push.
+func (s *Service) SetPinned(ctx context.Context, me *store.User, convID int64, pinned bool) (*amv1.Conversation, error) {
+	var order int64
+	if pinned {
+		order = time.Now().UnixMilli()
+	}
+	return s.setMine(ctx, me, convID, func() error { return s.st.SetMemberPinned(ctx, convID, me.ID, order) })
+}
+
+// SetDnd turns do-not-disturb on until a time (-1 = until turned off) or off (0).
+func (s *Service) SetDnd(ctx context.Context, me *store.User, convID, until int64) (*amv1.Conversation, error) {
+	if until < -1 {
+		return nil, apperr.ErrBadRequest
+	}
+	return s.setMine(ctx, me, convID, func() error { return s.st.SetMemberDnd(ctx, convID, me.ID, until) })
+}
+
+func (s *Service) setMine(ctx context.Context, me *store.User, convID int64, set func() error) (*amv1.Conversation, error) {
+	if err := set(); errors.Is(err, store.ErrNotFound) {
+		return nil, apperr.ErrNotMember
+	} else if err != nil {
+		return nil, err
+	}
+	s.pushConv(ctx, convID, []int64{me.ID})
+	return s.ConvView(ctx, convID, me.ID)
+}
+
 // ---- DMs ----
 
 // OpenDM returns the DM with anyone on the server, creating it on first use.
@@ -167,7 +202,7 @@ func (s *Service) OpenDM(ctx context.Context, me *store.User, peerID int64) (*am
 		return nil, apperr.ErrSelf
 	}
 	peer, err := s.st.GetUser(ctx, peerID)
-	if errors.Is(err, store.ErrNotFound) || (err == nil && peer.Banned) {
+	if errors.Is(err, store.ErrNotFound) || (err == nil && peer.Gone()) {
 		return nil, apperr.ErrUserNotFound
 	}
 	if err != nil {

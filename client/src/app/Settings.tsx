@@ -234,7 +234,7 @@ function Servers() {
           const v = sessions[s.id];
           return (
             <div key={s.id} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-3 dark:bg-white/[0.06]">
-              <ServerAvatar name={v?.name ?? s.name} size={42} />
+              <ServerAvatar name={v?.name ?? s.name} icon={v?.icon} serverId={s.id} size={42} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{v?.name ?? s.name} {s.id === currentId && <span className="ml-1 text-[0.78rem] text-accent">当前</span>}</div>
                 <div className="text-[0.82rem] text-ink-soft dark:text-white/50">

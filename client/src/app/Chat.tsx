@@ -5,7 +5,9 @@ import {
   SendHorizontal, Settings2, Smile, Sparkles, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
-import { current, useApp, useOpenConv, type ConvPage } from '@/lib/store';
+import { usePrefs } from '@/lib/prefs';
+import { activityText } from '@/lib/presence';
+import { current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message } from '@/lib/types';
 import { copyText } from '@/lib/platform';
@@ -13,7 +15,10 @@ import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, open
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
-import { PortraitBand, PortraitCorner } from './Portrait';
+import { PortraitCorner, PortraitOverlay, PortraitPosButton } from './Portrait';
+import { AISettingsDialog } from './AISettings';
+import { useAI } from '@/lib/ai/runner';
+import { MOODS, type Mood } from '@/lib/portraits';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
@@ -29,10 +34,14 @@ const EMPTY = {
  */
 export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const convId = useOpenConv(page, v.id);
-  const showMembers = useApp((s) => s.showMembers);
+  const membersFolded = usePrefs((p) => p.membersFolded);
+  const setPrefs = usePrefs((p) => p.set);
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [aiOpen, setAIOpen] = useState(false);
   const conv = convId ? v.convs[convId] : undefined;
+  const streaming = useAI((s) => (convId ? s.streams[`${v.id}|${convId}`] : undefined));
+  const aiError = useAI((s) => (conv?.peerId ? s.errors[`${v.id}|${conv.peerId}`] : undefined));
   if (!conv) {
     const { Icon, title, text } = EMPTY[page];
     return (
@@ -45,6 +54,9 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const peer = conv.peerId ? v.users[conv.peerId] : undefined;
   const blocked = !!peer && v.blocked.includes(peer.id);
   const ai = page === 'ai';
+  const peerPresence = peer ? v.presence[peer.id] : undefined;
+  const myAI = ai && !!peer && peer.ownerId === v.me?.id;
+  const mood = aiMood(v, conv.id, peer?.id, streaming);
   return (
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
@@ -56,7 +68,9 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
               <IdentityChip user={peer} />
             </div>
             <div className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">
-              {group ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人` : peer ? `@${peer.username}` : ''}
+              {group
+                ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人`
+                : peer ? `@${peer.username} · ${peerPresence ? activityText(peerPresence.activity) || '在线' : '离线'}` : ''}
               {conv.left && ' · 你已不在这个频道里'}
               {blocked && ' · 已屏蔽'}
             </div>
@@ -65,27 +79,39 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
             <>
               <IconButton label="邀请成员" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
               <IconButton label="频道设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
-              <IconButton label="成员列表" active={showMembers} onClick={() => useApp.setState({ showMembers: !showMembers })}><PanelRight size={19} /></IconButton>
+              <IconButton label={membersFolded ? '展开成员列表' : '收起成员列表'} active={!membersFolded} onClick={() => setPrefs({ membersFolded: !membersFolded })}><PanelRight size={19} /></IconButton>
             </>
           )}
           {!group && peer && (
             <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
           )}
-          {ai && peer && <PortraitCorner user={peer} />}
+          {myAI && <IconButton label="AI 设置" onClick={() => setAIOpen(true)}><Settings2 size={19} /></IconButton>}
+          {ai && peer && <PortraitPosButton />}
+          {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} />}
         </header>
-        {ai && peer && <PortraitBand user={peer} />}
-        <MessageList key={conv.id} v={v} conv={conv} fadeTop={ai} />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <MessageList key={conv.id} v={v} conv={conv} streaming={streaming} fromBottom={ai} />
+          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} />}
+        </div>
+        {myAI && aiError && (
+          <div className="mx-4 mb-1 flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[0.82rem] text-rose-700 dark:bg-rose-400/10 dark:text-rose-200" role="alert">
+            <AlertCircle size={15} className="shrink-0" />
+            <span className="min-w-0 flex-1">它没能回复：{aiError}</span>
+            <button onClick={() => setAIOpen(true)} className="shrink-0 underline">打开设置</button>
+          </div>
+        )}
         <Composer v={v} conv={conv} blocked={blocked} />
+        {myAI && peer && <AISettingsDialog open={aiOpen} onClose={() => setAIOpen(false)} aiId={peer.id} />}
       </section>
       <AnimatePresence initial={false}>
-        {group && showMembers && !conv.left && (
+        {group && !conv.left && (
           <motion.div
             key="members"
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 250 }}
-            exit={{ opacity: 0, width: 0 }}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
             transition={spring}
-            className="flex shrink-0 overflow-hidden"
+            className="flex shrink-0"
           >
             <MemberPanel v={v} conv={conv} onInvite={() => setInviteOpen(true)} />
           </motion.div>
@@ -99,8 +125,25 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
 
 // ---------- messages ----------
 
-/** fadeTop: soften the top edge (under the AI portrait) so messages fade out instead of being cut. */
-function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation; fadeTop?: boolean }) {
+/** The AI's mood for its portrait: `typing` while it writes, else its last reply's mood. */
+function aiMood(v: SessionView, convId: string, aiId: string | undefined, streaming: string | undefined): Mood | undefined {
+  if (!aiId) return undefined;
+  if (streaming !== undefined) return 'typing';
+  const list = v.messages[convId] ?? [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (m.senderId !== aiId) continue;
+    const mood = m.body.kind === 'text' ? m.body.mood : undefined;
+    return mood && (MOODS as readonly string[]).includes(mood) ? (mood as Mood) : 'neutral';
+  }
+  return undefined;
+}
+
+/**
+ * fromBottom (AI chats): a short conversation sits at the bottom and grows
+ * upwards, so the portrait at the top never hides the newest messages.
+ */
+function MessageList({ v, conv, streaming, fromBottom }: { v: SessionView; conv: Conversation; streaming?: string; fromBottom?: boolean }) {
   const list = v.messages[conv.id] ?? [];
   const ref = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -119,7 +162,7 @@ function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation;
     } else if (atBottom.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [list]);
+  }, [list, streaming]);
 
   // Read up to the newest message while the conversation is on screen.
   useEffect(() => {
@@ -152,7 +195,8 @@ function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation;
     items.push(<MessageItem key={m.id} v={v} conv={conv} msg={m} grouped={grouped} animate={m.time > mountedAt.current} onView={setViewer} />);
   }
   return (
-    <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fadeTop && '[mask-image:linear-gradient(to_bottom,transparent,black_28px)]')}>
+    <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fromBottom && 'flex flex-col')}>
+      {fromBottom && <div className="flex-1" aria-hidden />}
       {v.hasOlder[conv.id] && <div className="flex justify-center py-2 text-ink-soft"><Spinner size={16} /></div>}
       {conv.notice && (
         <div className="mx-auto mb-3 flex max-w-xl items-start gap-2 rounded-2xl bg-amber-50/80 px-4 py-2.5 text-[0.85rem] text-amber-800 shadow-[var(--shadow-card)] dark:bg-amber-400/10 dark:text-amber-200">
@@ -160,8 +204,9 @@ function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation;
           <span className="whitespace-pre-wrap">频道公告：{conv.notice}</span>
         </div>
       )}
-      {!list.length && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
+      {!list.length && streaming === undefined && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
       {items}
+      {streaming !== undefined && conv.peerId && <StreamingReply v={v} aiId={conv.peerId} text={streaming} />}
       <ImageViewer mediaId={viewer} onClose={() => setViewer(null)} />
     </div>
   );
@@ -230,7 +275,13 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
 
   return (
     <motion.div {...enter} className={cx('group flex gap-3', grouped ? 'pt-1' : 'pt-3', mine && 'flex-row-reverse')} onContextMenu={menu}>
-      <div className="w-[38px] shrink-0">{!grouped && <UserAvatar user={sender} size={38} animated />}</div>
+      <div className="w-[38px] shrink-0">
+        {!grouped && (
+          <button onClick={() => openProfile(msg.senderId)} className="press rounded-full" aria-label={`${sender?.name ?? '对方'}的主页`} title="看主页">
+            <UserAvatar user={sender} size={38} animated />
+          </button>
+        )}
+      </div>
       <div className={cx('flex max-w-[68%] min-w-0 flex-col', mine ? 'items-end' : 'items-start')}>
         {!mine && !grouped && (
           <div className="mb-1 flex items-center gap-1.5 text-[0.8rem]">
@@ -255,6 +306,22 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
     </motion.div>
   );
 });
+
+/** The AI's reply while it is being written (only on the device that runs it). */
+function StreamingReply({ v, aiId, text }: { v: SessionView; aiId: string; text: string }) {
+  const ai = v.users[aiId];
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="flex gap-3 pt-3" aria-live="polite">
+      <div className="w-[38px] shrink-0"><UserAvatar user={ai} size={38} /></div>
+      <div className="flex max-w-[68%] min-w-0 flex-col items-start">
+        <div className="mb-1 text-[0.8rem] text-ink-soft dark:text-white/60">{ai?.name ?? 'AI'} 正在输入…</div>
+        <div className="card rounded-2xl rounded-tl-md bg-white/95 px-3.5 py-2 whitespace-pre-wrap break-words dark:bg-white/[0.07]">
+          {text || <span className="inline-flex gap-1 py-1">{[0, 1, 2].map((i) => <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-ink-soft/60" animate={{ y: [0, -3, 0] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }} />)}</span>}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id: string) => void }) {
   const b = msg.body;

@@ -69,6 +69,49 @@ func (a *API) updateProfile(w http.ResponseWriter, r *http.Request, _ *store.Ses
 	a.ok(w, v)
 }
 
+func (a *API) setPresence(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	req := &amv1.SetPresenceRequest{}
+	if !a.read(w, r, req) {
+		return
+	}
+	p, err := a.presence.Set(r.Context(), me, req)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, p)
+}
+
+func (a *API) leaveServer(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	if err := a.acct.Leave(r.Context(), me); err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, &amv1.Empty{})
+}
+
+// serverIcon serves the server's icon (public, like GET /api/v1/server).
+func (a *API) serverIcon(w http.ResponseWriter, r *http.Request) {
+	f, _ := a.media.ServerIcon()
+	if f == nil {
+		a.fail(w, media.ErrMediaMissing)
+		return
+	}
+	w.Header().Set("Content-Type", f.Mime)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "public, max-age=86400") // the URL changes with the file
+	http.ServeFile(w, r, f.Path)
+}
+
+func (a *API) serverProfile(w http.ResponseWriter, r *http.Request, _ *store.Session, _ *store.User) {
+	p, err := a.acct.ServerProfile(r.Context(), a.presence.VisibleCount())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, p)
+}
+
 func (a *API) listLogins(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 	resp, err := a.acct.ListLoginRecords(r.Context(), me.ID)
 	if err != nil {
@@ -204,6 +247,42 @@ func (a *API) muteMember(w http.ResponseWriter, r *http.Request, _ *store.Sessio
 		return
 	}
 	a.ok(w, &amv1.Empty{})
+}
+
+func (a *API) setPinned(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	req := &amv1.SetPinnedRequest{}
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	if !a.read(w, r, req) {
+		return
+	}
+	c, err := a.conv.SetPinned(r.Context(), me, id, req.GetPinned())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, c)
+}
+
+func (a *API) setDnd(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	req := &amv1.SetDndRequest{}
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	if !a.read(w, r, req) {
+		return
+	}
+	c, err := a.conv.SetDnd(r.Context(), me, id, req.GetUntil())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, c)
 }
 
 func (a *API) listJoinRequests(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {

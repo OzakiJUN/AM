@@ -44,12 +44,18 @@ message ServerFrame {
     FriendPush friend = 32;
     ConvRemovedPush conv_removed = 33;
     JoinRequestPush join_request = 34;
+    PresencePush presence = 35;
+    ClientStatePush client_state = 36;
+    ServerMovedPush server_moved = 37;
   }
 }
 
 message AuthRequest {
   // Session token from /api/v1/login or /api/v1/register.
   string token = 1;
+  // The address (host:port) the client connected to, so the admin panel
+  // can tell how many devices still use an old relay address.
+  string address = 2;
 }
 
 message AuthResponse {
@@ -59,6 +65,14 @@ message AuthResponse {
   repeated Conversation conversations = 2;
   // Site admin of this server: may create public channels.
   bool is_site_admin = 3;
+  // Everyone who is online as this user sees it (includes the user
+  // themselves, with `invisible` set if they are). Changes arrive as
+  // `presence` pushes.
+  repeated Presence presences = 4;
+  // The server's public address (server.public_address), "" when not set.
+  // A client using another address checks the new one (same certificate)
+  // and switches to it (docs/design.md §3, 更换中转地址).
+  string public_address = 5;
 }
 
 message SendRequest {
@@ -150,4 +164,24 @@ message JoinRequestPush {
   int64 conv_id = 1;
   User user = 2;
   User inviter = 3;
+}
+
+// Someone's online state or activity changed, as the receiver sees it.
+// Sent to everyone online on the server. online = false means offline (or
+// invisible, for everyone but the user and their own bot / ai accounts).
+message PresencePush {
+  Presence presence = 1;
+}
+
+// One of my devices saved the state my devices share (PUT
+// /api/v1/me/client-state): load it again. Sent to all my connections.
+message ClientStatePush {
+  int64 updated_at = 1;
+}
+
+// The server moved to a new public address (the admin changed the relay).
+// Sent to everyone online; the client connects to the new address with the
+// same certificate pin and switches only when that works.
+message ServerMovedPush {
+  string address = 1;
 }

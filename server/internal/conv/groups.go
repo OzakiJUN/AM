@@ -84,14 +84,14 @@ func dedupe(ids []int64, exclude int64) []int64 {
 	return out
 }
 
-// checkUsers fails with ErrUserNotFound unless every id is an account that is not banned.
+// checkUsers fails with ErrUserNotFound unless every id is an active account (not banned, not left).
 func checkUsers(ctx context.Context, q *store.Queries, ids []int64) error {
 	users, err := q.GetUsers(ctx, ids)
 	if err != nil {
 		return err
 	}
 	for _, id := range ids {
-		if u := users[id]; u == nil || u.Banned {
+		if u := users[id]; u == nil || u.Gone() {
 			return apperr.ErrUserNotFound
 		}
 	}

@@ -11,11 +11,11 @@ export interface Join {
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const enc = new TextEncoder();
 
-async function sha256(data: Uint8Array): Promise<Uint8Array> {
+export async function sha256(data: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', data as BufferSource));
 }
 
-function concat(...parts: Uint8Array[]) {
+export function concat(...parts: Uint8Array[]) {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let o = 0;
   for (const p of parts) {
@@ -25,7 +25,7 @@ function concat(...parts: Uint8Array[]) {
   return out;
 }
 
-function base32Decode(s: string): Uint8Array | null {
+export function base32Decode(s: string): Uint8Array | null {
   const out: number[] = [];
   let bits = 0;
   let value = 0;
@@ -74,7 +74,11 @@ export async function parseJoinCode(input: string): Promise<Join> {
   const check = rest.slice(rest.length - 2);
   const sum = await sha256(concat(head, payload));
   if (sum[0] !== check[0] || sum[1] !== check[1]) throw new JoinCodeError('加入码有误（可能抄错了），请整段复制');
+  return decodePayload(payload);
+}
 
+/** The server part of a join code (flags, address, pin, invite); also used by pairing codes. */
+export function decodePayload(payload: Uint8Array): Join {
   let p = 0;
   const need = (n: number) => {
     if (p + n > payload.length) throw new JoinCodeError('加入码有误，请整段复制');
@@ -120,7 +124,7 @@ export async function parseJoinCode(input: string): Promise<Join> {
   return join;
 }
 
-function base32Encode(b: Uint8Array) {
+export function base32Encode(b: Uint8Array) {
   let out = '';
   let bits = 0;
   let value = 0;
@@ -137,8 +141,8 @@ function base32Encode(b: Uint8Array) {
   return out;
 }
 
-/** Builds a join code (same bytes as the Go encoder, so codes match). */
-export async function encodeJoinCode(j: Join): Promise<string> {
+/** The server part of a join code; see decodePayload. */
+export function encodePayload(j: Join): Uint8Array {
   const m = /^\[?(.+?)\]?:(\d+)$/.exec(j.address);
   if (!m) throw new JoinCodeError('bad address');
   const [host, port] = [m[1], Number(m[2])];
@@ -173,7 +177,12 @@ export async function encodeJoinCode(j: Join): Promise<string> {
     }
     body.push(...packed);
   }
-  const plain = new Uint8Array([flags, ...body]);
+  return new Uint8Array([flags, ...body]);
+}
+
+/** Builds a join code (same bytes as the Go encoder, so codes match). */
+export async function encodeJoinCode(j: Join): Promise<string> {
+  const plain = encodePayload(j);
   const salt = (await sha256(concat(enc.encode('AM join salt'), plain))).slice(0, 2);
   const head = new Uint8Array([1, salt[0], salt[1]]);
   const sum = await sha256(concat(head, plain));

@@ -33,6 +33,20 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 
 实现见 `internal/connectcode`，Go SDK 里是 `amclient.ParseJoinCode`、`amclient.NewFromJoinCode`、`(*Client).JoinCodeFor`。
 
+### 登录码（添加新设备）
+
+已登录的设备生成，新设备用它一次登录我所有的服务器。只有客户端生成和解析（`client/src/lib/paircode.ts`），服务器只认里面的 ticket：
+
+```
+AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-CJH5-XH7S
+```
+
+- 文本：`AMP-` + base32（同加入码的字母表），每 4 个字符一个 `-`。
+- 二进制：`版本(1)=1 | ticket(16) | 密钥(16) | 加入码里 flags 起的服务器部分（不带邀请码） | 校验(2)`，校验 = 前面所有字节的 SHA-256 前 2 字节。不做异或混淆：整个码本身就是登录凭证。
+- ticket：`POST /api/v1/pair` 返回的 26 个字符（16 字节）。
+- 密钥：AES-128-GCM，解开随 ticket 存在服务器上的包（`12 字节 iv | 密文`，JSON：服务器列表和其他服务器的 ticket、保存的用户名密码、共享密钥、个性化设置）。密钥只在码里，服务器看不到包的内容。
+- 二维码内容：`<下载页>#pair=<登录码>`。
+
 管理面板本身的 `/api/...`（在 `admin.listen` 上）是面板内部接口，会跟着面板改，不属于客户端协议。
 
 需要登录的 HTTP 接口带请求头 `Authorization: Bearer <token>`；媒体下载也一样（客户端用 fetch 取回后显示）。
@@ -44,15 +58,24 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | — | `{"ok":true}`（无需登录） |
-| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页（无需登录） |
+| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）（无需登录） |
+| GET | `/api/v1/server/icon` | — | 服务器图标 PNG（无需登录；没设置时 `media_not_found`）。`ServerInfo.icon` 带 `?v=` 版本号，换图标地址就变 |
+| GET | `/api/v1/server/profile` | — | `ServerProfile`：服务器主页（名字、简介、图标、成员数、在线人数、谁能改布局、成员能否改小组件内容）。由站点管理员在管理面板里设置 |
 | POST | `/api/v1/register` | `RegisterRequest` | `SessionResponse`（无需登录） |
-| POST | `/api/v1/login` | `LoginRequest` | `SessionResponse`（无需登录） |
-| GET | `/api/v1/sessions` | — | `ListSessionsResponse` |
+| POST | `/api/v1/login` | `LoginRequest` | `SessionResponse`（无需登录）。退出过服务器的账号要带 `invite_code`（一个没用过的邀请码，会被用掉）才能回来，否则 `left_server`；其他账号忽略这个字段。已经登录了 `limits.max_devices` 台设备（默认 3，只算真人账号）时 `too_many_devices` |
+| GET | `/api/v1/sessions` | — | `ListSessionsResponse`：登录着的设备，和 `max_devices`（`limits.max_devices`，0 不限） |
 | DELETE | `/api/v1/sessions/{id}` | — | `Empty`（立即断开该设备） |
+| POST | `/api/v1/logout` | — | `Empty`：退出这台设备（空出一个设备名额） |
+| POST | `/api/v1/pair` | `CreatePairTicketRequest` | `PairTicket`：一次性 ticket，用来登录我的另一台设备，`limits.pair_code_minutes` 分钟内有效，新的会让旧的作废。`bundle`（最多 32 KiB，加密过的，服务器不看）跟 ticket 存在一起。设备已满时 `too_many_devices` |
+| POST | `/api/v1/pair/redeem` | `RedeemPairTicketRequest` | `PairRedeemResponse`（无需登录）：用掉 ticket，新设备登录（登录记录 kind = `pair`），带回 `bundle`。ticket 不对、用过或过期：`invalid_pair_code`；设备已满：`too_many_devices` |
+| GET | `/api/v1/me/client-state` | — | `ClientState`：我的设备共享的数据（我的服务器列表），客户端加密，服务器只保存。没有时 `updated_at = 0` |
+| PUT | `/api/v1/me/client-state` | `PutClientStateRequest` | `ClientState`：最多 32 KiB；`base_updated_at` 不是当前版本时 `state_conflict`（先取回合并再存）。存好后给我所有在线的连接推 `client_state` |
 | GET | `/api/v1/invites` | — | `ListInvitesResponse`：注册时自动发的邀请码（不够 `invites.per_user` 个会补齐），未使用的带加入码；`remaining = -1` 表示站点管理员可以再要 |
 | POST | `/api/v1/invites` | — | `Invite`（只有站点管理员能超出自动发放的数量，其他人返回 `invite_limit`） |
-| PATCH | `/api/v1/me` | `UpdateProfileRequest` | `User` |
+| PATCH | `/api/v1/me` | `UpdateProfileRequest` | `User`：只改带了的字段（昵称、头像、`bio` 个性签名，最多 100 字，空字符串清空） |
 | GET | `/api/v1/me/logins` | — | `ListLoginRecordsResponse`（最近 50 条） |
+| PUT | `/api/v1/me/presence` | `SetPresenceRequest` | `Presence`：隐身开关和"正在做什么"，存在服务器上，见下面"在线状态" |
+| POST | `/api/v1/me/leave` | — | `Empty`：退出服务器。所有设备登出、退出所有频道（自己是频道主的交给下一个人，没人的解散）、不再出现在成员列表、不能被私信。回来要新的邀请码（见 login） |
 | GET | `/api/v1/users/{id}` | — | `User` |
 
 ### 成员与私信
@@ -64,6 +87,8 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | GET | `/api/v1/users?query=&after=&limit=` | — | `ListUsersResponse`：服务器上所有没被封的账号，按 id 排序；`query` 匹配用户名或昵称；翻页时 `after` 填上一页的 `next_after`（0 = 没有了）；`limit` 默认 50，最大 200 |
 | POST | `/api/v1/dm` | `OpenDMRequest` | `Conversation`：和任何人的私信（已有就返回原来的）；有一方屏蔽了另一方时 `blocked` |
 | GET | `/api/v1/conversations/{id}` | — | `Conversation`（须是成员） |
+| PUT | `/api/v1/conversations/{id}/pin` | `SetPinnedRequest` | `Conversation`：置顶 / 取消（我自己的设置，`self.pinned_order` = 置顶时间，0 = 没置顶）。我的其他连接收到 `conv` 推送 |
+| PUT | `/api/v1/conversations/{id}/dnd` | `SetDndRequest` | `Conversation`：免打扰到 `until`（毫秒时间戳；0 关闭，-1 一直到关掉，其他负数 `bad_request`）。我的其他连接收到 `conv` 推送 |
 | GET | `/api/v1/blocks` | — | `ListBlocksResponse`：我屏蔽的人，新的在前 |
 | POST / DELETE | `/api/v1/blocks/{uid}` | — | `Empty`：屏蔽 / 取消屏蔽 |
 
@@ -111,16 +136,73 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 - 谁能下载：上传者；任何人的头像对所有登录用户可见；群头像对群成员可见；消息里的媒体对该会话成员可见（被管理员删除后不再可见）。
 - 非图片文件以附件方式下载，不会在浏览器里直接打开。
 
+### 在线状态
+
+- 有一个以上设备连着 WebSocket 就是在线。
+- `Presence`：`online`、`activity`（`ActivityKind`：听歌 / 打游戏 / 调试 AI / 学习工作 / 自定义，`text` 最多 32 字，自定义必须有 `text`）、`invisible`。
+- **隐身**：对其他人报告 `online = false`，没有 `activity`。只有本人和本人名下的 bot / ai 账号能看到真实状态，此时 `invisible = true`（AI 知道主人在线，可能说漏嘴，这是故意的）。
+- 连上时 `AuthResponse.presences` 是此刻所有在线的人（按你能看到的样子，包括你自己）；之后有变化时推送 `presence`。断线后客户端应把所有人当离线，重连拿新的列表。
+- `SetPresenceRequest` 每次都要带完整设置：`invisible` 和 `activity`（不带 = 清除状态）。
+
+### AI 账号（只有主人能用）
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/ai` | — | `ListAIResponse`：我的 AI 账号和各自的设置 JSON |
+| POST | `/api/v1/ai` | `CreateAIRequest` | `AIAccount`：新建 ai 类型账号，主人是我。只有真人账号能建，每人最多 `limits.max_ai_per_user` 个（`ai_limit`） |
+| PATCH | `/api/v1/ai/{id}` | `UpdateProfileRequest` | `User`：改 AI 的名字、头像（主人上传的图）、签名 |
+| PUT | `/api/v1/ai/{id}/settings` | `PutAISettingsRequest` | `AIAccount`：设置 JSON（最多 64 KiB，服务器原样保存）。`base_updated_at` 不是当前版本时 `state_conflict` |
+| POST | `/api/v1/ai/{id}/run` | `RunAIRequest` | `SessionResponse`：这台设备以 AI 身份登录，成为运行它的设备；AI 在别处的登录全部结束 |
+| DELETE | `/api/v1/ai/{id}` | — | `Empty`：AI 退出服务器（同 leave） |
+
+不是我的 AI（或已删除）一律 `user_not_found`。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
+
+### 主页小组件
+
+个人主页和服务器主页是小组件"桌面"（定义在 `proto/am/v1/profile.proto`）：
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/profiles/users/{id}`、`/api/v1/profiles/server` | — | `ProfileView`：布局、你能不能改布局、你能改内容的组件、你能不能设每个组件的权限（站点管理员）、统计数字、用户 |
+| PUT | 同上 | `SaveProfileRequest` | `ProfileView`。`base_version` 是开始编辑时的版本，期间有人存过就 `layout_conflict` |
+| GET | `.../guestbook/{widget_id}?before=` | — | `ListGuestbookResponse`：新的在前，每页 30 条 |
+| POST | `.../guestbook/{widget_id}` | `PostGuestbookRequest` | `GuestbookEntry`（1–200 字，一分钟最多 3 条；有屏蔽关系时 `blocked`） |
+| POST | `/api/v1/guestbook/{id}/hide` | `HideGuestbookRequest` | `Empty`：主页主人或站点管理员 |
+| POST | `/api/v1/guestbook/{id}/delete` | `DeleteGuestbookRequest` | `Empty`：站点管理员，`reason` 必填，原文作为证据保留 |
+
+- 格子：最多 3 页；横屏 8 列 × 4 行，竖屏 4 列 × 8 行；组件宽高 1–4。`landscape` 必填；`portrait_custom` 为假时竖屏位置由客户端按横屏的阅读顺序排，为真时每个组件要有 `portrait`。同一页同一方向不能重叠。
+- 内置组件 `kind` 和 `config`（JSON，最多 8 KB，媒体 ID 写成字符串，不认识的字段忽略）：
+
+  | kind | 最小 | config |
+  | --- | --- | --- |
+  | `text` | 2×1 | `title`（≤40）、`text`（≤1000） |
+  | `image` | 1×1 | `media_id`、`caption`（≤80）、`fit`（`cover` / `contain`） |
+  | `gallery` | 2×2 | `media_ids`（≤20）、`interval`（2–60 秒）、`caption` |
+  | `links` | 2×1 | `items`：≤6 个 `{title ≤30, url}`，url 必须是 http(s) |
+  | `countdown` | 1×1 | `title`（≤30）、`date`（毫秒） |
+  | `stats` | 2×1 | `items`：`messages` `streak` `joined`（个人）/ `members` `messages` `channels` `age`（服务器） |
+  | `guestbook` | 2×2 | `title`（≤30） |
+  | `music` | 2×2 | `provider`（`netease`）、`playlist_id`（数字）、`title`（≤40） |
+  | `status` | 2×1 | 只能放在个人主页 |
+  | `online` | 2×2 | 只能放在服务器主页 |
+
+- 工坊组件（`source = WORKSHOP`）要有 `workshop_id`、`workshop_version`、`package_sha256`，可带截图 `snapshot_media_id`（第五阶段运行）。
+- 权限：个人主页只有本人能存。服务器主页：站点管理员都行；加删、挪动、改大小、改背景要"谁能改布局"；改某个组件的 `config` 要"成员能改小组件内容"打开且这个组件不是 `WIDGET_EDITORS_ADMINS`；改 `content_editors` 只有站点管理员。新放上去的图片必须是保存的人自己上传的。
+- 每次保存是一个新版本，旧版本保留 `retention.evidence_days` 天。
+
 ## WebSocket 流程
 
-1. 连接 `/ws`，**第一帧**必须是 `ClientFrame{auth}`，10 秒内不发就断开。
-2. 服务器回 `ServerFrame{auth}`：自己的资料 + 所有会话（带 `last_seq`、成员和角色、自己的 `self` 状态）+ `is_site_admin`（能不能建公开频道）。token 无效时先回 `error`（`unauthorized`）再断开。
+1. 连接 `/ws`，**第一帧**必须是 `ClientFrame{auth}`，10 秒内不发就断开。`auth.address` 填客户端连的地址（面板据此统计还有多少设备在用旧中转）。
+2. 服务器回 `ServerFrame{auth}`：自己的资料 + 所有会话（带 `last_seq`、成员和角色、自己的 `self` 状态）+ `is_site_admin`（能不能建公开频道）+ `presences`（在线的人）+ `public_address`（服务器现在的公网地址，和客户端用的不一样时客户端去检查并切换）。token 无效时先回 `error`（`unauthorized`）再断开。
 3. 客户端对比本地每个会话已有的最大 seq 和 `last_seq`，用 `sync` 补齐缺的事件；`has_more` 里的会话还要继续拉下一页。
 4. 之后服务器推送（`req_id = 0`）：
    - `event`：会话里有新事件（含系统事件）。
    - `conv`：你加入了新会话（新会话会先于它的事件推送）。
    - `conv_removed`：你离开了某个会话（退群、被踢、群解散），客户端保留只读历史。
    - `join_request`：有人被邀请进需要审批的群（发给群主和管理员）。
+   - `presence`：某人上线 / 下线 / 改了隐身或状态（发给服务器上所有在线的人，每人看到的是自己该看到的样子，见"在线状态"）。
+   - `client_state`：我的另一台设备存了共享数据（`PUT /api/v1/me/client-state`），重新取一次。
+   - `server_moved`：服务器换了公网地址（管理员换了中转）。客户端用同一个证书指纹连新地址，连上了再切过去。
 5. 请求带客户端自定的 `req_id`，响应带同一个 `req_id`。
 
 服务器每 30 秒发一次 WebSocket ping；客户端也可以发 `ping` 帧。客户端读得太慢会被断开，重连后 sync 即可。
@@ -188,11 +270,20 @@ AM1-AFTB-R6ZE-TREA-V4RT-L5T8-YJ6R-P6T4-BL9P-YHPU-BGP6-6XZ6-8XNG-7FLY-5YBK
 | `reason_required` | 400 | 管理员删除 / 封禁必须写原因 |
 | `no_password` | 400 | 这个账号不用密码登录（bot / AI），不能重置密码 |
 | `already_deleted` | 409 | 已被删除 |
-| `too_large` | 413 | 文件超过 `limits.max_upload_mb` |
+| `too_large` | 413 | 文件超过 `limits.max_upload_mb`，或登录码的包 / 共享数据超过 32 KiB |
 | `blocked_media` | 403 | 图片在黑名单里 |
 | `not_image` | 400 | 不是支持的图片 |
 | `bad_image` | 400 | 图片读不出来或像素过大 |
 | `media_not_found` | 404 | 媒体不存在或无权查看 |
+| `bio_too_long` | 400 | 个性签名最多 100 字 |
+| `invalid_activity` | 400 | 状态类型不认识、说明超过 32 字，或自定义状态没写内容 |
+| `left_server` | 403 | 这个账号退出了服务器，登录时要带新的邀请码 |
+| `invalid_widget` | 400 | 小组件类型不认识、大小或位置不对（出界、重叠、第 4 页）、或设置内容不对 |
+| `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
+| `ai_limit` | 403 | AI 账号已经建到 `limits.max_ai_per_user` 个 |
+| `too_many_devices` | 403 | 这个账号登录的设备已经到 `limits.max_devices` 台，先退出一台（登录、生成登录码、用登录码时） |
+| `invalid_pair_code` | 400 | 登录码的 ticket 不对、用过了或过期了 |
+| `state_conflict` | 409 | 共享数据在你合并期间被另一台设备存过了，取回重新合并 |
 | `rate_limited` | 429 | 尝试太频繁 |
 | `already_authenticated` | 400 | 已登录的连接又发了 auth |
 | `internal_error` | 500 | 服务器内部错误（看服务器日志） |

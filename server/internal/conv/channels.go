@@ -65,6 +65,42 @@ func (s *Service) JoinChannel(ctx context.Context, me *store.User, convID int64)
 	return s.ConvView(ctx, convID, me.ID)
 }
 
+// LeaveAll takes a user who left the server out of every channel. A channel
+// they own passes to the next member (highest role, then longest there); a
+// channel with nobody else in it is dissolved. Failures are logged and the
+// rest still runs: the account is already marked as left.
+func (s *Service) LeaveAll(ctx context.Context, u *store.User) {
+	convs, err := s.st.ListConvsForUser(ctx, u.ID)
+	if err != nil {
+		s.log.Warn("leave: list conversations", "user", u.ID, "err", err)
+		return
+	}
+	for _, c := range convs {
+		if c.Kind != int16(amv1.ConvKind_CONV_KIND_GROUP) || c.Dissolved {
+			continue
+		}
+		if c.Self.Role == roleOwner {
+			next, err := s.st.NextOwner(ctx, c.ID, u.ID)
+			if errors.Is(err, store.ErrNotFound) {
+				if err := s.Dissolve(ctx, u, c.ID); err != nil {
+					s.log.Warn("leave: dissolve", "user", u.ID, "conv", c.ID, "err", err)
+				}
+				continue
+			}
+			if err == nil {
+				err = s.Transfer(ctx, u, c.ID, next)
+			}
+			if err != nil {
+				s.log.Warn("leave: transfer", "user", u.ID, "conv", c.ID, "err", err)
+				continue
+			}
+		}
+		if err := s.RemoveMember(ctx, u, c.ID, u.ID); err != nil {
+			s.log.Warn("leave: remove", "user", u.ID, "conv", c.ID, "err", err)
+		}
+	}
+}
+
 // Welcome runs after an account is created: it joins every public channel.
 // The very first admin, on a server without public channels, creates the
 // default channel instead (config server.default_channel).

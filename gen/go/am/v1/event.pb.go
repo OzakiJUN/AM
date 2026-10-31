@@ -315,8 +315,11 @@ type TextMsg struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Text  string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
 	// Event this message replies to. 0 = not a reply.
-	ReplyTo       int64   `protobuf:"varint,2,opt,name=reply_to,json=replyTo,proto3" json:"reply_to,omitempty"`
-	Mentions      []int64 `protobuf:"varint,3,rep,packed,name=mentions,proto3" json:"mentions,omitempty"`
+	ReplyTo  int64   `protobuf:"varint,2,opt,name=reply_to,json=replyTo,proto3" json:"reply_to,omitempty"`
+	Mentions []int64 `protobuf:"varint,3,rep,packed,name=mentions,proto3" json:"mentions,omitempty"`
+	// Mood of an AI reply (emotion key from docs/design.md §9, e.g. "happy"),
+	// shown by the AI portrait. Only kept on messages from ai / bot accounts.
+	Mood          string `protobuf:"bytes,4,opt,name=mood,proto3" json:"mood,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -370,6 +373,13 @@ func (x *TextMsg) GetMentions() []int64 {
 		return x.Mentions
 	}
 	return nil
+}
+
+func (x *TextMsg) GetMood() string {
+	if x != nil {
+		return x.Mood
+	}
+	return ""
 }
 
 type ImageMsg struct {
@@ -851,11 +861,12 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"sys_member\x18\x1e \x01(\v2\x10.am.v1.SysMemberH\x00R\tsysMember\x12+\n" +
 	"\bsys_conv\x18\x1f \x01(\v2\x0e.am.v1.SysConvH\x00R\asysConv\x12.\n" +
 	"\tredaction\x18( \x01(\v2\x10.am.v1.RedactionR\tredactionB\x06\n" +
-	"\x04body\"T\n" +
+	"\x04body\"h\n" +
 	"\aTextMsg\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x19\n" +
 	"\breply_to\x18\x02 \x01(\x03R\areplyTo\x12\x1a\n" +
-	"\bmentions\x18\x03 \x03(\x03R\bmentions\"S\n" +
+	"\bmentions\x18\x03 \x03(\x03R\bmentions\x12\x12\n" +
+	"\x04mood\x18\x04 \x01(\tR\x04mood\"S\n" +
 	"\bImageMsg\x12\x19\n" +
 	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\x12\x14\n" +
 	"\x05width\x18\x02 \x01(\x05R\x05width\x12\x16\n" +

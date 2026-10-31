@@ -29,6 +29,9 @@ const ERR_TEXT = {
   not_found: '找不到，可能已经被删掉了',
   no_password: '这个账号不用密码登录',
   media_not_found: '文件不存在或已被清理',
+  not_image: '这不是支持的图片（JPEG / PNG / GIF / WebP）',
+  bad_image: '图片读不出来，或者像素太大',
+  too_large: '图片太大了（最多 2 MB）',
 };
 
 class ApiError extends Error {
@@ -182,6 +185,7 @@ const PAGES = [
   { id: 'overview', name: '概览', render: renderOverview },
   { id: 'users', name: '用户', render: renderUsers },
   { id: 'invites', name: '邀请码', render: renderInvites },
+  { id: 'channels', name: '频道记录', render: renderChannels },
   { id: 'evidence', name: '删除记录', render: renderEvidence },
   { id: 'audit', name: '操作记录', render: renderAudit },
   { id: 'logs', name: '运行日志', render: renderLogs },
@@ -430,6 +434,59 @@ async function renderOverview(root, page) {
       info('数据文件夹', el('code', {}, s.data_dir)),
       info('配置文件', el('code', {}, s.config_path)),
       info('版本', s.version))));
+  if (conn.public) root.append(await relayPanel(page));
+}
+
+// Changing the relay (public) address: check the new one reaches this
+// server, then switch; online clients follow by themselves.
+async function relayPanel(page) {
+  let r;
+  try { r = await api('GET', 'relay'); } catch (e) { return el('section', { class: 'panel' }, el('p', { class: 'muted' }, '读不到中转信息：' + e.message)); }
+  const input = el('input', { type: 'text', placeholder: '新地址，例如 47.1.2.3:7000', 'aria-label': '新的中转地址' });
+  const result = el('p', { class: 'hint', 'aria-live': 'polite' });
+  const value = () => input.value.trim();
+  const check = async (btn) => {
+    if (!value()) { input.focus(); return false; }
+    btn.disabled = true;
+    result.textContent = '正在通过新地址连本服务器…';
+    try {
+      await api('POST', 'relay/test', { address: value() });
+      result.textContent = '✓ 新地址能连到本服务器。';
+      return true;
+    } catch (e) {
+      result.textContent = '✗ ' + e.message;
+      return false;
+    } finally { btn.disabled = false; }
+  };
+  const testBtn = el('button', { class: 'btn', type: 'button', onclick: (e) => check(e.currentTarget) }, '检查');
+  const moveBtn = el('button', { class: 'btn primary', type: 'button', onclick: async (e) => {
+    const btn = e.currentTarget;
+    if (!(await check(btn))) return;
+    const ok = await confirmDialog({
+      title: '换成新的中转地址？',
+      text: '在线的客户端会先试着连新地址，连上了才切过去。旧中转先别关：等下面「还在用旧地址的设备」变成 0 再关。以后发出的加入码都用新地址。',
+      ok: '更换',
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    try {
+      await api('POST', 'relay/move', { address: value() });
+      toast('已换成新地址，正在通知客户端');
+      await refreshStatus();
+      if (currentPage === page) route();
+    } catch (err) { fail(err); } finally { btn.disabled = false; }
+  } }, '更换并通知客户端');
+  const others = r.connections.filter((c) => c.address && c.address !== r.current);
+  const oldCount = others.reduce((n, c) => n + c.devices, 0);
+  return el('section', { class: 'panel', 'aria-label': '中转地址' },
+    el('h2', {}, '中转地址'),
+    el('p', { class: 'hint' }, '换中转服务器（frp）时用：先把新中转配好，在这里填新地址。服务器会先检查新地址是不是连到自己，再通知所有在线的客户端切过去。'),
+    el('dl', { class: 'info' },
+      info('现在的地址', el('code', {}, r.current)),
+      info('还在用旧地址的设备', oldCount ? others.map((c) => c.address + '：' + c.devices + ' 台').join('，') : '没有'),
+      r.previous && r.previous.length ? info('以前用过', r.previous.join('，')) : null),
+    el('div', { class: 'row' }, input, testBtn, moveBtn),
+    result);
 }
 
 function fact(k, v) { return el('div', {}, el('dt', {}, k), el('dd', {}, v)); }
@@ -491,10 +548,12 @@ async function renderUsers(root, page) {
         el('td', {},
           u.banned
             ? [el('span', { class: 'tag bad' }, '已封禁'), el('span', { class: 'sub' }, u.ban_reason)]
+            : u.left_at ? [el('span', { class: 'tag warn' }, '已退出服务器'), el('span', { class: 'sub' }, fmtTime(u.left_at) + '，要新的邀请码才能回来')]
             : u.online ? el('span', { class: 'online' }, '在线') : el('span', { class: 'muted' }, fmtAgo(u.last_seen))),
         el('td', {}, fmtTime(u.created_at)),
         el('td', { class: 'actions' },
           el('button', { class: 'btn small ghost', onclick: () => showLogins(u) }, '登录记录'),
+          el('button', { class: 'btn small ghost', onclick: () => clearProfile(u) }, '清空主页'),
           el('button', { class: 'btn small ghost', onclick: () => resetPassword(u) }, '重置密码'),
           el('button', { class: 'btn small ghost', onclick: () => toggleAdmin(u) }, u.is_site_admin ? '取消管理员' : '设为管理员'),
           u.banned
@@ -525,6 +584,16 @@ async function renderUsers(root, page) {
     if (!ok) return;
     try { await api('POST', 'users/' + u.id + '/admin', { admin: on }); toast('已更新'); load(); } catch (e) { fail(e); }
   }
+  async function clearProfile(u) {
+    const ok = await confirmDialog({
+      title: '清空 ' + u.display_name + ' 的个人主页',
+      text: '主页上的小组件全部移除（有违规内容时用）。原来的布局会作为旧版本保留一段时间，到期自动清除。会记入操作记录。',
+      ok: '清空主页',
+    });
+    if (!ok) return;
+    try { await api('POST', 'users/' + u.id + '/clear-profile'); toast('已清空 ' + u.display_name + ' 的主页'); } catch (e) { fail(e); }
+  }
+
   async function resetPassword(u) {
     const ok = await confirmDialog({
       title: '重置 ' + u.display_name + ' 的密码',
@@ -617,6 +686,102 @@ async function renderInvites(root, page) {
   load();
 }
 
+// ---------- channel history ----------
+
+let channelQuery = '';
+let channelPage = 1;
+
+// #/channels lists every channel (public and private); #/channels/<id>
+// shows one channel's messages, read-only. Direct messages are never shown.
+async function renderChannels(root, page) {
+  root.append(stateBanner() || '');
+  const id = (location.hash.match(/^#\/channels\/(\d+)/) || [])[1];
+  if (id) return renderChannel(root, page, id);
+  const search = el('input', { type: 'search', placeholder: '搜索频道名', value: channelQuery, 'aria-label': '搜索频道' });
+  let t;
+  search.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { channelQuery = search.value.trim(); channelPage = 1; load(); }, 250);
+  });
+  const box = el('div');
+  root.append(head('频道记录', '所有频道（公开和私密）的聊天记录，只能看不能改。私信看不到。打开某个频道会记入操作记录。', search), box);
+  async function load() {
+    let data;
+    try { data = await api('GET', 'channels?q=' + encodeURIComponent(channelQuery) + '&page=' + channelPage); } catch (e) { fail(e); return; }
+    if (currentPage !== page) return;
+    if (!data.items.length) {
+      box.replaceChildren(el('div', { class: 'table-wrap' }, el('p', { class: 'empty' }, channelQuery ? '没有找到匹配的频道' : '还没有频道。')));
+      return;
+    }
+    box.replaceChildren(el('div', { class: 'table-wrap' }, el('table', {},
+      el('thead', {}, el('tr', {}, ['频道', '人数', '记录数', '创建时间', ''].map((h) => el('th', {}, h)))),
+      el('tbody', {}, data.items.map((c) => el('tr', {},
+        el('td', {},
+          el('b', {}, c.name),
+          el('span', { class: 'tag' + (c.public ? '' : ' warn') }, c.public ? '公开' : '私密'),
+          c.dissolved && el('span', { class: 'tag bad' }, '已解散'),
+          c.owner_name && el('span', { class: 'sub' }, '频道主：' + c.owner_name)),
+        el('td', {}, c.members),
+        el('td', {}, c.messages),
+        el('td', {}, fmtTime(c.created_at)),
+        el('td', { class: 'actions' }, el('a', { class: 'btn small ghost', href: '#/channels/' + c.id }, '查看记录'))))))),
+    pager(data.total, data.page_size, channelPage, (p) => { channelPage = p; load(); }));
+  }
+  load();
+}
+
+async function renderChannel(root, page, id) {
+  const title = el('h1', {}, '频道记录');
+  const tags = el('span');
+  root.append(el('div', { class: 'page-head' },
+    el('div', {}, el('a', { class: 'back', href: '#/channels' }, '← 所有频道'), el('div', { class: 'row' }, title, tags),
+      el('p', {}, '只读。打开这个频道已记入操作记录。')),
+  ));
+  const list = el('div', { class: 'history' });
+  const more = el('button', { class: 'btn small ghost', onclick: () => load(before) }, '加载更早的消息');
+  const top = el('div', { class: 'history-top' });
+  root.append(el('div', { class: 'panel' }, top, list));
+  let before = 0;
+  async function load(from) {
+    more.disabled = true;
+    let data;
+    try { data = await api('GET', 'channels/' + id + '/events' + (from ? '?before=' + from : '')); } catch (e) { fail(e); more.disabled = false; return; }
+    if (currentPage !== page) return;
+    if (!from) {
+      title.textContent = data.channel.name;
+      tags.replaceChildren(el('span', { class: 'tag' + (data.channel.public ? '' : ' warn') }, data.channel.public ? '公开' : '私密'),
+        data.channel.dissolved ? el('span', { class: 'tag bad' }, '已解散') : '');
+    }
+    before = data.before;
+    const rows = data.items.map(historyItem);
+    if (!from && !rows.length) rows.push(el('p', { class: 'empty' }, '这个频道还没有消息。'));
+    const keep = list.scrollHeight - list.scrollTop;
+    list.prepend(...rows);
+    if (from) list.scrollTop = list.scrollHeight - keep; else list.scrollTop = list.scrollHeight;
+    more.disabled = false;
+    top.replaceChildren(before ? more : el('span', { class: 'muted' }, '已经到最早的消息了'));
+  }
+  load(0);
+}
+
+function historyItem(x) {
+  if (x.kind === 'sys') return el('div', { class: 'h-sys' }, x.text, ' · ', fmtTime(x.at));
+  let content;
+  if (x.kind === 'text') content = x.text;
+  else if (x.kind === 'image') content = el('a', { href: 'api/media/' + x.media_id, target: '_blank', rel: 'noopener' },
+    el('img', { src: 'api/media/' + x.media_id + '?thumb=1', alt: '图片', loading: 'lazy' }));
+  else if (x.kind === 'file') content = ['[文件] ', el('a', { href: 'api/media/' + x.media_id }, x.file_name), ' ', fmtBytes(x.file_size || 0)];
+  else if (x.kind === 'deleted') content = el('span', { class: 'muted' }, '已被 ' + x.deleted_by + ' 删除，原因：' + x.reason + '（原内容在「删除记录」里）');
+  const avatar = x.sender_avatar
+    ? el('img', { class: 'h-avatar', src: 'api/media/' + x.sender_avatar + '?thumb=1', alt: '' })
+    : el('span', { class: 'h-avatar' }, (x.sender_name || '?').slice(0, 1));
+  return el('div', { class: 'h-msg' }, avatar,
+    el('div', {},
+      el('div', { class: 'h-meta' }, el('b', {}, x.sender_name), ' ', el('span', { class: 'muted' }, fmtTime(x.at)),
+        x.struck && el('span', { class: 'tag warn' }, '已划掉')),
+      el('div', { class: 'h-body' + (x.struck ? ' struck' : '') }, content)));
+}
+
 // ---------- evidence ----------
 
 async function renderEvidence(root, page) {
@@ -660,7 +825,8 @@ const AUDIT_TEXT = {
   admin_delete: '删除了一条消息', kick: '把人移出了群', mute: '禁言了', transfer: '转让了群',
   dissolve: '解散了群', ban: '封禁了', unban: '解封了', site_admin_grant: '设为站点管理员：',
   site_admin_remove: '取消了站点管理员：', password_reset: '重置了密码：', invite_create: '生成了邀请码',
-  invite_delete: '作废了邀请码',
+  invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录', server_profile: '修改了服务器主页设置',
+  server_layout: '修改了服务器主页的小组件', profile_clear: '清空了个人主页：', guestbook_delete: '删除了一条留言',
 };
 
 async function renderAudit(root, page) {
@@ -683,7 +849,7 @@ async function renderAudit(root, page) {
         el('td', {}, fmtTime(x.at)),
         el('td', {}, x.actor_id ? x.actor_name || '(已不存在)' : el('span', { class: 'tag' }, '管理面板')),
         el('td', {}, (AUDIT_TEXT[x.action] || x.action) + ' ', x.target_name && el('b', {}, x.target_name),
-          x.conv_name && el('span', { class: 'sub' }, '群「' + x.conv_name + '」')),
+          x.conv_name && el('span', { class: 'sub' }, '频道「' + x.conv_name + '」')),
         el('td', { class: 'muted' }, auditDetail(x))))))),
     pager(data.total, data.page_size, pageNo, (p) => { pageNo = p; load(); }));
   }
@@ -751,6 +917,9 @@ const SETTINGS = [
     { k: 'limits.max_group_members', label: '群人数上限', type: 'int', min: 2 },
     { k: 'limits.max_upload_mb', label: '单个文件最大（MB）', type: 'int', min: 1 },
     { k: 'limits.login_attempts_per_minute', label: '每个 IP 每分钟登录次数', help: '防止有人猜密码，0 表示不限', type: 'int', min: 0 },
+    { k: 'limits.max_devices', label: '每个账号最多登录几台设备', help: '电脑、手机都算，bot / AI 账号不算。满了以后要先在一台设备上退出才能登录新设备。0 表示不限', type: 'int', min: 0, max: 50 },
+    { k: 'limits.pair_code_minutes', label: '添加新设备的登录码有效几分钟', type: 'int', min: 1, max: 60 },
+    { k: 'limits.max_ai_per_user', label: '每人最多建几个 AI', help: 'AI 在主人自己的电脑上运行，用主人的 key', type: 'int', min: 0, max: 50 },
   ] },
   { title: '留存', items: [
     { k: 'retention.evidence_days', label: '删除记录保留天数', help: '被删除消息的原内容保留多久，法规要求至少 180 天', type: 'int', min: 1, warnBelow: 180 },
@@ -767,6 +936,68 @@ const SETTINGS = [
     { k: 'log.level', label: '日志详细程度', type: 'select', options: [['debug', '调试（最详细）'], ['info', '普通'], ['warn', '只看警告'], ['error', '只看错误']] },
   ] },
 ];
+
+// Server profile (shown in the client when you click the server's avatar):
+// icon, description and who may edit the widgets. Saved in the database and
+// applied at once, no restart.
+function serverProfilePanel(page) {
+  const box = el('section', { class: 'panel', 'aria-label': '服务器主页' }, el('h2', {}, '服务器主页'),
+    el('p', { class: 'hint' }, '大家在客户端点服务器头像会看到这个主页。这里的改动立即生效，不用重启。'));
+  load();
+  return box;
+
+  async function load() {
+    let data;
+    try { data = await api('GET', 'server-profile'); } catch (e) { box.append(el('p', { class: 'muted' }, e.message)); return; }
+    if (currentPage !== page) return;
+    const p = data.settings;
+    const icon = data.icon_version
+      ? el('img', { class: 'server-icon', src: 'api/server-icon?v=' + data.icon_version, alt: '服务器图标' })
+      : el('span', { class: 'server-icon empty' }, '无图标');
+    const file = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: () => file.files[0] && upload(file.files[0]) });
+    const desc = el('textarea', { rows: 4, maxlength: 500, id: 'set-profile-desc', placeholder: '介绍一下这个服务器' });
+    desc.value = p.description;
+    const editors = el('select', { id: 'set-profile-layout' },
+      [['admins', '仅管理员'], ['everyone', '所有人']].map(([v, t]) => el('option', { value: v, selected: v === p.layout_editors }, t)));
+    const widget = el('input', { type: 'checkbox', checked: p.widget_content_editable, id: 'set-profile-widget' });
+    const row = (id, label, help, ctl) => el('div', { class: 'setting' },
+      el('div', { class: 'lbl' }, el('label', { for: id }, el('b', {}, label)), help && el('span', {}, help)),
+      el('div', { class: 'ctl' }, ctl));
+    box.replaceChildren(box.firstChild, box.children[1],
+      el('div', { class: 'setting' },
+        el('div', { class: 'lbl' }, el('b', {}, '服务器图标'), el('span', {}, '显示在客户端的服务器列表和主页上。会缩到 256 像素以内，最大 2 MB。')),
+        el('div', { class: 'ctl row' }, icon, file,
+          el('button', { class: 'btn small', type: 'button', onclick: () => file.click() }, '上传'),
+          data.icon_version ? el('button', { class: 'btn small ghost', type: 'button', onclick: removeIcon }, '删除') : '')),
+      row('set-profile-desc', '简介', '最多 500 字', desc),
+      row('set-profile-layout', '谁能改布局', '摆放、增删主页上的小组件', editors),
+      row('set-profile-widget', '成员能改小组件内容', '只改内容，不能改类型和位置。打开后可以给每个小组件单独设权限（小组件下一批上线）',
+        el('label', { class: 'check' }, widget, el('span', {}, '开启'))),
+      el('div', { class: 'row' }, el('button', { class: 'btn primary', type: 'button', onclick: save }, '保存主页设置')));
+
+    async function save() {
+      try {
+        await api('PUT', 'server-profile', { description: desc.value.trim(), layout_editors: editors.value, widget_content_editable: widget.checked });
+        toast('主页设置已保存');
+      } catch (e) { fail(e); }
+    }
+  }
+
+  async function upload(f) {
+    if (f.size > 2 << 20) { toast('图片太大了（最多 2 MB）', true); return; }
+    const data = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(f);
+    });
+    try { await api('PUT', 'server-icon', { data }); toast('图标已更新'); load(); } catch (e) { fail(e); }
+  }
+
+  async function removeIcon() {
+    try { await api('DELETE', 'server-icon'); toast('图标已删除'); load(); } catch (e) { fail(e); }
+  }
+}
 
 async function renderSettings(root, page) {
   root.append(stateBanner() || '');
@@ -822,6 +1053,7 @@ async function renderSettings(root, page) {
   } else {
     root.append(el('div', { class: 'banner err' }, el('p', {}, loadErr.message)));
   }
+  root.append(serverProfilePanel(page));
 
   // Raw config.toml editor for everything else (database, TLS, ...).
   const ta = el('textarea', { rows: 24, spellcheck: 'false', 'aria-label': 'config.toml' });

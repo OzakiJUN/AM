@@ -42,18 +42,20 @@ func (q *Queries) GetMedia(ctx context.Context, id int64) (*Media, error) {
 }
 
 // CanAccessMedia reports whether a user may download a media item: they
-// uploaded it, it is someone's avatar, it is the avatar of a group they are
-// in, or it is in a visible message of a conversation they are in.
+// uploaded it, it is someone's avatar or on a profile page, it is the avatar
+// of a group they are in, or it is in a visible message of a conversation
+// they are in.
 func (q *Queries) CanAccessMedia(ctx context.Context, mediaID, userID int64) (bool, error) {
 	var n int
 	err := q.queryRow(ctx, `SELECT
 		(SELECT count(*) FROM media WHERE id=? AND uploader_id=?) +
 		(SELECT count(*) FROM users WHERE avatar_media_id=?) +
+		(SELECT count(*) FROM profile_media WHERE media_id=?) +
 		(SELECT count(*) FROM conversations c JOIN conv_members m ON m.conv_id=c.id AND m.user_id=?
 			WHERE c.avatar_media_id=?) +
 		(SELECT count(*) FROM events e JOIN conv_members m ON m.conv_id=e.conv_id AND m.user_id=?
 			WHERE e.media_id=? AND e.redacted_by IS NULL)`,
-		mediaID, userID, mediaID, userID, mediaID, userID, mediaID).Scan(&n)
+		mediaID, userID, mediaID, mediaID, userID, mediaID, userID, mediaID).Scan(&n)
 	return n > 0, err
 }
 
@@ -64,6 +66,7 @@ func (q *Queries) UnreferencedMedia(ctx context.Context, before int64, limit int
 		AND NOT EXISTS (SELECT 1 FROM events e WHERE e.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM evidence ev WHERE ev.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM users u WHERE u.avatar_media_id = md.id)
+		AND NOT EXISTS (SELECT 1 FROM profile_media pm WHERE pm.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.avatar_media_id = md.id)
 		LIMIT ?`, before, limit)
 	if err != nil {
