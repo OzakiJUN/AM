@@ -14,6 +14,18 @@ export const ACCENTS: { name: string; color: string }[] = [
   { name: '朝阳蓝', color: '#2f4fa8' },
 ];
 
+/** frosted = blurred and a little more colourful; clear = plain glass; tinted = glass with the accent colour; solid = no glass. */
+export type GlassStyle = 'frosted' | 'clear' | 'tinted' | 'solid';
+
+export const GLASS_STYLES: { value: GlassStyle; label: string }[] = [
+  { value: 'frosted', label: '磨砂' },
+  { value: 'clear', label: '清透' },
+  { value: 'tinted', label: '染色' },
+  { value: 'solid', label: '不透明' },
+];
+
+export const GLASS_DEFAULTS = { glassStyle: 'frosted' as GlassStyle, glassOpacity: 0.74, glassBlur: 22 };
+
 export interface ThemeState {
   mode: Mode;
   accent: string;
@@ -25,6 +37,12 @@ export interface ThemeState {
   bgDim: number;
   /** Font size multiplier (0.85–1.25). */
   fontScale: number;
+  /** Look of the panels on the background (styles.css `glass`). */
+  glassStyle: GlassStyle;
+  /** How opaque the panels are (0.2–1): lower shows more background, higher keeps text easy to read. */
+  glassOpacity: number;
+  /** Blur behind the panels in px (0–40). */
+  glassBlur: number;
   set: (patch: Partial<Omit<ThemeState, 'set'>>) => void;
 }
 
@@ -37,6 +55,7 @@ export const useTheme = create<ThemeState>()(
       bgBlur: 0,
       bgDim: 0.25,
       fontScale: 1,
+      ...GLASS_DEFAULTS,
       set: (patch) => set(patch),
     }),
     { name: 'am-theme' },
@@ -56,6 +75,23 @@ export function applyTheme(t: ThemeState) {
   root.style.setProperty('--font-scale', String(t.fontScale));
   root.style.setProperty('--bg-blur', `${t.bgBlur}px`);
   root.style.setProperty('--bg-dim', String(t.bgDim));
+  for (const [k, v] of Object.entries(glassVars(t))) root.style.setProperty(k, v);
+}
+
+/** CSS variables for the panels (pure; styles.css `glass` / `glass-strong` read them). */
+export function glassVars(t: Pick<ThemeState, 'glassStyle' | 'glassOpacity' | 'glassBlur'>): Record<string, string> {
+  const style = t.glassStyle ?? GLASS_DEFAULTS.glassStyle;
+  const solid = style === 'solid';
+  const a = solid ? 1 : Math.min(1, Math.max(0.2, t.glassOpacity ?? GLASS_DEFAULTS.glassOpacity));
+  const blur = solid ? 0 : Math.min(40, Math.max(0, t.glassBlur ?? GLASS_DEFAULTS.glassBlur));
+  return {
+    '--glass-a': a.toFixed(2),
+    // Dialogs and menus stay a bit more solid than the panels.
+    '--glass-a-strong': Math.min(1, a + 0.16).toFixed(2),
+    '--glass-blur': `${blur}px`,
+    '--glass-sat': style === 'frosted' ? '1.4' : '1',
+    '--glass-tint': style === 'tinted' ? '14%' : '0%',
+  };
 }
 
 export function watchTheme() {

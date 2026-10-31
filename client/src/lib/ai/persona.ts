@@ -137,7 +137,7 @@ export function parseSettings(json: string): AISettings {
 export function systemPrompt(o: { name: string; owner: string; persona: Persona; now: Date }): string {
   const p = o.persona;
   return [
-    `你的名字是「${o.name}」，你是「${o.owner}」的 AI，在一个叫 AM 的聊天软件里和人聊天。`,
+    `你叫「${o.name}」（这是主人给你起的名字，别人问起就这么说），你是「${o.owner}」的 AI，在一个叫 AM 的聊天软件里和人聊天。`,
     p.intro && `你是：${p.intro}`,
     p.system,
     p.examples && `说话的样子参考：\n${p.examples}`,
@@ -164,6 +164,7 @@ export function toChat(msgs: { fromAI: boolean; who: string; text: string }[], g
 /** What to show while a reply streams in: the mood tag hidden, also when it is only half there. */
 export function previewText(partial: string): string {
   const t = partial.trimStart();
-  if (t.startsWith('[') && !t.includes(']') && t.length < 24) return '';
-  return splitMoodTag(partial).text;
+  if ((t.startsWith('[') || t.startsWith('【')) && !/[\]】]/.test(t) && t.length < 24) return '';
+  // A tag still arriving at the end ("…好呀 [mood:la") stays hidden too.
+  return splitMoodTag(partial).text.replace(/\s*[[【][^\]】]{0,20}$/, '');
 }

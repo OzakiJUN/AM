@@ -17,6 +17,8 @@ export interface User {
   avatarStatic?: string;
   /** Personal signature (profile page). */
   bio: string;
+  /** Left the server, banned, or (bot / AI) deleted by its owner. */
+  gone?: boolean;
 }
 
 export type ActivityKind = 'listening' | 'playing' | 'tuning_ai' | 'working' | 'custom';

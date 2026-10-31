@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { KeyRound, PanelLeftClose, Plus, Sparkles } from 'lucide-react';
 import { listTime } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
-import { isBotConv, openConv, useOpenConv } from '@/lib/store';
+import { isBotConv, isDeletedBotConv, openConv, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, User } from '@/lib/types';
 import { Button, IconButton, IdentityChip, cx, spring } from '@/ui';
@@ -35,7 +35,7 @@ function AIList({ v }: { v: SessionView }) {
   const setPrefs = usePrefs((p) => p.set);
   const { mine, added } = useMemo(() => {
     const rows: Row[] = Object.values(v.convs)
-      .filter((c) => isBotConv(c, v.users))
+      .filter((c) => isBotConv(c, v.users) && !isDeletedBotConv(c, v.users))
       .map((c) => ({ conv: c, peer: v.users[c.peerId!] }))
       .sort((a, b) => b.conv.lastTime - a.conv.lastTime || b.conv.lastSeq - a.conv.lastSeq);
     return { mine: rows.filter((r) => r.peer.ownerId === v.me?.id), added: rows.filter((r) => r.peer.ownerId !== v.me?.id) };

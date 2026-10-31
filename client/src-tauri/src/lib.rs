@@ -196,6 +196,49 @@ fn mcp_stop(prefix: String) {
     mcp::stop(&prefix);
 }
 
+/// Closing the window: hide it to the tray (default; AIs run by this device
+/// stay online) or quit. Set from the UI's settings at start and on change.
+static CLOSE_TO_TRAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+#[tauri::command]
+fn set_close_to_tray(on: bool) {
+    CLOSE_TO_TRAY.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn show_main(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+/// Tray icon: click to open the window, menu to open or quit.
+#[cfg(desktop)]
+fn tray(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+    let open = MenuItem::with_id(app, "open", "打开 AM", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let mut b = TrayIconBuilder::with_id("main").tooltip("AM").menu(&menu).show_menu_on_left_click(false);
+    if let Some(icon) = app.default_window_icon() {
+        b = b.icon(icon.clone());
+    }
+    b.on_menu_event(|app, ev| match ev.id().as_ref() {
+        "open" => show_main(app),
+        "quit" => app.exit(0),
+        _ => {}
+    })
+    .on_tray_icon_event(|t, ev| {
+        if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = ev {
+            show_main(t.app_handle());
+        }
+    })
+    .build(app)?;
+    Ok(())
+}
+
 /// F12 stops every AI that is operating the computer. Only held while one
 /// is (games and other programs keep F12 the rest of the time).
 #[tauri::command]
@@ -282,13 +325,15 @@ pub fn run() {
     #[cfg(desktop)]
     {
         // A second start just brings the existing window to the front.
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.unminimize();
-                let _ = w.show();
-                let _ = w.set_focus();
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)));
+        builder = builder.setup(|app| Ok(tray(app)?)).on_window_event(|w, ev| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
+                if w.label() == "main" && CLOSE_TO_TRAY.load(std::sync::atomic::Ordering::Relaxed) {
+                    api.prevent_close();
+                    let _ = w.hide();
+                }
             }
-        }));
+        });
         builder = builder.plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
@@ -334,7 +379,7 @@ pub fn run() {
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, mcp_tools, mcp_call, mcp_stop, ws_open, ws_send, ws_close
+            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, ws_open, ws_send, ws_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

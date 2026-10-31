@@ -75,7 +75,8 @@ export function Avatar({ src, name, size = 40, status, statusAt = 'bottom', emoj
           style={{ width: dot, height: dot }}
         >
           {rich && (emoji
-            ? <span className="leading-none select-none" style={{ fontSize: dot * 0.6 }} aria-hidden>{emoji}</span>
+            // SVG text centres on the em box: a <span> sits high or low depending on the emoji font's metrics.
+            ? <svg viewBox="0 0 20 20" width={dot * 0.72} height={dot * 0.72} className="select-none" aria-hidden><text x="10" y="10" textAnchor="middle" dominantBaseline="central" fontSize="16" fontFamily="'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif">{emoji}</text></svg>
             : <svg viewBox="0 0 12 12" width={dot * 0.62} height={dot * 0.62} aria-hidden><path d="M2.5 6.3l2.3 2.2 4.7-5" fill="none" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>)}
         </span>
       )}
@@ -583,3 +584,4 @@ export function Empty({ icon, title, text, children }: { icon?: ReactNode; title
     </div>
   );
 }
+export { ColorButton, ColorPicker } from './ColorPicker';

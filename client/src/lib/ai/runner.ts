@@ -254,6 +254,7 @@ async function reply(run: Run, convId: string) {
     const agentKey = errKey;
     const mcp = await loadMcpTools(comp, agentKey);
     const tools = toolsFor(comp, mcp.defs);
+    // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
     if (tools.length) system += '\n\n' + computerPrompt(comp, speaker);
     if (mcp.errors.length) system += '\n\n这些 MCP 工具服务没启动成功（需要时告诉对方）：\n' + mcp.errors.join('\n');

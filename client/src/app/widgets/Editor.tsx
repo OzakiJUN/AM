@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { current } from '@/lib/store';
 import { GRADIENTS, KINDS, STAT_ITEMS, kindInfo, neteasePlaylistId, type KindInfo, type ProfileKind } from '@/lib/widgetKinds';
 import { MAX_PAGES, MAX_SIDE, type Background, type WidgetModel } from '@/lib/widgets';
-import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, cx, inputClass, toastError } from '@/ui';
+import { Button, ColorButton, Dialog, Field, Input, Segmented, Slider, Spinner, cx, inputClass, toastError } from '@/ui';
 import { mediaPath, useMediaUrl } from '../media';
 
 type Config = Record<string, unknown>;
@@ -327,7 +327,11 @@ export function BackgroundDialog({ open, value, onClose, onApply }: { open: bool
           </div>
         )}
         {bg.kind === 'color' && (
-          <Field label="颜色"><input type="color" value={bg.value || '#f7d6e6'} onChange={(e) => setBg({ ...bg, value: e.target.value })} className="h-11 w-24 cursor-pointer rounded-xl border-0 bg-transparent" /></Field>
+          <Field label="颜色">
+            <ColorButton label="背景颜色" value={bg.value || '#f7d6e6'} onChange={(value) => setBg({ ...bg, value })}
+              presets={['#f7d6e6', '#e8defc', '#d8ecfb', '#d7f3ea', '#fde6cf', '#f4f4f5', '#1e1b36', '#2b2440']}
+              className="press flex h-11 w-24 items-center justify-center rounded-xl shadow-[inset_0_0_0_1px_rgb(0_0_0/0.08)]" style={{ background: bg.value || '#f7d6e6' }} />
+          </Field>
         )}
         {bg.kind === 'image' && (
           <>

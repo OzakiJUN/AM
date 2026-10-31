@@ -26,6 +26,7 @@ func User(u *store.User, owners map[int64]*store.User) *amv1.User {
 		AccountType: amv1.AccountType(u.AccountType),
 		OwnerId:     u.OwnerID,
 		Bio:         u.Bio,
+		Gone:        u.Gone(),
 	}
 	if u.AvatarMediaID != 0 {
 		out.Avatar = MediaURL(u.AvatarMediaID)

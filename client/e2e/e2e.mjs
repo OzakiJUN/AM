@@ -98,6 +98,8 @@ const pages = [];
   await A.click('button[aria-label="频道"]');
   await A.click('aside button:has-text("大厅")');
   await A.waitForSelector('text=小克 加入了频道');
+  // A's member list picked up the newcomer without reloading.
+  await A.waitForSelector('header >> text=公开频道 · 2 人');
   await A.fill('textarea[aria-label="消息"]', '欢迎来到大厅～');
   await A.press('textarea[aria-label="消息"]', 'Enter');
   await B.click('aside button:has-text("大厅")');
@@ -268,6 +270,24 @@ const pages = [];
   await A.click('button[aria-label="设置"]');
   await wait(700);
   await shot(A, '11-settings');
+  // Our own colour picker: type a colour, the accent follows; Esc closes it.
+  await A.click('button[aria-label="自定义颜色"]');
+  await A.fill('div[role="dialog"][aria-label="自定义颜色"] input[aria-label="颜色代码"]', '#1fae93');
+  if ((await A.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())) !== '#1fae93') throw new Error('accent not set from the picker');
+  await wait(400);
+  await shot(A, '11b-color-picker');
+  await A.keyboard.press('Escape');
+  await A.waitForSelector('div[role="dialog"][aria-label="自定义颜色"]', { state: 'detached' });
+  await A.click('button[aria-label="樱粉"]');
+  // Panel glass: style and transparency end up in the CSS variables.
+  await A.click('button[role="radio"]:has-text("染色")');
+  if ((await A.evaluate(() => document.documentElement.style.getPropertyValue('--glass-tint'))) !== '14%') throw new Error('glass style not applied');
+  await A.click('button[role="radio"]:has-text("磨砂")');
+  // The workshop page is there, saying it is not ready yet.
+  await A.click('button[aria-label="创意工坊"]');
+  await A.waitForSelector('text=暂时还不能用');
+  await wait(500);
+  await shot(A, '11c-workshop');
 
   // Server list -> server profile.
   await A.click('button[aria-label="频道"]');
@@ -485,6 +505,13 @@ const pages = [];
   await A.click('div[role="dialog"] button[role="radio"]:has-text("电脑")');
   await A.waitForSelector('div[role="group"][aria-label="MCP 文件系统"]');
   await A.keyboard.press('Escape');
+
+  // Deleting my AI from its chat header: gone from the AI list.
+  if (await A.locator('header button[aria-label="屏蔽"]').count()) throw new Error('block button on my own AI');
+  await A.click('header button[aria-label="删除 AI"]');
+  await A.click('div[role="dialog"] button:has-text("删除")');
+  await A.waitForSelector('text=已删除');
+  await A.waitForSelector('aside button:has-text("小鱼")', { state: 'detached' });
 
   await b.close();
   mock.close();

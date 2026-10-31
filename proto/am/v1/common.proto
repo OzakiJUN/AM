@@ -30,6 +30,9 @@ message User {
   string avatar_static = 8;
   // Personal signature shown on the profile page (at most 100 characters).
   string bio = 9;
+  // The account is gone: left the server, banned, or (bot / ai) deleted by
+  // its owner. Old messages still show it; lists hide deleted bots / AIs.
+  bool gone = 10;
 }
 
 // What a user says they are doing. Chosen by the user; shown next to their

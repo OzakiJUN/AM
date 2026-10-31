@@ -259,7 +259,10 @@ type User struct {
 	// only the profile page plays the animated `avatar`.
 	AvatarStatic string `protobuf:"bytes,8,opt,name=avatar_static,json=avatarStatic,proto3" json:"avatar_static,omitempty"`
 	// Personal signature shown on the profile page (at most 100 characters).
-	Bio           string `protobuf:"bytes,9,opt,name=bio,proto3" json:"bio,omitempty"`
+	Bio string `protobuf:"bytes,9,opt,name=bio,proto3" json:"bio,omitempty"`
+	// The account is gone: left the server, banned, or (bot / ai) deleted by
+	// its owner. Old messages still show it; lists hide deleted bots / AIs.
+	Gone          bool `protobuf:"varint,10,opt,name=gone,proto3" json:"gone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -355,6 +358,13 @@ func (x *User) GetBio() string {
 		return x.Bio
 	}
 	return ""
+}
+
+func (x *User) GetGone() bool {
+	if x != nil {
+		return x.Gone
+	}
+	return false
 }
 
 type Activity struct {
@@ -765,7 +775,7 @@ var File_am_v1_common_proto protoreflect.FileDescriptor
 
 const file_am_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x12am/v1/common.proto\x12\x05am.v1\"\xa4\x02\n" +
+	"\x12am/v1/common.proto\x12\x05am.v1\"\xb8\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12!\n" +
@@ -775,7 +785,9 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\bowner_id\x18\x06 \x01(\x03R\aownerId\x12,\n" +
 	"\x12owner_display_name\x18\a \x01(\tR\x10ownerDisplayName\x12#\n" +
 	"\ravatar_static\x18\b \x01(\tR\favatarStatic\x12\x10\n" +
-	"\x03bio\x18\t \x01(\tR\x03bio\"G\n" +
+	"\x03bio\x18\t \x01(\tR\x03bio\x12\x12\n" +
+	"\x04gone\x18\n" +
+	" \x01(\bR\x04gone\"G\n" +
 	"\bActivity\x12'\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x13.am.v1.ActivityKindR\x04kind\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\"\x86\x01\n" +

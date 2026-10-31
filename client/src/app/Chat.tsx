@@ -7,7 +7,7 @@ import {
 import { chatTime, fileSize } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
-import { current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
+import { closeConv, current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message } from '@/lib/types';
 import { copyText } from '@/lib/platform';
@@ -16,7 +16,7 @@ import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton } from './Portrait';
-import { AISettingsDialog } from './AISettings';
+import { AISettingsDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
 import { MOODS, type Mood } from '@/lib/portraits';
 
@@ -82,9 +82,10 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
               <IconButton label={membersFolded ? '展开成员列表' : '收起成员列表'} active={!membersFolded} onClick={() => setPrefs({ membersFolded: !membersFolded })}><PanelRight size={19} /></IconButton>
             </>
           )}
-          {!group && peer && (
+          {!group && peer && !myAI && (
             <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
           )}
+          {myAI && <IconButton label="删除 AI" onClick={() => askDeleteAI(v.id, peer.id, () => closeConv('ai', v.id))}><Trash2 size={18} /></IconButton>}
           {myAI && <IconButton label="AI 设置" onClick={() => setAIOpen(true)}><Settings2 size={19} /></IconButton>}
           {ai && peer && <PortraitPosButton />}
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} />}

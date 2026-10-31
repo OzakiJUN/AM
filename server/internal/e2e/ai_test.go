@@ -46,6 +46,16 @@ func testAIAccounts(t *testing.T, a *app.App, base string) {
 	if u := must(owner.cli.UpdateAI(ctx, ai.User.Id, &amv1.UpdateProfileRequest{Bio: ptr("一条小鱼")})); u.Bio != "一条小鱼" {
 		t.Fatal("bio not set")
 	}
+	// Its profile page is the owner's to edit, not other people's.
+	page := &amv1.ProfileLayout{Widgets: []*amv1.Widget{widget("t1", "text", 2, 1, 0, 0, 0, `{"title":"小鱼","text":"喵"}`)}}
+	if v := must(owner.cli.SaveProfile(ctx, ai.User.Id, page, 0)); !v.CanEditLayout || v.Layout.Version != 1 {
+		t.Fatalf("owner saving the AI's page: %+v", v)
+	}
+	_, err = bob.cli.SaveProfile(ctx, ai.User.Id, page, 1)
+	wantCode(t, err, "no_permission")
+	if must(bob.cli.GetProfile(ctx, ai.User.Id)).CanEditLayout {
+		t.Fatal("bob may edit the AI's page")
+	}
 
 	// Running: a device logs in as the AI; running it on another device ends the first.
 	runner := amclient.New(base, nil)

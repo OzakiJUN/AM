@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Hash, KeyRound, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, UserRound } from 'lucide-react';
+import { Hash, KeyRound, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, Store, UserRound } from 'lucide-react';
+import { WorkshopPage } from './Workshop';
 import { current, openProfile, useApp, useCurrent, type Page } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
@@ -24,7 +25,8 @@ export function Shell() {
   const v = useCurrent();
   useOfferToast();
   let content;
-  if (!v) content = page === 'settings' ? <SettingsPage /> : <NoServer />;
+  if (page === 'workshop') content = <WorkshopPage />;
+  else if (!v) content = page === 'settings' ? <SettingsPage /> : <NoServer />;
   else if (v.status === 'logged_out' && page !== 'settings') content = <LoginAgain v={v} />;
   else if (page === 'channels' || page === 'dms') content = <><ConvList v={v} page={page} /><ChatView v={v} page={page} /></>;
   else if (page === 'ai') content = <AIPage v={v} />;
@@ -89,6 +91,7 @@ function NavBar({ v }: { v?: SessionView }) {
       {item('channels', '频道', Hash, unread(v, 'channels'))}
       {item('dms', '私信', MessageCircle, unread(v, 'dms'))}
       {item('ai', 'AI', Sparkles, unread(v, 'ai'))}
+      {item('workshop', '创意工坊', Store)}
       <div className="flex-1" />
       {item('account', '账号设置', UserRound)}
       {item('settings', '设置', Settings)}

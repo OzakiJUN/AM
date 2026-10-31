@@ -26,5 +26,6 @@ assert.deepEqual(toChat([{ fromAI: false, who: '小克', text: '嗨' }], true), 
 assert.equal(previewText('[mood:ha'), '');
 assert.equal(previewText('[mood:happy] 你好'), '你好');
 assert.equal(previewText('没有标签'), '没有标签');
+assert.equal(previewText('好呀 [mood:la'), '好呀');
 
 console.log('ai persona ok');

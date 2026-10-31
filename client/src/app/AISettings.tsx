@@ -2,7 +2,7 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, Folder, ImageUp, KeyRound, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Cpu, Folder, ImageUp, KeyRound, LayoutGrid, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
 import { CATEGORY_LABEL } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
@@ -15,7 +15,7 @@ import { newProviderId, putProvider, removeProvider, useProviders } from '@/lib/
 import { TEMPLATES, defaultSettings, type AISettings } from '@/lib/ai/persona';
 import { KIND_LABEL, PRESETS, buildRequest, errorOf, streamReader, type Provider, type ProviderKind } from '@/lib/ai/providers';
 import { aiSettings, refreshAIs, runHere, saveSettings, useAI } from '@/lib/ai/runner';
-import { openConv, session, useApp } from '@/lib/store';
+import { openConv, openProfile, session, useApp } from '@/lib/store';
 import { aiRequest } from '@/lib/transport';
 import { Button, Dialog, Field, Input, Segmented, Spinner, Toggle, ask, cx, inputClass, toast, toastError } from '@/ui';
 import { UserAvatar } from './media';
@@ -116,7 +116,7 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
           {tab === 'model' && <ModelTab draft={draft} set={set} save={save} />}
           {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
           {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
-          {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} />}
+          {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} onClose={onClose} />}
           {tab === 'run' && <RunTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} onDeleted={onClose} />}
         </div>
       )}
@@ -374,7 +374,7 @@ function LogTab({ logKey }: { logKey: string }) {
   );
 }
 
-function ProfileTab({ serverId, aiId }: { serverId: string; aiId: string }) {
+function ProfileTab({ serverId, aiId, onClose }: { serverId: string; aiId: string; onClose: () => void }) {
   const user = useApp((s) => s.sessions[serverId]?.users[aiId]);
   const [name, setName] = useState(user?.name ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
@@ -407,11 +407,25 @@ function ProfileTab({ serverId, aiId }: { serverId: string; aiId: string }) {
       </div>
       <Field label="名字"><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={32} /></Field>
       <Field label="个性签名"><Input value={bio} onChange={(e) => setBio(e.target.value)} maxLength={100} /></Field>
-      <div className="flex justify-end">
-        <Button variant="primary" disabled={!name.trim()} onClick={() => s().updateAI(aiId, { displayName: name.trim(), bio: bio.trim() }).then(() => toast('已保存'))}>保存资料</Button>
+      <div className="flex justify-between gap-2">
+        <Button variant="soft" onClick={() => { onClose(); openProfile(aiId); }}><LayoutGrid size={15} /> 编辑它的主页</Button>
+        <Button variant="primary" disabled={!name.trim()} onClick={() => s().updateAI(aiId, { displayName: name.trim(), bio: bio.trim() }).then(() => refreshAIs(serverId)).then(() => toast('已保存'))}>保存资料</Button>
       </div>
     </>
   );
+}
+
+/** Asks, then deletes one of my AIs (settings dialog and the chat header). */
+export function askDeleteAI(serverId: string, aiId: string, after?: () => void) {
+  return ask({
+    title: '删除这个 AI？', text: '它会退出所有频道、从列表里消失，不能再聊天；以前的消息还在。删除后不能恢复。', ok: '删除', danger: true,
+    run: async () => {
+      await session(serverId)!.deleteAI(aiId);
+      await refreshAIs(serverId);
+      after?.();
+      toast('已删除');
+    },
+  });
 }
 
 function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { serverId: string; aiId: string; onDeleted: () => void }) {
@@ -445,18 +459,7 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
         <Toggle label="自己维护人格" checked={draft.evolve} onChange={(on) => set({ evolve: on })} />
       </div>
       <div className="flex items-center justify-between gap-2">
-        <Button
-          variant="danger"
-          onClick={() => ask({
-            title: '删除这个 AI？', text: '它会退出所有频道，不能再聊天，以前的消息还在。删除后不能恢复。', ok: '删除', danger: true,
-            run: async () => {
-              await session(serverId)!.deleteAI(aiId);
-              await refreshAIs(serverId);
-              onDeleted();
-              toast('已删除');
-            },
-          })}
-        >
+        <Button variant="danger" onClick={() => askDeleteAI(serverId, aiId, onDeleted)}>
           <Trash2 size={15} /> 删除 AI
         </Button>
         <Button variant="primary" onClick={save}>保存</Button>

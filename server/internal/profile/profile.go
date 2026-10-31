@@ -88,6 +88,14 @@ func (s *Service) rights(ctx context.Context, viewer *store.User, o Owner) (*rig
 		if viewer.ID == o.ID {
 			return &rights{layout: true, content: all}, nil
 		}
+		// A bot / AI's page is its owner's to edit (the AI itself can too).
+		u, err := s.st.GetUser(ctx, o.ID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, err
+		}
+		if u != nil && u.OwnerID != 0 && u.OwnerID == viewer.ID {
+			return &rights{layout: true, content: all}, nil
+		}
 		return &rights{content: none}, nil
 	}
 	if viewer.IsSiteAdmin {
@@ -231,8 +239,8 @@ func (s *Service) Save(ctx context.Context, actor *store.User, o Owner, req *amv
 	if err != nil {
 		return nil, err
 	}
-	if o.Kind == store.ProfileUser && actor.ID != o.ID {
-		return nil, apperr.ErrNoPermission // only the owner saves a personal profile
+	if o.Kind == store.ProfileUser && !r.layout {
+		return nil, apperr.ErrNoPermission // only the person (or a bot / AI's owner) saves a personal profile
 	}
 	cur, err := s.latest(ctx, s.st.Queries, o)
 	if err != nil {

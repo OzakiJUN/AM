@@ -10,7 +10,7 @@ import type { Conversation, User } from './types';
  * 'account' = 账号设置 (profile editing, invites, devices); 'profile' = my
  * profile page; 'server' = the current server's profile page.
  */
-export type Page = 'channels' | 'dms' | 'ai' | 'account' | 'profile' | 'server' | 'settings';
+export type Page = 'channels' | 'dms' | 'ai' | 'workshop' | 'account' | 'profile' | 'server' | 'settings';
 /** Pages that list conversations: channels, direct messages, AI chats. */
 export type ConvPage = 'channels' | 'dms' | 'ai';
 
@@ -232,6 +232,11 @@ export function removeServer(id: string) {
 
 export const openKey = (page: ConvPage, serverId: string) => `${page}:${serverId}`;
 
+/** A DM with a bot / AI its owner deleted: hidden from the lists. */
+export function isDeletedBotConv(c: Conversation, users: Record<string, User>) {
+  return isBotConv(c, users) && !!users[c.peerId!]?.gone;
+}
+
 /** DMs with bot / AI accounts live on the AI page, not with the other DMs. */
 export function isBotConv(c: Conversation, users: Record<string, User>) {
   if (c.kind !== 'dm' || !c.peerId) return false;
@@ -261,6 +266,12 @@ export function openConv(convId: string) {
   if (!id || !v || !c) return;
   const page = convPage(c, v.users);
   useApp.setState({ openConvs: { ...st.openConvs, [openKey(page, id)]: convId }, page });
+}
+
+/** Closes the conversation open on a page (it was deleted). */
+export function closeConv(page: ConvPage, serverId: string) {
+  const { [openKey(page, serverId)]: _, ...rest } = useApp.getState().openConvs;
+  useApp.setState({ openConvs: rest });
 }
 
 /** Shows someone's profile page (null / my id = mine). */

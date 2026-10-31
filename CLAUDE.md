@@ -159,8 +159,14 @@ update the docs in the same commit.
   `server.public_address` live (`Runtime.SetPublicAddress`) and broadcasts
   `server_moved`; clients switch in `store.moveServer` only after the new
   address answers with the same pin, keep `oldAddresses` as fallbacks.
-- Personalization (theme mode, accent, background, font scale) is per device
-  in localStorage; workshop themes will set the same fields.
+- Personalization (theme mode, accent, background, font scale, panel glass
+  style / opacity / blur → CSS variables via `glassVars()` in `lib/theme.ts`)
+  is per device in localStorage; workshop themes will set the same fields.
+  Colours are picked with our own `ui/ColorPicker.tsx` (`ColorButton`), never
+  `<input type="color">`.
+- Desktop window: the close button hides to the tray by default (prefs
+  `closeToTray` → Rust `set_close_to_tray`; tray menu in `lib.rs`), so AIs run
+  by this device stay online.
 - AI emotion keys and fallbacks are listed in docs/design.md §9; keep the
   client in sync with that table.
 - AI accounts (docs/design.md §9): `account/ai.go` on the server (owner-only
@@ -171,7 +177,9 @@ update the docs in the same commit.
   (`src-tauri/src/ai_http.rs`, CA-checked HTTPS, not the pinned AM
   connection); keys: `lib/ai/keys.ts` (one credential-store entry per key,
   synced in the encrypted device state). `TextMsg.mood` is kept only for
-  ai / bot senders.
+  ai / bot senders; `splitMoodTag` accepts the tag anywhere, full-width
+  brackets and synonyms (`moodKey`). A bot / AI's profile page is its owner's
+  to edit; deleted ones have `User.gone` and drop out of the lists.
 - AI operating the computer (docs/design.md §9 操作电脑): tool calling for the
   three providers in `providers.ts` (`AgentMsg`, `ToolCall`, streamed
   arguments); tool list + permission categories in `lib/ai/agent.ts` (pure,

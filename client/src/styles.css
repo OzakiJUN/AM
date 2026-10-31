@@ -72,13 +72,14 @@ textarea {
 }
 
 /* Frosted glass panels sitting on the backdrop, with a layered edge shadow. */
+/* Strength and style come from Settings → 外观 (lib/theme.ts glassVars). */
 @utility glass {
-  background: rgb(255 255 255 / 0.74);
-  backdrop-filter: blur(22px) saturate(1.4);
+  background: color-mix(in srgb, var(--accent) var(--glass-tint, 0%), rgb(255 255 255 / var(--glass-a, 0.74)));
+  backdrop-filter: blur(var(--glass-blur, 22px)) saturate(var(--glass-sat, 1.4));
   border: 1px solid rgb(255 255 255 / 0.85);
   box-shadow: var(--shadow-panel), inset 0 1px 0 rgb(255 255 255 / 0.7);
   .dark & {
-    background: rgb(30 27 54 / 0.7);
+    background: color-mix(in srgb, var(--accent) var(--glass-tint, 0%), rgb(30 27 54 / calc(var(--glass-a, 0.74) - 0.04)));
     border-color: rgb(255 255 255 / 0.08);
     box-shadow: var(--shadow-card-dark), inset 0 1px 0 rgb(255 255 255 / 0.05);
   }
@@ -146,11 +147,11 @@ textarea {
   }
 }
 @utility glass-strong {
-  background: rgb(255 255 255 / 0.9);
-  backdrop-filter: blur(26px) saturate(1.4);
+  background: color-mix(in srgb, var(--accent) var(--glass-tint, 0%), rgb(255 255 255 / var(--glass-a-strong, 0.9)));
+  backdrop-filter: blur(calc(var(--glass-blur, 22px) + 4px)) saturate(var(--glass-sat, 1.4));
   border: 1px solid rgb(255 255 255 / 0.8);
   .dark & {
-    background: rgb(34 31 60 / 0.86);
+    background: color-mix(in srgb, var(--accent) var(--glass-tint, 0%), rgb(34 31 60 / calc(var(--glass-a-strong, 0.9) - 0.04)));
     border-color: rgb(255 255 255 / 0.1);
   }
 }

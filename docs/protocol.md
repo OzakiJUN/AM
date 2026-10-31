@@ -155,7 +155,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | POST | `/api/v1/ai/{id}/run` | `RunAIRequest` | `SessionResponse`：这台设备以 AI 身份登录，成为运行它的设备；AI 在别处的登录全部结束 |
 | DELETE | `/api/v1/ai/{id}` | — | `Empty`：AI 退出服务器（同 leave） |
 
-不是我的 AI（或已删除）一律 `user_not_found`。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
+不是我的 AI（或已删除）一律 `user_not_found`。删除、离开或被封的账号在 `User.gone` 里是 `true`（旧消息照样显示它，客户端列表里不再列出删掉的 bot / AI）。AI 的个人主页（`PUT /api/v1/users/{id}/profile`）主人也能存。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
 
 ### 主页小组件
 
@@ -187,7 +187,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
   | `online` | 2×2 | 只能放在服务器主页 |
 
 - 工坊组件（`source = WORKSHOP`）要有 `workshop_id`、`workshop_version`、`package_sha256`，可带截图 `snapshot_media_id`（第五阶段运行）。
-- 权限：个人主页只有本人能存。服务器主页：站点管理员都行；加删、挪动、改大小、改背景要"谁能改布局"；改某个组件的 `config` 要"成员能改小组件内容"打开且这个组件不是 `WIDGET_EDITORS_ADMINS`；改 `content_editors` 只有站点管理员。新放上去的图片必须是保存的人自己上传的。
+- 权限：个人主页只有本人能存（bot / AI 的主页它的主人也能存）。服务器主页：站点管理员都行；加删、挪动、改大小、改背景要"谁能改布局"；改某个组件的 `config` 要"成员能改小组件内容"打开且这个组件不是 `WIDGET_EDITORS_ADMINS`；改 `content_editors` 只有站点管理员。新放上去的图片必须是保存的人自己上传的。
 - 每次保存是一个新版本，旧版本保留 `retention.evidence_days` 天。
 
 ## WebSocket 流程

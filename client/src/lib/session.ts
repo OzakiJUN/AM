@@ -169,6 +169,7 @@ export function toUser(u: common.User): User {
     avatar: u.avatar || undefined,
     avatarStatic: u.avatarStatic || u.avatar || undefined,
     bio: u.bio,
+    gone: u.gone || undefined,
   };
 }
 
@@ -235,6 +236,8 @@ function toBody(e: ev.Event): MessageBody | null {
 }
 
 /** Text for a system event, with the current names. */
+const MEMBER_CHANGES = new Set<SysEvent['t']>(['join', 'leave', 'kick', 'role']);
+
 export function systemText(sys: SysEvent, name: (id: string) => string): string {
   switch (sys.t) {
     case 'created': return `${name(sys.op)} 创建了频道`;
@@ -434,8 +437,10 @@ export class Session {
     return r.token;
   }
 
-  deleteAI(id: string) {
-    return this.call('DELETE', `/api/v1/ai/${id}`, null);
+  async deleteAI(id: string) {
+    await this.call('DELETE', `/api/v1/ai/${id}`, null);
+    const u = this.view.users[id];
+    if (u) this.patch({ users: { ...this.view.users, [id]: { ...u, gone: true } } });
   }
 
   // ---- several devices (lib/devices.ts) ----
@@ -788,6 +793,9 @@ export class Session {
           list.splice(at, 0, msg);
           if (!this.view.users[msg.senderId] && msg.senderId) unknown.add(msg.senderId);
           if (live && msg.senderId !== this.view.me?.id) this.onMessage?.(convId, msg);
+          // Someone joined / left / changed role: the server pushes the new
+          // conversation only to that person, so fetch the member list again.
+          if (live && body.kind === 'system' && MEMBER_CHANGES.has(body.sys.t)) this.refreshMembersSoon(convId);
         }
       }
       // Conversation summary.
@@ -944,6 +952,17 @@ export class Session {
 
   async refreshConv(convId: string) {
     this.upsertConv(await this.call('GET', `/api/v1/conversations/${convId}`, common.ConversationSchema));
+  }
+
+  private memberTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  /** One refresh for a burst of member changes (a channel filling up at once). */
+  private refreshMembersSoon(convId: string) {
+    if (this.memberTimers.has(convId)) return;
+    this.memberTimers.set(convId, setTimeout(() => {
+      this.memberTimers.delete(convId);
+      if (this.view.convs[convId] && !this.view.convs[convId].left) void this.refreshConv(convId).catch(() => {});
+    }, 300));
   }
 
   async inviteMembers(convId: string, userIds: string[]) {

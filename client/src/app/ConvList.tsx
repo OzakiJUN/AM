@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Bell, BellOff, Compass, Lock, PanelLeftClose, PanelLeftOpen, Pin, PinOff, Plus, RefreshCw, Search, Users, WifiOff } from 'lucide-react';
 import { listTime } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
-import { convPage, openConv, session, useOpenConv } from '@/lib/store';
+import { convPage, isDeletedBotConv, openConv, session, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { IconButton, IdentityChip, Spinner, cx, openMenu, spring, type MenuItem } from '@/ui';
 import { BrowseChannelsDialog, CreateChannelDialog } from './Channels';
@@ -30,7 +30,7 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
   const list = useMemo(
     () =>
       Object.values(v.convs)
-        .filter((c) => convPage(c, v.users) === page)
+        .filter((c) => convPage(c, v.users) === page && !isDeletedBotConv(c, v.users))
         .filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()))
         .sort(byListOrder),
     [v.convs, v.users, q, page],

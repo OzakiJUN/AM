@@ -1,11 +1,11 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Shield, Sun, Trash2, Type } from 'lucide-react';
 import { motion } from 'motion/react';
-import { ACCENTS, imageFileToDataURL, useTheme } from '@/lib/theme';
+import { ACCENTS, GLASS_DEFAULTS, GLASS_STYLES, imageFileToDataURL, useTheme } from '@/lib/theme';
 import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/store';
 import { usePrefs } from '@/lib/prefs';
-import { openUrl } from '@/lib/platform';
-import { Button, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
+import { inTauri, openUrl } from '@/lib/platform';
+import { Button, ColorButton, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
 import { ServerAvatar, UserAvatar } from './media';
 
 type Tab = 'appearance' | 'servers' | 'privacy' | 'notify' | 'about';
@@ -16,7 +16,7 @@ export function SettingsPage() {
     { id: 'appearance', label: '外观', Icon: Palette },
     { id: 'servers', label: '服务器', Icon: Server },
     { id: 'privacy', label: '隐私', Icon: Shield },
-    { id: 'notify', label: '通知', Icon: Bell },
+    { id: 'notify', label: '通知与窗口', Icon: Bell },
     { id: 'about', label: '关于', Icon: Info },
   ];
   return (
@@ -65,7 +65,6 @@ function Row({ title, desc, children }: { title: string; desc?: string; children
 function Appearance() {
   const t = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
-  const colorRef = useRef<HTMLInputElement>(null);
   const custom = !ACCENTS.some((a) => a.color === t.accent);
   return (
     <div className="max-w-3xl">
@@ -100,19 +99,19 @@ function Appearance() {
                 {t.accent === a.color && <Check size={16} className="text-white" />}
               </button>
             ))}
-            <button
-              onClick={() => colorRef.current?.click()}
-              aria-label="自定义颜色"
-              title="自定义颜色"
+            <ColorButton
+              label="自定义颜色"
+              value={t.accent}
+              onChange={(accent) => t.set({ accent })}
+              presets={ACCENTS.map((a) => a.color)}
               className={cx(
-                'flex h-9 w-9 items-center justify-center rounded-full ring-offset-2 ring-offset-white dark:ring-offset-[#1e1b36]',
+                'press flex h-9 w-9 items-center justify-center rounded-full ring-offset-2 ring-offset-white dark:ring-offset-[#1e1b36]',
                 custom && 'ring-2 ring-[var(--accent)]',
               )}
               style={{ background: 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)' }}
             >
               {custom && <Check size={16} className="text-white drop-shadow" />}
-            </button>
-            <input ref={colorRef} type="color" value={t.accent} onChange={(e) => t.set({ accent: e.target.value })} className="sr-only" />
+            </ColorButton>
           </div>
         </Row>
 
@@ -158,6 +157,27 @@ function Appearance() {
               <span className="w-10 text-right text-[0.85rem] text-ink-soft tabular-nums dark:text-white/50">{Math.round(t.bgDim * 100)}%</span>
             </Row>
           </>
+        )}
+
+        <Row title="面板样式" desc="聊天窗口、列表这些面板叠在背景上的样子">
+          <Segmented id="glass-style" value={t.glassStyle ?? 'frosted'} onChange={(glassStyle) => t.set({ glassStyle })} options={GLASS_STYLES} />
+        </Row>
+        {(t.glassStyle ?? 'frosted') !== 'solid' && (
+          <>
+            <Row title="面板透明度" desc="调低能看到更多背景，调高字更清楚">
+              <div className="w-56"><Slider label="面板透明度" value={Math.round((1 - (t.glassOpacity ?? 0.74)) * 100)} min={0} max={80} step={2} onChange={(x) => t.set({ glassOpacity: 1 - x / 100 })} /></div>
+              <span className="w-10 text-right text-[0.85rem] text-ink-soft tabular-nums dark:text-white/50">{Math.round((1 - (t.glassOpacity ?? 0.74)) * 100)}%</span>
+            </Row>
+            <Row title="面板模糊" desc="面板后面的背景模糊多少">
+              <div className="w-56"><Slider label="面板模糊" value={t.glassBlur ?? 22} min={0} max={40} step={1} onChange={(glassBlur) => t.set({ glassBlur })} /></div>
+              <span className="w-10 text-right text-[0.85rem] text-ink-soft tabular-nums dark:text-white/50">{t.glassBlur ?? 22}</span>
+            </Row>
+          </>
+        )}
+        {(t.glassStyle !== GLASS_DEFAULTS.glassStyle || t.glassOpacity !== GLASS_DEFAULTS.glassOpacity || t.glassBlur !== GLASS_DEFAULTS.glassBlur) && (
+          <div className="flex justify-end pt-2">
+            <Button size="sm" variant="ghost" onClick={() => t.set(GLASS_DEFAULTS)}><RotateCcw size={15} /> 面板恢复默认</Button>
+          </div>
         )}
 
         <PortraitRow />
@@ -261,12 +281,21 @@ function Servers() {
 
 function Notify() {
   const [on, setOn] = useState(() => localStorage.getItem('am-notify') !== 'off');
+  const closeToTray = usePrefs((p) => p.closeToTray);
+  const setPrefs = usePrefs((p) => p.set);
   return (
     <div className="max-w-3xl">
-      <h2 className="text-[1.4rem] font-semibold">通知</h2>
+      <h2 className="text-[1.4rem] font-semibold">通知与窗口</h2>
       <Row title="桌面通知" desc="窗口不在前台、或者在看别的会话时，新消息弹系统通知">
         <Toggle label="桌面通知" checked={on} onChange={(v) => { setOn(v); localStorage.setItem('am-notify', v ? 'on' : 'off'); }} />
       </Row>
+      {inTauri && (
+        <Row title="点窗口的关闭按钮时" desc="收到托盘：AM 继续在后台收消息，在这台设备上运行的 AI 也保持在线；右下角托盘图标点一下打开，右键可以退出">
+          <Segmented id="close-to-tray" value={closeToTray ? 'tray' : 'quit'} onChange={(x) => setPrefs({ closeToTray: x === 'tray' })} options={[
+            { value: 'tray', label: '收到托盘' }, { value: 'quit', label: '直接退出' },
+          ]} />
+        </Row>
+      )}
     </div>
   );
 }
