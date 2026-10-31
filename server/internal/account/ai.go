@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
@@ -24,6 +26,8 @@ type AIInfo struct {
 	User      *store.User
 	Settings  string
 	UpdatedAt int64
+	// People waiting to be let into its shared room.
+	ShareRequests int
 }
 
 // ownedAI returns an AI account of owner (user_not_found otherwise).
@@ -58,7 +62,11 @@ func (s *Service) ListAI(ctx context.Context, owner *store.User) ([]AIInfo, erro
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, AIInfo{User: u, Settings: data, UpdatedAt: at})
+		reqs, err := s.st.ShareRequests(ctx, u.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, AIInfo{User: u, Settings: data, UpdatedAt: at, ShareRequests: len(reqs)})
 	}
 	return out, nil
 }
@@ -177,4 +185,119 @@ func randomLower(n int) string {
 		b[i] = alphabet[int(b[i])%len(alphabet)]
 	}
 	return string(b)
+}
+
+// ---- its own portrait pack ----
+
+var moodRe = regexp.MustCompile(`^[a-z_]{1,16}$`)
+
+const maxPortraits = 24
+
+// PortraitPack returns any bot / AI's pack (mood -> media id; empty = default pack).
+func (s *Service) PortraitPack(ctx context.Context, id int64) (map[string]int64, error) {
+	u, err := s.st.GetUser(ctx, id)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && u.OwnerID == 0) {
+		return nil, apperr.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.st.PortraitPack(ctx, id)
+}
+
+// SetPortraitPack replaces my AI's pack with images I uploaded.
+func (s *Service) SetPortraitPack(ctx context.Context, owner *store.User, id int64, pack map[string]int64) error {
+	ai, err := s.ownedAI(ctx, owner, id)
+	if err != nil {
+		return err
+	}
+	if len(pack) > maxPortraits {
+		return apperr.ErrBadRequest
+	}
+	old, err := s.st.PortraitPack(ctx, id)
+	if err != nil {
+		return err
+	}
+	kept := map[int64]bool{}
+	for _, m := range old {
+		kept[m] = true
+	}
+	for mood, m := range pack {
+		if !moodRe.MatchString(mood) {
+			return apperr.ErrBadRequest
+		}
+		if !kept[m] {
+			if _, err := s.media.OwnUpload(ctx, owner.ID, m, true); err != nil {
+				return err
+			}
+		}
+	}
+	return s.st.InTx(ctx, func(q *store.Queries) error {
+		return q.SetPortraitPack(ctx, ai.ID, pack, time.Now().UnixMilli())
+	})
+}
+
+// ---- asking to talk with someone's AI ----
+
+// RequestShare: me asks the owner of a bot / AI to let me talk with it.
+func (s *Service) RequestShare(ctx context.Context, me *store.User, aiID int64, userView func(*store.User) *amv1.User) error {
+	ai, err := s.st.GetUser(ctx, aiID)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && (ai.OwnerID == 0 || ai.Gone())) {
+		return apperr.ErrUserNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if me.AccountType != int16(amv1.AccountType_ACCOUNT_TYPE_HUMAN) || ai.OwnerID == me.ID {
+		return apperr.ErrNoPermission
+	}
+	if err := s.st.AddShareRequest(ctx, ai.ID, me.ID, time.Now().UnixMilli()); err != nil {
+		return err
+	}
+	s.push.ToUsers([]int64{ai.OwnerID}, &amv1.ServerFrame{Msg: &amv1.ServerFrame_AiShareRequest{AiShareRequest: &amv1.AIShareRequestPush{
+		AiId: ai.ID, User: userView(me),
+	}}}, 0)
+	return nil
+}
+
+// ShareRequests lists who asked to talk with my AI (still on the server).
+func (s *Service) ShareRequests(ctx context.Context, owner *store.User, aiID int64) ([]*store.User, error) {
+	if _, err := s.ownedAI(ctx, owner, aiID); err != nil {
+		return nil, err
+	}
+	ids, err := s.st.ShareRequests(ctx, aiID)
+	if err != nil {
+		return nil, err
+	}
+	users, err := s.st.GetUsers(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	var out []*store.User
+	for _, id := range ids {
+		if u := users[id]; u != nil && !u.Gone() {
+			out = append(out, u)
+		}
+	}
+	return out, nil
+}
+
+// TakeShareRequest removes a request to answer it; returns the AI, the asker
+// and its shared room id (0 = none yet).
+func (s *Service) TakeShareRequest(ctx context.Context, owner *store.User, aiID, userID int64) (ai, asker *store.User, room int64, err error) {
+	if ai, err = s.ownedAI(ctx, owner, aiID); err != nil {
+		return nil, nil, 0, err
+	}
+	ok, err := s.st.DeleteShareRequest(ctx, aiID, userID)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	if !ok {
+		return nil, nil, 0, apperr.ErrNotFound
+	}
+	if asker, err = s.st.GetUser(ctx, userID); err != nil {
+		return nil, nil, 0, err
+	}
+	room, err = s.st.AIRoom(ctx, aiID)
+	return ai, asker, room, err
 }

@@ -4,13 +4,16 @@
 // figure (not on a transparent pixel) and turns that into a poke. Position (left / center / right) or folded into a
 // small avatar in the header is a per-device preference; moving and folding
 // morph smoothly with springs.
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, type Transition } from 'motion/react';
 import { AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalJustifyStart, Minimize2 } from 'lucide-react';
 import { DEFAULT_PACK } from '@/lib/defaultPack';
-import { containedRect, pokePart, resolveMood, type Mood, type Pack, type PokePart } from '@/lib/portraits';
+import { containedRect, ownPack, pokePart, resolveMood, type Mood, type Pack, type PokePart } from '@/lib/portraits';
+import { session } from '@/lib/store';
 import { usePrefs, type PortraitPos } from '@/lib/prefs';
 import type { User } from '@/lib/types';
 import { IconButton, cx, openMenu } from '@/ui';
+import { mediaPath } from './media';
 
 /** Slower, softer spring than the UI default: big things should glide. */
 const glide: Transition = { type: 'spring', stiffness: 230, damping: 30, mass: 1 };
@@ -60,6 +63,47 @@ export function hitPortrait(container: HTMLElement | null, x: number, y: number)
     return null;
   }
   return pokePart(fy);
+}
+
+/**
+ * An AI's own portrait pack (docs/design.md §9 形象包), visible to everyone.
+ * Loaded once per server + AI + version (`User.portraits_at`) and again after
+ * 10 minutes, since other people's user records only refresh now and then.
+ */
+const packs = new Map<string, { at: number; p: Promise<Pack | null> }>();
+const PACK_TTL = 10 * 60_000;
+
+async function loadPack(serverId: string, userId: string): Promise<Pack | null> {
+  const s = session(serverId);
+  if (!s) return null;
+  const ids = await s.portraits(userId);
+  const urls = await Promise.all(Object.entries(ids).map(async ([mood, id]) => [mood, await s.t.mediaUrl(mediaPath(id))] as const));
+  return ownPack(Object.fromEntries(urls));
+}
+
+/** Drops a cached pack (after its owner changed it on this device). */
+export function forgetPack(serverId: string, userId: string) {
+  for (const k of [...packs.keys()]) if (k.startsWith(`${serverId}|${userId}|`)) packs.delete(k);
+}
+
+export function usePortraitPack(serverId: string, user?: User): Pack {
+  const userId = user?.id;
+  const key = userId ? `${serverId}|${userId}|${user?.portraitsAt ?? 0}` : '';
+  const [state, setState] = useState<{ key: string; pack: Pack | null }>({ key: '', pack: null });
+  useEffect(() => {
+    if (!key || !userId) return;
+    let hit = packs.get(key);
+    if (!hit || Date.now() - hit.at > PACK_TTL) {
+      hit = { at: Date.now(), p: loadPack(serverId, userId).catch(() => null) };
+      packs.set(key, hit);
+    }
+    let live = true;
+    void hit.p.then((pack) => live && setState({ key, pack }));
+    return () => {
+      live = false;
+    };
+  }, [key, serverId, userId]);
+  return (state.key === key && state.pack) || DEFAULT_PACK;
 }
 
 /** `online` is the AI account's presence: an AI that is not connected cannot reply. */

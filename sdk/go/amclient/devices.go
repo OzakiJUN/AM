@@ -91,3 +91,31 @@ func (c *Client) CreateAIRoom(ctx context.Context, aiID int64, name string, memb
 	out := &amv1.Conversation{}
 	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/ai/%d/room", aiID), &amv1.CreateAIRoomRequest{Name: name, MemberIds: memberIDs}, out)
 }
+
+// GetPortraits returns a bot / AI's own portrait pack (mood -> media id).
+func (c *Client) GetPortraits(ctx context.Context, userID int64) (*amv1.PortraitPack, error) {
+	out := &amv1.PortraitPack{}
+	return out, c.call(ctx, http.MethodGet, fmt.Sprintf("/api/v1/users/%d/portraits", userID), nil, out)
+}
+
+// SetPortraits replaces my AI's portrait pack.
+func (c *Client) SetPortraits(ctx context.Context, aiID int64, pack map[string]int64) error {
+	return c.call(ctx, http.MethodPut, fmt.Sprintf("/api/v1/ai/%d/portraits", aiID), &amv1.PortraitPack{MediaIds: pack}, &amv1.PortraitPack{})
+}
+
+// RequestShare asks an AI's owner to let me talk with it.
+func (c *Client) RequestShare(ctx context.Context, aiID int64) error {
+	return c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/ai/%d/share-request", aiID), &amv1.Empty{}, nil)
+}
+
+// ShareRequests lists who asked to talk with my AI.
+func (c *Client) ShareRequests(ctx context.Context, aiID int64) (*amv1.ShareRequests, error) {
+	out := &amv1.ShareRequests{}
+	return out, c.call(ctx, http.MethodGet, fmt.Sprintf("/api/v1/ai/%d/share-requests", aiID), nil, out)
+}
+
+// DecideShare answers a request; approved returns the shared room.
+func (c *Client) DecideShare(ctx context.Context, aiID, userID int64, approve bool) (*amv1.Conversation, error) {
+	out := &amv1.Conversation{}
+	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/ai/%d/share-requests/%d", aiID, userID), &amv1.DecideShareRequest{Approve: approve}, out)
+}

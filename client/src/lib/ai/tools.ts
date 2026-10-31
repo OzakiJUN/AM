@@ -2,7 +2,7 @@
 // §9). The desktop app does the work in Rust (src-tauri/src/agent.rs); in
 // browser development mode only the clipboard works.
 import { copyText, inTauri, readClipboardText } from '../platform';
-import { mcpTool, mcpToolName, type ToolDef } from './agent';
+import { envPairs, mcpTool, mcpToolName, type ToolDef } from './agent';
 import type { ComputerSettings, McpServer } from './persona';
 
 export interface ToolResult {
@@ -59,7 +59,7 @@ type McpToolInfo = { name: string; description: string; inputSchema: Record<stri
 
 /** One MCP server's tools (starting it under `key` when needed). */
 export function listMcpTools(m: McpServer, key: string): Promise<McpToolInfo[]> {
-  return rust<McpToolInfo[]>('mcp_tools', { key, spec: spec(m) });
+  return rust<McpToolInfo[]>('mcp_tools', { key, spec: spec(m), env: envPairs(m) });
 }
 
 /**
@@ -191,7 +191,7 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
       const m = ctx.mcp.get(name);
       if (!m) return { text: `没有这个工具：${name}` };
       const r = await rust<{ text: string; images: string[]; error: boolean }>('mcp_call', {
-        key: `${ctx.owner}|${m.server.name}`, spec: spec(m.server), tool: m.tool, args: a, timeout: 120,
+        key: `${ctx.owner}|${m.server.name}`, spec: spec(m.server), env: envPairs(m.server), tool: m.tool, args: a, timeout: 120,
       });
       const text = (r.error ? '工具报错：' : '') + (r.text || (r.images.length ? '（结果是图片）' : '（没有返回内容）'));
       return { text: text.slice(0, MAX_READ), images: r.images.length ? r.images : undefined };

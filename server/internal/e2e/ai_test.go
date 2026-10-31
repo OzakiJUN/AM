@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"bytes"
 	"testing"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
@@ -17,8 +18,8 @@ func TestAIAccounts(t *testing.T) {
 
 func testAIAccounts(t *testing.T, a *app.App, base string) {
 	ctx := ctxT(t)
-	us := newServerUsers(t, a, base, "owner", "bob")
-	owner, bob := us[0], us[1]
+	us := newServerUsers(t, a, base, "owner", "bob", "carol")
+	owner, bob, carol := us[0], us[1], us[2]
 
 	ai := must(owner.cli.CreateAI(ctx, "小鱼"))
 	if ai.User.AccountType != amv1.AccountType_ACCOUNT_TYPE_AI || ai.User.OwnerId != owner.me.Id || ai.User.DisplayName != "小鱼" {
@@ -114,6 +115,46 @@ func testAIAccounts(t *testing.T, a *app.App, base string) {
 	must(aiWS.SendText(ctx, room.Id, "大家好"))
 	_, err = bob.cli.CreateAIRoom(ctx, ai.User.Id, "偷建")
 	wantCode(t, err, "user_not_found")
+
+	// Its own portrait pack: owner's uploads, anyone can read it.
+	happy := must(owner.cli.Upload(ctx, "happy.png", bytes.NewReader(encodePNG(testImage(16, 16)))))
+	if err := owner.cli.SetPortraits(ctx, ai.User.Id, map[string]int64{"happy": happy.Id}); err != nil {
+		t.Fatal(err)
+	}
+	if p := must(bob.cli.GetPortraits(ctx, ai.User.Id)); p.MediaIds["happy"] != happy.Id {
+		t.Fatalf("pack: %+v", p)
+	}
+	if must(bob.cli.GetConversation(ctx, room.Id)).Members[0].GetId() == 0 {
+		t.Fatal("no members")
+	}
+	wantCode(t, owner.cli.SetPortraits(ctx, ai.User.Id, map[string]int64{"Bad Mood": happy.Id}), "bad_request")
+	wantCode(t, bob.cli.SetPortraits(ctx, ai.User.Id, map[string]int64{"sad": happy.Id}), "user_not_found")
+	if _, _, err := bob.cli.Download(ctx, "/api/v1/media/"+itoa(happy.Id)); err != nil {
+		t.Fatalf("bob cannot see the portrait: %v", err)
+	}
+
+	// Asking to talk with it: the owner hears about it and lets carol in (its room).
+	ownerPush := must(owner.cli.Connect(ctx))
+	defer ownerPush.Close()
+	if err := carol.cli.RequestShare(ctx, ai.User.Id); err != nil {
+		t.Fatal(err)
+	}
+	waitPush(t, ownerPush, "share request", func(f *amv1.ServerFrame) bool { return f.GetAiShareRequest().GetUser().GetId() == carol.me.Id })
+	if l := must(owner.cli.ListAI(ctx)).Ais; l[0].ShareRequests != 1 {
+		t.Fatalf("count: %+v", l[0])
+	}
+	if r := must(owner.cli.ShareRequests(ctx, ai.User.Id)); len(r.Users) != 1 || r.Users[0].Id != carol.me.Id {
+		t.Fatalf("requests: %+v", r)
+	}
+	wantCode(t, owner.cli.RequestShare(ctx, ai.User.Id), "no_permission") // its own owner
+	if c := must(owner.cli.DecideShare(ctx, ai.User.Id, carol.me.Id, true)); c.Id != room.Id {
+		t.Fatalf("approved into %d, want the room %d", c.Id, room.Id)
+	}
+	if c := must(carol.cli.GetConversation(ctx, room.Id)); c.AiId != ai.User.Id {
+		t.Fatal("carol is not in the room")
+	}
+	_, err = owner.cli.DecideShare(ctx, ai.User.Id, carol.me.Id, true)
+	wantCode(t, err, "not_found")
 
 	// Someone else's AI on my computer: the server only relays, checking who
 	// asks whom; bob's device decides (here: runs it and answers).

@@ -81,6 +81,12 @@ async fn media_bytes(net: State<'_, Net>, id: String, path: String) -> Res<tauri
     Ok(tauri::ipc::Response::new(data))
 }
 
+/// A plain GET to a model provider (balance lookups): status and body.
+#[tauri::command]
+async fn ai_get(url: String, headers: Vec<(String, String)>) -> Res<(u16, String)> {
+    ai_http::get(url, headers).await
+}
+
 /// A request to an AI model provider; the reply streams back through `on_event`.
 #[tauri::command]
 async fn ai_request(url: String, headers: Vec<(String, String)>, body: String, on_event: Channel<ai_http::StreamEvent>) -> Res<u16> {
@@ -182,13 +188,13 @@ async fn agent_browser(app: tauri::AppHandle, action: String, url: Option<String
 // MCP tool servers (mcp.rs); `key` keeps each AI's servers apart.
 
 #[tauri::command]
-async fn mcp_tools(key: String, spec: Vec<String>) -> Res<Vec<mcp::Tool>> {
-    mcp::tools(&key, &spec).await
+async fn mcp_tools(key: String, spec: Vec<String>, env: Vec<(String, String)>) -> Res<Vec<mcp::Tool>> {
+    mcp::tools(&key, &spec, &env).await
 }
 
 #[tauri::command]
-async fn mcp_call(key: String, spec: Vec<String>, tool: String, args: serde_json::Value, timeout: u64) -> Res<mcp::CallResult> {
-    mcp::call(&key, &spec, &tool, args, timeout).await
+async fn mcp_call(key: String, spec: Vec<String>, env: Vec<(String, String)>, tool: String, args: serde_json::Value, timeout: u64) -> Res<mcp::CallResult> {
+    mcp::call(&key, &spec, &env, &tool, args, timeout).await
 }
 
 #[tauri::command]
@@ -377,7 +383,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
-            secret_delete, ai_request, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
+            secret_delete, ai_request, ai_get, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
             agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, ws_open, ws_send, ws_close
         ])

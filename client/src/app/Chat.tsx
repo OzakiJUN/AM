@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, Ban, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Paperclip, PanelRight, RotateCw,
+  AlertCircle, Ban, Bot, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
   SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
@@ -17,9 +17,10 @@ import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { StickerManager, StickerPanel } from './Stickers';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
-import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait } from './Portrait';
+import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait, usePortraitPack } from './Portrait';
 import { AISettingsDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
+import { voiceInput } from '@/lib/voice';
 import { MOODS, pokeText, type Mood } from '@/lib/portraits';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
@@ -48,6 +49,8 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const conv = convId ? v.convs[convId] : undefined;
   const streaming = useAI((s) => (convId ? s.streams[`${v.id}|${convId}`] : undefined));
   const aiError = useAI((s) => (conv?.peerId ? s.errors[`${v.id}|${conv.peerId}`] : undefined));
+  // The AI's own portrait pack (default pack when it has none).
+  const pack = usePortraitPack(v.id, page === 'ai' && conv ? v.users[conv.peerId ?? conv.aiId ?? ''] : undefined);
   if (!conv) {
     const { Icon, title, text } = EMPTY[page];
     return (
@@ -101,6 +104,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {group && !conv.left && (
             <>
               <IconButton label="邀请成员" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
+              {!conv.aiId && v.me?.type === 'human' && <IconButton label="添加 bot" onClick={(e) => addBotMenu(e, v, conv)}><Bot size={19} /></IconButton>}
               <IconButton label="频道设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
               <IconButton label={membersFolded ? '展开成员列表' : '收起成员列表'} active={!membersFolded} onClick={() => setPrefs({ membersFolded: !membersFolded })}><PanelRight size={19} /></IconButton>
             </>
@@ -111,7 +115,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {myAI && !group && <IconButton label="删除 AI" onClick={() => askDeleteAI(v.id, peer.id, () => closeConv('ai', v.id))}><Trash2 size={18} /></IconButton>}
           {myAI && <IconButton label="AI 设置" onClick={() => setAIOpen(true)}><Settings2 size={19} /></IconButton>}
           {ai && peer && <PortraitPosButton />}
-          {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} />}
+          {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} pack={pack} />}
         </header>
         <div
           className="relative flex min-h-0 flex-1 flex-col"
@@ -120,7 +124,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           onMouseMove={ai && peer ? (e) => { e.currentTarget.style.cursor = hitPortrait(e.currentTarget, e.clientX, e.clientY) ? 'pointer' : ''; } : undefined}
         >
           <MessageList key={conv.id} v={v} conv={conv} streaming={streaming} fromBottom={ai} />
-          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} poked={poked} />}
+          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} pack={pack} poked={poked} />}
         </div>
         {myAI && aiError && (
           <div className="mx-4 mb-1 flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[0.82rem] text-rose-700 dark:bg-rose-400/10 dark:text-rose-200" role="alert">
@@ -581,6 +585,10 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
           <IconButton label="表情包" active={stickers} onClick={() => { setStickers(!stickers); setEmoji(false); }} disabled={disabled}><Sticker size={19} /></IconButton>
           <IconButton label="发送图片" onClick={() => imgRef.current?.click()} disabled={disabled}><ImagePlus size={19} /></IconButton>
           <IconButton label="发送文件" onClick={() => fileRef.current?.click()} disabled={disabled}><Paperclip size={19} /></IconButton>
+          {/* Voice input: the slot only (lib/voice.ts); the wrapper keeps the tooltip on the disabled button. */}
+          <span title={voiceInput.available ? '语音输入' : '语音输入以后上线'} className="inline-flex">
+            <IconButton label="语音输入" disabled={disabled || !voiceInput.available} className="disabled:opacity-40"><Mic size={19} /></IconButton>
+          </span>
           {busy && <span className="ml-2 flex items-center gap-1.5 text-[0.8rem] text-ink-soft"><Spinner size={13} /> 上传中…</span>}
           <AnimatePresence>
             {stickers && (
@@ -717,4 +725,22 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
       <input ref={fileRef} type="file" multiple hidden onChange={(e) => { sendFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
     </div>
   );
+}
+
+/** "添加 bot": my own AIs that are not in this channel yet (private channels may need approval). */
+function addBotMenu(e: React.MouseEvent, v: SessionView, conv: Conversation) {
+  const mine = (useAI.getState().byServer[v.id] ?? []).map((a) => a.user).filter((u) => !u.gone);
+  const out = mine.filter((u) => !conv.members.some((m) => m.userId === u.id));
+  if (!mine.length) return toast('你还没有自己的 AI，去 AI 页新建一个');
+  if (!out.length) return toast('你的 AI 都在这个频道里了');
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  openMenu({ clientX: r.left, clientY: r.bottom + 6 }, out.map((u) => ({
+    label: `拉 ${u.name} 进来`,
+    icon: <Bot size={15} />,
+    key: `addbot:${conv.id}:${u.id}`,
+    onClick: async () => {
+      const res = await current().inviteMembers(conv.id, [u.id]);
+      toast(res.requested.length ? '已经申请了，等频道管理员同意' : `${u.name} 进频道了`);
+    },
+  })));
 }

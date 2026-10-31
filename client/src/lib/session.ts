@@ -18,6 +18,8 @@ export interface AIInfo {
   user: User;
   settings: string;
   updatedAt: number;
+  /** People waiting for me to let them talk with it. */
+  shareRequests: number;
 }
 
 export interface ServerRecord {
@@ -191,6 +193,7 @@ export function toUser(u: common.User): User {
     avatarStatic: u.avatarStatic || u.avatar || undefined,
     bio: u.bio,
     gone: u.gone || undefined,
+    portraitsAt: Number(u.portraitsAt) || undefined,
   };
 }
 
@@ -323,6 +326,8 @@ export class Session {
   onClientState?: () => void;
   /** The server has a new public address (relay changed): lib/store.ts checks it and switches. */
   onMoved?: (address: string) => void;
+  /** Someone asks me to let them talk with one of my AIs. */
+  onShareRequest?: (aiId: string, user: User) => void;
   /** Someone's AI asks this device to run a computer tool (lib/ai/remote.ts decides). */
   onRemoteTool?: (r: RemoteToolAsk) => void;
   private remoteWaits = new Map<string, { from: string; done: (r: RemoteToolAnswer) => void }>();
@@ -434,7 +439,7 @@ export class Session {
     const user = toUser(a.user!);
     this.view.users = { ...this.view.users, [user.id]: { ...this.view.users[user.id], ...user } };
     this.emit();
-    return { user, settings: a.settings, updatedAt: Number(a.settingsUpdatedAt) };
+    return { user, settings: a.settings, updatedAt: Number(a.settingsUpdatedAt), shareRequests: a.shareRequests };
   }
 
   async createAI(displayName: string) {
@@ -464,6 +469,39 @@ export class Session {
   /** Takes my AI out of a channel (it is put in with inviteMembers). */
   aiLeaveChannel(id: string, convId: string) {
     return this.call('DELETE', `/api/v1/ai/${id}/channels/${convId}`, null);
+  }
+
+  // ---- an AI's portraits and share requests ----
+
+  /** A bot / AI's own portrait pack: mood -> media id (empty = default pack). */
+  async portraits(userId: string): Promise<Record<string, string>> {
+    const r = await this.call('GET', `/api/v1/users/${userId}/portraits`, api.PortraitPackSchema);
+    return Object.fromEntries(Object.entries(r.mediaIds).map(([k, v]) => [k, s(v)]));
+  }
+
+  async setPortraits(aiId: string, pack: Record<string, string>) {
+    await this.call('PUT', `/api/v1/ai/${aiId}/portraits`, api.PortraitPackSchema, {
+      schema: api.PortraitPackSchema, value: { mediaIds: Object.fromEntries(Object.entries(pack).map(([k, v]) => [k, BigInt(v)])) },
+    });
+  }
+
+  requestShare(aiId: string) {
+    return this.call('POST', `/api/v1/ai/${aiId}/share-request`, null, { schema: api.EmptySchema, value: {} });
+  }
+
+  async shareRequests(aiId: string): Promise<User[]> {
+    const r = await this.call('GET', `/api/v1/ai/${aiId}/share-requests`, api.ShareRequestsSchema);
+    this.addUsers(r.users);
+    return r.users.map(toUser);
+  }
+
+  /** Answers a request; approved = they join its shared room (returns its id). */
+  async decideShare(aiId: string, userId: string, approve: boolean): Promise<string | null> {
+    // Rejected = an empty reply, which reads as a conversation with id 0.
+    const c = await this.call('POST', `/api/v1/ai/${aiId}/share-requests/${userId}`, common.ConversationSchema, { schema: api.DecideShareRequestSchema, value: { approve } });
+    if (!c.id) return null;
+    this.upsertConv(c);
+    return s(c.id);
   }
 
   /** A shared room with my AI (I add people to it like to any channel). */
@@ -671,6 +709,11 @@ export class Session {
       case 'serverMoved':
         if (f.msg.value.address && f.msg.value.address !== this.record.endpoint.address) this.onMoved?.(f.msg.value.address);
         break;
+      case 'aiShareRequest': {
+        const p = f.msg.value;
+        if (p.user) this.onShareRequest?.(s(p.aiId), toUser(p.user));
+        break;
+      }
       case 'remoteTool': {
         const p = f.msg.value;
         if (p.fromAi) this.onRemoteTool?.({ requestId: p.requestId, ai: toUser(p.fromAi), tool: p.tool, argsJson: p.argsJson });

@@ -2,7 +2,7 @@
 // 操作电脑): the tools offered to the model, their permission category,
 // and how calls read in the action log. Pure (tested); running a tool is
 // lib/ai/tools.ts, the loop is lib/ai/runner.ts.
-import type { ComputerSettings, Level, ToolCategory } from './persona';
+import type { ComputerSettings, Level, McpServer, ToolCategory } from './persona';
 import type { ToolSpec } from './providers';
 
 export interface ToolDef extends ToolSpec {
@@ -154,7 +154,12 @@ export function categoryOf(name: string): ToolCategory | undefined {
 
 /** The permission for a call (unknown tools are denied). */
 export function levelFor(c: ComputerSettings, name: string): Level {
-  if (name.startsWith(MCP_PREFIX)) return c.enabled ? c.levels.mcp : 'deny';
+  if (name.startsWith(MCP_PREFIX)) {
+    if (!c.enabled || c.levels.mcp === 'deny') return 'deny';
+    // A server I trust (a game) runs without asking.
+    const server = c.mcp.find((m) => m.enabled && name.startsWith(`${MCP_PREFIX}${slug(m.name).slice(0, 20)}__`));
+    return server?.trusted ? 'allow' : c.levels.mcp;
+  }
   const t = TOOLS.find((x) => x.name === name);
   if (!t || (!c.enabled && !t.own)) return 'deny';
   return t.category ? c.levels[t.category] : 'allow';
@@ -237,3 +242,34 @@ export function argsOf(json: string): Record<string, unknown> {
     return {};
   }
 }
+
+/** Ready-made tool servers for games with an AI interface (docs/design.md §9 玩游戏). */
+export const GAME_TEMPLATES: { key: string; name: string; needs: string; link: string; server: McpServer }[] = [
+  {
+    key: 'minecraft',
+    name: 'Minecraft',
+    needs: '电脑上装好 Node.js（20.10 以上）。进游戏后把单人世界「对局域网开放」，记下端口填到参数里；AI 会以一个机器人玩家进你的世界（Java 版）。',
+    link: 'https://github.com/yuniko-software/minecraft-mcp-server',
+    server: {
+      name: 'Minecraft', command: 'npx', enabled: true, trusted: true,
+      args: ['-y', 'github:yuniko-software/minecraft-mcp-server', '--host', 'localhost', '--port', '25565', '--username', 'AM_Bot'],
+    },
+  },
+  {
+    key: 'rimworld',
+    name: '环世界 RimWorld',
+    needs: '在创意工坊订阅 RIMAPI 模组（会在本机 8765 端口开接口），再下载 RimAPI_MCP_Server（需要 Python 3.10+，pip install "mcp>=1.2.0"），把参数改成它的 src\\mcp_server.py 的完整路径。游戏里要加载存档才能用。',
+    link: 'https://github.com/M4x28/RimAPI_MCP_Server',
+    server: {
+      name: 'RimWorld', command: 'python', enabled: true, trusted: true,
+      args: ['C:\\RimAPI_MCP_Server\\src\\mcp_server.py'], env: ['RIMAPI_BASE_URL=http://localhost:8765'],
+    },
+  },
+];
+
+/** "NAME=value" lines -> pairs (lines without "=" are ignored). */
+export const envPairs = (m: McpServer): [string, string][] =>
+  (m.env ?? []).flatMap((l) => {
+    const i = l.indexOf('=');
+    return i > 0 ? [[l.slice(0, i).trim(), l.slice(i + 1)] as [string, string]] : [];
+  });

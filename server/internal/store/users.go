@@ -20,6 +20,8 @@ type User struct {
 	ActivityText  string
 	// LeftAt is when the user left the server (0 = still a member).
 	LeftAt int64
+	// PortraitsAt: when its portrait pack last changed (bot / AI; 0 = none).
+	PortraitsAt int64
 }
 
 // Gone reports whether the account is banned or has left the server: it is
@@ -28,7 +30,7 @@ func (u *User) Gone() bool { return u.Banned || u.LeftAt != 0 }
 
 const userCols = `id, username, display_name, avatar, COALESCE(avatar_media_id, 0), COALESCE(password_hash, ''),
 	account_type, COALESCE(owner_id, 0), is_site_admin, banned, created_at, bio, invisible, activity_kind, activity_text,
-	COALESCE(left_at, 0)`
+	COALESCE(left_at, 0), portraits_at`
 
 type scanner interface{ Scan(...any) error }
 
@@ -36,7 +38,7 @@ type scanner interface{ Scan(...any) error }
 func (u *User) scanTargets() []any {
 	return []any{&u.ID, &u.Username, &u.DisplayName, &u.Avatar, &u.AvatarMediaID, &u.PasswordHash,
 		&u.AccountType, &u.OwnerID, &u.IsSiteAdmin, &u.Banned, &u.CreatedAt,
-		&u.Bio, &u.Invisible, &u.ActivityKind, &u.ActivityText, &u.LeftAt}
+		&u.Bio, &u.Invisible, &u.ActivityKind, &u.ActivityText, &u.LeftAt, &u.PortraitsAt}
 }
 
 func scanUser(row scanner) (*User, error) {

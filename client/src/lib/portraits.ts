@@ -7,6 +7,11 @@ export const MOODS = [
   'neutral', 'happy', 'laugh', 'smug', 'shy', 'love', 'sad', 'cry', 'worried',
   'scared', 'angry', 'surprised', 'thinking', 'confused', 'speechless', 'sleepy',
 ] as const;
+/** Names shown in the pack editor. */
+export const MOOD_LABEL: Record<(typeof MOODS)[number], string> = {
+  neutral: '平静', happy: '开心', laugh: '大笑', smug: '得意', shy: '害羞', love: '喜欢', sad: '难过', cry: '哭',
+  worried: '担心', scared: '害怕', angry: '生气', surprised: '惊讶', thinking: '思考', confused: '疑惑', speechless: '无语', sleepy: '困',
+};
 /** States the client shows by itself (not chosen by the model). */
 export const STATES = ['typing', 'offline'] as const;
 
@@ -32,6 +37,17 @@ export function packFromFiles(files: Record<string, string>): Pack {
     if (KEYS.has(key)) pack[key as Mood] = url;
   }
   return pack;
+}
+
+/**
+ * An AI's own pack as the server keeps it (mood -> URL). Only known moods
+ * count, and it needs a `neutral` picture (every fallback ends there);
+ * without one the AI uses the default pack (null).
+ */
+export function ownPack(images: Record<string, string>): Pack | null {
+  const pack: Pack = {};
+  for (const [k, url] of Object.entries(images)) if (KEYS.has(k) && url) pack[k as Mood] = url;
+  return pack.neutral ? pack : null;
 }
 
 export interface Resolved {

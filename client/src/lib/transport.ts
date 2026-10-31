@@ -110,6 +110,17 @@ export async function aiRequest(url: string, headers: Record<string, string>, bo
   return r.status;
 }
 
+/** A plain GET to a model provider (balance lookups): status and body text. */
+export async function aiGet(url: string, headers: Record<string, string>): Promise<{ status: number; body: string }> {
+  if (inTauri) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const [status, body] = await invoke<[number, string]>('ai_get', { url, headers: Object.entries(headers) });
+    return { status, body };
+  }
+  const r = await fetch(url, { headers });
+  return { status: r.status, body: await r.text() };
+}
+
 /** Asks a not-yet-added server for its info (join screen). */
 export async function fetchServerInfo(ep: Endpoint): Promise<Reply> {
   if (inTauri) {

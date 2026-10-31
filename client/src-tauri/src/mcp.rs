@@ -22,6 +22,7 @@ const PROTOCOL: &str = "2025-06-18";
 struct Server {
     /// command + args it was started with (a change restarts it).
     spec: Vec<String>,
+    env: Vec<(String, String)>,
     child: Child,
     stdin: ChildStdin,
     stdout: Lines<BufReader<ChildStdout>>,
@@ -29,16 +30,17 @@ struct Server {
 }
 
 impl Server {
-    async fn start(spec: &[String]) -> R<Server> {
+    async fn start(spec: &[String], env: &[(String, String)]) -> R<Server> {
         let (cmd, args) = spec.split_first().ok_or("没有填命令")?;
         let mut c = tokio::process::Command::new(resolve(cmd));
         c.args(args).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
+        c.envs(env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         #[cfg(windows)]
         c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         let mut child = c.spawn().map_err(|e| format!("启动不了 {cmd}：{e}"))?;
         let stdin = child.stdin.take().ok_or("拿不到输入")?;
         let stdout = BufReader::new(child.stdout.take().ok_or("拿不到输出")?).lines();
-        let mut s = Server { spec: spec.to_vec(), child, stdin, stdout, next: 1 };
+        let mut s = Server { spec: spec.to_vec(), env: env.to_vec(), child, stdin, stdout, next: 1 };
         let init = json!({
             "protocolVersion": PROTOCOL,
             "capabilities": {},
@@ -111,17 +113,17 @@ type Shared = Arc<Mutex<Server>>;
 static SERVERS: std::sync::Mutex<Option<HashMap<String, Shared>>> = std::sync::Mutex::new(None);
 
 /// The running server under `key`, started (or restarted) for `spec`.
-async fn get(key: &str, spec: &[String]) -> R<Shared> {
+async fn get(key: &str, spec: &[String], env: &[(String, String)]) -> R<Shared> {
     let existing = SERVERS.lock().map_err(|_| "状态出错")?.get_or_insert_with(HashMap::new).get(key).cloned();
     if let Some(s) = existing {
         let mut g = s.lock().await;
-        if g.spec == spec && g.child.try_wait().map(|x| x.is_none()).unwrap_or(false) {
+        if g.spec == spec && g.env == env && g.child.try_wait().map(|x| x.is_none()).unwrap_or(false) {
             drop(g);
             return Ok(s);
         }
         let _ = g.child.start_kill();
     }
-    let s = Arc::new(Mutex::new(Server::start(spec).await?));
+    let s = Arc::new(Mutex::new(Server::start(spec, env).await?));
     SERVERS.lock().map_err(|_| "状态出错")?.get_or_insert_with(HashMap::new).insert(key.to_owned(), s.clone());
     Ok(s)
 }
@@ -134,8 +136,8 @@ pub struct Tool {
     input_schema: Value,
 }
 
-pub async fn tools(key: &str, spec: &[String]) -> R<Vec<Tool>> {
-    let s = get(key, spec).await?;
+pub async fn tools(key: &str, spec: &[String], env: &[(String, String)]) -> R<Vec<Tool>> {
+    let s = get(key, spec, env).await?;
     let mut g = s.lock().await;
     let mut out = Vec::new();
     let mut cursor: Option<String> = None;
@@ -165,8 +167,8 @@ pub struct CallResult {
     error: bool,
 }
 
-pub async fn call(key: &str, spec: &[String], tool: &str, args: Value, timeout: u64) -> R<CallResult> {
-    let s = get(key, spec).await?;
+pub async fn call(key: &str, spec: &[String], env: &[(String, String)], tool: &str, args: Value, timeout: u64) -> R<CallResult> {
+    let s = get(key, spec, env).await?;
     let mut g = s.lock().await;
     let r = g.request("tools/call", json!({ "name": tool, "arguments": args }), Duration::from_secs(timeout.clamp(1, 600))).await?;
     Ok(result_of(&r))
@@ -220,16 +222,17 @@ mod tests {
   case "$line" in
     *'"initialize"'*) echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"t","version":"1"}}}' ;;
     *'"tools/list"'*) echo 'log line'; echo '{"jsonrpc":"2.0","id":'$id',"result":{"tools":[{"name":"echo","description":"says it back","inputSchema":{"type":"object","properties":{"s":{"type":"string"}}}}]}}' ;;
-    *'"tools/call"'*) echo '{"jsonrpc":"2.0","id":'$id',"result":{"content":[{"type":"text","text":"hi"}]}}' ;;
+    *'"tools/call"'*) echo '{"jsonrpc":"2.0","id":'$id',"result":{"content":[{"type":"text","text":"'$AM_T'"}]}}' ;;
   esac
 done"#;
         let spec = vec!["sh".to_owned(), "-c".to_owned(), script.to_owned()];
-        let t = tools("test", &spec).await.unwrap();
+        let env = vec![("AM_T".to_owned(), "hi".to_owned())];
+        let t = tools("test", &spec, &env).await.unwrap();
         assert_eq!((t.len(), t[0].name.as_str(), t[0].description.as_str()), (1, "echo", "says it back"));
-        let r = call("test", &spec, "echo", json!({ "s": "x" }), 10).await.unwrap();
+        let r = call("test", &spec, &env, "echo", json!({ "s": "x" }), 10).await.unwrap();
         assert_eq!(r.text, "hi");
         let bad = vec!["/no/such/program".to_owned()];
-        assert!(tools("bad", &bad).await.is_err());
+        assert!(tools("bad", &bad, &[]).await.is_err());
         stop("");
     }
 }

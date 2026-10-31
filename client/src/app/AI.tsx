@@ -7,6 +7,7 @@ import { botOf, isBotConv, isDeletedBotConv, openConv, useOpenConv } from '@/lib
 import type { SessionView } from '@/lib/session';
 import type { Conversation, User } from '@/lib/types';
 import { Button, IconButton, IdentityChip, cx, spring } from '@/ui';
+import { useAI } from '@/lib/ai/runner';
 import { CreateAIDialog, ProvidersDialog } from './AISettings';
 import { ChatView } from './Chat';
 import { ListStrip } from './ConvList';
@@ -44,6 +45,9 @@ function AIList({ v }: { v: SessionView }) {
     return { mine: rows.filter((r) => r.peer.ownerId === v.me?.id), added: rows.filter((r) => r.peer.ownerId !== v.me?.id) };
   }, [v.convs, v.users, v.me?.id]);
 
+  // Open share requests per AI of mine (people asking to chat with it).
+  const requests = useAI((s) => s.byServer[v.id]);
+  const reqCount = (aiId: string) => requests?.find((a) => a.user.id === aiId)?.shareRequests ?? 0;
   const [dialog, setDialog] = useState<'create' | 'providers' | null>(null);
   const section = (title: string, rows: Row[], add?: boolean) =>
     (rows.length > 0 || add) && (
@@ -78,6 +82,11 @@ function AIList({ v }: { v: SessionView }) {
                     <span className="truncate text-[0.82rem] text-ink-soft dark:text-white/50">
                       {conv.kind === 'group' ? `共享聊天 · ${conv.members.length} 人` : peer.ownerId === v.me?.id ? '我的' : `主人：${peer.ownerName || '未知'}`}
                     </span>
+                    {conv.kind !== 'group' && reqCount(peer.id) > 0 && (
+                      <span className="shrink-0 rounded-full bg-amber-400/90 px-1.5 text-[0.7rem] leading-5 font-medium text-white" title="有人申请和它聊天，去 AI 设置 → 社交里处理">
+                        {reqCount(peer.id)} 个申请
+                      </span>
+                    )}
                     <AnimatePresence>
                       {n > 0 && (
                         <motion.span

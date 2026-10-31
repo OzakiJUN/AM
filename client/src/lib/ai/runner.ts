@@ -6,6 +6,8 @@
 // with its mood for the portrait.
 import { create } from 'zustand';
 import { deviceId } from '../deviceId';
+import { notify } from '../platform';
+import { toast } from '@/ui';
 import { errorText } from '../errors';
 import { splitMoodTag } from '../portraits';
 import { Session, deviceName, type AIInfo, type ServerRecord } from '../session';
@@ -13,6 +15,7 @@ import { session, useApp } from '../store';
 import { aiRequest, secretDelete, secretGet, secretSet } from '../transport';
 import type { Conversation, Message, User } from '../types';
 import { loadProviders, useProviders } from './keys';
+import { watchBalances } from './balance';
 import { argsOf, categoryOf, computerPrompt, describeCall, hasComputerTools, levelFor, toolsFor } from './agent';
 import { appendLog, askOwner, setActivity, stopped } from './agentState';
 import {
@@ -661,7 +664,17 @@ export function startAI() {
   const online = new Set<string>();
   const watch = () => {
     for (const rec of useApp.getState().servers) {
-      const on = session(rec.id)?.view.status === 'online';
+      const s = session(rec.id);
+      const on = s?.view.status === 'online';
+      if (s && !s.onShareRequest) {
+        // Someone asks to chat with one of my AIs: tell me, show the count.
+        s.onShareRequest = (aiId, user) => {
+          const text = `${user.name || user.username} 想和 ${s.nameOf(aiId)} 聊天，去 AI 设置里处理`;
+          toast(text);
+          void notify('AI 共享申请', text);
+          void refreshAIs(rec.id).catch(() => {});
+        };
+      }
       if (on && !online.has(rec.id)) void refreshAIs(rec.id).catch(() => {});
       if (on) online.add(rec.id);
       else online.delete(rec.id);
@@ -673,4 +686,6 @@ export function startAI() {
   useApp.subscribe(watch);
   watch();
   void loadProviders();
+  // New services start with the default reminder threshold (5).
+  watchBalances(() => useProviders.getState().list.map((p) => ({ ...p, lowBalance: p.lowBalance ?? 5 })));
 }

@@ -12,7 +12,67 @@ export interface Provider {
   name: string;
   baseUrl: string;
   key: string;
+  /** Remind me when the balance drops below this (in the provider's currency; 0 = never). */
+  lowBalance?: number;
 }
+
+// ---- balance (only for services that have a lookup) ----
+
+export interface BalanceQuery {
+  url: string;
+  headers: Record<string, string>;
+  /** Where to top up. */
+  topUp: string;
+}
+
+export interface Balance {
+  amount: number;
+  currency: string;
+}
+
+const hostOf = (u: string) => {
+  try {
+    return new URL(u).host;
+  } catch {
+    return '';
+  }
+};
+
+/** How to ask a provider for its balance (null = it has no lookup we know). */
+export function balanceQuery(p: Provider): BalanceQuery | null {
+  const host = hostOf(p.baseUrl);
+  const auth = { Authorization: `Bearer ${p.key}` };
+  if (host === 'api.deepseek.com') return { url: 'https://api.deepseek.com/user/balance', headers: auth, topUp: 'https://platform.deepseek.com/top_up' };
+  // OpenRouter answers only for a management key (403 otherwise).
+  if (host === 'openrouter.ai') return { url: 'https://openrouter.ai/api/v1/credits', headers: auth, topUp: 'https://openrouter.ai/settings/credits' };
+  return null;
+}
+
+/** The balance from a lookup's answer, or why there is none. */
+export function parseBalance(p: Provider, status: number, body: string): Balance | { error: string } {
+  if (status === 401) return { error: 'key 不对' };
+  if (status === 403) return { error: hostOf(p.baseUrl) === 'openrouter.ai' ? 'OpenRouter 要用「管理 key」才能查余额' : '这个 key 查不了余额' };
+  if (status >= 400) return { error: `查余额失败（${status}）` };
+  let j: unknown;
+  try {
+    j = JSON.parse(body);
+  } catch {
+    return { error: '余额读不懂' };
+  }
+  const o = j as Record<string, unknown>;
+  if (Array.isArray(o.balance_infos)) {
+    // DeepSeek: amounts are strings, one entry per currency (CNY first if there).
+    const list = (o.balance_infos as { currency?: string; total_balance?: string }[]).map((b) => ({ currency: b.currency ?? '', amount: Number(b.total_balance) }));
+    const b = list.find((x) => x.currency === 'CNY') ?? list[0];
+    return b && Number.isFinite(b.amount) ? b : { error: '余额读不懂' };
+  }
+  const d = o.data as { total_credits?: number; total_usage?: number } | undefined;
+  if (d && typeof d.total_credits === 'number') return { amount: Math.round((d.total_credits - (d.total_usage ?? 0)) * 100) / 100, currency: 'USD' };
+  return { error: '余额读不懂' };
+}
+
+/** "¥12.30" / "$4.50" */
+export const balanceText = (b: Balance) => `${b.currency === 'CNY' ? '¥' : b.currency === 'USD' ? '$' : b.currency + ' '}${b.amount.toFixed(2)}`;
 
 /** A plain chat turn (the conversation as the model sees it). */
 export interface ChatMsg {

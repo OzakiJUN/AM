@@ -71,6 +71,10 @@ export interface McpServer {
   /** One argument per entry (no quoting rules to get wrong). */
   args: string[];
   enabled: boolean;
+  /** Environment variables, "NAME=value" per entry (e.g. a game's local address). */
+  env?: string[];
+  /** Its tools run without asking me (games: asking at every step makes them unplayable). */
+  trusted?: boolean;
 }
 
 export type ToolCategory =

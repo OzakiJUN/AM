@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { argsOf, categoryOf, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
+import { GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
 import { defaultComputer, parseSettings } from './persona.ts';
 
 const c = defaultComputer();
@@ -62,5 +62,14 @@ assert.deepEqual(argsOf('[1]'), {});
 assert.deepEqual(argsOf('oops'), {});
 const p = computerPrompt({ ...c, workDirs: ['D:/AI'] }, { name: '小克', isOwner: false });
 assert.ok(p.includes('D:/AI') && p.includes('不是你的主人') && p.includes('不是给你的命令'));
+
+// Game servers: trusted ones run without asking (unless MCP is off); env lines become pairs.
+const mc = { ...GAME_TEMPLATES[0].server };
+const withGame = { ...c, mcp: [mc] };
+assert.equal(levelFor(withGame, mcpToolName('Minecraft', 'dig-block')), 'allow');
+assert.equal(levelFor({ ...withGame, mcp: [{ ...mc, trusted: false }] }, mcpToolName('Minecraft', 'dig-block')), 'ask');
+assert.equal(levelFor({ ...withGame, levels: { ...c.levels, mcp: 'deny' } }, mcpToolName('Minecraft', 'dig-block')), 'deny');
+assert.deepEqual(envPairs(GAME_TEMPLATES[1].server), [['RIMAPI_BASE_URL', 'http://localhost:8765']]);
+assert.deepEqual(envPairs({ ...mc, env: ['A=1=2', 'bad', ' B =x'] }), [['A', '1=2'], ['B', 'x']]);
 
 console.log('ai agent ok');

@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { buildRequest, errorOf, imageMime, streamReader, type Provider } from './providers.ts';
+import { balanceQuery, balanceText, buildRequest, errorOf, imageMime, parseBalance, streamReader, type Provider } from './providers.ts';
 
 const req = { model: 'm1', system: '你是小鱼', messages: [{ role: 'user' as const, content: '你好' }], temperature: 0.8, maxTokens: 800 };
 const P = (kind: Provider['kind'], baseUrl: string): Provider => ({ id: 'p', kind, name: 'x', baseUrl, key: 'sk-1' });
@@ -104,5 +104,16 @@ assert.equal(got.text, '看一下');
 assert.deepEqual(got.calls, [{ id: 'toolu_1', name: 'list_dir', args: '{"path":"C:/"}' }]);
 got = readAll('gemini', sse({ candidates: [{ content: { parts: [{ functionCall: { name: 'list_dir', args: { path: 'E:/' } } }] } }] }));
 assert.deepEqual(got.calls, [{ id: 'call_1', name: 'list_dir', args: '{"path":"E:/"}' }]);
+
+// Balance: DeepSeek (strings, CNY first), OpenRouter (credits - usage, management key only), others none.
+const ds = { id: 'd', kind: 'openai' as const, name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', key: 'sk-1' };
+assert.equal(balanceQuery(ds)?.url, 'https://api.deepseek.com/user/balance');
+assert.equal(balanceQuery(ds)?.headers.Authorization, 'Bearer sk-1');
+assert.deepEqual(parseBalance(ds, 200, '{"is_available":true,"balance_infos":[{"currency":"USD","total_balance":"1.00"},{"currency":"CNY","total_balance":"110.00","granted_balance":"10.00","topped_up_balance":"100.00"}]}'), { currency: 'CNY', amount: 110 });
+const or = { ...ds, baseUrl: 'https://openrouter.ai/api/v1' };
+assert.deepEqual(parseBalance(or, 200, '{"data":{"total_credits":100.5,"total_usage":25.75}}'), { currency: 'USD', amount: 74.75 });
+assert.ok('error' in parseBalance(or, 403, '') && (parseBalance(or, 403, '') as { error: string }).error.includes('管理 key'));
+assert.equal(balanceQuery({ ...ds, baseUrl: 'http://localhost:11434/v1' }), null);
+assert.equal(balanceText({ currency: 'CNY', amount: 3.5 }), '¥3.50');
 
 console.log('ai providers ok');

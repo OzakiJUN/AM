@@ -36,6 +36,21 @@ fn allowed(url: &str) -> bool {
 }
 
 /// POSTs `body` to `url` and streams the reply to `on`; returns the HTTP status.
+/// GET with headers (balance lookups), whole body as text (at most 1 MiB).
+pub async fn get(url: String, headers: Vec<(String, String)>) -> Result<(u16, String), String> {
+    if !allowed(&url) {
+        return Err("只能用 https 地址（本机的模型可以用 http://localhost）".into());
+    }
+    let mut req = client()?.get(&url);
+    for (k, v) in headers {
+        req = req.header(k, v);
+    }
+    let resp = req.send().await.map_err(|e| format!("连不上：{e}"))?;
+    let status = resp.status().as_u16();
+    let body = resp.bytes().await.map_err(|e| e.to_string())?;
+    Ok((status, String::from_utf8_lossy(&body[..body.len().min(1 << 20)]).into_owned()))
+}
+
 pub async fn post(url: String, headers: Vec<(String, String)>, body: String, on: Channel<StreamEvent>) -> Result<u16, String> {
     if !allowed(&url) {
         return Err("只能用 https 地址（本机的模型可以用 http://localhost）".into());

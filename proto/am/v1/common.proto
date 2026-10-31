@@ -33,6 +33,9 @@ message User {
   // The account is gone: left the server, banned, or (bot / ai) deleted by
   // its owner. Old messages still show it; lists hide deleted bots / AIs.
   bool gone = 10;
+  // Bot / ai: when its own portrait pack last changed (0 = it uses the
+  // default pack). Clients fetch GET /api/v1/users/{id}/portraits when it moves.
+  int64 portraits_at = 11;
 }
 
 // What a user says they are doing. Chosen by the user; shown next to their

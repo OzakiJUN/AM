@@ -19,6 +19,8 @@ export interface User {
   bio: string;
   /** Left the server, banned, or (bot / AI) deleted by its owner. */
   gone?: boolean;
+  /** Bot / AI: when its own portrait pack last changed (absent = default pack). */
+  portraitsAt?: number;
 }
 
 export type ActivityKind = 'listening' | 'playing' | 'tuning_ai' | 'working' | 'custom';

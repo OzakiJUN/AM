@@ -218,6 +218,17 @@ update the docs in the same commit.
   server only relays (`server/internal/remote`, gateway `remote_tool*`
   frames); this device decides with `lib/ai/remote.ts` (local, per AI, off
   by default, every raise warns).
+- AI wrap-up (docs/design.md §9): share requests (`ai_share_requests`,
+  `account.RequestShare` / `TakeShareRequest`, push `ai_share_request`;
+  approving joins / creates the AI's room); "添加 bot" in channel headers
+  lists only my AIs; games are MCP templates only (`GAME_TEMPLATES` in
+  `agent.ts`: Minecraft via minecraft-mcp-server, RimWorld via RIMAPI +
+  RimAPI_MCP_Server; `McpServer.env` / `trusted`); balances in
+  `providers.ts` (`balanceQuery` / `parseBalance`, pure) + `lib/ai/balance.ts`
+  (reminder), fetched through Rust `ai_get`; an AI's own portrait pack in
+  `portrait_packs` (`User.portraits_at` = cache version, `ownPack` needs
+  `neutral`, `usePortraitPack` in `app/Portrait.tsx`); voice input is only
+  the `SpeechInput` slot in `lib/voice.ts` (null implementation).
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

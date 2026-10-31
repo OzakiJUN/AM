@@ -156,8 +156,18 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | DELETE | `/api/v1/ai/{id}` | — | `Empty`：AI 退出服务器（同 leave） |
 | POST | `/api/v1/ai/{id}/room` | `CreateAIRoomRequest` | `Conversation`：给我的 AI 开一个共享聊天（私密频道，`ai_id` = 这个 AI，我是群主，AI 和列出的人是成员） |
 | DELETE | `/api/v1/ai/{id}/channels/{conv}` | — | `Empty`：把我的 AI 从一个频道里拿出来（它自己退出；拉进去用普通的邀请成员） |
+| PUT | `/api/v1/ai/{id}/portraits` | `PortraitPack` | `PortraitPack`：整套换掉 AI 的形象包（情绪名 → 图片 media id；情绪名是 1–16 个小写字母或下划线，最多 24 个；新加的图必须是我自己上传的图片，否则 `media_not_found` / `not_image`）。空的 = 用默认形象。更新 `User.portraits_at` |
+| GET | `/api/v1/ai/{id}/share-requests` | — | `ShareRequests`：谁申请和我的 AI 聊（`users`） |
+| POST | `/api/v1/ai/{id}/share-requests/{user}` | `DecideShareRequest` | 同意（`approve = true`）：`Conversation`，把那个人拉进 AI 的共享聊天，没有就先建一个；拒绝：`Empty`。没有这条申请 `not_found` |
 
-不是我的 AI（或已删除）一律 `user_not_found`。删除、离开或被封的账号在 `User.gone` 里是 `true`（旧消息照样显示它，客户端列表里不再列出删掉的 bot / AI）。AI 的个人主页（`PUT /api/v1/users/{id}/profile`）主人也能存。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
+别人的 AI（任何登录的人都能用）：
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/users/{id}/portraits` | — | `PortraitPack`：这个 bot / AI 自己的形象包（空 = 默认形象）。图片所有人都能读 |
+| POST | `/api/v1/ai/{id}/share-request` | `Empty` | `Empty`：申请和别人的 bot / AI 聊（进它的共享聊天）。只有真人、不是主人（`no_permission`）；没有主人或已删除 `user_not_found`；重复申请只算一条。主人的设备收到 `ai_share_request` |
+
+不是我的 AI（或已删除）一律 `user_not_found`。删除、离开或被封的账号在 `User.gone` 里是 `true`（旧消息照样显示它，客户端列表里不再列出删掉的 bot / AI）。AI 的个人主页（`PUT /api/v1/users/{id}/profile`）主人也能存。`AIAccount.share_requests` 是还没处理的申请数。`User.portraits_at` 是形象包最后一次改动的时间（毫秒，0 = 没有自己的），客户端按它缓存形象包。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
 
 ### 主页小组件
 
@@ -225,6 +235,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
    - `presence`：某人上线 / 下线 / 改了隐身或状态（发给服务器上所有在线的人，每人看到的是自己该看到的样子，见"在线状态"）。
    - `client_state`：我的另一台设备存了共享数据（`PUT /api/v1/me/client-state`），重新取一次。
    - `server_moved`：服务器换了公网地址（管理员换了中转）。客户端用同一个证书指纹连新地址，连上了再切过去。
+   - `ai_share_request{ai_id, user}`：有人申请和我的 AI 聊（发给主人的所有设备）。
 5. 请求带客户端自定的 `req_id`，响应带同一个 `req_id`。
 
 服务器每 30 秒发一次 WebSocket ping；客户端也可以发 `ping` 帧。客户端读得太慢会被断开，重连后 sync 即可。

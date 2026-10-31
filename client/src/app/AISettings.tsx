@@ -2,23 +2,27 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, Folder, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
-import { CATEGORY_LABEL } from '@/lib/ai/agent';
+import { Cpu, Folder, Gamepad2, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { CATEGORY_LABEL, GAME_TEMPLATES } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
+import type { User } from '@/lib/types';
 import { listMcpTools, stopMcp } from '@/lib/ai/tools';
 import { chatTime } from '@/lib/format';
-import { inTauri } from '@/lib/platform';
+import { inTauri, openUrl } from '@/lib/platform';
 import { deviceId } from '@/lib/deviceId';
 import { errorText } from '@/lib/errors';
 import { newProviderId, putProvider, removeProvider, useProviders } from '@/lib/ai/keys';
 import { TEMPLATES, defaultSettings, type AISettings } from '@/lib/ai/persona';
-import { KIND_LABEL, PRESETS, buildRequest, errorOf, streamReader, type Provider, type ProviderKind } from '@/lib/ai/providers';
+import { KIND_LABEL, PRESETS, balanceQuery, balanceText, buildRequest, errorOf, streamReader, type Provider, type ProviderKind } from '@/lib/ai/providers';
+import { checkBalance, useBalance } from '@/lib/ai/balance';
 import { aiSettings, refreshAIs, runHere, saveSettings, useAI } from '@/lib/ai/runner';
 import { openConv, openProfile, session, useApp } from '@/lib/store';
 import { aiRequest } from '@/lib/transport';
 import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, cx, inputClass, toast, toastError } from '@/ui';
-import { UserAvatar } from './media';
+import { UserAvatar, mediaPath, useMediaUrl } from './media';
+import { forgetPack } from './Portrait';
+import { MOODS, MOOD_LABEL, packFromFiles, type Mood } from '@/lib/portraits';
 
 const textarea = cx(inputClass, 'min-h-[84px] resize-y py-2.5 leading-relaxed');
 
@@ -291,6 +295,42 @@ function ComputerTab({ draft, set, save }: TabProps) {
 }
 
 /** Which channels it is in, how much it talks there, and its day. */
+/** People who asked to chat with my AI: 同意 = into its shared chat (made if there is none). */
+function ShareRequests({ serverId, aiId }: { serverId: string; aiId: string }) {
+  const count = useAI((s) => s.byServer[serverId]?.find((a) => a.user.id === aiId)?.shareRequests ?? 0);
+  const [list, setList] = useState<User[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    session(serverId)?.shareRequests(aiId).then((l) => live && setList(l)).catch(() => live && setList([]));
+    return () => {
+      live = false;
+    };
+  }, [serverId, aiId, count]);
+  if (!list?.length) return null;
+  const decide = async (u: User, approve: boolean) => {
+    const id = await session(serverId)!.decideShare(aiId, u.id, approve);
+    setList((l) => (l ?? []).filter((x) => x.id !== u.id));
+    await refreshAIs(serverId).catch(() => {});
+    if (id) {
+      toast(`${u.name} 进共享聊天了`);
+      openConv(id);
+    } else toast('已拒绝');
+  };
+  return (
+    <div className="mb-3 space-y-1.5" data-testid="share-requests">
+      <p className="text-[0.82rem] font-medium text-amber-600 dark:text-amber-300">{list.length} 个人申请和它聊天</p>
+      {list.map((u) => (
+        <div key={u.id} className="flex items-center gap-3 rounded-xl bg-amber-400/10 px-3 py-2">
+          <UserAvatar user={u} size={28} />
+          <span className="min-w-0 flex-1 truncate">{u.name}</span>
+          <Button variant="soft" key={`no:${u.id}`} onClick={() => decide(u, false)}>拒绝</Button>
+          <Button variant="primary" key={`yes:${u.id}`} onClick={() => decide(u, true)}>同意</Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: string; aiId: string }) {
   const v = useApp((s) => s.sessions[serverId]);
   const ch = draft.channels;
@@ -328,6 +368,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
         </div>
       </Field>
       <Field label="共享聊天" hint="开一个只属于它的聊天，把想一起聊的人拉进去：大家说什么它都回，聊天记录大家都看得到。用的是你的模型 key">
+        <ShareRequests serverId={serverId} aiId={aiId} />
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="soft" onClick={async () => {
             const id = await session(serverId)!.createAIRoom(aiId);
@@ -427,7 +468,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
 
 /** MCP tool servers for this AI (programs started on the device that runs it). */
 function McpList({ list, onChange }: { list: McpServer[]; onChange: (l: McpServer[]) => void }) {
-  const [editing, setEditing] = useState<{ index: number; server: McpServer } | null>(null);
+  const [editing, setEditing] = useState<{ index: number; server: McpServer; game?: (typeof GAME_TEMPLATES)[number] } | null>(null);
   const done = (m: McpServer) => {
     if (!editing) return;
     onChange(editing.index < 0 ? [...list, m] : list.map((x, i) => (i === editing.index ? m : x)));
@@ -448,9 +489,24 @@ function McpList({ list, onChange }: { list: McpServer[]; onChange: (l: McpServe
             <button type="button" onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label={`移除 ${m.name}`} className="press rounded-md p-1 text-ink-soft hover:bg-black/5 dark:hover:bg-white/10"><X size={14} /></button>
           </div>
         ))}
-        <Button size="sm" variant="soft" onClick={() => setEditing({ index: -1, server: { name: '', command: '', args: [], enabled: true } })}><Plus size={14} /> 添加工具服务</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="soft" onClick={() => setEditing({ index: -1, server: { name: '', command: '', args: [], enabled: true } })}><Plus size={14} /> 添加工具服务</Button>
+          {GAME_TEMPLATES.map((g) => (
+            <Button key={g.key} size="sm" variant="soft" onClick={() => setEditing({ index: -1, server: { ...g.server, args: [...g.server.args], env: g.server.env && [...g.server.env] }, game: g })}>
+              <Gamepad2 size={14} /> 玩{g.name}
+            </Button>
+          ))}
+        </div>
+        <p className="text-[0.75rem] text-ink-soft dark:text-white/45">游戏只接有 AI 接口的（模组 / MCP），AI 用游戏给的接口玩，不抢你的鼠标键盘。</p>
       </div>
       <Dialog open={!!editing} onClose={() => setEditing(null)} title={editing && editing.index >= 0 ? '编辑工具服务' : '添加工具服务'} width={480}>
+        {editing?.game && (
+          <div className="mb-3 rounded-xl bg-accent-50 p-3 text-[0.82rem] leading-relaxed dark:bg-white/[0.06]">
+            <div className="font-medium">玩{editing.game.name}要先准备：</div>
+            <p className="mt-1 text-ink-soft dark:text-white/60">{editing.game.needs}</p>
+            <button type="button" onClick={() => openUrl(editing.game!.link)} className="mt-1 text-accent underline">看说明（GitHub）</button>
+          </div>
+        )}
         {editing && <McpForm initial={editing.server} taken={list.filter((_, i) => i !== editing.index).map((x) => x.name)} onDone={done} />}
       </Dialog>
     </Field>
@@ -460,8 +516,10 @@ function McpList({ list, onChange }: { list: McpServer[]; onChange: (l: McpServe
 function McpForm({ initial, taken, onDone }: { initial: McpServer; taken: string[]; onDone: (m: McpServer) => void }) {
   const [m, setM] = useState(initial);
   const [args, setArgs] = useState(initial.args.join('\n'));
+  const [env, setEnv] = useState((initial.env ?? []).join('\n'));
   const [test, setTest] = useState('');
-  const server = (): McpServer => ({ ...m, name: m.name.trim(), command: m.command.trim(), args: args.split('\n').map((x) => x.trim()).filter(Boolean) });
+  const lines = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean);
+  const server = (): McpServer => ({ ...m, name: m.name.trim(), command: m.command.trim(), args: lines(args), env: lines(env) });
   const dup = taken.includes(m.name.trim());
   async function tryIt() {
     const x = server();
@@ -485,6 +543,16 @@ function McpForm({ initial, taken, onDone }: { initial: McpServer; taken: string
       <Field label="参数" hint="一行一个，不用加引号">
         <textarea value={args} onChange={(e) => setArgs(e.target.value)} className={cx(textarea, 'font-mono text-[0.85rem]')} rows={3} aria-label="参数" placeholder={'-y\n@modelcontextprotocol/server-filesystem\nD:\\AI'} />
       </Field>
+      <Field label="环境变量（可以不填）" hint="一行一个，「名字=值」">
+        <textarea value={env} onChange={(e) => setEnv(e.target.value)} className={cx(textarea, 'min-h-[52px] font-mono text-[0.85rem]')} rows={2} aria-label="环境变量" placeholder="RIMAPI_BASE_URL=http://localhost:8765" />
+      </Field>
+      <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+        <div className="min-w-0 flex-1">
+          <div className="text-[0.9rem] font-medium">它的工具不用问我</div>
+          <div className="text-[0.75rem] text-ink-soft dark:text-white/45">游戏一步一问没法玩；别的工具服务建议关着</div>
+        </div>
+        <Toggle label="它的工具不用问我" checked={!!m.trusted} onChange={(trusted) => setM({ ...m, trusted })} />
+      </div>
       <p className="flex gap-2 rounded-xl bg-amber-50 p-2.5 text-[0.8rem] text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
         <ShieldAlert size={16} className="mt-0.5 shrink-0" />
         工具服务是在你电脑上运行的程序，权限和你一样大。只添加你信得过的。
@@ -554,7 +622,7 @@ function ProfileTab({ serverId, aiId, onClose }: { serverId: string; aiId: strin
           </span>
         </button>
         <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void avatar(f); e.target.value = ''; }} />
-        <div className="text-[0.85rem] text-ink-soft dark:text-white/55">点头像换图（GIF 也行）。立绘以后在这里换形象包。</div>
+        <div className="text-[0.85rem] text-ink-soft dark:text-white/55">点头像换图（GIF 也行）。立绘在下面换。</div>
       </div>
       <Field label="名字"><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={32} /></Field>
       <Field label="个性签名"><Input value={bio} onChange={(e) => setBio(e.target.value)} maxLength={100} /></Field>
@@ -562,7 +630,101 @@ function ProfileTab({ serverId, aiId, onClose }: { serverId: string; aiId: strin
         <Button variant="soft" onClick={() => { onClose(); openProfile(aiId); }}><LayoutGrid size={15} /> 编辑它的主页</Button>
         <Button variant="primary" disabled={!name.trim()} onClick={() => s().updateAI(aiId, { displayName: name.trim(), bio: bio.trim() }).then(() => refreshAIs(serverId)).then(() => toast('已保存'))}>保存资料</Button>
       </div>
+      <PackEditor serverId={serverId} aiId={aiId} />
     </>
+  );
+}
+
+const PACK_KEYS: { key: Mood; label: string }[] = [
+  ...MOODS.map((m) => ({ key: m as Mood, label: MOOD_LABEL[m] })),
+  { key: 'typing', label: '正在输入' }, { key: 'offline', label: '离线' },
+];
+
+/**
+ * Its own portrait pack (docs/design.md §9 形象包): one picture per mood,
+ * everyone sees it. Pictures are named by mood (happy.png, xx_sad.webp);
+ * missing moods fall back like the default pack; neutral is required.
+ */
+function PackEditor({ serverId, aiId }: { serverId: string; aiId: string }) {
+  const [ids, setIds] = useState<Record<string, string> | null>(null);
+  const [busy, setBusy] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const many = useRef<HTMLInputElement>(null);
+  const one = useRef<HTMLInputElement>(null);
+  const target = useRef<Mood>('neutral');
+  const s = () => session(serverId)!;
+  useEffect(() => {
+    s().portraits(aiId).then(setIds).catch(() => setIds({}));
+  }, [serverId, aiId]);
+  const put = async (files: [Mood, File][]) => {
+    for (const [mood, f] of files) {
+      setBusy(mood);
+      try {
+        const m = await s().upload(f);
+        setIds((x) => ({ ...(x ?? {}), [mood]: String(m.id) }));
+        setDirty(true);
+      } catch (e) {
+        toastError(e);
+      }
+    }
+    setBusy('');
+  };
+  const importMany = (list: FileList) => {
+    const files = [...list].filter((f) => f.type.startsWith('image/') || /\.(png|webp|gif|jpe?g|apng)$/i.test(f.name));
+    const byName = packFromFiles(Object.fromEntries(files.map((f) => [f.name, f.name])));
+    const pairs = Object.entries(byName).map(([mood, name]) => [mood as Mood, files.find((f) => f.name === name)!] as [Mood, File]);
+    const skipped = files.length - pairs.length;
+    if (!pairs.length) return toast('文件名要是情绪名，比如 happy.png、xx_sad.webp', true);
+    if (skipped) toast(`${skipped} 张认不出情绪名，跳过了`);
+    void put(pairs);
+  };
+  const save = async (pack: Record<string, string>) => {
+    await s().setPortraits(aiId, pack);
+    forgetPack(serverId, aiId);
+    setIds(pack);
+    setDirty(false);
+    await refreshAIs(serverId).catch(() => {});
+    toast(Object.keys(pack).length ? '立绘已保存，大家看到的都会换' : '换回默认立绘了');
+  };
+  const count = Object.keys(ids ?? {}).length;
+  return (
+    <Field label="立绘（形象包）" hint="每种情绪一张图，文件名就是情绪名（happy.png，带前缀也行：xx_happy.webp）。一定要有 neutral（平静）；缺的情绪按默认规则找相近的，都没有就用 neutral。大家看到的都是这套">
+      {!ids ? <Spinner /> : (
+        <>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button variant="soft" disabled={!!busy} onClick={() => many.current?.click()}><ImageUp size={15} /> 导入一组图片</Button>
+            {count > 0 && <Button variant="soft" onClick={() => ask({ title: '换回默认立绘？', text: '它自己的立绘会清空，大家看到的变回默认形象。', ok: '换回默认', run: () => save({}) })}>换回默认</Button>}
+            <Button variant="primary" disabled={!dirty || !!busy || !ids.neutral} onClick={() => save(ids)}>保存立绘</Button>
+          </div>
+          {dirty && !ids.neutral && <p className="mb-2 text-[0.82rem] text-amber-600 dark:text-amber-300">还缺 neutral（平静）这张，保存不了。</p>}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(84px,1fr))] gap-2" data-testid="pack-grid">
+            {PACK_KEYS.map(({ key, label }) => (
+              <PackCell key={key} mood={key} label={label} id={ids[key]} busy={busy === key}
+                onPick={() => { target.current = key; one.current?.click(); }}
+                onClear={() => { setIds((x) => { const n = { ...(x ?? {}) }; delete n[key]; return n; }); setDirty(true); }} />
+            ))}
+          </div>
+          <input ref={many} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) importMany(e.target.files); e.target.value = ''; }} />
+          <input ref={one} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void put([[target.current, f]]); e.target.value = ''; }} />
+        </>
+      )}
+    </Field>
+  );
+}
+
+function PackCell({ mood, label, id, busy, onPick, onClear }: { mood: Mood; label: string; id?: string; busy: boolean; onPick: () => void; onClear: () => void }) {
+  const url = useMediaUrl(id ? mediaPath(id, true) : undefined);
+  return (
+    <div className="group relative">
+      <button onClick={onPick} aria-label={`换 ${label} 的图`} title={`${label}（${mood}）`}
+        className={cx('press flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-black/[0.04] dark:bg-white/[0.05]', mood === 'neutral' && !id && 'ring-2 ring-amber-400/70')}>
+        {busy ? <Spinner size={18} /> : url ? <img src={url} alt="" className="h-full w-full object-contain" draggable={false} /> : <Plus size={18} className="text-ink-soft/60" />}
+      </button>
+      <div className="mt-0.5 truncate text-center text-[0.72rem] text-ink-soft dark:text-white/50">{label}</div>
+      {id && !busy && (
+        <button onClick={onClear} aria-label={`去掉 ${label}`} className="press absolute top-1 right-1 hidden rounded-full bg-black/50 p-0.5 text-white group-hover:block"><X size={12} /></button>
+      )}
+    </div>
   );
 }
 
@@ -619,6 +781,26 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
   );
 }
 
+/** Balance of a service that has a lookup, with refresh and top-up. */
+function BalanceLine({ p }: { p: Provider }) {
+  const b = useBalance((s) => s.byProvider[p.id]);
+  const q = balanceQuery(p);
+  useEffect(() => {
+    if (q && !b) void checkBalance(p);
+  }, [p.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!q) return null;
+  const low = !!b?.balance && (p.lowBalance ?? 5) > 0 && b.balance.amount < (p.lowBalance ?? 5);
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2 text-[0.8rem]">
+      <span className={cx(low ? 'font-medium text-rose-500' : 'text-ink-soft dark:text-white/55')}>
+        {b?.balance ? `余额 ${balanceText(b.balance)}${low ? '（快用完了）' : ''}` : b?.error ? `余额：${b.error}` : '正在查余额…'}
+      </span>
+      <button type="button" onClick={() => checkBalance(p)} className="text-accent underline-offset-2 hover:underline">刷新</button>
+      <button type="button" onClick={() => openUrl(q.topUp)} className="text-accent underline-offset-2 hover:underline">去充值</button>
+    </div>
+  );
+}
+
 /** The model services I have keys for (all my AIs and devices share them). */
 export function ProvidersDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const list = useProviders((s) => s.list);
@@ -638,6 +820,7 @@ export function ProvidersDialog({ open, onClose }: { open: boolean; onClose: () 
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{p.name}</div>
                 <div className="truncate text-[0.78rem] text-ink-soft dark:text-white/50">{KIND_LABEL[p.kind]} · {p.baseUrl}</div>
+                <BalanceLine p={p} />
               </div>
               <Button size="sm" variant="ghost" onClick={() => setEdit(p)} aria-label={`编辑 ${p.name}`}><Pencil size={14} /></Button>
               <Button size="sm" variant="ghost" onClick={() => ask({ title: `删除「${p.name}」？`, text: '用它的 AI 会回不了话，直到换一个服务商。', ok: '删除', danger: true, run: () => removeProvider(p.id) })} aria-label={`删除 ${p.name}`}><Trash2 size={14} /></Button>
@@ -702,6 +885,11 @@ function ProviderForm({ initial, onDone }: { initial: Provider; onDone: () => vo
       </div>
       <Field label="接口地址"><Input value={p.baseUrl} onChange={(e) => set({ baseUrl: e.target.value.trim() })} required aria-label="接口地址" /></Field>
       <Field label="key"><Input type="password" value={p.key} onChange={(e) => set({ key: e.target.value.trim() })} placeholder="sk-..." autoComplete="off" aria-label="key" /></Field>
+      {balanceQuery(p) && (
+        <Field label="余额低于多少时提醒我" hint="按这个服务商的币种（DeepSeek 是人民币，OpenRouter 是美元），0 = 不提醒">
+          <Input type="number" min={0} step={1} value={p.lowBalance ?? 5} onChange={(e) => set({ lowBalance: Math.max(0, Number(e.target.value) || 0) })} aria-label="低余额提醒" className="w-32" />
+        </Field>
+      )}
       <div className="flex items-end gap-2">
         <div className="flex-1"><Field label="测试用的模型名"><Input value={model} onChange={(e) => setModel(e.target.value.trim())} aria-label="测试用的模型名" /></Field></div>
         <Button variant="soft" disabled={!p.baseUrl || !model} onClick={tryIt}>测试</Button>

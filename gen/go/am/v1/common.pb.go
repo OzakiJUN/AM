@@ -262,7 +262,10 @@ type User struct {
 	Bio string `protobuf:"bytes,9,opt,name=bio,proto3" json:"bio,omitempty"`
 	// The account is gone: left the server, banned, or (bot / ai) deleted by
 	// its owner. Old messages still show it; lists hide deleted bots / AIs.
-	Gone          bool `protobuf:"varint,10,opt,name=gone,proto3" json:"gone,omitempty"`
+	Gone bool `protobuf:"varint,10,opt,name=gone,proto3" json:"gone,omitempty"`
+	// Bot / ai: when its own portrait pack last changed (0 = it uses the
+	// default pack). Clients fetch GET /api/v1/users/{id}/portraits when it moves.
+	PortraitsAt   int64 `protobuf:"varint,11,opt,name=portraits_at,json=portraitsAt,proto3" json:"portraits_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -365,6 +368,13 @@ func (x *User) GetGone() bool {
 		return x.Gone
 	}
 	return false
+}
+
+func (x *User) GetPortraitsAt() int64 {
+	if x != nil {
+		return x.PortraitsAt
+	}
+	return 0
 }
 
 type Activity struct {
@@ -785,7 +795,7 @@ var File_am_v1_common_proto protoreflect.FileDescriptor
 
 const file_am_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x12am/v1/common.proto\x12\x05am.v1\"\xb8\x02\n" +
+	"\x12am/v1/common.proto\x12\x05am.v1\"\xdb\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12!\n" +
@@ -797,7 +807,8 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\ravatar_static\x18\b \x01(\tR\favatarStatic\x12\x10\n" +
 	"\x03bio\x18\t \x01(\tR\x03bio\x12\x12\n" +
 	"\x04gone\x18\n" +
-	" \x01(\bR\x04gone\"G\n" +
+	" \x01(\bR\x04gone\x12!\n" +
+	"\fportraits_at\x18\v \x01(\x03R\vportraitsAt\"G\n" +
 	"\bActivity\x12'\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x13.am.v1.ActivityKindR\x04kind\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\"\x86\x01\n" +

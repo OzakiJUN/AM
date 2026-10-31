@@ -388,6 +388,8 @@ message AIAccount {
   // kept as it is by the server; only the owner can read it.
   string settings = 2;
   int64 settings_updated_at = 3;
+  // People waiting for me to let them talk with it (share requests).
+  int32 share_requests = 4;
 }
 
 // POST /api/v1/ai -> AIAccount
@@ -477,4 +479,28 @@ message ResolveMusicResponse {
   int64 cover_media_id = 5;
   // Playlist: the first 50 tracks. Song: just that one.
   repeated MusicTrack tracks = 6;
+}
+
+// ---- an AI's own portrait pack (docs/design.md §9 AI 形象) ----
+
+// GET /api/v1/users/{id}/portraits -> PortraitPack (anyone);
+// PUT /api/v1/ai/{id}/portraits takes PortraitPack (its owner): mood -> media id
+// of an image the owner uploaded. Moods are lower-case keys (≤16 characters),
+// at most 24. An empty map goes back to the default pack.
+message PortraitPack {
+  map<string, int64> media_ids = 1;
+}
+
+// ---- asking to talk with someone's AI (共享聊天) ----
+
+// POST /api/v1/ai/{id}/share-request -> Empty: I ask its owner (a push tells
+// them). GET /api/v1/ai/{id}/share-requests -> ShareRequests (owner).
+// POST /api/v1/ai/{id}/share-requests/{user} takes DecideShareRequest ->
+// Conversation (approved: its shared room, made if needed) or Empty.
+message ShareRequests {
+  repeated User users = 1;
+}
+
+message DecideShareRequest {
+  bool approve = 1;
 }

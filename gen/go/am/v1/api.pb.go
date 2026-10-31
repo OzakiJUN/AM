@@ -2503,8 +2503,10 @@ type AIAccount struct {
 	// kept as it is by the server; only the owner can read it.
 	Settings          string `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
 	SettingsUpdatedAt int64  `protobuf:"varint,3,opt,name=settings_updated_at,json=settingsUpdatedAt,proto3" json:"settings_updated_at,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// People waiting for me to let them talk with it (share requests).
+	ShareRequests int32 `protobuf:"varint,4,opt,name=share_requests,json=shareRequests,proto3" json:"share_requests,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AIAccount) Reset() {
@@ -2554,6 +2556,13 @@ func (x *AIAccount) GetSettings() string {
 func (x *AIAccount) GetSettingsUpdatedAt() int64 {
 	if x != nil {
 		return x.SettingsUpdatedAt
+	}
+	return 0
+}
+
+func (x *AIAccount) GetShareRequests() int32 {
+	if x != nil {
+		return x.ShareRequests
 	}
 	return 0
 }
@@ -3170,6 +3179,146 @@ func (x *ResolveMusicResponse) GetTracks() []*MusicTrack {
 	return nil
 }
 
+// GET /api/v1/users/{id}/portraits -> PortraitPack (anyone);
+// PUT /api/v1/ai/{id}/portraits takes PortraitPack (its owner): mood -> media id
+// of an image the owner uploaded. Moods are lower-case keys (≤16 characters),
+// at most 24. An empty map goes back to the default pack.
+type PortraitPack struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MediaIds      map[string]int64       `protobuf:"bytes,1,rep,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PortraitPack) Reset() {
+	*x = PortraitPack{}
+	mi := &file_am_v1_api_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PortraitPack) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PortraitPack) ProtoMessage() {}
+
+func (x *PortraitPack) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PortraitPack.ProtoReflect.Descriptor instead.
+func (*PortraitPack) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *PortraitPack) GetMediaIds() map[string]int64 {
+	if x != nil {
+		return x.MediaIds
+	}
+	return nil
+}
+
+// POST /api/v1/ai/{id}/share-request -> Empty: I ask its owner (a push tells
+// them). GET /api/v1/ai/{id}/share-requests -> ShareRequests (owner).
+// POST /api/v1/ai/{id}/share-requests/{user} takes DecideShareRequest ->
+// Conversation (approved: its shared room, made if needed) or Empty.
+type ShareRequests struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShareRequests) Reset() {
+	*x = ShareRequests{}
+	mi := &file_am_v1_api_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareRequests) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareRequests) ProtoMessage() {}
+
+func (x *ShareRequests) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareRequests.ProtoReflect.Descriptor instead.
+func (*ShareRequests) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *ShareRequests) GetUsers() []*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type DecideShareRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Approve       bool                   `protobuf:"varint,1,opt,name=approve,proto3" json:"approve,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecideShareRequest) Reset() {
+	*x = DecideShareRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecideShareRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecideShareRequest) ProtoMessage() {}
+
+func (x *DecideShareRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecideShareRequest.ProtoReflect.Descriptor instead.
+func (*DecideShareRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *DecideShareRequest) GetApprove() bool {
+	if x != nil {
+		return x.Approve
+	}
+	return false
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -3350,11 +3499,12 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\tthumb_url\x18\t \x01(\tR\bthumbUrl\"\a\n" +
 	"\x05Empty\"4\n" +
 	"\x0eListAIResponse\x12\"\n" +
-	"\x03ais\x18\x01 \x03(\v2\x10.am.v1.AIAccountR\x03ais\"x\n" +
+	"\x03ais\x18\x01 \x03(\v2\x10.am.v1.AIAccountR\x03ais\"\x9f\x01\n" +
 	"\tAIAccount\x12\x1f\n" +
 	"\x04user\x18\x01 \x01(\v2\v.am.v1.UserR\x04user\x12\x1a\n" +
 	"\bsettings\x18\x02 \x01(\tR\bsettings\x12.\n" +
-	"\x13settings_updated_at\x18\x03 \x01(\x03R\x11settingsUpdatedAt\"4\n" +
+	"\x13settings_updated_at\x18\x03 \x01(\x03R\x11settingsUpdatedAt\x12%\n" +
+	"\x0eshare_requests\x18\x04 \x01(\x05R\rshareRequests\"4\n" +
 	"\x0fCreateAIRequest\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\"Z\n" +
 	"\x14PutAISettingsRequest\x12\x1a\n" +
@@ -3395,7 +3545,16 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x12\x16\n" +
 	"\x06artist\x18\x04 \x01(\tR\x06artist\x12$\n" +
 	"\x0ecover_media_id\x18\x05 \x01(\x03R\fcoverMediaId\x12)\n" +
-	"\x06tracks\x18\x06 \x03(\v2\x11.am.v1.MusicTrackR\x06tracks*k\n" +
+	"\x06tracks\x18\x06 \x03(\v2\x11.am.v1.MusicTrackR\x06tracks\"\x8b\x01\n" +
+	"\fPortraitPack\x12>\n" +
+	"\tmedia_ids\x18\x01 \x03(\v2!.am.v1.PortraitPack.MediaIdsEntryR\bmediaIds\x1a;\n" +
+	"\rMediaIdsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"2\n" +
+	"\rShareRequests\x12!\n" +
+	"\x05users\x18\x01 \x03(\v2\v.am.v1.UserR\x05users\".\n" +
+	"\x12DecideShareRequest\x12\x18\n" +
+	"\aapprove\x18\x01 \x01(\bR\aapprove*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -3414,7 +3573,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -3470,35 +3629,41 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*ResolveMusicRequest)(nil),      // 51: am.v1.ResolveMusicRequest
 	(*MusicTrack)(nil),               // 52: am.v1.MusicTrack
 	(*ResolveMusicResponse)(nil),     // 53: am.v1.ResolveMusicResponse
-	(*User)(nil),                     // 54: am.v1.User
-	(*Activity)(nil),                 // 55: am.v1.Activity
+	(*PortraitPack)(nil),             // 54: am.v1.PortraitPack
+	(*ShareRequests)(nil),            // 55: am.v1.ShareRequests
+	(*DecideShareRequest)(nil),       // 56: am.v1.DecideShareRequest
+	nil,                              // 57: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 58: am.v1.User
+	(*Activity)(nil),                 // 59: am.v1.Activity
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	54, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	58, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	54, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	58, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	54, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	54, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	54, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	54, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	54, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	55, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	58, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	58, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	58, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	58, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	58, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	59, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	54, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	54, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	58, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	58, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	54, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	58, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	47, // 18: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
 	52, // 19: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	57, // 20: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	58, // 21: am.v1.ShareRequests.users:type_name -> am.v1.User
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -3515,7 +3680,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   53,
+			NumMessages:   57,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

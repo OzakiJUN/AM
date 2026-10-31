@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { containedRect, packFromFiles, pokePart, pokeText, resolveMood, splitMoodTag } from './portraits.ts';
+import { containedRect, ownPack, packFromFiles, pokePart, pokeText, resolveMood, splitMoodTag } from './portraits.ts';
 
 const pack = packFromFiles({ 'x/dafeiyu_neutral.png': 'n', 'dafeiyu_happy.webp': 'h', 'sad.png': 's', 'readme.txt': 'r' });
 assert.deepEqual(pack, { neutral: 'n', happy: 'h', sad: 's' });
@@ -22,4 +22,8 @@ assert.deepEqual([0.1, 0.3, 0.6, 0.9].map(pokePart), ['head', 'face', 'body', 'f
 assert.equal(pokeText('face', '小鱼'), '[戳一戳] 戳了戳小鱼的脸');
 assert.deepEqual(containedRect(400, 300, 512, 512), { x: 50, y: 0, w: 300, h: 300 });
 assert.deepEqual(containedRect(200, 400, 512, 512), { x: 0, y: 0, w: 200, h: 200 });
+// An AI's own pack: known moods only, and only with a neutral picture.
+assert.deepEqual(ownPack({ neutral: 'n', happy: 'h', dance: 'd', sad: '' }), { neutral: 'n', happy: 'h' });
+assert.equal(ownPack({ happy: 'h' }), null);
+assert.equal(ownPack({}), null);
 console.log('portraits: all ok');

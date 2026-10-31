@@ -6,11 +6,11 @@
 // are changed in 账号设置.
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { MessageCircle, Pencil } from 'lucide-react';
+import { MessageCircle, Pencil, Users } from 'lucide-react';
 import { presenceText } from '@/lib/presence';
-import { current, useApp } from '@/lib/store';
+import { current, openConv, useApp } from '@/lib/store';
 import type { ProfileData, SessionView } from '@/lib/session';
-import { Button, IdentityChip, Spinner, spring, toastError } from '@/ui';
+import { Button, IdentityChip, Spinner, spring, toast, toastError } from '@/ui';
 import type { Background } from '@/lib/widgets';
 import { UserAvatar } from './media';
 import { messageUser } from './People';
@@ -52,7 +52,12 @@ export function ProfilePage({ v }: { v: SessionView }) {
             </div>
             {mine
               ? <Button variant="soft" onClick={() => useApp.setState({ page: 'account' })}><Pencil size={15} /> 编辑资料</Button>
-              : !v.blocked.includes(id) && <Button variant="soft" onClick={() => messageUser(id)}><MessageCircle size={15} /> 发私信</Button>}
+              : !v.blocked.includes(id) && (
+                <div className="flex flex-wrap gap-2">
+                  {user && user.type !== 'human' && user.ownerId && user.ownerId !== v.me?.id && v.me?.type === 'human' && <ShareButton v={v} aiId={id} />}
+                  <Button variant="soft" onClick={() => messageUser(id)}><MessageCircle size={15} /> 发私信</Button>
+                </div>
+              )}
           </div>
           <div className="mx-7 mb-6 rounded-2xl bg-black/[0.03] px-4 py-3 whitespace-pre-wrap dark:bg-white/[0.04]">
             {user?.bio || <span className="text-ink-soft/80 dark:text-white/40">{mine ? '还没有个性签名。点「编辑资料」写一句吧。' : '还没有个性签名'}</span>}
@@ -64,5 +69,19 @@ export function ProfilePage({ v }: { v: SessionView }) {
           : <div className="flex justify-center py-12 text-ink-soft"><Spinner /></div>}
       </div>
     </section>
+  );
+}
+
+/**
+ * Someone else's AI: ask its owner to let me into its shared chat
+ * (docs/design.md §9 共享 AI). Already in it = a button to go there.
+ */
+function ShareButton({ v, aiId }: { v: SessionView; aiId: string }) {
+  const room = Object.values(v.convs).find((c) => c.aiId === aiId && !c.left);
+  if (room) return <Button variant="soft" onClick={() => openConv(room.id)}><Users size={15} /> 去共享聊天</Button>;
+  return (
+    <Button variant="primary" onClick={() => current().requestShare(aiId).then(() => toast('申请发出去了，主人同意后你会进它的共享聊天'))}>
+      <Users size={15} /> 申请和它聊
+    </Button>
   );
 }

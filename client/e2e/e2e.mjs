@@ -1,6 +1,6 @@
 // Two-user browser test of the client against a real am-server.
 // See client/README.md ("端到端测试") for how to run it.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright';
 
@@ -90,6 +90,7 @@ const pages = [];
     pages.push(p);
     p.on('pageerror', (e) => console.log('pageerror', e.message));
     p.on('console', (m) => { if (m.type() === 'error') console.log('console', m.text()); });
+    p.on('response', (r) => { if (r.status() >= 400) console.log('http', r.status(), r.request().method(), r.url()); });
     return p;
   };
   const A = await mk();
@@ -556,6 +557,9 @@ const pages = [];
   await A.press('textarea[aria-label="消息"]', 'Enter'); // sends
   await A.waitForSelector('section div.whitespace-pre-wrap span:has-text("@小鱼")');
   await A.waitForSelector('section div.whitespace-pre-wrap:has-text("我在！")', { timeout: 15000 });
+  // 「添加 bot」 in the channel header: my only AI is already here.
+  await A.click('header button[aria-label="添加 bot"]');
+  await A.waitForSelector('text=你的 AI 都在这个频道里了');
   // Not spoken to: it may think about joining in, but here the model says [skip], so nothing shows.
   await A.fill('textarea[aria-label="消息"]', '大家晚上好');
   await A.press('textarea[aria-label="消息"]', 'Enter');
@@ -610,6 +614,38 @@ const pages = [];
   await A.waitForSelector('div[role="group"][aria-label="MCP 文件系统"]');
   await A.keyboard.press('Escape');
 
+  // Games: the Minecraft template fills the form (tools trusted) and says what to install first.
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("电脑")');
+  await A.click('button:has-text("玩Minecraft")');
+  await A.waitForSelector('text=玩Minecraft要先准备：');
+  const gform = A.locator('div[role="dialog"]').last();
+  if ((await gform.locator('input[aria-label="命令"]').inputValue()) !== 'npx') throw new Error('game template command');
+  if ((await gform.locator('button[role="switch"][aria-label="它的工具不用问我"]').getAttribute('aria-checked')) !== 'true') throw new Error('game template not trusted');
+  await wait(400);
+  await shot(A, '30b-ai-game');
+  await gform.locator('button[type="submit"]:has-text("好")').click();
+  await A.waitForSelector('div[role="group"][aria-label="MCP Minecraft"]');
+  await A.click('div[role="dialog"] button:has-text("保存")');
+  await A.waitForSelector('text=已保存');
+  await A.keyboard.press('Escape');
+
+  // Its own portraits: a picture named neutral.png becomes the whole pack (every mood falls back to it).
+  copyFileSync(IMAGE, `${OUT}/neutral.png`);
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("资料")');
+  await A.setInputFiles('div[role="dialog"] input[type="file"][multiple]', `${OUT}/neutral.png`);
+  await A.waitForSelector('div[data-testid="pack-grid"] img');
+  await A.click('div[role="dialog"] button:has-text("保存立绘")');
+  await A.waitForSelector('text=立绘已保存');
+  await wait(400);
+  await shot(A, '30c-ai-portraits');
+  await A.keyboard.press('Escape');
+  await A.waitForFunction(() => {
+    const img = [...document.querySelectorAll('img[data-portrait]')].at(-1);
+    return !!img && !img.src.includes('/assets/');
+  }, null, { timeout: 10000 });
+
   // Shared room: everyone in it talks to the AI, which answers each time.
   await A.click('button[aria-label="AI 设置"]');
   await A.click('div[role="dialog"] button[role="radio"]:has-text("频道与作息")');
@@ -622,6 +658,32 @@ const pages = [];
   await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：Weiqi：大家好呀")', { timeout: 15000 });
   await wait(400);
   await shot(A, '29c-ai-room');
+
+  // 「添加 bot」 for real: Weiqi brings 小鱼 into 大厅, where 小克 is.
+  await A.click('button[aria-label="频道"]');
+  await A.click('aside button:has-text("大厅")');
+  await A.click('header button[aria-label="添加 bot"]');
+  await A.click('button[role="menuitem"]:has-text("拉 小鱼 进来")');
+  await A.waitForSelector('text=小鱼 进频道了');
+  await A.click('button[aria-label="AI"]');
+  // Asking to chat with someone else's AI: 小克 asks from its profile, Weiqi approves, 小克 is in the room.
+  await B.click('button[aria-label="频道"]');
+  await B.click('aside button:has-text("大厅")');
+  await B.click('aside[aria-label="频道成员"] button:has-text("小鱼")');
+  await B.click('button[role="menuitem"]:has-text("查看主页")');
+  await B.click('button:has-text("申请和它聊")');
+  await B.waitForSelector('text=申请发出去了');
+  await A.waitForSelector('text=想和 小鱼 聊天');
+  await A.waitForSelector('aside >> text=1 个申请');
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("频道与作息")');
+  await A.waitForSelector('[data-testid="share-requests"] >> text=1 个人申请和它聊天');
+  await shot(A, '29e-share-request');
+  await A.click('[data-testid="share-requests"] button:has-text("同意")');
+  await A.waitForSelector('text=进共享聊天了');
+  await A.keyboard.press('Escape');
+  await B.click('button[aria-label="AI"]');
+  await B.waitForSelector('aside button:has-text("小鱼和大家")');
 
   // Someone else's AI on my computer: 小克 lets 小鱼 read what she copied; Weiqi asks 小鱼 to look.
   await B.evaluate(() => navigator.clipboard.writeText('小克复制的字'));

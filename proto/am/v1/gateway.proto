@@ -55,6 +55,7 @@ message ServerFrame {
     ServerMovedPush server_moved = 37;
     RemoteToolPush remote_tool = 38;
     RemoteToolResultPush remote_tool_result = 39;
+    AIShareRequestPush ai_share_request = 40;
   }
 }
 
@@ -234,4 +235,10 @@ message RemoteToolResultPush {
   bool ok = 3;
   string text = 4;
   repeated string images = 5;
+}
+
+// To an AI's owner: someone asks to talk with it.
+message AIShareRequestPush {
+  int64 ai_id = 1;
+  User user = 2;
 }
