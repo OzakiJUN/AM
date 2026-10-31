@@ -1,12 +1,13 @@
 // AI portrait in an AI chat. It hangs over the top of the normal chat:
-// messages scroll up behind it and stay visible around the figure, and it
-// never takes clicks. Position (left / center / right) or folded into a
+// messages scroll up behind it and stay visible around the figure. It takes
+// no clicks itself: the chat asks `hitPortrait` whether a click landed on the
+// figure (not on a transparent pixel) and turns that into a poke. Position (left / center / right) or folded into a
 // small avatar in the header is a per-device preference; moving and folding
 // morph smoothly with springs.
 import { AnimatePresence, motion, type Transition } from 'motion/react';
 import { AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalJustifyStart, Minimize2 } from 'lucide-react';
 import { DEFAULT_PACK } from '@/lib/defaultPack';
-import { resolveMood, type Mood, type Pack } from '@/lib/portraits';
+import { containedRect, pokePart, resolveMood, type Mood, type Pack, type PokePart } from '@/lib/portraits';
 import { usePrefs, type PortraitPos } from '@/lib/prefs';
 import type { User } from '@/lib/types';
 import { IconButton, cx, openMenu } from '@/ui';
@@ -14,6 +15,52 @@ import { IconButton, cx, openMenu } from '@/ui';
 /** Slower, softer spring than the UI default: big things should glide. */
 const glide: Transition = { type: 'spring', stiffness: 230, damping: 30, mass: 1 };
 const fade: Transition = { duration: 0.45, ease: [0.22, 1, 0.36, 1] };
+
+/** Alpha of each portrait picture, read once (custom packs from another origin can't be read: box test). */
+const alphaCache = new Map<string, { w: number; h: number; data: Uint8ClampedArray } | null>();
+
+function alphaOf(img: HTMLImageElement) {
+  const src = img.currentSrc || img.src;
+  if (alphaCache.has(src)) return alphaCache.get(src)!;
+  let v: { w: number; h: number; data: Uint8ClampedArray } | null = null;
+  try {
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    if (w && h) {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true })!;
+      g.drawImage(img, 0, 0);
+      v = { w, h, data: g.getImageData(0, 0, w, h).data };
+    }
+  } catch {
+    v = null;
+  }
+  if (img.complete) alphaCache.set(src, v);
+  return v;
+}
+
+/** The part of the portrait under a screen point, or null for empty space around the figure. */
+export function hitPortrait(container: HTMLElement | null, x: number, y: number): PokePart | null {
+  // While pictures cross-fade the newest one is last.
+  const img = [...(container?.querySelectorAll<HTMLImageElement>('img[data-portrait]') ?? [])].at(-1);
+  if (!img || !img.naturalWidth) return null;
+  const box = img.getBoundingClientRect();
+  const r = containedRect(box.width, box.height, img.naturalWidth, img.naturalHeight);
+  const fx = (x - box.left - r.x) / r.w;
+  const fy = (y - box.top - r.y) / r.h;
+  if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return null;
+  const a = alphaOf(img);
+  if (a) {
+    const px = Math.min(a.w - 1, Math.floor(fx * a.w));
+    const py = Math.min(a.h - 1, Math.floor(fy * a.h));
+    if (a.data[(py * a.w + px) * 4 + 3] < 40) return null;
+  } else if (fx < 0.2 || fx > 0.8) {
+    return null;
+  }
+  return pokePart(fy);
+}
 
 /** `online` is the AI account's presence: an AI that is not connected cannot reply. */
 function moodOf(online: boolean, mood?: Mood): Mood {
@@ -26,7 +73,7 @@ function moodOf(online: boolean, mood?: Mood): Mood {
  * under it still works. A soft glow around the outline blends it into the
  * chat (`.portrait-glow` in styles.css).
  */
-export function PortraitOverlay({ user, online, mood, pack = DEFAULT_PACK }: { user: User; online: boolean; mood?: Mood; pack?: Pack }) {
+export function PortraitOverlay({ user, online, mood, pack = DEFAULT_PACK, poked = 0 }: { user: User; online: boolean; mood?: Mood; pack?: Pack; poked?: number }) {
   const pos = usePrefs((s) => s.portrait);
   const img = resolveMood(pack, moodOf(online, mood));
   const open = pos !== 'corner' && !!img;
@@ -54,11 +101,21 @@ export function PortraitOverlay({ user, online, mood, pack = DEFAULT_PACK }: { u
               animate={img.grey ? { y: 0 } : { y: [0, -7, 0] }}
               transition={img.grey ? fade : { duration: 4.8, repeat: Infinity, ease: 'easeInOut' }}
             >
+            {/* A poke: a quick squash and wobble, springy. */}
+            <motion.div
+              key={poked}
+              className="absolute inset-0"
+              initial={poked ? { scaleY: 0.94, scaleX: 1.04, rotate: -2 } : false}
+              animate={{ scaleY: 1, scaleX: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 9 }}
+              style={{ transformOrigin: '50% 100%' }}
+            >
               <AnimatePresence initial={false}>
                 <motion.img
                   key={img.src}
                   src={img.src}
                   alt=""
+                  data-portrait
                   draggable={false}
                   className={cx('portrait-glow absolute inset-0 h-full w-full object-contain object-top', img.grey && 'grey')}
                   initial={{ opacity: 0, scale: 0.97 }}
@@ -67,6 +124,7 @@ export function PortraitOverlay({ user, online, mood, pack = DEFAULT_PACK }: { u
                   transition={fade}
                 />
               </AnimatePresence>
+            </motion.div>
             </motion.div>
           </motion.div>
         )}

@@ -89,3 +89,24 @@ export function splitMoodTag(text: string): { mood: Mood; text: string } {
   if (!found) return { mood: 'neutral', text };
   return { mood: mood ?? 'neutral', text: rest.replace(/[ \t]{2,}/g, ' ').trim() };
 }
+
+// ---- poking the portrait (docs/design.md §9 戳一戳) ----
+
+export type PokePart = 'head' | 'face' | 'body' | 'feet';
+
+/** Which part of a half-body portrait a point is on, by its height in the picture (0 = top). */
+export function pokePart(fy: number): PokePart {
+  return fy < 0.2 ? 'head' : fy < 0.42 ? 'face' : fy < 0.78 ? 'body' : 'feet';
+}
+
+/** The message a poke sends (the AI reacts to "[戳一戳] …" in character). */
+export function pokeText(part: PokePart, name: string): string {
+  return `[戳一戳] ${{ head: `摸了摸${name}的头`, face: `戳了戳${name}的脸`, body: `拍了拍${name}`, feet: `绊了${name}一下` }[part]}`;
+}
+
+/** Where a picture drawn with object-fit: contain, object-position: top centre sits in its box. */
+export function containedRect(boxW: number, boxH: number, natW: number, natH: number): { x: number; y: number; w: number; h: number } {
+  const k = Math.min(boxW / natW, boxH / natH);
+  const w = natW * k;
+  return { x: (boxW - w) / 2, y: 0, w, h: natH * k };
+}

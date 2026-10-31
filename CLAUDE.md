@@ -193,7 +193,15 @@ update the docs in the same commit.
   profile, DevTools protocol; test with `AM_BROWSER=<chrome> AM_BROWSER_HEADLESS=1
   cargo test`), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
   named `mcp__<server>__<tool>`, category `mcp`). New tool categories need
-  `ToolCategory`, `DEFAULT_LEVELS` and `CATEGORY_LABEL`.
+  `ToolCategory`, `DEFAULT_LEVELS` and `CATEGORY_LABEL`. Tools flagged `own`
+  (self / social: its status, bio, page note, channels, messaging the owner)
+  run through `SelfApi` in the runner and work with the computer off.
+- AI in channels and its day (docs/design.md §9 频道和作息): when to speak,
+  the day plan, `[status:…]` / `[skip]` parsing are pure in `lib/ai/social.ts`
+  (tested); the runner debounces channel turns (`considerChannel`), ticks the
+  routine every 30 s, prompts in `persona.ts` (`channelPrompt`,
+  `routinePrompt`). @-mentions: `lib/mentions.ts`. Portrait pokes hit-test the
+  picture's alpha (`hitPortrait`) and send "[戳一戳] …".
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

@@ -34,6 +34,13 @@ const mock = createServer((req, res) => {
       res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '到此一游"}' } }] } }] })}\n\n`);
       return res.end('data: [DONE]\n\n');
     }
+    // In a channel: answer when @-mentioned, otherwise stay quiet with [skip].
+    const sys = j.messages?.find((m) => m.role === 'system')?.content ?? '';
+    if (sys.includes('你现在在频道')) {
+      const said = typeof last === 'string' && last.includes('@小鱼') ? '[mood:happy] 我在！' : '[skip]';
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: said } }] })}\n\n`);
+      return res.end('data: [DONE]\n\n');
+    }
     const toolResult = j.messages?.filter((m) => m.role === 'tool').at(-1)?.content;
     const pieces = toolResult ? ['[mood:smug] 放好啦（', toolResult, '）'] : ['[mood:', 'shy] 喵～', '收到：', last];
     for (const piece of pieces) {
@@ -459,6 +466,42 @@ const pages = [];
   if (await A.locator('text=[mood:').count()) throw new Error('mood tag shown');
   await wait(800);
   await shot(A, '27-ai-chat');
+
+  // Poking the portrait's face sends "[戳一戳] …" and it reacts.
+  const pbox = await A.locator('img[data-portrait]').last().boundingBox();
+  await A.mouse.click(pbox.x + pbox.width / 2, pbox.y + pbox.height * 0.3);
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("[戳一戳] 戳了戳小鱼的脸")');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：[戳一戳]")', { timeout: 15000 });
+
+  // Channels and its day: put it into 「AM 内测」; its routine goes off for the test.
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("频道与作息")');
+  await A.click('div[role="dialog"] button[role="switch"][aria-label="让它在 AM 内测"]');
+  await A.waitForSelector('text=它进频道了');
+  await A.click('div[role="dialog"] button[role="switch"][aria-label="作息"]');
+  await wait(400);
+  await shot(A, '27b-ai-social');
+  await A.click('div[role="dialog"] button:has-text("保存")');
+  await A.waitForSelector('text=已保存');
+  await A.keyboard.press('Escape');
+  // In the channel: @ picks it from the member list, it answers; the mention is highlighted.
+  await A.click('button[aria-label="频道"]');
+  await A.click('aside button:has-text("AM 内测")');
+  await A.fill('textarea[aria-label="消息"]', '@小');
+  await A.waitForSelector('div[role="listbox"][aria-label="提到谁"] >> text=小鱼');
+  await shot(A, '27c-mention');
+  await A.press('textarea[aria-label="消息"]', 'Enter'); // picks
+  await A.type('textarea[aria-label="消息"]', '在吗');
+  await A.press('textarea[aria-label="消息"]', 'Enter'); // sends
+  await A.waitForSelector('section div.whitespace-pre-wrap span:has-text("@小鱼")');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("我在！")', { timeout: 15000 });
+  // Not spoken to: it may think about joining in, but here the model says [skip], so nothing shows.
+  await A.fill('textarea[aria-label="消息"]', '大家晚上好');
+  await A.press('textarea[aria-label="消息"]', 'Enter');
+  await wait(9500);
+  if (await A.locator('text=skip').count()) throw new Error('[skip] shown in the channel');
+  await shot(A, '27d-ai-channel');
+  await A.click('button[aria-label="AI"]');
 
   // Operating the computer: the clipboard set to "问我"; the AI asks, A allows once.
   await A.click('button[aria-label="AI 设置"]');

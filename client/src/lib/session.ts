@@ -196,7 +196,7 @@ function toBody(e: ev.Event): MessageBody | null {
   const op = (v: bigint) => s(v) || s(e.senderId);
   switch (b.case) {
     case 'text':
-      return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined };
+      return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined, mentions: b.value.mentions.length ? b.value.mentions.map(s) : undefined };
     case 'image':
       return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height };
     case 'file':
@@ -435,6 +435,11 @@ export class Session {
   async runAI(id: string) {
     const r = await this.call('POST', `/api/v1/ai/${id}/run`, api.SessionResponseSchema, { schema: api.RunAIRequestSchema, value: { deviceName: deviceName() } });
     return r.token;
+  }
+
+  /** Takes my AI out of a channel (it is put in with inviteMembers). */
+  aiLeaveChannel(id: string, convId: string) {
+    return this.call('DELETE', `/api/v1/ai/${id}/channels/${convId}`, null);
   }
 
   async deleteAI(id: string) {
@@ -852,9 +857,10 @@ export class Session {
     }
   }
 
-  /** mood: only for AI accounts (their portrait), see lib/ai/runner.ts. */
-  sendText(convId: string, text: string, mood?: string) {
-    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text, mood }) }, { kind: 'text', text, mood });
+  /** mood: only for AI accounts (their portrait), see lib/ai/runner.ts. mentions: user ids @-mentioned in the text. */
+  sendText(convId: string, text: string, mood?: string, mentions?: string[]) {
+    const m = mentions?.length ? mentions : undefined;
+    return this.sendBody(convId, { case: 'text', value: create(ev.TextMsgSchema, { text, mood, mentions: m?.map(BigInt) }) }, { kind: 'text', text, mood, mentions: m });
   }
 
   /** Removes a failed message from the list (it was never sent). */

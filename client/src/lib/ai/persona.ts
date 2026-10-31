@@ -1,5 +1,6 @@
 // An AI's persona and settings (docs/design.md §9), kept as JSON on the
 // server (only the owner reads it: GET/PUT /api/v1/ai). Pure.
+import { defaultChannels, defaultRoutine, type ChannelSettings, type RoutineSettings } from './social.ts';
 import { MOODS, splitMoodTag } from '../portraits.ts';
 import type { ChatMsg } from './providers.ts';
 
@@ -33,6 +34,10 @@ export interface AISettings {
   evolve: boolean;
   /** Operating this computer (lib/ai/agent.ts). */
   computer: ComputerSettings;
+  /** Behaviour in channels (lib/ai/social.ts). */
+  channels: ChannelSettings;
+  /** Its day: getting up, meals, play, bed (lib/ai/social.ts). */
+  routine: RoutineSettings;
 }
 
 /** What an AI may do on the computer that runs it (docs/design.md §9, 操作电脑). */
@@ -62,7 +67,7 @@ export interface McpServer {
 
 export type ToolCategory =
   | 'files_read' | 'files_write' | 'files_delete' | 'command' | 'open' | 'clipboard' | 'screen' | 'input'
-  | 'ui' | 'browser' | 'mcp';
+  | 'ui' | 'browser' | 'mcp' | 'self' | 'social';
 export type Level = 'allow' | 'ask' | 'deny';
 
 /**
@@ -73,7 +78,7 @@ export type Level = 'allow' | 'ask' | 'deny';
 export const DEFAULT_LEVELS: Record<ToolCategory, Level> = {
   files_read: 'allow', files_write: 'allow', files_delete: 'ask', command: 'ask',
   open: 'allow', clipboard: 'allow', screen: 'allow', input: 'allow',
-  ui: 'allow', browser: 'allow', mcp: 'ask',
+  ui: 'allow', browser: 'allow', mcp: 'ask', self: 'allow', social: 'allow',
 };
 
 export const defaultComputer = (): ComputerSettings => ({
@@ -117,6 +122,7 @@ export function defaultSettings(template = TEMPLATES[0]): AISettings {
   return {
     v: 1, persona: { ...template.persona }, template: template.key, providerId: '', model: '', temperature: 0.8,
     contextSize: 30, maxTokens: 1000, whoCanChat: 'owner', evolve: false, computer: defaultComputer(),
+    channels: defaultChannels(), routine: defaultRoutine(),
   };
 }
 
@@ -127,7 +133,10 @@ export function parseSettings(json: string): AISettings {
   try {
     const v = JSON.parse(json) as Partial<AISettings>;
     const c = { ...d.computer, ...v.computer };
-    return { ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } } };
+    return {
+      ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } },
+      channels: { ...d.channels, ...v.channels }, routine: { ...d.routine, ...v.routine },
+    };
   } catch {
     return d;
   }
@@ -142,8 +151,39 @@ export function systemPrompt(o: { name: string; owner: string; persona: Persona;
     p.system,
     p.examples && `说话的样子参考：\n${p.examples}`,
     `现在是 ${o.now.toLocaleString('zh-CN', { hour12: false })}。`,
+    '如果收到「[戳一戳] …」，那是对方在你的立绘上戳了你一下（脸、头、身上或脚），按你的性格自然地反应，一两句就好。',
     `每条回复必须以情绪标签开头，格式 [mood:xxx]，xxx 从这些里选一个最符合你此刻心情的：${MOODS.join(', ')}。标签后面直接接你要说的话，不要解释标签。`,
   ].filter(Boolean).join('\n\n');
+}
+
+/** Extra rules when it talks in a channel. */
+export function channelPrompt(o: { channel: string; members: string[] }): string {
+  return [
+    `你现在在频道「${o.channel}」里，和好几个人一起聊天。频道里有：${o.members.join('、') || '（不清楚）'}。每条消息前面的「名字：」是说话的人。`,
+    '像群里的普通成员一样说话：一两句、口语化；不是每句话都要接，别抢话、别刷屏；可以接话、发表自己的想法、提问，聊冷了也可以开个新话题。正在聊的话题别聊一句就丢下。',
+    '想叫谁就写「@名字」。',
+    '如果这次没必要说话，就只回复 [skip]，不要写别的字。',
+  ].join('\n');
+}
+
+export type RoutineMoment = 'wake' | 'meal' | 'play' | 'sleep';
+
+/** What to tell it at a moment of its day (sent as a note, not as anyone's words). */
+export function routinePrompt(kind: RoutineMoment, o: { time: string; ownerOnline: boolean; inChannel?: boolean }): string {
+  const note = (t: string) => `（系统提示，不是任何人说的话。现在是 ${o.time}。${t}）`;
+  switch (kind) {
+    case 'wake':
+      return note('你刚起床。给主人发一句早安，可以顺便说说今天想做什么。只发一条，简短自然。');
+    case 'meal':
+      return note('到饭点了，你正在吃饭。告诉主人你在吃什么（自己想一个符合你性格的），也可以问问主人吃了没。回复最前面用 [status:在吃xxx] 写一个很短的状态。');
+    case 'play':
+      if (o.inChannel) return note('现在是你的休息时间，你想找这个频道里的其他 AI 一起玩点什么（接龙、猜谜、讲故事、聊八卦都行）。用「@名字」邀请它们，一两句就好。回复最前面用 [status:在玩xxx] 写一个很短的状态。');
+      return note(o.ownerOnline
+        ? '现在是你的休息时间，你在玩点什么，也想让主人陪你玩。跟主人说说你在玩什么、邀请主人一起。回复最前面用 [status:在玩xxx] 写一个很短的状态。'
+        : '现在是你的休息时间，你在玩点什么。回复最前面用 [status:在玩xxx] 写一个很短的状态，正文只说一句你在玩什么。');
+    case 'sleep':
+      return note('你要睡觉了。跟主人说晚安，一两句就好。回复最前面写 [status:睡觉中]。');
+  }
 }
 
 /** A conversation's messages as the model sees them (oldest first). */

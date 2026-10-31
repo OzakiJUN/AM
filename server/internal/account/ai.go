@@ -41,6 +41,12 @@ func (s *Service) ownedAI(ctx context.Context, owner *store.User, id int64) (*st
 	return u, nil
 }
 
+// OwnedAI returns one of owner's bot / AI accounts that is still on the
+// server (anything else: user_not_found).
+func (s *Service) OwnedAI(ctx context.Context, owner *store.User, id int64) (*store.User, error) {
+	return s.ownedAI(ctx, owner, id)
+}
+
 func (s *Service) ListAI(ctx context.Context, owner *store.User) ([]AIInfo, error) {
 	list, err := s.st.ListOwnedAI(ctx, owner.ID)
 	if err != nil {

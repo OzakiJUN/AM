@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { argsOf, categoryOf, computerPrompt, describeCall, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
+import { argsOf, categoryOf, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
 import { defaultComputer, parseSettings } from './persona.ts';
 
 const c = defaultComputer();
@@ -14,8 +14,16 @@ let names = toolsFor(c).map((t) => t.name);
 assert.ok(names.includes('run_command') && !names.includes('screenshot'));
 names = toolsFor({ ...c, vision: true, levels: { ...c.levels, command: 'deny' } }).map((t) => t.name);
 assert.ok(names.includes('screenshot') && !names.includes('run_command'));
-assert.deepEqual(toolsFor({ ...c, enabled: false }), []);
+// Computer off: only its own tools (status, page, talking to people) stay.
+const off = toolsFor({ ...c, enabled: false });
+assert.ok(off.length > 0 && off.every((t) => t.own));
 assert.equal(levelFor({ ...c, enabled: false }, 'read_file'), 'deny');
+assert.equal(levelFor({ ...c, enabled: false }, 'set_my_status'), 'allow');
+assert.equal(levelFor({ ...c, enabled: false }, 'mcp__x__y'), 'deny');
+// Someone who may not use the computer gets only the own tools too.
+assert.ok(toolsFor(c, [], false).every((t) => t.own));
+assert.ok(!hasComputerTools(toolsFor(c, [], false)) && hasComputerTools(toolsFor(c)));
+assert.ok(!toolsFor({ ...c, levels: { ...c.levels, social: 'deny' } }).some((t) => t.name === 'send_to_channel'));
 // UI automation and the AI's own browser are allowed by default; MCP asks.
 assert.equal(levelFor(c, 'ui_act'), 'allow');
 assert.equal(levelFor(c, 'browser_open'), 'allow');

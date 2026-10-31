@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { packFromFiles, resolveMood, splitMoodTag } from './portraits.ts';
+import { containedRect, packFromFiles, pokePart, pokeText, resolveMood, splitMoodTag } from './portraits.ts';
 
 const pack = packFromFiles({ 'x/dafeiyu_neutral.png': 'n', 'dafeiyu_happy.webp': 'h', 'sad.png': 's', 'readme.txt': 'r' });
 assert.deepEqual(pack, { neutral: 'n', happy: 'h', sad: 's' });
@@ -18,4 +18,8 @@ assert.deepEqual(splitMoodTag('[mood: excited] 冲！'), { mood: 'happy', text: 
 assert.deepEqual(splitMoodTag('[心情:害羞]才没有'), { mood: 'shy', text: '才没有' });
 assert.deepEqual(splitMoodTag('没有标签'), { mood: 'neutral', text: '没有标签' });
 assert.deepEqual(splitMoodTag('[mood:sad] 唉\n第二行'), { mood: 'sad', text: '唉\n第二行' });
+assert.deepEqual([0.1, 0.3, 0.6, 0.9].map(pokePart), ['head', 'face', 'body', 'feet']);
+assert.equal(pokeText('face', '小鱼'), '[戳一戳] 戳了戳小鱼的脸');
+assert.deepEqual(containedRect(400, 300, 512, 512), { x: 50, y: 0, w: 300, h: 300 });
+assert.deepEqual(containedRect(200, 400, 512, 512), { x: 0, y: 0, w: 200, h: 200 });
 console.log('portraits: all ok');

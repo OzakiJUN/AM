@@ -8,6 +8,8 @@ import type { ToolSpec } from './providers';
 export interface ToolDef extends ToolSpec {
   /** Permission category; undefined = always allowed (harmless). */
   category?: ToolCategory;
+  /** About itself and its chats, not this computer: offered even when 「操作电脑」 is off. */
+  own?: boolean;
 }
 
 export const CATEGORY_LABEL: Record<ToolCategory, { name: string; hint: string; risky?: boolean }> = {
@@ -22,6 +24,8 @@ export const CATEGORY_LABEL: Record<ToolCategory, { name: string; hint: string; 
   ui: { name: '操作软件界面', hint: '按名字读出窗口里的按钮、输入框，直接点、直接填，不用鼠标' },
   browser: { name: '自己的浏览器', hint: '单独开一个 Edge / Chrome 窗口上网（不用你的登录状态），读网页、点链接、填表' },
   mcp: { name: 'MCP 工具', hint: '你在下面添加的工具服务；能做什么取决于那个服务，权限跟它的程序一样大', risky: true },
+  self: { name: '改自己的资料', hint: '改自己的状态（正在玩什么）、个性签名、主页上的一张便签（不用开「操作电脑」）' },
+  social: { name: '主动找人说话', hint: '自己去频道里发消息、给你发私信（作息、找人玩）（不用开「操作电脑」）' },
 };
 
 const obj = (props: Record<string, unknown>, required: string[] = []) => ({ type: 'object', properties: props, required });
@@ -68,6 +72,24 @@ export const TOOLS: ToolDef[] = [
   },
   { name: 'browser_scroll', category: 'browser', description: '页面往下（负数往上）滚几屏。', parameters: obj({ pages: num('屏数，默认 1') }) },
   { name: 'browser_back', category: 'browser', description: '浏览器后退一页。', parameters: obj({}) },
+  {
+    name: 'set_my_status', category: 'self', own: true,
+    description: '改你自己的状态（显示在你头像旁边）：playing 在玩、listening 在听、working 在忙、custom 自定义，none 清空。',
+    parameters: obj({ activity: { type: 'string', enum: ['none', 'playing', 'listening', 'working', 'custom'] }, text: str('状态文字，比如「原神」「在吃火锅」，最多 32 字') }, ['activity']),
+  },
+  { name: 'set_my_bio', category: 'self', own: true, description: '改你自己的个性签名（最多 100 字）。', parameters: obj({ text: str('签名') }, ['text']) },
+  {
+    name: 'write_my_page', category: 'self', own: true,
+    description: '在你的个人主页上写一张便签（标题 + 正文，再写会覆盖上一次）。可以写近况、心情、想对大家说的话。',
+    parameters: obj({ title: str('标题，最多 20 字'), text: str('正文，最多 500 字') }, ['text']),
+  },
+  { name: 'list_my_channels', category: 'social', own: true, description: '列出你在的频道和里面的人（谁是 AI）。', parameters: obj({}) },
+  {
+    name: 'send_to_channel', category: 'social', own: true,
+    description: '在你在的某个频道里发一条消息（可以 @ 里面的人，写「@名字」）。',
+    parameters: obj({ channel: str('频道名'), text: str('要说的话') }, ['channel', 'text']),
+  },
+  { name: 'message_owner', category: 'social', own: true, description: '给你的主人发一条私信。', parameters: obj({ text: str('要说的话') }, ['text']) },
   { name: 'wait', description: '等几秒（等程序打开、页面加载）。', parameters: obj({ seconds: num('秒数，最多 30') }, ['seconds']) },
 ];
 
@@ -75,9 +97,10 @@ export const TOOLS: ToolDef[] = [
  * The tools offered to the model: not denied, the screen only for models
  * that can see; `mcp` are the tools its MCP servers offer (mcpTool()).
  */
-export function toolsFor(c: ComputerSettings, mcp: ToolDef[] = []): ToolDef[] {
-  if (!c.enabled) return [];
-  return [...TOOLS, ...mcp].filter((t) => {
+export function toolsFor(c: ComputerSettings, mcp: ToolDef[] = [], computer = true): ToolDef[] {
+  const useComputer = c.enabled && computer;
+  return [...TOOLS, ...(useComputer ? mcp : [])].filter((t) => {
+    if (!t.own && !useComputer) return false;
     if (!t.category) return true;
     if (c.levels[t.category] === 'deny') return false;
     if (t.category === 'screen' && !c.vision) return false;
@@ -112,12 +135,14 @@ export function categoryOf(name: string): ToolCategory | undefined {
 
 /** The permission for a call (unknown tools are denied). */
 export function levelFor(c: ComputerSettings, name: string): Level {
-  if (!c.enabled) return 'deny';
-  if (name.startsWith(MCP_PREFIX)) return c.levels.mcp;
+  if (name.startsWith(MCP_PREFIX)) return c.enabled ? c.levels.mcp : 'deny';
   const t = TOOLS.find((x) => x.name === name);
-  if (!t) return 'deny';
+  if (!t || (!c.enabled && !t.own)) return 'deny';
   return t.category ? c.levels[t.category] : 'allow';
 }
+
+/** True when the tool list has anything that touches this computer (the computer rules go in the prompt). */
+export const hasComputerTools = (tools: ToolDef[]) => tools.some((t) => !t.own && t.name !== 'wait');
 
 const short = (s: unknown, n = 80) => {
   const t = String(s ?? '');
@@ -151,6 +176,12 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'browser_type': return `浏览器在第 ${args.n} 号填「${short(args.text, 40)}」${args.submit ? '并提交' : ''}`;
     case 'browser_scroll': return `浏览器滚动 ${args.pages ?? 1} 屏`;
     case 'browser_back': return '浏览器后退';
+    case 'set_my_status': return args.activity === 'none' ? '清空自己的状态' : `把状态改成「${short(args.text, 32)}」`;
+    case 'set_my_bio': return `把签名改成「${short(args.text, 40)}」`;
+    case 'write_my_page': return `在主页写便签「${short(args.title || args.text, 30)}」`;
+    case 'list_my_channels': return '看看自己在哪些频道';
+    case 'send_to_channel': return `在频道「${short(args.channel, 20)}」说：${short(args.text, 60)}`;
+    case 'message_owner': return `私信主人：${short(args.text, 60)}`;
     case 'wait': return `等 ${args.seconds} 秒`;
     default:
       if (name.startsWith(MCP_PREFIX)) {

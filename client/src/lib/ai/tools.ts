@@ -19,6 +19,18 @@ export interface ToolCtx {
   mcp: Map<string, { server: McpServer; tool: string }>;
   /** Keeps MCP servers apart per AI (`${serverId}|${aiId}`). */
   owner: string;
+  /** Its own account and chats (runner.ts), for the self / social tools. */
+  self?: SelfApi;
+}
+
+/** What the AI can do as itself (implemented by the runner with the AI's session). */
+export interface SelfApi {
+  setStatus(kind: 'none' | 'playing' | 'listening' | 'working' | 'custom', text: string): Promise<void>;
+  setBio(text: string): Promise<void>;
+  writePage(title: string, text: string): Promise<void>;
+  channels(): string;
+  sendToChannel(channel: string, text: string): Promise<string>;
+  messageOwner(text: string): Promise<void>;
 }
 
 interface UINode { id: number; depth: number; role: string; name: string; value: string; enabled: boolean }
@@ -160,6 +172,13 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
       return { text: await rust<string>('agent_browser', { action: 'scroll', pages: n(a.pages, 1) }) };
     case 'browser_back':
       return { text: await rust<string>('agent_browser', { action: 'back' }) };
+    case 'set_my_status':
+    case 'set_my_bio':
+    case 'write_my_page':
+    case 'list_my_channels':
+    case 'send_to_channel':
+    case 'message_owner':
+      return { text: await ownTool(name, a, ctx) };
     case 'wait':
       await new Promise((r) => setTimeout(r, Math.min(30, Math.max(0, n(a.seconds, 1))) * 1000));
       return { text: '等好了' };
@@ -172,5 +191,30 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
       const text = (r.error ? '工具报错：' : '') + (r.text || (r.images.length ? '（结果是图片）' : '（没有返回内容）'));
       return { text: text.slice(0, MAX_READ), images: r.images.length ? r.images : undefined };
     }
+  }
+}
+
+async function ownTool(name: string, a: Record<string, unknown>, ctx: ToolCtx): Promise<string> {
+  const me = ctx.self;
+  if (!me) return '现在用不了这个工具';
+  switch (name) {
+    case 'set_my_status': {
+      const kind = (['none', 'playing', 'listening', 'working', 'custom'] as const).find((k) => k === a.activity) ?? 'custom';
+      await me.setStatus(kind, s(a.text).slice(0, 32));
+      return kind === 'none' ? '状态清空了' : '状态改好了';
+    }
+    case 'set_my_bio':
+      await me.setBio(s(a.text).slice(0, 100));
+      return '签名改好了';
+    case 'write_my_page':
+      await me.writePage(s(a.title).slice(0, 20), s(a.text).slice(0, 500));
+      return '主页上的便签写好了';
+    case 'list_my_channels':
+      return me.channels();
+    case 'send_to_channel':
+      return me.sendToChannel(s(a.channel), s(a.text));
+    default:
+      await me.messageOwner(s(a.text));
+      return '发给主人了';
   }
 }

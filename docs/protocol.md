@@ -154,6 +154,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | PUT | `/api/v1/ai/{id}/settings` | `PutAISettingsRequest` | `AIAccount`：设置 JSON（最多 64 KiB，服务器原样保存）。`base_updated_at` 不是当前版本时 `state_conflict` |
 | POST | `/api/v1/ai/{id}/run` | `RunAIRequest` | `SessionResponse`：这台设备以 AI 身份登录，成为运行它的设备；AI 在别处的登录全部结束 |
 | DELETE | `/api/v1/ai/{id}` | — | `Empty`：AI 退出服务器（同 leave） |
+| DELETE | `/api/v1/ai/{id}/channels/{conv}` | — | `Empty`：把我的 AI 从一个频道里拿出来（它自己退出；拉进去用普通的邀请成员） |
 
 不是我的 AI（或已删除）一律 `user_not_found`。删除、离开或被封的账号在 `User.gone` 里是 `true`（旧消息照样显示它，客户端列表里不再列出删掉的 bot / AI）。AI 的个人主页（`PUT /api/v1/users/{id}/profile`）主人也能存。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
 
@@ -211,7 +212,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 
 `SendRequest` 必须带 `client_msg_id`（客户端随机生成，≤ 64 字符）。同一个账号重复发送同一个 `client_msg_id`，服务器返回第一次存下的事件。
 
-- 文字：`text`，可带 `reply_to` 和 `mentions`。
+- 文字：`text`，可带 `reply_to` 和 `mentions`（文字里「@名字」对应的用户 id；客户端高亮这些名字，AI 被 @ 时会回）。
 - 图片：先上传，再发 `image{media_id}`，宽高由服务器填。
 - 文件：先上传，再发 `file{media_id, name}`，`name` 为空时用上传时的文件名。
 - 划掉：`strike{target_event_id}`，只能划自己的文字 / 图片 / 文件消息，每条只能划一次。

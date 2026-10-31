@@ -70,6 +70,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/ai/{id}/settings", a.authed(a.putAISettings))
 	mux.HandleFunc("POST /api/v1/ai/{id}/run", a.authed(a.runAI))
 	mux.HandleFunc("DELETE /api/v1/ai/{id}", a.authed(a.deleteAI))
+	mux.HandleFunc("DELETE /api/v1/ai/{id}/channels/{conv}", a.authed(a.aiLeaveChannel))
 	mux.HandleFunc("POST /api/v1/pair", a.authed(a.createPair))
 	mux.HandleFunc("POST /api/v1/pair/redeem", a.limited(a.redeemPair))
 	mux.HandleFunc("GET /api/v1/me/client-state", a.authed(a.getClientState))

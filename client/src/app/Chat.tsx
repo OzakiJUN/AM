@@ -9,16 +9,17 @@ import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
 import { closeConv, current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
-import type { Conversation, MemberRole, Message } from '@/lib/types';
+import type { Conversation, MemberRole, Message, User } from '@/lib/types';
+import { applyMention, matchPeople, mentionParts, mentionQuery, mentionedIds } from '@/lib/mentions';
 import { copyText } from '@/lib/platform';
 import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
-import { PortraitCorner, PortraitOverlay, PortraitPosButton } from './Portrait';
+import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait } from './Portrait';
 import { AISettingsDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
-import { MOODS, type Mood } from '@/lib/portraits';
+import { MOODS, pokeText, type Mood } from '@/lib/portraits';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
@@ -39,6 +40,10 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [aiOpen, setAIOpen] = useState(false);
+  const [poked, setPoked] = useState(0);
+  const [pokedMood, setPokedMood] = useState<Mood | undefined>();
+  const lastPoke = useRef(0);
+  const pokeDown = useRef<[number, number] | null>(null);
   const conv = convId ? v.convs[convId] : undefined;
   const streaming = useAI((s) => (convId ? s.streams[`${v.id}|${convId}`] : undefined));
   const aiError = useAI((s) => (conv?.peerId ? s.errors[`${v.id}|${conv.peerId}`] : undefined));
@@ -56,7 +61,23 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const ai = page === 'ai';
   const peerPresence = peer ? v.presence[peer.id] : undefined;
   const myAI = ai && !!peer && peer.ownerId === v.me?.id;
-  const mood = aiMood(v, conv.id, peer?.id, streaming);
+  const mood = pokedMood ?? aiMood(v, conv.id, peer?.id, streaming);
+  // Poking the portrait: a click on the figure (not on the empty space around it) sends "[戳一戳] …".
+  const poke = (e: React.MouseEvent) => {
+    if (!ai || !peer || !peerPresence || conv.left || blocked) return;
+    const down = pokeDown.current;
+    if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return; // a drag (selecting text)
+    const part = hitPortrait(e.currentTarget as HTMLElement, e.clientX, e.clientY);
+    if (!part) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (Date.now() - lastPoke.current < 2500) return;
+    lastPoke.current = Date.now();
+    setPoked((n) => n + 1);
+    setPokedMood('surprised');
+    setTimeout(() => setPokedMood(undefined), 1600);
+    current().sendText(conv.id, pokeText(part, peer.name)).catch(toastError);
+  };
   return (
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
@@ -90,9 +111,14 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {ai && peer && <PortraitPosButton />}
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} />}
         </header>
-        <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          className="relative flex min-h-0 flex-1 flex-col"
+          onPointerDownCapture={ai ? (e) => { pokeDown.current = [e.clientX, e.clientY]; } : undefined}
+          onClickCapture={ai ? poke : undefined}
+          onMouseMove={ai && peer ? (e) => { e.currentTarget.style.cursor = hitPortrait(e.currentTarget, e.clientX, e.clientY) ? 'pointer' : ''; } : undefined}
+        >
           <MessageList key={conv.id} v={v} conv={conv} streaming={streaming} fromBottom={ai} />
-          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} />}
+          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} poked={poked} />}
         </div>
         {myAI && aiError && (
           <div className="mx-4 mb-1 flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[0.82rem] text-rose-700 dark:bg-rose-400/10 dark:text-rose-200" role="alert">
@@ -360,6 +386,7 @@ function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id:
     );
   }
   if (b.kind !== 'text') return null;
+  const names = (id: string) => current().nameOf(id);
   return (
     <div
       className={cx(
@@ -369,7 +396,11 @@ function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id:
         msg.pending && 'opacity-70',
       )}
     >
-      {b.text}
+      {b.mentions?.length
+        ? mentionParts(b.text, b.mentions.map((id) => names(id))).map((p, i) => (p.mention
+          ? <span key={i} className={cx('rounded px-0.5 font-medium', mine ? 'bg-white/25' : 'bg-accent-100 text-accent-700 dark:bg-accent/25 dark:text-accent-100')}>{p.text}</span>
+          : <span key={i}>{p.text}</span>))
+        : b.text}
     </div>
   );
 }
@@ -418,6 +449,12 @@ const EMOJI = '😀😂🤣😊😍🥰😘😎🤔😅😭😡🥺😴🤯👍�
 
 function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; blocked: boolean }) {
   const [text, setText] = useState('');
+  // @-mentions (channels): who was picked from the list, and the list being shown.
+  const picked = useRef(new Map<string, string>());
+  const [at, setAt] = useState<{ start: number; query: string; index: number } | null>(null);
+  const people = at && conv.kind === 'group'
+    ? matchPeople(conv.members.map((m) => v.users[m.userId]).filter((u): u is User => !!u && u.id !== v.me?.id && !u.gone), at.query)
+    : [];
   const [emoji, setEmoji] = useState(false);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -430,8 +467,27 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
   const submit = () => {
     const t = text.trim();
     if (!t || disabled) return;
-    current().sendText(conv.id, t).catch(toastError);
+    current().sendText(conv.id, t, undefined, mentionedIds(t, picked.current)).catch(toastError);
     setText('');
+    picked.current.clear();
+    setAt(null);
+  };
+  const onText = (value: string, caret: number) => {
+    setText(value);
+    const q = conv.kind === 'group' ? mentionQuery(value, caret) : null;
+    setAt(q ? { ...q, index: 0 } : null);
+  };
+  const pick = (u: User) => {
+    const ta = taRef.current;
+    if (!at || !ta) return;
+    const r = applyMention(text, at.start, ta.selectionStart, u.name);
+    picked.current.set(u.id, u.name);
+    setText(r.text);
+    setAt(null);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(r.caret, r.caret);
+    });
   };
   const sendFiles = async (files: File[]) => {
     if (disabled || !files.length) return;
@@ -513,6 +569,35 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
           <IconButton label="发送文件" onClick={() => fileRef.current?.click()} disabled={disabled}><Paperclip size={19} /></IconButton>
           {busy && <span className="ml-2 flex items-center gap-1.5 text-[0.8rem] text-ink-soft"><Spinner size={13} /> 上传中…</span>}
           <AnimatePresence>
+            {at && people.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, transition: { duration: 0.12 } }}
+                transition={spring}
+                style={{ transformOrigin: 'bottom left' }}
+                role="listbox"
+                aria-label="提到谁"
+                className="glass-strong absolute bottom-full left-0 z-20 mb-2 w-64 rounded-2xl p-1.5 shadow-xl"
+              >
+                {people.map((u, i) => (
+                  <button
+                    key={u.id}
+                    role="option"
+                    aria-selected={i === at.index}
+                    onMouseDown={(e) => { e.preventDefault(); pick(u); }}
+                    onMouseEnter={() => setAt({ ...at, index: i })}
+                    className={cx('flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left', i === at.index ? 'bg-accent-100 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/5')}
+                  >
+                    <UserAvatar user={u} size={26} />
+                    <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                    <IdentityChip user={u} short />
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
             {emoji && (
               <motion.div
                 initial={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -542,8 +627,26 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
           <textarea
             ref={taRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => onText(e.target.value, e.target.selectionStart)}
             onKeyDown={(e) => {
+              if (at && people.length && !e.nativeEvent.isComposing) {
+                const n = people.length;
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setAt({ ...at, index: (at.index + (e.key === 'ArrowDown' ? 1 : n - 1)) % n });
+                  return;
+                }
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                  e.preventDefault();
+                  pick(people[Math.min(at.index, n - 1)]);
+                  return;
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setAt(null);
+                  return;
+                }
+              }
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 submit();

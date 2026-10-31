@@ -80,3 +80,8 @@ func (c *Client) RunAI(ctx context.Context, id int64, device string) (*amv1.Sess
 func (c *Client) DeleteAI(ctx context.Context, id int64) error {
 	return c.call(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/ai/%d", id), nil, nil)
 }
+
+// AILeaveChannel takes my AI out of a channel.
+func (c *Client) AILeaveChannel(ctx context.Context, id, convID int64) error {
+	return c.call(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/ai/%d/channels/%d", id, convID), nil, nil)
+}

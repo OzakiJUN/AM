@@ -132,3 +132,24 @@ func (a *API) deleteAI(w http.ResponseWriter, r *http.Request, _ *store.Session,
 	}
 	a.ok(w, &amv1.Empty{})
 }
+
+// aiLeaveChannel takes my AI out of a channel (it is put in with the normal
+// invite, by me or anyone else in the channel).
+func (a *API) aiLeaveChannel(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok1 := pathID(r, "id")
+	conv, ok2 := pathID(r, "conv")
+	if !ok1 || !ok2 {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	ai, err := a.acct.OwnedAI(r.Context(), me, id)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	if err := a.conv.RemoveMember(r.Context(), ai, conv, ai.ID); err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, &amv1.Empty{})
+}

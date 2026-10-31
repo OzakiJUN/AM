@@ -86,6 +86,23 @@ func testAIAccounts(t *testing.T, a *app.App, base string) {
 		t.Fatal("human message kept a mood")
 	}
 
+	// Channels: put in with a normal invite, it can talk there; its owner
+	// (and only its owner) can take it out again.
+	ch := must(owner.cli.CreateGroup(ctx, "开黑", bob.me.Id))
+	if r := must(owner.cli.InviteMembers(ctx, ch.Id, ai.User.Id)); len(r.Added) != 1 {
+		t.Fatalf("invite AI: %+v", r)
+	}
+	must(aiWS.SendText(ctx, ch.Id, "大家好，我是小鱼"))
+	err = bob.cli.AILeaveChannel(ctx, ai.User.Id, ch.Id)
+	wantCode(t, err, "user_not_found")
+	if err := owner.cli.AILeaveChannel(ctx, ai.User.Id, ch.Id); err != nil {
+		t.Fatal(err)
+	}
+	_, err = aiWS.SendText(ctx, ch.Id, "我还在吗")
+	if err == nil {
+		t.Fatal("AI still talks in a channel it left")
+	}
+
 	// Owner banned: the AI stops.
 	if err := a.Account.SetBanned(ctx, 0, owner.me.Id, true, "test"); err != nil {
 		t.Fatal(err)
@@ -104,6 +121,12 @@ func testAIAccounts(t *testing.T, a *app.App, base string) {
 	}
 	if len(must(relog.ListAI(ctx)).Ais) != 1 {
 		t.Fatal("deleted AI still listed")
+	}
+	// Old chats still show it, marked gone (clients drop it from their lists).
+	for _, u := range must(relog.GetConversation(ctx, dm.Id)).Members {
+		if u.Id == ai.User.Id && !u.Gone {
+			t.Fatal("deleted AI not marked gone")
+		}
 	}
 	_, err = relog.PutAISettings(ctx, ai.User.Id, `{}`, s1.SettingsUpdatedAt)
 	wantCode(t, err, "user_not_found")

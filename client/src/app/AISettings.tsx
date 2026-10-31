@@ -2,7 +2,7 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, Folder, ImageUp, KeyRound, LayoutGrid, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Cpu, Folder, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
 import { CATEGORY_LABEL } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
@@ -17,7 +17,7 @@ import { KIND_LABEL, PRESETS, buildRequest, errorOf, streamReader, type Provider
 import { aiSettings, refreshAIs, runHere, saveSettings, useAI } from '@/lib/ai/runner';
 import { openConv, openProfile, session, useApp } from '@/lib/store';
 import { aiRequest } from '@/lib/transport';
-import { Button, Dialog, Field, Input, Segmented, Spinner, Toggle, ask, cx, inputClass, toast, toastError } from '@/ui';
+import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, cx, inputClass, toast, toastError } from '@/ui';
 import { UserAvatar } from './media';
 
 const textarea = cx(inputClass, 'min-h-[84px] resize-y py-2.5 leading-relaxed');
@@ -86,7 +86,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
   );
 }
 
-type Tab = 'persona' | 'model' | 'computer' | 'profile' | 'run' | 'log';
+type Tab = 'persona' | 'model' | 'social' | 'computer' | 'profile' | 'run' | 'log';
 
 /** One AI's settings. */
 export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClose: () => void; aiId: string }) {
@@ -104,8 +104,8 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
     <Dialog open={open} onClose={onClose} title={`「${info?.user.name ?? 'AI'}」的设置`} width={600}>
       <div className="mb-4">
         <Segmented id="ai-tab" value={tab} onChange={setTab} options={[
-          { value: 'persona', label: '人格' }, { value: 'model', label: '模型' }, { value: 'computer', label: '电脑' },
-          { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
+          { value: 'persona', label: '人格' }, { value: 'model', label: '模型' }, { value: 'social', label: '频道与作息' },
+          { value: 'computer', label: '电脑' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
         ]} />
       </div>
       {!info ? (
@@ -115,6 +115,7 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
           {tab === 'persona' && <PersonaTab draft={draft} set={set} save={save} />}
           {tab === 'model' && <ModelTab draft={draft} set={set} save={save} />}
           {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
+          {tab === 'social' && <SocialTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
           {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
           {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} onClose={onClose} />}
           {tab === 'run' && <RunTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} onDeleted={onClose} />}
@@ -269,6 +270,110 @@ function ComputerTab({ draft, set, save }: TabProps) {
           <Input type="number" min={1} max={60} value={c.yieldSeconds} onChange={(e) => setC({ yieldSeconds: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} />
         </Field>
       </div>
+      <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
+    </>
+  );
+}
+
+/** Which channels it is in, how much it talks there, and its day. */
+function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: string; aiId: string }) {
+  const v = useApp((s) => s.sessions[serverId]);
+  const ch = draft.channels;
+  const r = draft.routine;
+  const setCh = (x: Partial<AISettings['channels']>) => set({ channels: { ...ch, ...x } });
+  const setR = (x: Partial<AISettings['routine']>) => set({ routine: { ...r, ...x } });
+  const groups = Object.values(v?.convs ?? {}).filter((c) => c.kind === 'group' && !c.left).sort((a, b) => a.name.localeCompare(b.name));
+  const toggle = async (convId: string, on: boolean) => {
+    const s = session(serverId)!;
+    if (on) {
+      const res = await s.inviteMembers(convId, [aiId]);
+      toast(res.requested.length ? '已经申请了，等频道管理员同意' : '它进频道了');
+    } else {
+      await s.aiLeaveChannel(aiId, convId);
+      toast('它离开频道了');
+    }
+  };
+  const num = (value: number, min: number, max: number, onChange: (n: number) => void, label: string) => (
+    <Input type="number" min={min} max={max} value={value} aria-label={label}
+      onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))} />
+  );
+  return (
+    <>
+      <Field label="在哪些频道" hint="你在的频道都列在这里；打开就把它拉进去（私密频道要审批的话会先申请）">
+        <div className="space-y-1.5">
+          {groups.length === 0 && <p className="text-[0.85rem] text-ink-soft dark:text-white/50">你还没有加入频道。</p>}
+          {groups.map((c) => (
+            <div key={c.id} className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+              {c.public ? <Hash size={15} className="shrink-0 text-ink-soft" /> : <Lock size={14} className="shrink-0 text-ink-soft" />}
+              <span className="min-w-0 flex-1 truncate">{c.name}</span>
+              <span className="text-[0.75rem] text-ink-soft dark:text-white/45">{c.members.length} 人</span>
+              <Toggle key={`${c.id}:${aiId}`} label={`让它在 ${c.name}`} checked={c.members.some((m) => m.userId === aiId)} onChange={(on) => toggle(c.id, on)} />
+            </div>
+          ))}
+        </div>
+      </Field>
+      <Field label="在频道里">
+        <Segmented id="ai-ch-mode" value={ch.mode} onChange={(mode) => setCh({ mode })} options={[
+          { value: 'active', label: '会自己接话' }, { value: 'mention', label: '只在被 @ 或叫名字时说话' },
+        ]} />
+      </Field>
+      {ch.mode === 'active' && (
+        <Field label="话多少" hint="越往右越爱插话；它在聊的话题会接着聊，不会说一句就走">
+          <div className="flex items-center gap-3">
+            <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">安静</span>
+            <Slider label="话多少" value={ch.chattiness} min={0} max={1} step={0.05} onChange={(chattiness) => setCh({ chattiness })} />
+            <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">话痨</span>
+          </div>
+        </Field>
+      )}
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="两句之间至少（秒）" hint="被 @ 时不受限制">{num(ch.minGapSeconds, 0, 3600, (minGapSeconds) => setCh({ minGapSeconds }), '两句之间至少几秒')}</Field>
+        <Field label="每小时最多几句" hint="每个频道分开算">{num(ch.maxPerHour, 1, 200, (maxPerHour) => setCh({ maxPerHour }), '每小时最多几句')}</Field>
+        <Field label="AI 连着说几句就停" hint="几个 AI 聊起来时，等真人说话">{num(ch.maxAIChain, 1, 50, (maxAIChain) => setCh({ maxAIChain }), 'AI 连着说几句就停')}</Field>
+      </div>
+
+      <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">作息</div>
+          <div className="text-[0.8rem] text-ink-soft dark:text-white/50">起床说早安，饭点说在吃什么，休息时说在玩什么、找你或者别的 AI 玩，睡前说晚安。时间每天会前后浮动一点。睡觉时它不会在频道里自己插话（被 @ 还是会回）。只在运行它的设备开着时有效。</div>
+        </div>
+        <Toggle label="作息" checked={r.enabled} onChange={(enabled) => setR({ enabled })} />
+      </div>
+      {r.enabled && (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="起床"><Input type="time" value={r.wake} onChange={(e) => setR({ wake: e.target.value })} aria-label="起床时间" /></Field>
+            <Field label="睡觉"><Input type="time" value={r.sleep} onChange={(e) => setR({ sleep: e.target.value })} aria-label="睡觉时间" /></Field>
+            <Field label="浮动（分钟）">{num(r.jitterMinutes, 0, 90, (jitterMinutes) => setR({ jitterMinutes }), '浮动几分钟')}</Field>
+          </div>
+          <Field label="饭点">
+            <div className="flex flex-wrap items-center gap-2">
+              {r.meals.map((m, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <Input type="time" value={m} onChange={(e) => setR({ meals: r.meals.map((x, j) => (j === i ? e.target.value : x)) })} aria-label={`第 ${i + 1} 顿饭`} className="w-32" />
+                  <button type="button" onClick={() => setR({ meals: r.meals.filter((_, j) => j !== i) })} aria-label={`去掉第 ${i + 1} 顿饭`} className="press rounded-md p-1 text-ink-soft hover:bg-black/5 dark:hover:bg-white/10"><X size={14} /></button>
+                </div>
+              ))}
+              {r.meals.length < 5 && <Button size="sm" variant="soft" onClick={() => setR({ meals: [...r.meals, '15:00'] })}><Plus size={14} /> 加一顿</Button>}
+            </div>
+          </Field>
+          <div className="space-y-1.5">
+            {([
+              ['play', '休息时间', '下午和晚上各有一段，会说说在玩什么'],
+              ['seekOwner', '想让你陪它玩', '你在线时，休息时间会来找你玩'],
+              ['seekAIs', '找别的 AI 玩', '休息时间去有别的 AI 的频道邀请它们一起玩'],
+            ] as const).map(([field, name, hint]) => (
+              <div key={field} className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[0.9rem] font-medium">{name}</div>
+                  <div className="text-[0.75rem] text-ink-soft dark:text-white/45">{hint}</div>
+                </div>
+                <Toggle label={name} checked={r[field]} onChange={(on) => setR({ [field]: on })} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
     </>
   );
