@@ -23,7 +23,7 @@ import {
   systemPrompt, toChat,
   type AISettings, type RoutineMoment,
 } from './persona';
-import { addressed, dayPlan, decide, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
+import { addressed, dayPlan, decide, discussionText, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
 import { activityText } from '../presence';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
@@ -233,12 +233,8 @@ function onMessage(run: Run, convId: string, m: Message) {
   if (!conv) return;
   scheduleRemember(run, convId);
   // The session stores the new message right after telling us: look a tick later.
-  if (conv.kind === 'group' && conv.aiId === run.ai.user.id) {
-    if (roomAllowed(run, convId, m.senderId)) setTimeout(() => void reply(run, convId), 0);
-    return;
-  }
   if (conv.kind === 'group') {
-    setTimeout(() => considerChannel(run, convId), 0);
+    setTimeout(() => considerChannel(run, convId, m), 0);
     return;
   }
   if (run.settings.whoCanChat === 'owner' && m.senderId !== run.ai.user.ownerId) return;
@@ -386,6 +382,8 @@ interface ReplyOpts {
   /** Only act through tools: nothing is shown typing, nothing is posted (game turns). */
   silent?: boolean;
   idle?: boolean;
+  /** The group message this turn was scheduled for. */
+  trigger?: Message;
 }
 
 /** Ids of channel members written as "@name" in the text. */
@@ -409,16 +407,20 @@ async function showStatus(run: Run, status: string, moment?: RoutineMoment) {
 async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
   const s = run.s;
   const conv = s.view.convs[convId];
-  if (!conv) return;
+  if (!conv || conv.left || runs.get(k(run.serverId, run.ai.user.id)) !== run) return;
+  const casual = !!o.trigger && !o.must;
+  const stale = () => casual && (run.s.view.convs[convId]?.lastSeq !== o.trigger!.seq || run.s.view.status !== 'online');
+  if (stale()) return;
   const group = conv.kind === 'group';
   if (run.busy.has(convId)) {
     // Answer again with the newer messages afterwards (channels decide again; notes wait their turn).
-    if (o.idle) return;
-    if (o.note) setTimeout(() => void reply(run, convId, o), 3000);
-    else if (group) setTimeout(() => considerChannel(run, convId), 3000);
+    if (o.idle || casual) return;
+    if (o.note || o.trigger) setTimeout(() => void reply(run, convId, o), 3000);
+    else if (group) return;
     else run.again.add(convId);
     return;
   }
+  if (o.trigger && conv.aiId === run.ai.user.id && !roomAllowed(run, convId, o.trigger.senderId)) return;
   run.busy.add(convId);
   const streamKey = k(run.serverId, convId);
   const errKey = k(run.serverId, run.ai.user.id);
@@ -443,15 +445,15 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     }
     if (!turn.length) return;
     const ownerName = session(run.serverId)?.view.me?.name ?? '主人';
-    const speakerId = o.note ? run.ai.user.ownerId ?? '' : [...msgs].reverse().find((x) => x.senderId !== run.ai.user.id)?.senderId ?? '';
+    const speakerId = o.trigger?.senderId ?? (o.note ? run.ai.user.ownerId ?? '' : [...msgs].reverse().find((x) => x.senderId !== run.ai.user.id)?.senderId ?? '');
     const speaker = { name: s.nameOf(speakerId), isOwner: speakerId === run.ai.user.ownerId };
     const comp = st.computer;
     const agentKey = errKey;
     // The computer: never for routine notes; in channels for the owner, or anyone when the owner allows everyone.
-    const computer = !o.note && (speaker.isOwner || st.whoCanChat === 'everyone' || !group);
+    const computer = !casual && !o.note && (speaker.isOwner || st.whoCanChat === 'everyone' || !group);
     const mcp = computer ? await loadMcpTools(comp, agentKey) : { defs: [], map: new Map(), errors: [] };
     const available = toolsFor(comp, mcp.defs, computer);
-    const tools = o.idle ? available.filter((t) => ['view_my_page', 'edit_my_page'].includes(t.name) && levelFor(comp, t.name) === 'allow') : available;
+    const tools = casual ? [] : o.idle ? available.filter((t) => ['view_my_page', 'edit_my_page'].includes(t.name) && levelFor(comp, t.name) === 'allow') : available;
     // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
     const room = group && conv.aiId === run.ai.user.id;
@@ -459,7 +461,9 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       const members = conv.members.map((m) => s.view.users[m.userId]).filter((u): u is User => !!u && u.id !== run.ai.user.id && !u.gone);
       const names = members.map((u) => (u.type === 'human' ? u.name : `${u.name}（AI）`));
       system += '\n\n' + (room ? roomPrompt({ room: conv.name, members: names }) : channelPrompt({ channel: conv.name, members: names }));
-      if (o.must && !room) system += '\n这次有人在叫你，请回应。';
+      if (o.must) system += '\n这次有人在叫你，请回应。';
+      if (o.trigger && o.must) system += '\n请回答这条点名你的消息：' + s.nameOf(o.trigger.senderId) + '：' + textOf(o.trigger);
+      if (casual) system += '\n这次没有人点名你。只有能解答尚未解决的问题、补充具体的新信息或观点、纠正有影响的错误时才发言。如果别人已经答了，或者你只是附和、复述、寒暄，就只输出 [skip]。';
     }
     // What AM lets it do (tools + installed plugins), who is talking, and its one memory.
     system += '\n\n' + appPrompt(tools.map((x) => x.name), pluginsFor(run));
@@ -477,16 +481,17 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
         const req = buildRequest(p, { model: st.model, temperature: st.temperature, maxTokens: st.maxTokens, messages: turn, system, tools });
         const reader = streamReader(p.kind);
         let text = '';
-        if (!o.silent) patch('streams', streamKey, '');
+        if (!o.silent && !casual) patch('streams', streamKey, '');
         const status = await aiRequest(req.url, req.headers, req.body, (chunk) => {
           text += reader.feed(chunk);
-          if (o.silent) return;
+          if (o.silent || casual) return;
           // "[skip]" must never flash up as if it were going to say something.
           const shown = previewText(splitStatusTag(text).text);
           patch('streams', streamKey, /^\s*\[?\s*s(k(ip?)?)?$/i.test(shown) ? '' : shown);
         });
         if (status >= 400) throw new Error(`模型服务返回 ${status}：${errorOf(reader.raw()) || '没有说明'}`);
         const calls = reader.toolCalls();
+        if (casual && calls.length) return;
         if (!calls.length) {
           final = text;
           break;
@@ -518,14 +523,15 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       }
       return;
     }
-    if (isSkip(final) || o.silent) return; // decided to stay quiet / only acts
+    if (stale() || isSkip(final) || o.silent) return; // decided to stay quiet / only acts
     const tagged = splitStatusTag(final);
-    if (tagged.status) await showStatus(run, tagged.status, o.moment).catch(() => {});
+    if (!casual && tagged.status) await showStatus(run, tagged.status, o.moment).catch(() => {});
     const { mood, text } = splitMoodTag(tagged.text);
     if (!text.trim() || isSkip(text)) {
       if (group || o.note) return;
       throw new Error('模型没有回复内容');
     }
+    if (casual && (!discussionText(text) || msgs.some((m) => textOf(m)?.trim() === text.trim()))) return;
     await s.sendText(convId, text.trim(), mood, group ? mentionsIn(run, conv, text) : undefined, o.replyTo);
     run.sends.set(convId, [...(run.sends.get(convId) ?? []).filter((t) => Date.now() - t < 60 * MIN), Date.now()]);
     patch('errors', errKey, undefined);
@@ -540,14 +546,16 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
 
 // ---------- channels: when to join in (lib/ai/social.ts decides) ----------
 
-function considerChannel(run: Run, convId: string) {
+function considerChannel(run: Run, convId: string, trigger: Message) {
   const s = run.s;
   const me = run.ai.user.id;
-  const msgs = (s.view.messages[convId] ?? []).filter((x) => !x.pending && !x.failed && textOf(x) !== null).slice(-12);
+  const msgs = (s.view.messages[convId] ?? []).filter((x) => !x.pending && !x.failed && x.seq <= trigger.seq && textOf(x) !== null).slice(-Math.max(12, run.settings.channels.maxAIChain));
+  if (msgs.at(-1)?.id !== trigger.id) return;
   const recent: Said[] = msgs.map((x) => ({
     senderId: x.senderId,
     time: x.time,
     ai: (s.view.users[x.senderId]?.type ?? 'human') !== 'human',
+    discussion: x.body.kind === 'text' && !x.body.mentions?.length && discussionText(x.body.text),
     toMe: x.senderId !== me && x.body.kind === 'text' && addressed(x.body.text, x.body.mentions, me, run.ai.user.name),
   }));
   const d = decide({
@@ -555,6 +563,7 @@ function considerChannel(run: Run, convId: string) {
     asleep: isAsleep(run.settings.routine, minuteOfDay()), random: Math.random(), random2: Math.random(),
   });
   const cur = run.pending.get(convId);
+  if (cur?.must && d.act !== 'reply') return;
   if (d.act === 'no') {
     // A newer message that does not need it cancels a casual turn, never an answer it owes.
     if (cur && !cur.must) {
@@ -564,12 +573,12 @@ function considerChannel(run: Run, convId: string) {
     return;
   }
   if (cur) clearTimeout(cur.timer);
-  const must = d.act === 'reply' || !!cur?.must;
+  const must = d.act === 'reply';
   run.pending.set(convId, {
     must,
     timer: setTimeout(() => {
       run.pending.delete(convId);
-      void reply(run, convId, { must });
+      void reply(run, convId, { must, trigger });
     }, d.delay),
   });
 }
@@ -950,9 +959,9 @@ async function catchUp(run: Run) {
     const lastMine = msgs.map((m) => m.senderId).lastIndexOf(me);
     const after = msgs.slice(lastMine + 1).filter((m) => m.time >= since && m.senderId !== me);
     if (!after.length) continue;
-    const group = conv.kind === 'group' && conv.aiId !== me; // its own room counts like a DM
+    const group = conv.kind === 'group';
     const asked = group
-      ? after.filter((m) => m.body.kind === 'text' && addressed(m.body.text, m.body.mentions, me, run.ai.user.name)).at(-1)
+      ? after.filter((m) => s.view.users[m.senderId]?.type === 'human' && m.body.kind === 'text' && addressed(m.body.text, m.body.mentions, me, run.ai.user.name)).at(-1)
       : run.settings.whoCanChat === 'owner' && after.at(-1)!.senderId !== run.ai.user.ownerId ? undefined : after.at(-1);
     if (asked) todo.push({ convId: conv.id, msg: asked, group, when: asked.time });
   }
@@ -961,6 +970,7 @@ async function catchUp(run: Run) {
     const ago = Math.max(1, Math.round((Date.now() - t.when) / 60_000));
     await reply(run, t.convId, {
       must: true,
+      trigger: t.group ? t.msg : undefined,
       replyTo: t.group ? t.msg.id : undefined,
       note: `（系统提示，不是任何人说的话：你刚才不在线。${s.nameOf(t.msg.senderId)} 在 ${ago} 分钟前${t.group ? '叫过你' : '给你发了消息'}，现在回复，开头简单说明这是你离线时的消息。）`,
     });

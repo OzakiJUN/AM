@@ -367,7 +367,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           ))}
         </div>
       </Field>
-      <Field label="共享聊天" hint="开一个只属于它的聊天，把想一起聊的人拉进去：大家说什么它都回，聊天记录大家都看得到。用的是你的模型 key">
+      <Field label="共享聊天" hint="开一个只属于它的聊天，把想一起聊的人拉进去：大家能互相讨论，也能点名让它回答，聊天记录群里都看得到。用的是你的模型 key">
         <ShareRequests serverId={serverId} aiId={aiId} />
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="soft" onClick={async () => {
@@ -427,13 +427,13 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </div>
         </div>
       </Field>
-      <Field label="在频道里">
+      <Field label="在频道和共享群里">
         <Segmented id="ai-ch-mode" value={ch.mode} onChange={(mode) => setCh({ mode })} options={[
           { value: 'active', label: '会自己接话' }, { value: 'mention', label: '只在被 @ 或叫名字时说话' },
         ]} />
       </Field>
       {ch.mode === 'active' && (
-        <Field label="话多少" hint="越往右越爱插话；它在聊的话题会接着聊，不会说一句就走">
+        <Field label="话多少" hint="越往右，越常考虑主动加入讨论；没有新内容时会保持安静。">
           <div className="flex items-center gap-3">
             <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">安静</span>
             <Slider label="话多少" value={ch.chattiness} min={0} max={1} step={0.05} onChange={(chattiness) => setCh({ chattiness })} />

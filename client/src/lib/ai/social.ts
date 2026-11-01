@@ -45,13 +45,21 @@ export interface Said {
   ai: boolean;
   /** @-mentions it, or calls it by name. */
   toMe: boolean;
+  /** Human text worth considering, with no explicit mention of somebody else. */
+  discussion: boolean;
 }
 
 /** The message @-mentions the AI or calls it by name. */
 export function addressed(text: string, mentions: string[] | undefined, aiId: string, aiName: string): boolean {
-  if (mentions?.includes(aiId)) return true;
+  if (mentions?.length) return mentions.includes(aiId);
   const name = aiName.trim();
   return name.length >= 2 && text.toLowerCase().includes(name.toLowerCase());
+}
+
+/** Skip pure reactions; a short real question or a number can still matter. */
+export function discussionText(text: string): boolean {
+  const words = text.toLowerCase().replace(/[\p{P}\p{S}\p{M}\s\u200d]/gu, '');
+  return !!words && !/^(?:哈+|呵呵|嗯+|哦+|好[的啊呀吧]?|收到|明白了?|谢谢|赞|同意|确实|是的|对+|ok(?:ay)?|lol|thanks)+$/u.test(words);
 }
 
 export type Decision = { act: 'reply' | 'maybe' | 'no'; delay: number; why: string };
@@ -71,21 +79,16 @@ export function decide(o: {
   if (!last || last.senderId === me) return { act: 'no', delay: 0, why: 'nothing new' };
   const hour = o.mySends.filter((t) => now - t < 60 * MIN).length;
   if (hour >= s.maxPerHour) return { act: 'no', delay: 0, why: 'hourly limit' };
-  if (last.toMe) return { act: 'reply', delay: 800 + 1200 * o.random2, why: 'spoken to' };
-  if (s.mode !== 'active' || o.asleep) return { act: 'no', delay: 0, why: o.asleep ? 'asleep' : 'mention only' };
   let chain = 0;
   for (let i = recent.length - 1; i >= 0 && recent[i].ai; i--) chain++;
-  if (chain >= s.maxAIChain) return { act: 'no', delay: 0, why: 'waiting for a person' };
+  if (last.ai && chain >= s.maxAIChain) return { act: 'no', delay: 0, why: 'waiting for a person' };
+  if (last.toMe) return { act: 'reply', delay: 800 + 1200 * o.random2, why: 'spoken to' };
+  if (s.mode !== 'active' || o.asleep) return { act: 'no', delay: 0, why: o.asleep ? 'asleep' : 'mention only' };
+  if (last.ai || !last.discussion) return { act: 'no', delay: 0, why: 'nothing to add' };
   const lastMine = Math.max(0, ...o.mySends);
-  const wait = Math.max(0, lastMine + s.minGapSeconds * 1000 - now);
-  // In the conversation already (spoke in the last few messages or minutes): keep it going.
-  const tail = recent.slice(-6);
-  const engaged = tail.some((m) => m.senderId === me) || now - lastMine < 3 * MIN;
-  let p = engaged ? 0.55 + 0.4 * s.chattiness : 0.05 + 0.4 * s.chattiness;
-  // AIs talking among themselves: hold back a bit so people get a word in.
-  if (last.ai && !tail.slice(-3).some((m) => !m.ai)) p *= 0.6;
-  if (o.random >= p) return { act: 'no', delay: 0, why: `not this time (${Math.round(p * 100)}%)` };
-  return { act: 'maybe', delay: wait + 2500 + 6000 * o.random2, why: engaged ? 'in the conversation' : 'joining in' };
+  if (lastMine && now - lastMine < s.minGapSeconds * 1000) return { act: 'no', delay: 0, why: 'cooldown' };
+  if (o.random >= 0.3 * s.chattiness) return { act: 'no', delay: 0, why: 'listening' };
+  return { act: 'maybe', delay: 5000 + 7000 * o.random2, why: 'considering a contribution' };
 }
 
 export type RoutineKind = 'wake' | 'meal' | 'play' | 'sleep';
