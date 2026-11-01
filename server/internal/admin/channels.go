@@ -165,6 +165,11 @@ func sysText(ev *amv1.Event, name func(int64) string) string {
 			return op + " 修改了频道公告"
 		case c.Avatar != nil:
 			return op + " 更换了频道头像"
+		case c.Nsfw != nil:
+			if c.GetNsfw() {
+				return op + " 允许了 NSFW 内容"
+			}
+			return op + " 关闭了 NSFW 内容"
 		case c.JoinApproval != nil:
 			if c.GetJoinApproval() {
 				return op + " 开启了加入审批"

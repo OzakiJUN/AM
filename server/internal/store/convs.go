@@ -18,6 +18,8 @@ type Conversation struct {
 	CreatedAt int64
 	// Shared AI room: the AI it belongs to (0 = an ordinary channel).
 	AIID int64
+	// Channels: adult content allowed (AI drawing).
+	Nsfw bool
 }
 
 type Member struct {
@@ -51,12 +53,12 @@ func (q *Queries) GetConvIDByDMKey(ctx context.Context, dmKey string) (int64, er
 }
 
 const convCols = `c.id, c.kind, c.name, c.avatar, COALESCE(c.avatar_media_id, 0), c.notice, COALESCE(c.owner_id, 0),
-	c.last_seq, c.join_approval, c.dissolved, c.is_public, c.created_at, COALESCE(c.ai_id, 0)`
+	c.last_seq, c.join_approval, c.dissolved, c.is_public, c.created_at, COALESCE(c.ai_id, 0), c.nsfw`
 
 func scanConv(row scanner) (*Conversation, error) {
 	c := &Conversation{}
 	err := row.Scan(&c.ID, &c.Kind, &c.Name, &c.Avatar, &c.AvatarMedia, &c.Notice, &c.OwnerID, &c.LastSeq,
-		&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt, &c.AIID)
+		&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt, &c.AIID, &c.Nsfw)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -98,6 +100,12 @@ func (q *Queries) UpdateConvInfo(ctx context.Context, id int64, name *string, av
 		}
 	}
 	return nil
+}
+
+// SetConvNsfw switches a channel's adult-content setting.
+func (q *Queries) SetConvNsfw(ctx context.Context, id int64, on bool) error {
+	_, err := q.exec(ctx, `UPDATE conversations SET nsfw=? WHERE id=?`, on, id)
+	return err
 }
 
 func (q *Queries) SetConvOwner(ctx context.Context, id, ownerID int64) error {
@@ -181,7 +189,7 @@ const convSelfCols = convCols + `,
 func scanConvSelf(row scanner) (*ConvWithSelf, error) {
 	c := &ConvWithSelf{}
 	err := row.Scan(&c.ID, &c.Kind, &c.Name, &c.Avatar, &c.AvatarMedia, &c.Notice, &c.OwnerID, &c.LastSeq,
-		&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt, &c.AIID,
+		&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt, &c.AIID, &c.Nsfw,
 		&c.Self.ConvID, &c.Self.UserID, &c.Self.Role, &c.Self.ReadSeq, &c.Self.PinnedOrder,
 		&c.Self.DndUntil, &c.Self.MutedUntil, &c.Self.JoinedAt)
 	if err != nil {

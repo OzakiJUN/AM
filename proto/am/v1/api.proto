@@ -302,6 +302,8 @@ message UpdateGroupRequest {
   optional int64 avatar_media_id = 2;
   optional string notice = 3;
   optional bool join_approval = 4;
+  // Adult content allowed in this channel (AIs drawing).
+  optional bool nsfw = 5;
 }
 
 // POST   /api/v1/groups/{id}/admins/{user_id}  -> Empty   (owner only)

@@ -764,7 +764,8 @@ type SysConv struct {
 	Dissolved    bool  `protobuf:"varint,5,opt,name=dissolved,proto3" json:"dissolved,omitempty"`
 	JoinApproval *bool `protobuf:"varint,6,opt,name=join_approval,json=joinApproval,proto3,oneof" json:"join_approval,omitempty"`
 	// Set when the group was just created.
-	Created       bool `protobuf:"varint,7,opt,name=created,proto3" json:"created,omitempty"`
+	Created       bool  `protobuf:"varint,7,opt,name=created,proto3" json:"created,omitempty"`
+	Nsfw          *bool `protobuf:"varint,8,opt,name=nsfw,proto3,oneof" json:"nsfw,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -848,6 +849,13 @@ func (x *SysConv) GetCreated() bool {
 	return false
 }
 
+func (x *SysConv) GetNsfw() bool {
+	if x != nil && x.Nsfw != nil {
+		return *x.Nsfw
+	}
+	return false
+}
+
 var File_am_v1_event_proto protoreflect.FileDescriptor
 
 const file_am_v1_event_proto_rawDesc = "" +
@@ -911,7 +919,7 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\vACTION_KICK\x10\x03\x12\x0f\n" +
 	"\vACTION_MUTE\x10\x04\x12\x11\n" +
 	"\rACTION_UNMUTE\x10\x05\x12\x16\n" +
-	"\x12ACTION_ROLE_CHANGE\x10\x06\"\x90\x02\n" +
+	"\x12ACTION_ROLE_CHANGE\x10\x06\"\xb2\x02\n" +
 	"\aSysConv\x12\x1f\n" +
 	"\voperator_id\x18\x01 \x01(\x03R\n" +
 	"operatorId\x12\x17\n" +
@@ -920,11 +928,13 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\x06notice\x18\x04 \x01(\tH\x02R\x06notice\x88\x01\x01\x12\x1c\n" +
 	"\tdissolved\x18\x05 \x01(\bR\tdissolved\x12(\n" +
 	"\rjoin_approval\x18\x06 \x01(\bH\x03R\fjoinApproval\x88\x01\x01\x12\x18\n" +
-	"\acreated\x18\a \x01(\bR\acreatedB\a\n" +
+	"\acreated\x18\a \x01(\bR\acreated\x12\x17\n" +
+	"\x04nsfw\x18\b \x01(\bH\x04R\x04nsfw\x88\x01\x01B\a\n" +
 	"\x05_nameB\t\n" +
 	"\a_avatarB\t\n" +
 	"\a_noticeB\x10\n" +
-	"\x0e_join_approvalB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\x0e_join_approvalB\a\n" +
+	"\x05_nsfwB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_event_proto_rawDescOnce sync.Once

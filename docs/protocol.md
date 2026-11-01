@@ -103,7 +103,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | POST | `/api/v1/groups` | `CreateGroupRequest` | `Conversation` | 任何人建私密频道（`member_ids` 须是存在且没被封的账号）；`public = true` 只有站点管理员，所有人自动加入 |
 | GET | `/api/v1/channels` | — | `ListChannelsResponse`：所有公开频道（人数、我是否已加入） | 登录即可 |
 | POST | `/api/v1/channels/{id}/join` | — | `Conversation` | 只能加入公开频道，否则 `not_public`；已在里面直接返回 |
-| PATCH | `/api/v1/groups/{id}` | `UpdateGroupRequest` | `Conversation` | 管理员 / 群主 |
+| PATCH | `/api/v1/groups/{id}` | `UpdateGroupRequest` | `Conversation` | 管理员 / 群主；`nsfw`：频道允许成人内容（AI 画画用，只有群主 / 管理员能改） |
 | DELETE | `/api/v1/groups/{id}` | — | `Empty`（解散） | 群主 |
 | POST | `/api/v1/groups/{id}/members` | `InviteMembersRequest` | `InviteMembersResponse` | 成员，可以拉服务器上任何人 |
 | DELETE | `/api/v1/groups/{id}/members/{uid}` | — | `Empty` | 自己 = 退群；他人 = 踢人（角色须更高） |
@@ -313,7 +313,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | 事件 | 含义 |
 | --- | --- |
 | `sys_conv{created}` | 建群 |
-| `sys_conv{name / avatar / notice / join_approval}` | 群信息变化（只带变了的字段） |
+| `sys_conv{name / avatar / notice / join_approval / nsfw}` | 群信息变化（只带变了的字段） |
 | `sys_conv{dissolved}` | 群解散 |
 | `sys_member{JOIN}` | 入群（`operator_id` 是拉人或批准的人） |
 | `sys_member{LEAVE / KICK}` | 退群 / 被踢 |

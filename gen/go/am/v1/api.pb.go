@@ -1908,6 +1908,8 @@ type UpdateGroupRequest struct {
 	AvatarMediaId *int64  `protobuf:"varint,2,opt,name=avatar_media_id,json=avatarMediaId,proto3,oneof" json:"avatar_media_id,omitempty"`
 	Notice        *string `protobuf:"bytes,3,opt,name=notice,proto3,oneof" json:"notice,omitempty"`
 	JoinApproval  *bool   `protobuf:"varint,4,opt,name=join_approval,json=joinApproval,proto3,oneof" json:"join_approval,omitempty"`
+	// Adult content allowed in this channel (AIs drawing).
+	Nsfw          *bool `protobuf:"varint,5,opt,name=nsfw,proto3,oneof" json:"nsfw,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1966,6 +1968,13 @@ func (x *UpdateGroupRequest) GetNotice() string {
 func (x *UpdateGroupRequest) GetJoinApproval() bool {
 	if x != nil && x.JoinApproval != nil {
 		return *x.JoinApproval
+	}
+	return false
+}
+
+func (x *UpdateGroupRequest) GetNsfw() bool {
+	if x != nil && x.Nsfw != nil {
+		return *x.Nsfw
 	}
 	return false
 }
@@ -4794,16 +4803,18 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\buser_ids\x18\x01 \x03(\x03R\auserIds\"K\n" +
 	"\x15InviteMembersResponse\x12\x14\n" +
 	"\x05added\x18\x01 \x03(\x03R\x05added\x12\x1c\n" +
-	"\trequested\x18\x02 \x03(\x03R\trequested\"\xdb\x01\n" +
+	"\trequested\x18\x02 \x03(\x03R\trequested\"\xfd\x01\n" +
 	"\x12UpdateGroupRequest\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12+\n" +
 	"\x0favatar_media_id\x18\x02 \x01(\x03H\x01R\ravatarMediaId\x88\x01\x01\x12\x1b\n" +
 	"\x06notice\x18\x03 \x01(\tH\x02R\x06notice\x88\x01\x01\x12(\n" +
-	"\rjoin_approval\x18\x04 \x01(\bH\x03R\fjoinApproval\x88\x01\x01B\a\n" +
+	"\rjoin_approval\x18\x04 \x01(\bH\x03R\fjoinApproval\x88\x01\x01\x12\x17\n" +
+	"\x04nsfw\x18\x05 \x01(\bH\x04R\x04nsfw\x88\x01\x01B\a\n" +
 	"\x05_nameB\x12\n" +
 	"\x10_avatar_media_idB\t\n" +
 	"\a_noticeB\x10\n" +
-	"\x0e_join_approval\"/\n" +
+	"\x0e_join_approvalB\a\n" +
+	"\x05_nsfw\"/\n" +
 	"\x14TransferGroupRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\"*\n" +
 	"\x10SetPinnedRequest\x12\x16\n" +

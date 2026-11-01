@@ -98,3 +98,32 @@ pub async fn post(url: String, headers: Vec<(String, String)>, body: String, on:
     }
     Ok(status)
 }
+
+/// A NovelAI request (lib/ai/naiRun.ts): HTTPS to novelai.net only, the
+/// owner's token, optional proxy. The answer's bytes on 2xx; otherwise an
+/// error "<status> <body>" the UI turns into words.
+pub async fn nai(method: String, url: String, token: String, body: Option<String>, proxy: String, timeout_secs: u64) -> Result<Vec<u8>, String> {
+    let host_ok = reqwest::Url::parse(&url)
+        .map(|u| u.scheme() == "https" && u.host_str().map(|h| h == "novelai.net" || h.ends_with(".novelai.net")).unwrap_or(false))
+        .unwrap_or(false);
+    if !host_ok {
+        return Err("0 只能访问 novelai.net".into());
+    }
+    let c = net::proxied_client(&proxy, timeout_secs.clamp(10, 600)).map_err(|e| format!("0 {}", e.0))?;
+    let mut req = if method == "GET" { c.get(&url) } else { c.post(&url) };
+    req = req
+        .header("Authorization", format!("Bearer {token}"))
+        .header("Origin", "https://novelai.net")
+        .header("Referer", "https://novelai.net")
+        .header("Accept", "*/*");
+    if let Some(b) = body {
+        req = req.header("Content-Type", "application/json").body(b);
+    }
+    let resp = req.send().await.map_err(|e| format!("0 连不上 NovelAI（{e}），检查代理"))?;
+    let status = resp.status().as_u16();
+    let bytes = resp.bytes().await.map_err(|e| format!("0 下载中断：{e}"))?;
+    if !(200..300).contains(&status) {
+        return Err(format!("{status} {}", String::from_utf8_lossy(&bytes[..bytes.len().min(400)])));
+    }
+    Ok(bytes.to_vec())
+}

@@ -292,6 +292,13 @@ update the docs in the same commit.
   (`lib/ai/page.ts`, pure + tested). Game turns are `silent` replies (tools
   only); one remark after the game. Games: `rematch`, history (`?ended=1`,
   `retention.games_days`).
+- AI drawing (docs/design.md §9 画画, NovelAI only): a NovelAI token is a
+  provider of kind `novelai` (`chatProviders` filters it out of chat
+  pickers); settings in `AISettings.draw`; `/nai …` commands and the
+  `draw_picture` tool (category `draw`) run in the runner (`drawCommand`,
+  `naiDeps`) through `lib/ai/naiRun.ts`; parsing / payload / rules are pure in
+  `lib/ai/nai.ts` (tested); Rust `nai_request` (novelai.net only, proxy).
+  Channels have `conversations.nsfw` (owners / admins); minors are never drawn.
 - AI memory (docs/design.md §9 一个记忆): `lib/ai/memory.ts` (pure, tested:
   per-person notes by account id, events, known plugins, 28 KB cap) stored as
   the AI account's own client state; `rememberNow` (runner) updates it in batches with a persisted per-chat cursor; every reply gets `whoPrompt` (who is talking,

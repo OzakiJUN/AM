@@ -34,6 +34,8 @@ import { replyContext, replyTarget } from '../replies';
 import { CATEGORY_NAME, useWorkshop } from '../workshop';
 import { isPluginCommand } from '../plugins';
 import { hostedSettings, type HostConfig } from './hostMode';
+import { parseCommand } from './nai';
+import { TRANSLATE_PROMPT, drawForTool, runCommand, type NaiDeps } from './naiRun';
 import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, trailMove, type Game, type GameKind, type TrailQ } from '../games';
 
 interface AIState {
@@ -303,10 +305,74 @@ export function refreshPluginCommands(serverId: string, aiId: string) {
   if (run) void loadPluginCommands(run);
 }
 
+/** One answer from its own model, no tools (translations and the like). */
+async function complete(run: Run, system: string, user: string, maxTokens = 600): Promise<string> {
+  const st = run.settings;
+  const providers = useProviders.getState().loaded ? useProviders.getState().list : (await loadProviders()).list;
+  const p = providers.find((x) => x.id === st.providerId);
+  if (!p) throw new Error('还没选模型服务商');
+  const req = buildRequest(p, { model: st.model, temperature: 0.3, maxTokens, system, messages: [{ role: 'user', content: user }] });
+  const reader = streamReader(p.kind);
+  let text = '';
+  const status = await aiRequest(req.url, req.headers, req.body, (chunk) => (text += reader.feed(chunk)));
+  if (status >= 400) throw new Error(`模型服务返回 ${status}：${errorOf(reader.raw()) || '没有说明'}`);
+  return text;
+}
+
+/** What drawing with NovelAI needs (lib/ai/naiRun.ts). */
+function naiDeps(run: Run): NaiDeps {
+  const draw = run.settings.draw;
+  const token = useProviders.getState().list.find((p) => p.id === draw.providerId && p.kind === 'novelai')?.key ?? '';
+  return {
+    s: run.s, aiId: run.ai.user.id, ownerId: run.ai.user.ownerId ?? '', draw, token,
+    translate: (text) => complete(run, TRANSLATE_PROMPT, text, 500),
+    nsfwAllowed: (convId) => {
+      const c = run.s.view.convs[convId];
+      return c?.kind === 'group' ? !!c.nsfw : draw.nsfwInDM;
+    },
+  };
+}
+
+const drawCounts = new Map<string, { day: string; n: number }>();
+
+/**
+ * A /nai … command for this AI? Drawing must be set up, the sender allowed
+ * (only the owner, or everyone within a daily count). In a channel where
+ * someone else's AI is @-mentioned, it's not for this one.
+ */
+function drawCommand(run: Run, convId: string, m: Message): boolean {
+  if (m.body.kind !== 'text') return false;
+  const cmd = parseCommand(m.body.text, run.plugins.starts.length ? run.plugins.starts : ['/']);
+  if (!cmd) return false;
+  const draw = run.settings.draw;
+  if (!draw.providerId) return false;
+  const conv = run.s.view.convs[convId];
+  const me = run.ai.user.id;
+  const mentions = m.body.mentions ?? [];
+  if (conv?.kind === 'group' && mentions.length && !mentions.includes(me)) return false;
+  const owner = m.senderId === run.ai.user.ownerId;
+  if (!owner && draw.who === 'owner') return false;
+  if (!owner && draw.dailyPerPerson && cmd.kind !== 'tags' && cmd.kind !== 'balance') {
+    const key = `${me}|${m.senderId}`;
+    const day = dayKey();
+    const c = drawCounts.get(key);
+    const n = c && c.day === day ? c.n + 1 : 1;
+    drawCounts.set(key, { day, n });
+    if (n > draw.dailyPerPerson) {
+      if (n === draw.dailyPerPerson + 1) void run.s.sendText(convId, `@${run.s.nameOf(m.senderId)} 今天画得够多啦，明天再来～`, undefined, [m.senderId], m.id).catch(() => {});
+      return true;
+    }
+  }
+  void runCommand(naiDeps(run), convId, m, cmd);
+  return true;
+}
+
 function onMessage(run: Run, convId: string, m: Message) {
   const conv = run.s.view.convs[convId];
   if (!conv) return;
   scheduleRemember(run, convId);
+  // A drawing command (/nai …): drawn right away, not a chat turn.
+  if (drawCommand(run, convId, m)) return;
   // A plugin command: the plugin answers, not the model.
   if (m.body.kind === 'text' && isPluginCommand(m.body.text, run.plugins.starts, run.plugins.commands)) return;
   // The session stores the new message right after telling us: look a tick later.
@@ -545,7 +611,8 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     // The computer: never for routine notes; in channels for the owner, or anyone when the owner allows everyone.
     const computer = !casual && !o.note && (speaker.isOwner || st.whoCanChat === 'everyone' || !group);
     const mcp = computer ? await loadMcpTools(comp, agentKey) : { defs: [], map: new Map(), errors: [] };
-    const available = toolsFor(comp, mcp.defs, computer);
+    // Drawing only when NovelAI is set up.
+    const available = toolsFor(comp, mcp.defs, computer).filter((t) => t.name !== 'draw_picture' || !!st.draw.providerId);
     const tools = casual ? [] : o.idle ? available.filter((t) => ['view_my_page', 'edit_my_page'].includes(t.name) && levelFor(comp, t.name) === 'allow') : available;
     // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
@@ -577,7 +644,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       if (status >= 400) throw new Error(`接话判断失败（${status}）`);
       if (!shouldJoin(judgment) || stale()) return;
     }
-    const ctx: ToolCtx = { computer: comp, scale: 1, mcp: mcp.map, owner: agentKey, self: selfApi(run) };
+    const ctx: ToolCtx = { computer: comp, scale: 1, mcp: mcp.map, owner: agentKey, self: selfApi(run, convId) };
     let final = '';
     try {
       for (let step = 0; ; step++) {
@@ -702,7 +769,7 @@ async function considerChannel(run: Run, convId: string, trigger: Message) {
 
 const NOTE_ID = 'ai-note';
 
-function selfApi(run: Run): SelfApi {
+function selfApi(run: Run, convId?: string): SelfApi {
   const s = run.s;
   const groups = () => Object.values(s.view.convs).filter((c) => c.kind === 'group' && !c.left);
   return {
@@ -751,6 +818,7 @@ function selfApi(run: Run): SelfApi {
       return { text: r.ok ? r.text : `没做成：${r.text}`, images: r.images.length ? r.images : undefined };
     },
     game: (tool, a) => gameTool(run, tool, a),
+    draw: async (a) => (convId ? drawForTool(naiDeps(run), convId, a) : '这里画不了'),
     page: (tool, a) => pageTool(run, tool, a),
     async messageOwner(text) {
       const owner = run.ai.user.ownerId;

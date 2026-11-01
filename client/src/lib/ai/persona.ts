@@ -3,6 +3,7 @@
 import { defaultChannels, defaultGames, defaultProactive, defaultRoutine, type ChannelSettings, type GameSettings, type ProactiveSettings, type RoutineSettings } from './social.ts';
 import { MOODS, splitMoodTag } from '../portraits.ts';
 import type { ChatMsg } from './providers.ts';
+import { defaultDraw, type DrawSettings } from './nai.ts';
 
 export interface Persona {
   /** One line about who it is. */
@@ -50,6 +51,8 @@ export interface AISettings {
   games: GameSettings;
   /** Talking to its owner first: hello, topics (lib/ai/social.ts proactive). */
   proactive: ProactiveSettings;
+  /** Drawing with NovelAI (lib/ai/nai.ts). */
+  draw: DrawSettings;
 }
 
 /** What an AI may do on the computer that runs it (docs/design.md §9, 操作电脑). */
@@ -83,7 +86,7 @@ export interface McpServer {
 
 export type ToolCategory =
   | 'files_read' | 'files_write' | 'files_delete' | 'command' | 'open' | 'clipboard' | 'screen' | 'input'
-  | 'ui' | 'browser' | 'mcp' | 'self' | 'social' | 'remote' | 'games';
+  | 'ui' | 'browser' | 'mcp' | 'self' | 'social' | 'remote' | 'games' | 'draw';
 export type Level = 'allow' | 'ask' | 'deny';
 
 /**
@@ -94,7 +97,7 @@ export type Level = 'allow' | 'ask' | 'deny';
 export const DEFAULT_LEVELS: Record<ToolCategory, Level> = {
   files_read: 'allow', files_write: 'allow', files_delete: 'ask', command: 'ask',
   open: 'allow', clipboard: 'allow', screen: 'allow', input: 'allow',
-  ui: 'allow', browser: 'allow', mcp: 'ask', self: 'allow', social: 'allow', remote: 'allow', games: 'allow',
+  ui: 'allow', browser: 'allow', mcp: 'ask', self: 'allow', social: 'allow', remote: 'allow', games: 'allow', draw: 'allow',
 };
 
 export const defaultComputer = (): ComputerSettings => ({
@@ -139,7 +142,7 @@ export function defaultSettings(template = TEMPLATES[0]): AISettings {
     v: 1, persona: { ...template.persona }, template: template.key, providerId: '', model: '', temperature: 0.8,
     contextSize: 30, maxTokens: 1000, whoCanChat: 'owner', evolve: false, computer: defaultComputer(),
     channels: defaultChannels(), routine: defaultRoutine(), catchUp: { enabled: true, hours: 12, max: 5 }, roomDailyPerPerson: 50,
-    games: defaultGames(), proactive: defaultProactive(),
+    games: defaultGames(), proactive: defaultProactive(), draw: defaultDraw(),
   };
 }
 
@@ -153,7 +156,7 @@ export function parseSettings(json: string): AISettings {
     return {
       ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } },
       channels: { ...d.channels, ...v.channels }, routine: { ...d.routine, ...v.routine }, catchUp: { ...d.catchUp, ...v.catchUp },
-      games: { ...d.games, ...v.games }, proactive: { ...d.proactive, ...v.proactive },
+      games: { ...d.games, ...v.games }, proactive: { ...d.proactive, ...v.proactive }, draw: { ...d.draw, ...v.draw },
     };
   } catch {
     return d;
