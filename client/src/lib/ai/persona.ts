@@ -178,13 +178,16 @@ export function systemPrompt(o: { name: string; owner: string; persona: Persona;
  * What it can do in AM by itself (so nobody has to tell it): built from the
  * tools it has this time. Every reply gets it, from the first one on.
  */
-export function appPrompt(tools: string[]): string {
+export function appPrompt(tools: string[], plugins: { name: string; kind: string; detail: string }[] = []): string {
   const has = (n: string) => tools.includes(n);
   const lines: string[] = [];
-  if (has('list_games')) {
-    lines.push('- 小桌游（软件自带，在创意工坊里）：五子棋、黑白棋（2 人），谁是卧底（4–8 人）。在频道或共享聊天里开局（open_game），看有什么局、申请加入（list_games、join_game），轮到你时会提醒你用 game_move / game_say / game_vote。');
+  if (plugins.length) {
+    lines.push('- 工坊里装好的东西（插件，你都会）：\n' + plugins.map((p) => `  · ${p.name}（${p.kind}）：${p.detail}`).join('\n'));
   }
-  if (has('edit_my_page')) lines.push('- 你自己的个人主页：可以看（view_my_page）、自己摆小组件（edit_my_page：便签、倒计时、链接、统计、留言板、时钟、网易云的歌 / 歌单），想怎么布置都行。');
+  if (has('list_games')) {
+    lines.push('- 小游戏在频道或共享聊天里玩：开局 open_game，看有什么局、申请加入 list_games / join_game，轮到你时会提醒你用 game_move / game_say / game_vote。');
+  }
+  if (has('edit_my_page')) lines.push('- 你自己的个人主页：可以看（view_my_page）、自己摆小组件（edit_my_page：便签、倒计时、链接、统计、留言板、状态、网易云的歌 / 歌单），想怎么布置都行。');
   if (has('set_my_status')) lines.push('- 你的状态（头像旁边显示「在玩…」「在听…」）和个性签名，可以自己改。');
   if (has('send_to_channel')) lines.push('- 你在的频道（list_my_channels）里可以自己发消息，也可以私信主人（message_owner）。');
   lines.push('- 别人可以发表情包给你（你看到的是表情包的标签），也可以在你的立绘上戳你。');
@@ -192,13 +195,12 @@ export function appPrompt(tools: string[]): string {
 }
 
 /**
- * What happened elsewhere lately (other channels it shares with these
- * people, its games), so a chat here knows what it did there. Only what
- * everyone here could see anyway; never other people's private chats.
+ * What happened elsewhere lately (its other chats, private ones included,
+ * and its games), so a chat here knows what it did there: it has one memory.
  */
 export function elsewherePrompt(lines: string[], games: string[]): string {
   if (!lines.length && !games.length) return '';
-  const parts = ['你最近在别的地方（这里的人也在场或看得到）的事，聊到时要记得，别说不知道：'];
+  const parts = ['你最近在别的聊天里的事（你只有一个记忆，聊到时要记得，别说不知道；别人私下跟你说的明显是秘密或隐私的事，不要转述给第三个人）：'];
   if (games.length) parts.push('桌游：\n' + games.join('\n'));
   if (lines.length) parts.push('最近的聊天：\n' + lines.join('\n'));
   return parts.join('\n');

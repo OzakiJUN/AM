@@ -6,24 +6,14 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Bot, Download, Gamepad2, Hash, Image as ImageIcon, Lock, Package, Palette, Puzzle, Sparkles, Store } from 'lucide-react';
-import { TEMPLATES } from '@/lib/ai/persona';
 import { DEFAULT_PACK } from '@/lib/defaultPack';
-import { GAME_INFO, KINDS, type GameKind } from '@/lib/games';
-import { MOODS } from '@/lib/portraits';
+import { useWorkshop, type WorkshopCategory, type WorkshopItem } from '@/lib/workshop';
 import { openConv, useApp } from '@/lib/store';
 import { Button, Dialog, Segmented, cx, spring } from '@/ui';
 import { startGame } from './Games';
 
-type Category = 'all' | 'game' | 'portrait' | 'persona' | 'theme' | 'widget';
-
-interface Item {
-  id: string;
-  category: Exclude<Category, 'all'>;
-  name: string;
-  text: string;
-  detail: string;
-  game?: GameKind;
-}
+type Category = 'all' | WorkshopCategory;
+type Item = WorkshopItem;
 
 const CATEGORIES: { value: Category; label: string; Icon: typeof Store }[] = [
   { value: 'all', label: '全部', Icon: Store },
@@ -34,31 +24,12 @@ const CATEGORIES: { value: Category; label: string; Icon: typeof Store }[] = [
   { value: 'widget', label: '主页组件', Icon: Puzzle },
 ];
 
-const GAME_TEXT: Record<GameKind, string> = {
-  gomoku: '两个人轮流下，先连五个的赢。AI 也会下（不算很强）。',
-  reversi: '夹住就翻，最后子多的赢。和 AI 下正合适。',
-  undercover: '4–8 个人（AI 也算）各拿一个词，轮流描述、投票找卧底。',
-};
-
-/** Everything that ships with the client (always installed). */
-const BUILT_IN: Item[] = [
-  ...KINDS.map((k): Item => ({ id: `game:${k}`, category: 'game', name: GAME_INFO[k].name, text: GAME_TEXT[k], detail: GAME_INFO[k].rules, game: k })),
-  {
-    id: 'portrait:default', category: 'portrait', name: '默认立绘',
-    text: `没有自己形象包的 AI 都用这套（${MOODS.length} 种情绪）`,
-    detail: '给自己的 AI 换立绘：AI 设置 →「资料」→「立绘（形象包）」，按情绪命名的一组图片一次导入。',
-  },
-  ...TEMPLATES.map((t): Item => ({
-    id: `persona:${t.key}`, category: 'persona', name: t.name, text: t.persona.intro,
-    detail: '新建 AI 时选它当起始人格，或者在 AI 设置 →「人格」里一键换成它。',
-  })),
-];
-
 export function WorkshopPage() {
   const [tab, setTab] = useState<'browse' | 'installed'>('browse');
   const [cat, setCat] = useState<Category>('all');
   const [item, setItem] = useState<Item | null>(null);
-  const list = useMemo(() => BUILT_IN.filter((x) => cat === 'all' || x.category === cat), [cat]);
+  const installed = useWorkshop((s) => s.installed);
+  const list = useMemo(() => installed.filter((x) => cat === 'all' || x.category === cat), [cat, installed]);
   return (
     <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="mx-auto max-w-4xl">
@@ -68,7 +39,7 @@ export function WorkshopPage() {
             <h1 className="text-[1.5rem] font-bold">创意工坊</h1>
             <p className="text-[0.88rem] text-ink-soft dark:text-white/55">小游戏、AI 形象包、人格、主题、主页组件</p>
           </div>
-          <Segmented id="workshop-tab" value={tab} onChange={setTab} options={[{ value: 'browse', label: '发现' }, { value: 'installed', label: `已安装 ${BUILT_IN.length}` }]} />
+          <Segmented id="workshop-tab" value={tab} onChange={setTab} options={[{ value: 'browse', label: '发现' }, { value: 'installed', label: `已安装 ${installed.length}` }]} />
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="分类">
@@ -98,7 +69,7 @@ export function WorkshopPage() {
                 <Cover item={x} />
                 <div className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate font-semibold">{x.name}</span>
-                  <span className="shrink-0 rounded-md bg-emerald-100 px-1.5 text-[0.7rem] leading-5 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200">{tab === 'installed' ? '内置' : '已安装'}</span>
+                  <span className="shrink-0 rounded-md bg-emerald-100 px-1.5 text-[0.7rem] leading-5 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200">{x.builtin ? '内置' : '已安装'}</span>
                 </div>
                 <div className="line-clamp-2 text-[0.82rem] text-ink-soft dark:text-white/50">{x.text}</div>
               </motion.button>

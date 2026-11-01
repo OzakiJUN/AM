@@ -241,13 +241,19 @@ update the docs in the same commit.
   (`src-tauri/src/music.rs`: NetEase headers, follows the CDN redirect,
   in-memory cache, Range); browser dev mode uses the outer url directly.
 - AI memory / initiative (docs/design.md §9): every reply's system prompt
-  has `appPrompt` (what AM offers, from its tools) and `elsewherePrompt`
-  (last 12 h in channels shared with everyone here + its games; never other
-  DMs); `proactive` in social.ts (hello / status / quiet topics, tick every
+  has `appPrompt` (what AM offers: tools + installed plugins) and
+  `elsewherePrompt` (last 12 h of all its chats + its games); `proactive` in social.ts (hello / status / quiet topics, tick every
   30 s); its own page through `view_my_page` / `edit_my_page`
   (`lib/ai/page.ts`, pure + tested). Game turns are `silent` replies (tools
   only); one remark after the game. Games: `rematch`, history (`?ended=1`,
   `retention.games_days`).
+- AI memory (docs/design.md §9 一个记忆): `lib/ai/memory.ts` (pure, tested:
+  per-person notes by account id, events, known plugins, 28 KB cap) stored as
+  the AI account's own client state; `rememberNow` (runner) updates it 3 min
+  after a chat goes quiet; every reply gets `whoPrompt` (who is talking,
+  owner / AI, recognise by account), `memoryPrompt`, and `elsewhere` (all
+  chats incl. private ones, last 12 h). Installed workshop items live in
+  `lib/workshop.ts` (`useWorkshop`); `syncPlugins` teaches them to running AIs.
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

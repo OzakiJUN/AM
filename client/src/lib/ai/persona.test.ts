@@ -44,8 +44,8 @@ assert.ok(evolvePrompt({ name: '小鱼', owner: 'Weiqi', persona: old, lines: ['
 assert.deepEqual(parseSettings('{}').catchUp, { enabled: true, hours: 12, max: 5 });
 
 // What it knows about AM comes from its tools; memory from elsewhere only when there is any.
-const ap = appPrompt(['list_games', 'set_my_status']);
-assert.ok(ap.includes('五子棋') && ap.includes('状态') && !ap.includes('个人主页'), ap);
+const ap = appPrompt(['list_games', 'set_my_status'], [{ name: '五子棋', kind: '小游戏', detail: '连五个赢' }]);
+assert.ok(ap.includes('· 五子棋（小游戏）：连五个赢') && ap.includes('open_game') && ap.includes('状态') && !ap.includes('个人主页'), ap);
 assert.equal(elsewherePrompt([], []), '');
 const ep = elsewherePrompt(['「大厅」Weiqi：我赢了'], ['和 Weiqi 下五子棋：Weiqi（黑）赢了']);
 assert.ok(ep.includes('桌游：\n和 Weiqi') && ep.includes('最近的聊天：\n「大厅」'), ep);
