@@ -23,9 +23,11 @@ interface Prefs {
   stickerSync: boolean;
   /** Music widget playback volume on this device (0–100). */
   musicVolume: number;
+  /** GitHub mirror for workshop downloads; empty uses GitHub directly. */
+  workshopMirror: string;
   /** Desktop: the close button hides the window to the tray (AIs run by this device stay online) instead of quitting. */
   closeToTray: boolean;
-  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'closeToTray'>>) => void;
+  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'workshopMirror' | 'closeToTray'>>) => void;
 }
 
 export const usePrefs = create<Prefs>()(
@@ -40,6 +42,7 @@ export const usePrefs = create<Prefs>()(
       syncDelay: 30,
       stickerSync: true,
       musicVolume: 30,
+      workshopMirror: '',
       closeToTray: true,
       set: (p) => set(p),
     }),

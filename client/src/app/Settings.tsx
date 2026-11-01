@@ -88,7 +88,7 @@ function Appearance() {
   return (
     <div className="max-w-3xl">
       <h2 className="text-[1.4rem] font-semibold">外观</h2>
-      <p className="mt-1 text-ink-soft dark:text-white/55">只影响这台设备。以后可以在创意工坊下载别人做好的主题。</p>
+      <p className="mt-1 text-ink-soft dark:text-white/55">只影响这台设备。也可以在创意工坊里下载别人做好的主题，一键套用。</p>
 
       <div className="mt-4">
         <Row title="主题模式">

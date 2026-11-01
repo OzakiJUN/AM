@@ -89,6 +89,12 @@ async fn ai_get(url: String, headers: Vec<(String, String)>) -> Res<(u16, String
     ai_http::get(url, headers).await
 }
 
+/// Downloads a workshop file (index or package) as raw bytes.
+#[tauri::command]
+async fn web_get_bytes(url: String, max: u64) -> Res<tauri::ipc::Response> {
+    ai_http::get_bytes(url, max).await.map(tauri::ipc::Response::new)
+}
+
 /// A request to an AI model provider; the reply streams back through `on_event`.
 #[tauri::command]
 async fn ai_request(url: String, headers: Vec<(String, String)>, body: String, on_event: Channel<ai_http::StreamEvent>) -> Res<u16> {
@@ -421,7 +427,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
-            secret_delete, ai_request, ai_get, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
+            secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
             agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close
         ])

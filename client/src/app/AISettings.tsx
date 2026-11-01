@@ -2,7 +2,7 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, Folder, Gamepad2, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { Cpu, Folder, Gamepad2, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Store, Trash2, X } from 'lucide-react';
 import { CATEGORY_LABEL, GAME_TEMPLATES } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
@@ -19,10 +19,11 @@ import { checkBalance, useBalance } from '@/lib/ai/balance';
 import { aiSettings, refreshAIs, runHere, saveSettings, useAI } from '@/lib/ai/runner';
 import { openConv, openProfile, session, useApp } from '@/lib/store';
 import { aiRequest } from '@/lib/transport';
-import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, cx, inputClass, toast, toastError } from '@/ui';
+import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, cx, inputClass, openMenu, toast, toastError } from '@/ui';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { forgetPack } from './Portrait';
 import { MOODS, MOOD_LABEL, packFromFiles, type Mood } from '@/lib/portraits';
+import { personaTemplates, portraitFiles, useWorkshop } from '@/lib/workshop';
 
 const textarea = cx(inputClass, 'min-h-[84px] resize-y py-2.5 leading-relaxed');
 
@@ -32,6 +33,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
   const providers = useProviders((s) => s.list);
   const [name, setName] = useState('');
   const [tpl, setTpl] = useState(TEMPLATES[0].key);
+  const templates = personaTemplates(useWorkshop((s) => s.metas));
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (open) setName('');
@@ -43,7 +45,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
     setBusy(true);
     try {
       const info = await s.createAI(name.trim());
-      const template = TEMPLATES.find((t) => t.key === tpl) ?? TEMPLATES[0];
+      const template = templates.find((t) => t.key === tpl) ?? TEMPLATES[0];
       const p = providers[0];
       const preset = p && PRESETS.find((x) => x.baseUrl === p.baseUrl);
       const settings: AISettings = { ...defaultSettings(template), providerId: p?.id ?? '', model: preset?.model ?? '' };
@@ -69,7 +71,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
         <div>
           <div className="mb-1.5 text-[0.85rem] font-medium text-ink-soft dark:text-white/60">从哪个人格开始（创建后随便改）</div>
           <div className="grid grid-cols-3 gap-2">
-            {TEMPLATES.map((t) => (
+            {templates.map((t) => (
               <button
                 type="button"
                 key={t.key}
@@ -134,11 +136,12 @@ type TabProps = { draft: AISettings; set: (p: Partial<AISettings>) => void; save
 function PersonaTab({ draft, set, save }: TabProps) {
   const p = draft.persona;
   const setP = (x: Partial<AISettings['persona']>) => set({ persona: { ...p, ...x } });
+  const templates = personaTemplates(useWorkshop((s) => s.metas));
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 text-[0.85rem]">
         <span className="text-ink-soft dark:text-white/55">换成模板：</span>
-        {TEMPLATES.map((t) => (
+        {templates.map((t) => (
           <button key={t.key} type="button" onClick={() => set({ persona: { ...t.persona }, template: t.key })} className="press rounded-lg bg-black/[0.04] px-2.5 py-1 hover:bg-black/[0.07] dark:bg-white/5 dark:hover:bg-white/10">
             {t.name}
           </button>
@@ -713,7 +716,12 @@ function PackEditor({ serverId, aiId }: { serverId: string; aiId: string }) {
     }
     setBusy('');
   };
-  const importMany = (list: FileList) => {
+  const packs = useWorkshop((s) => s.metas).filter((m) => m.type === 'portrait' && !m.disabled);
+  const fromWorkshop = (e: React.MouseEvent) => openMenu(e, packs.map((m) => ({
+    label: m.name, icon: <Store size={16} />, key: `pack:${m.id}`,
+    onClick: () => portraitFiles(m.id).then(importMany),
+  })));
+  const importMany = (list: FileList | File[]) => {
     const files = [...list].filter((f) => f.type.startsWith('image/') || /\.(png|webp|gif|jpe?g|apng)$/i.test(f.name));
     const byName = packFromFiles(Object.fromEntries(files.map((f) => [f.name, f.name])));
     const pairs = Object.entries(byName).map(([mood, name]) => [mood as Mood, files.find((f) => f.name === name)!] as [Mood, File]);
@@ -737,6 +745,7 @@ function PackEditor({ serverId, aiId }: { serverId: string; aiId: string }) {
         <>
           <div className="mb-3 flex flex-wrap gap-2">
             <Button variant="soft" disabled={!!busy} onClick={() => many.current?.click()}><ImageUp size={15} /> 导入一组图片</Button>
+            {packs.length > 0 && <Button variant="soft" disabled={!!busy} onClick={fromWorkshop}><Store size={15} /> 从工坊选</Button>}
             {count > 0 && <Button variant="soft" onClick={() => ask({ title: '换回默认立绘？', text: '它自己的立绘会清空，大家看到的变回默认形象。', ok: '换回默认', run: () => save({}) })}>换回默认</Button>}
             <Button variant="primary" disabled={!dirty || !!busy || !ids.neutral} onClick={() => save(ids)}>保存立绘</Button>
           </div>

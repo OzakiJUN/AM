@@ -17,8 +17,9 @@
 
 1. **共享表情包库**：2026-11-01 做完了（见 CHANGELOG「公共表情库」、design.md 第 11 节和第 7 节「表情也同步」），等 Weiqi 测试。Weiqi 定的：加进收藏就自动进公共库；带进新服务器的表情后台限速慢慢传。
 2. **Bot 移植**：Weiqi 以前的几个插件直接内置进 am-server（服务器自带的 bot，不用装 Python，管理面板开关，key 放 config.toml）。**等 Weiqi 把插件打包传过来**，并说明每个是干嘛的。OneBot v11 兼容层这周不做。
-3. **创意工坊**（design.md 第 13 节）：先打通数据类内容（主题、AI 形象包、人格、整套表情包）：从 GitHub 索引仓库拉列表、下载、校验 SHA-256、验签、安装（侧载要提醒）；写作品模板和发布说明；新装的东西 AI 自动学会（`lib/workshop.ts` 的 `useWorkshop` + `syncPlugins` 已经接好）。程序类（小游戏 / 组件 / 插件的沙盒和权限清单）这周只开头。
-   - **等 Weiqi**：在 GitHub 建空仓库 `OzakiJUN/am-workshop` 当索引（2026-11-01：还没建，他不会，已经把步骤教给他）；签名密钥用脚本在他自己电脑上生成，私钥放 GitHub Secrets，不经过聊天。
+3. **创意工坊**：数据类作品（主题、形象包、人格、表情包）2026-11-01 做完了（见 CHANGELOG「创意工坊能下载别人的作品了」、design.md 第 13 节）。`OzakiJUN/am-workshop` 已建好，检查工具、发布流程、说明和模板都推上去了。
+   - **等 Weiqi**：双击 `workshop_keygen.bat` 生成密钥，私钥放进 am-workshop 的 GitHub Secret `WORKSHOP_SIGNING_KEY`，把公钥发过来；收到后写进 `client/src/lib/workshopIndex.ts` 的 `WORKSHOP_PUBLIC_KEY`（没写之前「发现」只显示内置的，可以从文件安装）。
+   - 程序类（小游戏 / 组件 / 插件的沙盒和权限清单）还没做，manifest 里留了 `permissions`。
 4. 自动更新（上面第 9 条）：Weiqi 2026-11-01：这周其他东西都做好了就排，排在最后。
 
 顺序：表情包库 → 工坊 → bot（插件到了再做）。
