@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { replyContext, replyPreview, replyTarget } from './replies.ts';
+import type { Message } from './types.ts';
+const original: Message = { id: '1', senderId: 'alice', seq: 1, time: 1, body: { kind: 'text', text: '下局执黑' } };
+const response: Message = { id: '2', senderId: 'bob', seq: 2, time: 2, body: { kind: 'text', text: '好的', replyTo: '1' } };
+assert.equal(replyTarget(response, [original, response]), original);
+assert.equal(replyTarget(response, [response], { 1: original }), original);
+assert.equal(replyContext(response, original, (id) => id), '（回复 alice 的消息 1，引用原文："下局执黑"）\n');
+assert.equal(replyContext(original, undefined, (id) => id), '');
+assert.equal(replyPreview({ ...original, body: { kind: 'deleted', byId: 'admin', reason: 'test' } }), '原消息已被删除');
+assert.equal(replyPreview({ ...original, struck: true }), '原消息已划掉');
+assert.equal(replyPreview(null), '原消息暂不可用');
+console.log('replies ok');

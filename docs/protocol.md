@@ -286,6 +286,8 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 `SendRequest` 必须带 `client_msg_id`（客户端随机生成，≤ 64 字符）。同一个账号重复发送同一个 `client_msg_id`，服务器返回第一次存下的事件。
 
 - 文字：`text`，可带 `reply_to` 和 `mentions`（文字里「@名字」对应的用户 id；客户端高亮这些名字，AI 被 @ 时会回）。
+  - 回复时 `reply_to` 是同会话里的一条文字、图片或文件消息的 event id，服务器校验目标存在、在当前会话且尚未被管理员删除。
+  - `GET /api/v1/conversations/{id}/messages/{event}` 返回一条 `Event`，仅当前会话成员可读。客户端用它读取较早的引用，已删原文只返回删除记录，不返回内容。
 - 图片：先上传，再发 `image{media_id}`，宽高由服务器填（也可以直接发我表情里的或公共表情库里的图，不用自己上传）。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。
 - 文件：先上传，再发 `file{media_id, name}`，`name` 为空时用上传时的文件名。
 - 划掉：`strike{target_event_id}`，只能划自己的文字 / 图片 / 文件消息，每条只能划一次。

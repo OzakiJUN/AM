@@ -44,6 +44,8 @@ export interface SessionView {
   users: Record<string, User>;
   convs: Record<string, Conversation>;
   messages: Record<string, Message[]>;
+  /** Quoted messages kept separately so old references never create history gaps. */
+  replyTargets: Record<string, Record<string, Message | null>>;
   /** Conversations whose older history can still be loaded. */
   hasOlder: Record<string, boolean>;
   /** Site admin of this server (may create public channels). */
@@ -449,7 +451,7 @@ export class Session {
     this.t = createTransport(record.id, record.endpoint);
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
-      users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false,
+      users: {}, convs: {}, messages: {}, replyTargets: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false,
       presence: {},
       icon: '',
       games: {},
@@ -982,6 +984,7 @@ export class Session {
   }
 
   private async onAuth(a: gw.AuthResponse) {
+    this.view.replyTargets = {};
     if (a.me) {
       this.addUsers([a.me]);
       this.view.me = toUser(a.me);
@@ -1028,6 +1031,33 @@ export class Session {
     }
   }
 
+  private replyLoads = new Map<string, Promise<void>>();
+
+  /** Loads an older quoted message without changing pagination or read positions. */
+  loadReplyTarget(convId: string, id: string): Promise<void> {
+    const key = convId + ':' + id;
+    if (this.view.messages[convId]?.some((m) => m.id === id) || this.view.replyTargets[convId]?.[id] !== undefined) return Promise.resolve();
+    const pending = this.replyLoads.get(key);
+    if (pending) return pending;
+    const load = (async () => {
+      let target: Message | null = null;
+      try {
+        const event = await this.call('GET', `/api/v1/conversations/${convId}/messages/${id}`, ev.EventSchema);
+        const body = toBody(event);
+        if (body) target = { id: s(event.eventId), seq: Number(event.seq), senderId: s(event.senderId), time: Number(event.createdAt), body, struck: this.struckIds.has(id) || undefined };
+      } catch (err) {
+        if (!(err instanceof ApiError) || !['not_found', 'not_member'].includes(err.code)) throw err;
+      }
+      // A deletion arriving during the request must win over its stale response.
+      if (this.view.replyTargets[convId]?.[id]?.body.kind === 'deleted') return;
+      this.view.replyTargets = { ...this.view.replyTargets, [convId]: { ...this.view.replyTargets[convId], [id]: target } };
+      if (target) this.wantUser(target.senderId);
+      this.emit();
+    })().finally(() => this.replyLoads.delete(key));
+    this.replyLoads.set(key, load);
+    return load;
+  }
+
   /** Loads one more page of older messages. */
   async loadOlder(convId: string) {
     const list = this.view.messages[convId] ?? [];
@@ -1066,6 +1096,13 @@ export class Session {
       // Strike / admin delete modify their target.
       if (e.body.case === 'strike' || e.body.case === 'adminDelete') {
         const target = s(e.body.value.targetEventId);
+        const reference = this.view.replyTargets[convId]?.[target];
+        if (reference || e.body.case === 'adminDelete') {
+          const changed: Message = e.body.case === 'adminDelete'
+            ? { id: target, seq: reference?.seq ?? 0, time: reference?.time ?? 0, senderId: reference?.senderId ?? '', body: { kind: 'deleted', byId: s(e.senderId), reason: e.body.value.reason } }
+            : { ...reference!, struck: true };
+          this.view.replyTargets = { ...this.view.replyTargets, [convId]: { ...this.view.replyTargets[convId], [target]: changed } };
+        }
         const i = list.findIndex((m) => m.id === target);
         if (e.body.case === 'strike') {
           if (i >= 0) list[i] = { ...list[i], struck: true };

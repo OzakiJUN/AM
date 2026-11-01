@@ -1,11 +1,11 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { addressed, dayPlan, decide, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
+import { addressed, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
 
 const s = defaultChannels();
 const me = 'ai';
 const now = 10_000_000;
-const msg = (senderId: string, ago: number, o: Partial<Said> = {}): Said => ({ senderId, time: now - ago, ai: false, toMe: false, discussion: true, ...o });
+const msg = (senderId: string, ago: number, o: Partial<Said> = {}): Said => ({ senderId, time: now - ago, ai: false, toMe: false, ...o });
 
 // Spoken to: always answer soon (also in mention-only mode), unless over the hourly limit.
 assert.equal(decide({ now, s: { ...s, mode: 'mention' }, recent: [msg('bob', 0, { toMe: true })], me, mySends: [], random: 0.99, random2: 0 }).act, 'reply');
@@ -19,11 +19,10 @@ const warm = [msg(me, 6000), msg('bob', 0)];
 const decideWith = (recent: Said[], random = 0, mySends: number[] = []) =>
   decide({ now, s, recent, me, mySends, random, random2: 0 });
 assert.equal(decideWith(cold, 0.14).act, 'maybe');
-assert.equal(decideWith(warm, 0.15).act, 'no');
-assert.equal(decideWith(warm, 0, [now - 6000]).act, 'no');
-assert.equal(decideWith([msg('bot', 0, { ai: true })]).act, 'no');
-assert.equal(decideWith([msg('bob', 0, { discussion: false })]).act, 'no');
-assert.equal(decideWith([msg('bob', 0, { discussion: false, toMe: true })]).act, 'reply');
+assert.equal(decideWith(warm, 0.99).act, 'maybe');
+assert.ok(decideWith(warm, 0, [now - 6000]).delay >= 14000);
+assert.equal(decideWith([msg('bot', 0, { ai: true })]).act, 'maybe');
+assert.equal(decideWith([msg('bob', 0, { toMe: true })]).act, 'reply');
 for (const text of ['收到！','😂','嗯嗯，好的','哈哈哈','OK']) assert.equal(discussionText(text), false);
 for (const text of ['为什么？','我不同意这个结论','42']) assert.equal(discussionText(text), true);
 // Asleep: no chatting by itself.
@@ -90,3 +89,11 @@ assert.equal(pr({ lastChat: T - 4 * H, random: 0.5 }), null);
 assert.equal(pr({ lastChat: T - 2 * H, random: 0.05 }), null); // not quiet long enough
 assert.equal(pr({ lastChat: T - 4 * H, random: 0.05, s: { ...defaultProactive(), topics: false } }), null);
 console.log('ai social ok');
+
+assert.equal(batchDelay(0, 0, 5, 20, 0), 5000);
+assert.equal(batchDelay(19000, 0, 5, 20, 0), 1000);
+assert.equal(batchDelay(25000, 0, 5, 20, 30000), 5000);
+assert.equal(shouldJoin('{"reply":true}'), true);
+assert.equal(shouldJoin('{"reply":false}'), false);
+assert.equal(shouldJoin('{"reply":"true"}'), false);
+assert.equal(shouldJoin('oops'), false);
