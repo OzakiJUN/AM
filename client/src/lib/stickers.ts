@@ -47,9 +47,9 @@ export async function importStickers(serverId: string, files: File[], priv: bool
   return n;
 }
 
-/** A picture from a chat into my collection (private: from a DM). */
-export async function addFromChat(serverId: string, mediaId: string, priv: boolean) {
-  const st = await session(serverId)!.addSticker(mediaId, [], priv);
+/** A picture from a chat (channel or DM) into my collection, shared like any other (server default). */
+export async function addFromChat(serverId: string, mediaId: string) {
+  const st = await session(serverId)!.addSticker(mediaId);
   upsert(serverId, st);
   kickStickerSync();
   return st;

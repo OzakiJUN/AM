@@ -8,6 +8,8 @@ update the docs in the same commit.
 ## How the owner (Weiqi) wants to work
 
 - Talk in casual Chinese. Direct answers, no hedging.
+- When a batch is done and checked, merge it into `main` yourself (PR, CI
+  green, merge) — Weiqi 2026-11-01: "main你要合并的时候就自动合并".
 - **Propose a plan and wait for confirmation before changing code.** Batch
   small changes for the next update instead of pushing them one by one.
 - When handing over files, give complete files, not patches.

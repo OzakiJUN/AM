@@ -280,11 +280,10 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
     if (b.kind === 'text') items.push({ label: '复制', icon: <Copy size={16} />, onClick: () => copyText(b.text) });
     if (b.kind === 'image') items.push({ label: '查看原图', icon: <ImagePlus size={16} />, onClick: () => onView(b.mediaId) });
     if (b.kind === 'image' && !msg.pending && !msg.failed) {
-      // Pictures from a DM go in private: whoever sent it didn't share it with everyone.
-      const dm = conv.kind !== 'group';
+      // Same rule as any sticker: shared unless the server defaults to private (Weiqi: stickers aren't private things).
       items.push({
         label: '加到我的表情', icon: <Sticker size={16} />, key: `sticker:${b.mediaId}`,
-        onClick: () => addFromChat(s.record.id, b.mediaId, dm).then((st) => toast(st.private ? '加到「我的表情」了（不公开）' : '加到「我的表情」了')),
+        onClick: () => addFromChat(s.record.id, b.mediaId).then((st) => toast(st.private ? '加到「我的表情」了（不公开）' : '加到「我的表情」了')),
       });
     }
     if (b.kind === 'image' || b.kind === 'file') {
