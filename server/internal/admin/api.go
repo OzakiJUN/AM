@@ -79,6 +79,11 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 				out["stats"].(map[string]int64)["plugins_pending"] = int64(n)
 			}
 		}
+		if a.Hosting != nil {
+			if n, err := a.Hosting.Pending(r.Context()); err == nil {
+				out["stats"].(map[string]int64)["hosting_pending"] = int64(n)
+			}
+		}
 		if snap.BootstrapInvite != "" {
 			if st.Users == 0 {
 				out["bootstrap_invite"] = snap.BootstrapInvite

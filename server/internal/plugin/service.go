@@ -100,8 +100,11 @@ func (s *Service) view(p *store.AIPlugin) *View {
 
 // List returns an AI's plugins and the state of its plugin host.
 func (s *Service) List(ctx context.Context, owner *store.User, aiID int64) ([]*View, Status, error) {
-	if _, err := s.acct.OwnedAI(ctx, owner, aiID); err != nil {
-		return nil, Status{}, err
+	// The owner, or the AI itself (its runner reads the commands).
+	if owner.ID != aiID {
+		if _, err := s.acct.OwnedAI(ctx, owner, aiID); err != nil {
+			return nil, Status{}, err
+		}
 	}
 	list, err := s.st.ListPlugins(ctx, aiID)
 	if err != nil {

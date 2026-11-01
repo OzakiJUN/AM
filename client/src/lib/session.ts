@@ -21,7 +21,24 @@ export interface AIInfo {
   updatedAt: number;
   /** People waiting for me to let them talk with it. */
   shareRequests: number;
+  /** Hosted on the server (or asked for); undefined when it isn't. */
+  hosting?: AIHosting;
 }
+
+/** My AI on the server (docs/design.md §10 托管). */
+export interface AIHosting {
+  status: 'pending' | 'approved' | 'rejected';
+  rejectReason: string;
+  requestedAt: number;
+  /** The client running it there: off | starting | running | error */
+  state: string;
+  error: string;
+  /** Its own folder on the server for files. */
+  workDir: string;
+}
+
+const toHosting = (h: api.AIHosting | undefined): AIHosting | undefined =>
+  h && h.status ? { status: h.status as AIHosting['status'], rejectReason: h.rejectReason, requestedAt: Number(h.requestedAt), state: h.state, error: h.error, workDir: h.workDir } : undefined;
 
 export interface ServerRecord {
   id: string;
@@ -56,6 +73,8 @@ export interface SessionView {
   downloadUrl: string;
   /** AI plugins (NoneBot) can be uploaded on this server. */
   plugins: boolean;
+  /** AIs can be hosted on this server. */
+  hosting: boolean;
   /** Who is online, as I see them (user id -> presence). Empty while disconnected. */
   presence: Record<string, Presence>;
   /** Server icon (media path), '' when none. */
@@ -451,7 +470,7 @@ export class Session {
     this.t = createTransport(record.id, record.endpoint);
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
-      users: {}, convs: {}, messages: {}, replyTargets: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false,
+      users: {}, convs: {}, messages: {}, replyTargets: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false,
       presence: {},
       icon: '',
       games: {},
@@ -548,7 +567,7 @@ export class Session {
     const user = toUser(a.user!);
     this.view.users = { ...this.view.users, [user.id]: { ...this.view.users[user.id], ...user } };
     this.emit();
-    return { user, settings: a.settings, updatedAt: Number(a.settingsUpdatedAt), shareRequests: a.shareRequests };
+    return { user, settings: a.settings, updatedAt: Number(a.settingsUpdatedAt), shareRequests: a.shareRequests, hosting: toHosting(a.hosting) };
   }
 
   async createAI(displayName: string) {
@@ -588,6 +607,33 @@ export class Session {
 
   async deletePlugin(aiId: string, id: string) {
     await this.call('DELETE', `/api/v1/ai/${aiId}/plugins/${id}`, null);
+  }
+
+  // ---- hosting (docs/design.md §10 托管) ----
+
+  /** Asks for my AI to run on the server, with my model providers (keys included). */
+  async hostAI(aiId: string, providers: unknown[]): Promise<AIHosting> {
+    const h = await this.call('POST', `/api/v1/ai/${aiId}/host`, api.AIHostingSchema, {
+      schema: api.HostAIRequestSchema, value: { providersJson: JSON.stringify(providers) },
+    });
+    return toHosting(h)!;
+  }
+
+  /** Takes my AI off the server (or withdraws the request). */
+  async unhostAI(aiId: string) {
+    await this.call('DELETE', `/api/v1/ai/${aiId}/host`, null);
+  }
+
+  /** Logged in as an AI (host mode): its own settings. */
+  async myAI(): Promise<AIInfo> {
+    return this.aiInfo(await this.call('GET', '/api/v1/me/ai', api.AIAccountSchema));
+  }
+
+  /** Logged in as an AI (host mode): saves its own settings. */
+  async putMyAISettings(settings: string, base: number): Promise<AIInfo> {
+    return this.aiInfo(await this.call('PUT', '/api/v1/me/ai/settings', api.AIAccountSchema, {
+      schema: api.PutAISettingsRequestSchema, value: { settings, baseUpdatedAt: BigInt(base) },
+    }));
   }
 
   /** Saves settings JSON; base = updatedAt it was edited from (state_conflict otherwise). */
@@ -778,7 +824,7 @@ export class Session {
         this.record = { ...this.record, name: i.name };
         this.onRecord(this.record);
       }
-      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon, plugins: i.plugins });
+      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon, plugins: i.plugins, hosting: i.hosting });
     }).catch(() => {});
     await this.connect();
   }

@@ -115,6 +115,16 @@ update the docs in the same commit.
   Secret settings never go back to clients. Client: `app/PluginsTab.tsx`,
   `lib/plugins.ts` (pure, tested); the runner leaves plugin commands alone.
   Real NoneBot test: `AM_TEST_NONEBOT=1 go test -run TestPluginsRealNoneBot ./server/internal/e2e`.
+- AI hosting (docs/design.md §10 托管): `server/internal/hosting` keeps
+  requests (`ai_hosting`, providers encrypted with `data/hosting/key`), the
+  panel approves (`admin/hosting.go`), and a manager runs `AM.exe --host
+  <host.json>` per approved AI (server-minted AI session, loopback + pinned
+  cert, restart with backoff). The client's host mode: Rust `lib.rs`
+  (`host_config`, hidden window with its own WebView data dir, no single
+  instance / tray / F12) → `lib/ai/host.ts` → runner `startHosted` (settings
+  through `/api/v1/me/ai`); what it may do is `hostedSettings` in
+  `lib/ai/hostMode.ts` (pure, tested: files only in its work folder).
+  `account.OnAIRun` ends hosting when the owner runs the AI again.
 - Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
 - Discord-style servers: there are NO friends. Anyone on a server can DM

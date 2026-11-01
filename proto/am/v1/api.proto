@@ -136,6 +136,8 @@ message ServerInfo {
   string instance_id = 5;
   // AI plugins (NoneBot) can be uploaded on this server (plugins.enabled).
   bool plugins = 6;
+  // AIs can be hosted on this server (hosting.enabled, max_per_user > 0).
+  bool hosting = 7;
 }
 
 // Who may rearrange the widgets on the server profile.
@@ -392,6 +394,28 @@ message AIAccount {
   int64 settings_updated_at = 3;
   // People waiting for me to let them talk with it (share requests).
   int32 share_requests = 4;
+  // Hosted on the server (or asked for); unset when it isn't.
+  AIHosting hosting = 5;
+}
+
+// An AI hosted on the server (docs/design.md §10 托管).
+message AIHosting {
+  // pending | approved | rejected
+  string status = 1;
+  string reject_reason = 2;
+  int64 requested_at = 3;
+  // The client running it on the server: off | starting | running | error
+  string state = 4;
+  string error = 5;
+  // Its own folder on the server for its file tools.
+  string work_dir = 6;
+}
+
+// POST /api/v1/ai/{id}/host -> AIHosting
+message HostAIRequest {
+  // My model providers for it (the client's JSON, keys included); stored
+  // encrypted on the server and given to the host client only.
+  string providers_json = 1;
 }
 
 // POST /api/v1/ai -> AIAccount

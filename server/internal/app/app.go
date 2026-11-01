@@ -13,6 +13,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/game"
 	"github.com/OzakiJUN/am/server/internal/gateway"
+	"github.com/OzakiJUN/am/server/internal/hosting"
 	"github.com/OzakiJUN/am/server/internal/httpapi"
 	"github.com/OzakiJUN/am/server/internal/idgen"
 	"github.com/OzakiJUN/am/server/internal/janitor"
@@ -37,6 +38,8 @@ type App struct {
 	Stickers *sticker.Service
 	// Plugins: AI plugins (nil when plugins.enabled = false).
 	Plugins *plugin.Service
+	// Hosting: AIs run on this server (nil when hosting.enabled = false).
+	Hosting *hosting.Service
 	Janitor *janitor.Janitor
 	Handler http.Handler
 }
@@ -98,11 +101,28 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		host.Sync()
 	}
 
+	var hosted *hosting.Service
+	if hc := cfg.Hosting; hc.Enabled {
+		hosted, err = hosting.New(hosting.Config{Enabled: true, MaxPerUser: hc.MaxPerUser, ClientPath: hc.ClientPath,
+			Dir: cfg.InDataDir("hosting"), Spawn: !hc.NoSpawn}, st, ids, acct, log)
+		if err != nil {
+			if plugins != nil {
+				plugins.Host().Close()
+			}
+			st.Close()
+			return nil, err
+		}
+		hosted.SetOnline(hub.IsOnline)
+	}
+
 	mux := http.NewServeMux()
 	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,
 		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
 	if plugins != nil {
 		api.SetPlugins(plugins)
+	}
+	if hosted != nil {
+		api.SetHosting(hosted)
 	}
 	api.Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
@@ -115,12 +135,16 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Profile:  prof,
 		Stickers: sk,
 		Plugins:  plugins,
+		Hosting:  hosted,
 		Janitor:  janitor.New(st, md, cfg.Retention, log),
 		Handler:  mux,
 	}, nil
 }
 
 func (a *App) Close() {
+	if a.Hosting != nil {
+		a.Hosting.Close()
+	}
 	if a.Plugins != nil {
 		a.Plugins.Host().Close()
 	}

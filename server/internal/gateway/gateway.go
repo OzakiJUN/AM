@@ -144,6 +144,13 @@ func (h *Hub) OnlineUsers() map[int64]bool {
 	return out
 }
 
+// IsOnline: the user has at least one open connection.
+func (h *Hub) IsOnline(userID int64) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.byUser[userID]) > 0
+}
+
 // OnlineCount returns the number of open connections (for logs / tests).
 func (h *Hub) OnlineCount() int {
 	h.mu.RLock()

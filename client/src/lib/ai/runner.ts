@@ -33,6 +33,7 @@ import { applyRemember, recentAcrossChats, emptyMemory, memoryPrompt, newPlugins
 import { replyContext, replyTarget } from '../replies';
 import { CATEGORY_NAME, useWorkshop } from '../workshop';
 import { isPluginCommand } from '../plugins';
+import { hostedSettings, type HostConfig } from './hostMode';
 import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, trailMove, type Game, type GameKind, type TrailQ } from '../games';
 
 interface AIState {
@@ -100,11 +101,41 @@ export function aiSettings(serverId: string, aiId: string): AISettings {
   return parseSettings(useAI.getState().byServer[serverId]?.find((a) => a.user.id === aiId)?.settings ?? '');
 }
 
+/**
+ * Host mode (docs/design.md §10 托管): this client runs one AI for the
+ * server; there is no owner session, the AI's own session reads and saves
+ * its settings, the token and keys come from the host file.
+ */
+let hosted: { serverId: string; record: ServerRecord; api: Session; workDir: string; exit: () => void } | null = null;
+const isHosted = (serverId: string) => !!hosted && hosted.serverId === serverId;
+
+/** Starts host mode (lib/ai/host.ts): runs the AI in the host file and keeps its settings fresh. */
+export async function startHosted(cfg: HostConfig, exit: () => void) {
+  const serverId = 'host';
+  const record: ServerRecord = { id: serverId, endpoint: cfg.server, name: '', token: cfg.token, userId: cfg.aiId };
+  // Only for API calls (its settings, its plugins); never connects. The token goes to the transport by hand.
+  const api = new Session({ ...record, id: 'host-api' }, () => {}, () => {});
+  await api.t.setToken(record.token ?? null);
+  hosted = { serverId, record, api, workDir: cfg.workDir, exit };
+  const refresh = () => refreshAIs(serverId).catch((e) => {
+    console.error('host: refresh', e);
+    // Its login was ended (taken back, stopped, or a newer start): quit; am-server decides what's next.
+    if (e instanceof ApiError && e.code === 'unauthorized') exit();
+  });
+  await refresh();
+  setInterval(refresh, 60_000);
+}
+
 /** Loads my AIs on a server and starts / stops the ones this device runs. */
 export async function refreshAIs(serverId: string) {
-  const owner = session(serverId);
-  if (!owner || owner.view.status !== 'online') return;
-  const fetched = await owner.listAI();
+  let fetched: AIInfo[];
+  if (hosted && isHosted(serverId)) {
+    fetched = [await hosted.api.myAI()];
+  } else {
+    const owner = session(serverId);
+    if (!owner || owner.view.status !== 'online') return;
+    fetched = await owner.listAI();
+  }
   // A slower, older answer must not undo a newer save: keep the newest per AI.
   const known = new Map((useAI.getState().byServer[serverId] ?? []).map((a) => [a.user.id, a]));
   const list = fetched.map((a) => {
@@ -113,7 +144,9 @@ export async function refreshAIs(serverId: string) {
   });
   useAI.setState((st) => ({ byServer: { ...st.byServer, [serverId]: list } }));
   for (const ai of list) {
-    const settings = parseSettings(ai.settings);
+    const saved = parseSettings(ai.settings);
+    // On the server: only its own folder (never saved back).
+    const settings = hosted && isHosted(serverId) ? hostedSettings(saved, hosted.workDir) : saved;
     const key = k(serverId, ai.user.id);
     const run = runs.get(key);
     if (settings.runner?.id === deviceId()) {
@@ -134,9 +167,10 @@ export async function refreshAIs(serverId: string) {
 
 /** Saves an AI's settings (keeps a newer save from elsewhere from being overwritten). */
 export async function saveSettings(serverId: string, aiId: string, settings: AISettings) {
-  const owner = session(serverId)!;
   const cur = useAI.getState().byServer[serverId]?.find((a) => a.user.id === aiId);
-  const info = await owner.putAISettings(aiId, JSON.stringify(settings), cur?.updatedAt ?? 0);
+  const info = hosted && isHosted(serverId)
+    ? await hosted.api.putMyAISettings(JSON.stringify(settings), cur?.updatedAt ?? 0)
+    : await session(serverId)!.putAISettings(aiId, JSON.stringify(settings), cur?.updatedAt ?? 0);
   useAI.setState((st) => ({ byServer: { ...st.byServer, [serverId]: (st.byServer[serverId] ?? []).map((a) => (a.user.id === aiId ? info : a)) } }));
   await refreshAIs(serverId);
 }
@@ -150,16 +184,21 @@ export async function runHere(serverId: string, aiId: string) {
 }
 
 async function start(serverId: string, ai: AIInfo, settings: AISettings) {
-  const owner = session(serverId);
-  const rec = useApp.getState().servers.find((r) => r.id === serverId);
-  if (!owner || !rec) return;
   const key = k(serverId, ai.user.id);
-  let token = await secretGet(tokenName(serverId, ai.user.id)).catch(() => null);
-  if (!token) {
-    token = await owner.runAI(ai.user.id);
-    await secretSet(tokenName(serverId, ai.user.id), token);
+  let record: ServerRecord;
+  if (hosted && isHosted(serverId)) {
+    record = { ...hosted.record, id: `ai:${serverId}:${ai.user.id}` };
+  } else {
+    const owner = session(serverId);
+    const rec = useApp.getState().servers.find((r) => r.id === serverId);
+    if (!owner || !rec) return;
+    let token = await secretGet(tokenName(serverId, ai.user.id)).catch(() => null);
+    if (!token) {
+      token = await owner.runAI(ai.user.id);
+      await secretSet(tokenName(serverId, ai.user.id), token);
+    }
+    record = { id: `ai:${serverId}:${ai.user.id}`, endpoint: rec.endpoint, name: rec.name, token, userId: ai.user.id };
   }
-  const record: ServerRecord = { id: `ai:${serverId}:${ai.user.id}`, endpoint: rec.endpoint, name: rec.name, token, userId: ai.user.id };
   const run: Run = {
     serverId, ai, settings, s: null as unknown as Session, busy: new Set(), again: new Set(), greeted: false,
     pending: new Map(), sends: new Map(), statusUntil: 0, ownerOnline: false, ownerActivity: '', pageChecked: false,
@@ -189,6 +228,11 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
     (r) => {
       // Logged out by the server: another device took over, or the token is gone.
       if (!r.token) {
+        if (hosted && isHosted(serverId)) {
+          stop(key);
+          hosted.exit();
+          return;
+        }
         void secretDelete(tokenName(serverId, ai.user.id)).catch(() => {});
         stop(key);
         void refreshAIs(serverId).catch(() => {});
@@ -235,8 +279,9 @@ async function greet(run: Run) {
 
 /** Reads its plugins' commands (with the owner's session: only the owner may list them). */
 async function loadPluginCommands(run: Run) {
-  const owner = session(run.serverId);
-  if (!owner?.view.plugins) return;
+  // On the server, the AI reads its own plugins.
+  const owner = hosted && isHosted(run.serverId) ? hosted.api : session(run.serverId);
+  if (!owner || (!hosted && !owner.view.plugins)) return;
   try {
     const l = await owner.listPlugins(run.ai.user.id);
     const on = l.plugins.filter((p) => p.status === 'approved' && p.enabled);
@@ -244,6 +289,12 @@ async function loadPluginCommands(run: Run) {
   } catch {
     run.plugins = { ...run.plugins, at: Date.now() };
   }
+}
+
+/** Its owner's name (in host mode there is no owner session: ask the AI's own). */
+function ownerNameOf(run: Run): string {
+  if (isHosted(run.serverId)) return run.ai.user.ownerId ? run.s.nameOf(run.ai.user.ownerId) : '主人';
+  return session(run.serverId)?.view.me?.name ?? '主人';
 }
 
 /** The owner changed its plugins: read the commands again. */
@@ -486,7 +537,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       else turn.push({ role: 'user', content: o.note });
     }
     if (!turn.length) return;
-    const ownerName = session(run.serverId)?.view.me?.name ?? '主人';
+    const ownerName = ownerNameOf(run);
     const speakerId = o.trigger?.senderId ?? (o.note ? run.ai.user.ownerId ?? '' : [...msgs].reverse().find((x) => x.senderId !== run.ai.user.id)?.senderId ?? '');
     const speaker = { name: s.nameOf(speakerId), isOwner: speakerId === run.ai.user.ownerId };
     const comp = st.computer;
@@ -996,7 +1047,7 @@ async function maybeEvolve(run: Run) {
     const providers = useProviders.getState().loaded ? useProviders.getState().list : (await loadProviders()).list;
     const p = providers.find((x) => x.id === st.providerId);
     if (!p || !st.model) return;
-    const owner = session(run.serverId)?.view.me?.name ?? '主人';
+    const owner = ownerNameOf(run);
     const req = buildRequest(p, {
       model: st.model, temperature: 0.7, maxTokens: 2000, system: '你在悄悄整理自己的人格设定，只输出要求的 JSON。',
       messages: [{ role: 'user', content: evolvePrompt({ name: run.ai.user.name, owner, persona: st.persona, lines }) }],

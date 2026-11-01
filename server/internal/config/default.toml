@@ -133,6 +133,21 @@ max_unpacked_mb = 100
 # How many plugins one AI may have.
 max_per_ai = 30
 
+[hosting]
+# AIs hosted on this server (docs/design.md §10): an owner asks in the AI's
+# settings (运行 → 托管到服务器), a site admin approves in the panel (托管
+# page), and am-server runs the AM client without a window for that AI, so
+# the owner's computer can be off. The owner's model keys are stored here.
+# The AI only gets its own work folder (data/hosting/ai-<id>/work) for files;
+# screen, mouse, keyboard, commands and the browser are off.
+# Windows only for now (it runs the desktop client).
+enabled = true
+# How many AIs one person may have hosted (0 = nobody).
+max_per_user = 1
+# The AM client (AM.exe) on this computer. Empty = look next to am-server
+# and where the installer puts it.
+client_path = ""
+
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so
 # only this computer can open it. On a headless Linux server, reach it through

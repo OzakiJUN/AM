@@ -1,6 +1,6 @@
 // Two-user browser test of the client against a real am-server.
 // See client/README.md ("端到端测试") for how to run it.
-import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createHash, createPrivateKey, sign as edSign } from 'node:crypto';
 import { strToU8, zipSync } from 'fflate';
@@ -801,6 +801,41 @@ const pages = [];
   if ((await A.inputValue('input[aria-label="api_key"]')) !== '') throw new Error('secret shown again');
   await shot(A, '29f-plugins');
   await A.keyboard.press('Escape');
+
+  // Hosting (needs the first server's hosting.client_path to be a stand-in that copies the host file to
+  // AM_E2E_HOST_FILE): Weiqi (a site admin, approved at once) hosts 小鱼 on the server; the client in host
+  // mode (a fresh page, as am-server would start it) runs 小鱼 and answers; then Weiqi takes it back.
+  if (process.env.AM_E2E_HOST_FILE) {
+    const hostFile = process.env.AM_E2E_HOST_FILE;
+    if (existsSync(hostFile)) unlinkSync(hostFile);
+    await A.click('button[aria-label="AI 设置"]');
+    await A.click('div[role="dialog"] button[role="radio"]:has-text("运行")');
+    await A.click('[data-testid="hosting"] button:has-text("申请托管")');
+    await A.click('div[role="dialog"] button:has-text("发送申请")');
+    await A.waitForSelector('text=已经在服务器上运行了');
+    for (let t = Date.now(); !existsSync(hostFile); await wait(500)) if (Date.now() - t > 30000) throw new Error('the server did not start the host client');
+    const cfg = readFileSync(hostFile);
+    unlinkSync(hostFile);
+    if (!JSON.parse(cfg).providers?.[0]?.key) throw new Error('host file without the model key');
+    const H = await mk();
+    await H.goto(BASE + '/#host=' + cfg.toString('base64url'));
+    await A.waitForSelector('[data-testid="hosting"] >> text=服务器上：在线', { timeout: 30000 });
+    await A.waitForSelector('div[role="dialog"] >> text=运行在：服务器托管');
+    await shot(A, '29g-hosting');
+    await A.keyboard.press('Escape');
+    await A.click('aside button:has-text("小鱼"):has-text("我的")');
+    await A.fill('textarea[aria-label="消息"]', '托管测试');
+    await A.press('textarea[aria-label="消息"]', 'Enter');
+    await A.waitForSelector('section div.whitespace-pre-wrap:has-text("收到：托管测试")', { timeout: 30000 });
+    // Back on this device: hosting ends, the host client is logged out.
+    await A.click('button[aria-label="AI 设置"]');
+    await A.click('div[role="dialog"] button[role="radio"]:has-text("运行")');
+    await A.click('div[role="dialog"] button:has-text("在这台设备上运行")');
+    await A.waitForSelector('text=现在由这台设备运行');
+    await A.waitForSelector('[data-testid="hosting"] button:has-text("申请托管")', { timeout: 15000 });
+    await A.keyboard.press('Escape');
+    await H.close();
+  }
 
   // Board games: Weiqi opens 五子棋 in 大厅; 小鱼 asks to join by itself, Weiqi lets it in and
   // starts; 小鱼 answers each move with the game tools; 小克 sees the game in 大厅's strip.

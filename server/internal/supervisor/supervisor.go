@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -226,7 +227,7 @@ func (s *Supervisor) startServer(ctx context.Context) (stop func()) {
 	}
 
 	srv := &http.Server{Handler: a.Handler, ReadHeaderTimeout: 10 * time.Second}
-	var fp []byte
+	var fp, hostPin []byte
 	switch cfg.TLS.Mode {
 	case "self_signed", "files":
 		var cert tls.Certificate
@@ -241,6 +242,9 @@ func (s *Supervisor) startServer(ctx context.Context) (stop func()) {
 			return func() {}
 		}
 		srv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+		// Hosted AIs connect over loopback, where a real certificate's name doesn't match: they pin it.
+		sum := sha256.Sum256(cert.Certificate[0])
+		hostPin = sum[:]
 		if cfg.TLS.Mode == "self_signed" {
 			sum := sha256.Sum256(cert.Certificate[0])
 			fp = sum[:]
@@ -260,6 +264,9 @@ func (s *Supervisor) startServer(ctx context.Context) (stop func()) {
 		s.log.Info("proxy protocol enabled (trusted from localhost only)")
 	}
 	go a.Janitor.Run(runCtx)
+	if a.Hosting != nil {
+		a.Hosting.SetEndpoint(LoopbackAddress(cfg.Server.Listen), srv.TLSConfig == nil, hex.EncodeToString(hostPin))
+	}
 
 	served := make(chan struct{})
 	go func() {
@@ -294,6 +301,19 @@ func (s *Supervisor) startServer(ctx context.Context) (stop func()) {
 		s.setState(admin.StateStopped, "")
 		s.log.Info("server stopped")
 	}
+}
+
+// LoopbackAddress is how a program on this computer reaches the listen
+// address ("0.0.0.0:8443", ":8443", "[::]:8443" -> "127.0.0.1:8443").
+func LoopbackAddress(listen string) string {
+	host, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return listen
+	}
+	if ip := net.ParseIP(host); host == "" || (ip != nil && ip.IsUnspecified()) {
+		host = "127.0.0.1"
+	}
+	return net.JoinHostPort(host, port)
 }
 
 // ServerMeta describes the server for clients and join codes. Join codes

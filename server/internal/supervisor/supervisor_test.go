@@ -118,3 +118,14 @@ func TestAdminKeyStable(t *testing.T) {
 		t.Fatal("key changed")
 	}
 }
+
+func TestLoopbackAddress(t *testing.T) {
+	for in, want := range map[string]string{
+		"0.0.0.0:8443": "127.0.0.1:8443", ":8443": "127.0.0.1:8443", "[::]:8443": "127.0.0.1:8443",
+		"127.0.0.1:9000": "127.0.0.1:9000", "192.168.1.5:8443": "192.168.1.5:8443",
+	} {
+		if got := LoopbackAddress(in); got != want {
+			t.Errorf("%s: %s, want %s", in, got, want)
+		}
+	}
+}
