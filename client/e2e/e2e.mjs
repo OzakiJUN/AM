@@ -535,16 +535,50 @@ const pages = [];
   await A.setInputFiles('div[role="dialog"] input[type="file"][accept="image/*"]', [IMAGE, `${OUT}/e2e-01-register.png`]);
   await A.waitForSelector('text=导入了 2 个表情');
   if (!(await A.locator('div[role="dialog"] button:has-text("自动识别标签")').isDisabled())) throw new Error('auto-recognise should wait');
-  const tag = A.locator('div[role="dialog"] input[aria-label="表情标签"]').first();
+  // Shared by default: the one-time hint says so; the globe button makes one private.
+  await A.waitForSelector('div[role="dialog"] >> text=你加的表情现在默认公开');
+  const tag = A.locator('div[role="dialog"] input[aria-label="加标签"]').first();
   await tag.fill('开心 狗头');
   await tag.press('Enter');
   await A.waitForSelector('div[role="dialog"] button:has-text("没标签的（1）")');
+  await A.click('div[role="dialog"] button[aria-label="公开的，点一下改成不公开"]');
+  await A.waitForSelector('text=不公开了，只有你能看到');
+  await A.waitForSelector('div[role="dialog"] button[aria-label="不公开，点一下公开"]');
   await wait(400);
   await shot(A, '27e-stickers');
   await A.keyboard.press('Escape');
   await A.click('button[aria-label="表情包"]');
   await A.click('button[aria-label="发表情 开心、狗头"]');
   await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：[发了一个表情：开心、狗头]")', { timeout: 15000 });
+
+  // 大家的: B finds A's shared sticker (not the private one), adds a tag, collects it and sends it.
+  await B.click('button[aria-label="频道"]');
+  await B.click('aside button:has-text("大厅")');
+  await B.click('button[aria-label="表情包"]');
+  await B.click('button[role="radio"]:has-text("大家的")');
+  const shared = 'button[aria-label="发表情 开心、狗头"]';
+  await B.waitForSelector(shared);
+  if ((await B.locator('button[aria-label^="发表情 "]').count()) !== 1) throw new Error('private sticker in the shared library');
+  await B.click(shared, { button: 'right' });
+  await B.click('button[role="menuitem"]:has-text("补标签")');
+  await B.waitForSelector('div[role="dialog"] >> text=最早：Weiqi');
+  await B.fill('div[role="dialog"] input[aria-label="加标签"]', 'doge');
+  await B.press('div[role="dialog"] input[aria-label="加标签"]', 'Enter');
+  await B.waitForSelector('div[role="dialog"] span[title="你加的"]:has-text("doge")');
+  await shot(B, '27f-sticker-tags');
+  await B.click('div[role="dialog"] button[aria-label="关闭"]');
+  if (!(await B.locator('button[role="radio"]:has-text("大家的")').count())) await B.click('button[aria-label="表情包"]');
+  await B.hover('button[aria-label="发表情 开心、狗头、doge"]');
+  await B.click('button[aria-label="收藏"]');
+  await B.waitForSelector('text=收藏到「我的」了');
+  await shot(B, '27g-sticker-library');
+  await B.click('button[role="radio"]:has-text("我的")');
+  await B.click('button[aria-label="发表情 开心、狗头、doge"]');
+  await B.waitForSelector('section button[aria-label="表情：开心、狗头、doge"]');
+  // A picture in a chat can go into my stickers from its menu.
+  await B.click('section button[aria-label="表情：开心、狗头、doge"]', { button: 'right' });
+  await B.click('button[role="menuitem"]:has-text("加到我的表情")');
+  await B.waitForSelector('text=加到「我的表情」了');
 
   // Channels and its day: put it into 「AM 内测」; its routine goes off for the test.
   await A.click('button[aria-label="AI 设置"]');
@@ -760,6 +794,19 @@ const pages = [];
   await A.click('div[role="dialog"] button:has-text("删除")');
   await A.waitForSelector('text=已删除');
   await A.waitForSelector('aside button:has-text("小鱼")', { state: 'detached' });
+
+  if (JOIN2) {
+    // A's stickers were copied to the second server in the background (both, with their tags and the private one stays private).
+    await A.click('button[aria-label="频道"]');
+    await A.click('button[aria-label="服务器列表"]');
+    await A.click('button[aria-label="切换到 第二服"]');
+    await A.click('aside button:has-text("大厅")');
+    await A.click('button[aria-label="表情包"]');
+    await A.click('button[role="radio"]:has-text("我的")');
+    await A.waitForSelector('button[aria-label="发表情 开心、狗头"]', { timeout: 30000 });
+    await A.waitForFunction(() => document.querySelectorAll('button[aria-label^="发表情 "]').length === 2, null, { timeout: 30000 });
+    await shot(A, '30-stickers-synced');
+  }
 
   await b.close();
   mock.close();

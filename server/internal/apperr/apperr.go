@@ -72,6 +72,8 @@ var (
 	ErrInvalidWidget   = New(http.StatusBadRequest, "invalid_widget", "a widget has an unknown kind, a bad size or place, or bad settings")
 	ErrAILimit         = New(http.StatusForbidden, "ai_limit", "you already have the most AI accounts allowed")
 	ErrStickerLimit    = New(http.StatusForbidden, "sticker_limit", "your sticker collection is full")
+	ErrStickerTagsFull = New(http.StatusConflict, "sticker_tags_full", "this sticker already has the most tags it can have")
+	ErrLibraryOff      = New(http.StatusForbidden, "sticker_library_off", "the shared sticker library is turned off on this server")
 	ErrMusicLink       = New(http.StatusBadRequest, "music_link_invalid", "not a NetEase song or playlist link")
 	ErrMusicUnavail    = New(http.StatusBadGateway, "music_unavailable", "could not read that from NetEase")
 	ErrTooManyDevices  = New(http.StatusForbidden, "too_many_devices", "this account is logged in on the most devices allowed; log out on one first")

@@ -8,6 +8,7 @@ import { current, useApp } from '@/lib/store';
 import { forgetLogin, useIdentity } from '@/lib/identity';
 import { usePrefs } from '@/lib/prefs';
 import { syncNow, useSync } from '@/lib/sync';
+import { kickStickerSync, useStickerSync } from '@/lib/stickerSync';
 import { createPairing, type PairingCode } from '@/lib/devices';
 import { errorText } from '@/lib/errors';
 import type { SessionView } from '@/lib/session';
@@ -143,6 +144,42 @@ const DELAYS = [
   { value: '10', label: '10 秒' }, { value: '30', label: '30 秒' }, { value: '120', label: '2 分钟' }, { value: '600', label: '10 分钟' },
 ];
 
+const SPEEDS = [
+  { value: '32', label: '32 KB/s' }, { value: '64', label: '64 KB/s' }, { value: '256', label: '256 KB/s' }, { value: '0', label: '不限' },
+];
+
+/** My stickers copied to my other servers in the background (lib/stickerSync.ts). */
+function StickerSyncRow({ nameOf, servers }: { nameOf: (id: string) => string; servers: number }) {
+  const prefs = usePrefs();
+  const st = useStickerSync();
+  const errors = Object.entries(st.errors);
+  return (
+    <div className="space-y-2 border-t border-black/5 pt-3 dark:border-white/10">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[0.9rem] font-medium">表情也同步</div>
+          <div className="text-[0.78rem] text-ink-soft dark:text-white/50">我在一个服务器上有的表情，在后台慢慢传到其他服务器（对方公共库里已经有的直接收藏，不用传）。删掉的不会跟着删。</div>
+        </div>
+        <Toggle checked={prefs.stickerSync} onChange={(on) => { prefs.set({ stickerSync: on }); if (on) kickStickerSync(0); }} label="表情也同步" />
+      </div>
+      {prefs.stickerSync && (
+        <>
+          <div className="flex flex-wrap items-center gap-3 text-[0.85rem]">
+            <span className="text-ink-soft dark:text-white/60">最快多少</span>
+            <Segmented id="sticker-speed" value={String(prefs.stickerSyncKBps)} onChange={(d) => prefs.set({ stickerSyncKBps: Number(d) })} options={SPEEDS} />
+          </div>
+          <p className="text-[0.78rem] text-ink-soft dark:text-white/50">
+            {servers < 2 ? '加入别的服务器后开始同步' : st.running ? `正在同步表情${st.left ? `，还剩 ${st.left} 个` : '…'}` : st.last ? `表情都同步好了 · ${chatTime(st.last)}` : '会在服务器连上后自动同步'}
+          </p>
+          {errors.map(([sid, msg]) => (
+            <p key={sid} className="text-[0.78rem] text-rose-500">表情同步到「{nameOf(sid)}」：{msg}</p>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 /** 资料同步 (lib/sync.ts) and the login saved on this device (lib/identity.ts). */
 function SyncCard({ v }: { v: SessionView }) {
   const prefs = usePrefs();
@@ -182,6 +219,7 @@ function SyncCard({ v }: { v: SessionView }) {
             {errors.map(([sid, msg]) => (
               <p key={sid} className="text-[0.8rem] text-rose-500">「{nameOf(sid)}」：{msg}</p>
             ))}
+            <StickerSyncRow nameOf={nameOf} servers={servers.length} />
           </div>
         )}
       </div>

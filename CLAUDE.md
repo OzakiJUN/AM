@@ -8,6 +8,8 @@ update the docs in the same commit.
 ## How the owner (Weiqi) wants to work
 
 - Talk in casual Chinese. Direct answers, no hedging.
+- When a batch is done and checked, merge it into `main` yourself (PR, CI
+  green, merge) — Weiqi 2026-11-01: "main你要合并的时候就自动合并".
 - **Propose a plan and wait for confirmation before changing code.** Batch
   small changes for the next update instead of pushing them one by one.
 - When handing over files, give complete files, not patches.
@@ -70,11 +72,21 @@ update the docs in the same commit.
   (`media.IsAudio`, checked on save) or NetEase songs by id (links read by
   `server/internal/music`, covers copied into uploads; listeners stream from
   NetEase's outer url); the client has one app-wide player (`lib/player.ts`). The old NetEase `music` kind is still valid, just hidden.
-- Stickers (docs/design.md §11, first step): `server/internal/sticker` keeps
-  each person's collection (own uploads + tags, `stickers` table, GC keeps
-  their media); a sent sticker is an image with `ImageMsg.sticker_tags`,
-  which AIs read instead of the picture. Client: `lib/stickers.ts`,
-  `lib/stickerTags.ts` (tested), `app/Stickers.tsx`.
+- Stickers (docs/design.md §11): `server/internal/sticker` keeps each
+  person's collection (`stickers`) and the shared library
+  (`sticker_library` + `_files` + `_tags`): shared by default
+  (`stickers.default_public`), one entry per picture (same SHA-256, or
+  256-bit pHash within `stickers.dedupe_distance`: `match.go`, pure +
+  tested), earliest uploader shown, tags per person; private stickers keep
+  their own picture and tags. Admin hide / delete (evidence until
+  `retention.evidence_days`, optional blocklist) in `library.go`, panel page
+  `admin/stickers.go`. A sent sticker is an image with
+  `ImageMsg.sticker_tags` (first 10 tags), which AIs read instead of the
+  picture; library pictures can be sent without uploading. Client:
+  `lib/stickers.ts`, `lib/stickerTags.ts` (tested), `app/Stickers.tsx`
+  (「我的」 / 「大家的」); copying my stickers to my other servers in the
+  background, speed-limited: `lib/stickerSync.ts` + `lib/stickerCopy.ts`
+  (pure, tested).
 - Server profile settings (description, widget permissions) live in the
   `server_settings` table and are edited in the panel (no restart); the icon
   is `data/media/server_icon.png` via the `media` package.

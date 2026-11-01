@@ -424,13 +424,28 @@ message CreateAIRoomRequest {
 
 // ---- stickers (docs/design.md §11) ----
 
-// One sticker in my collection: one of my own uploaded images plus tags.
+// One sticker in my collection. A shared one (library_id != 0) points at a
+// picture in the server's shared library (LibrarySticker): its picture is
+// the library's (the earliest upload of it) and its tags are everyone's
+// tags for it. A private one is only mine: my own picture, my own tags.
 message Sticker {
   int64 id = 1;
   int64 media_id = 2;
-  // At most 10 tags, 20 characters each (trimmed, no duplicates).
+  // At most 10 tags, 20 characters each (trimmed, no duplicates) for a
+  // private one; up to 20 for a shared one, most-added first.
   repeated string tags = 3;
   int64 created_at = 4;
+  // The shared library entry, 0 = not shared (private, or the library is
+  // turned off on this server).
+  int64 library_id = 5;
+  bool private = 6;
+  // Who first uploaded the picture (shared ones).
+  int64 uploader_id = 7;
+  // SHA-256 (hex) of the picture file.
+  string sha256 = 8;
+  // The tags I added myself (the ones I can take off again). For a private
+  // sticker all of them.
+  repeated string my_tags = 9;
 }
 
 // GET /api/v1/stickers -> ListStickersResponse: mine, newest first.
@@ -438,18 +453,85 @@ message ListStickersResponse {
   repeated Sticker stickers = 1;
 }
 
-// POST /api/v1/stickers -> Sticker. The image must be my own upload; adding
-// the same image again returns the sticker already there. At most
-// limits.max_stickers per person (sticker_limit).
+// POST /api/v1/stickers -> Sticker. The image must be my own upload or a
+// picture I can see (from a chat). Shared unless private is set
+// (stickers.default_public decides when it is not): a picture that is
+// already in the shared library (same file, or one that looks the same) is
+// merged into it. Adding the same picture again returns the sticker already
+// there with the new tags added. At most limits.max_stickers per person
+// (sticker_limit).
 message AddStickerRequest {
   int64 media_id = 1;
   repeated string tags = 2;
+  optional bool private = 3;
 }
 
-// PATCH /api/v1/stickers/{id} -> Sticker (replaces the tags).
-// DELETE /api/v1/stickers/{id} -> Empty.
+// PATCH /api/v1/stickers/{id} -> Sticker. Replaces the tags: for a shared
+// sticker only my own tags change (tags other people added stay).
+// DELETE /api/v1/stickers/{id} -> Empty. A shared picture leaves the library
+// when nobody has it any more.
 message UpdateStickerRequest {
   repeated string tags = 1;
+}
+
+// POST /api/v1/stickers/{id}/private -> Sticker. Private: only mine (my
+// tags are kept; the library entry is taken down if nobody else has it).
+// Shared: goes into the library (my tags go with it).
+message SetStickerPrivateRequest {
+  bool private = 1;
+}
+
+// One picture in the server's shared sticker library (docs/design.md §11).
+message LibrarySticker {
+  int64 id = 1;
+  int64 media_id = 2;
+  // Everyone's tags, most-added first (at most 20).
+  repeated string tags = 3;
+  // The ones I added.
+  repeated string my_tags = 4;
+  // Who first uploaded the picture.
+  int64 uploader_id = 5;
+  // How many people have it in their collection.
+  int32 collectors = 6;
+  int64 created_at = 7;
+  // My sticker for it, 0 = not in my collection.
+  int64 my_sticker_id = 8;
+  int32 width = 9;
+  int32 height = 10;
+}
+
+// GET /api/v1/sticker-library?q=&sort=hot|new&offset= -> ListLibraryResponse.
+// q: words separated by spaces, each must be part of one of the tags.
+// sort: hot = most collected first (default), new = newest first.
+message ListLibraryResponse {
+  repeated LibrarySticker items = 1;
+  // Pass as offset for the next page; 0 = no more.
+  int32 next_offset = 2;
+  // The library is turned off on this server (stickers.library).
+  bool disabled = 3;
+}
+
+// POST /api/v1/sticker-library/{id}/collect -> Sticker: put it into my
+// collection (the existing one if it is already there).
+// PATCH /api/v1/sticker-library/{id}/tags -> LibrarySticker. Anyone can add
+// tags (at most 20 per picture, sticker_tags_full); I can take off the ones
+// I added, a site admin any.
+message EditLibraryTagsRequest {
+  repeated string add = 1;
+  repeated string remove = 2;
+}
+
+// POST /api/v1/sticker-library/lookup -> LookupStickersResponse: which of
+// these files (SHA-256, hex, at most 200) the library already has, so a
+// client copying my stickers from another server collects them instead of
+// uploading.
+message LookupStickersRequest {
+  repeated string sha256 = 1;
+}
+
+message LookupStickersResponse {
+  // sha256 -> library id, only the ones found.
+  map<string, int64> library_ids = 1;
 }
 
 // ---- music links (docs/design.md §7, music widgets) ----

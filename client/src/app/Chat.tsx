@@ -15,6 +15,7 @@ import { copyText } from '@/lib/platform';
 import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { StickerManager, StickerPanel } from './Stickers';
+import { addFromChat } from '@/lib/stickers';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
 import { GameBar, GameButton } from './Games';
@@ -278,6 +279,13 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
     const items: MenuItem[] = [];
     if (b.kind === 'text') items.push({ label: '复制', icon: <Copy size={16} />, onClick: () => copyText(b.text) });
     if (b.kind === 'image') items.push({ label: '查看原图', icon: <ImagePlus size={16} />, onClick: () => onView(b.mediaId) });
+    if (b.kind === 'image' && !msg.pending && !msg.failed) {
+      // Same rule as any sticker: shared unless the server defaults to private (Weiqi: stickers aren't private things).
+      items.push({
+        label: '加到我的表情', icon: <Sticker size={16} />, key: `sticker:${b.mediaId}`,
+        onClick: () => addFromChat(s.record.id, b.mediaId).then((st) => toast(st.private ? '加到「我的表情」了（不公开）' : '加到「我的表情」了')),
+      });
+    }
     if (b.kind === 'image' || b.kind === 'file') {
       items.push({
         label: b.kind === 'image' ? '保存图片' : '下载文件', icon: <Download size={16} />, key: `dl:${b.mediaId}`,

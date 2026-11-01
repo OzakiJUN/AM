@@ -179,10 +179,42 @@ export interface RemoteToolAnswer {
 export interface Sticker {
   id: string;
   mediaId: string;
+  /** Everyone's tags for a shared one (most-added first), my own for a private one. */
   tags: string[];
+  /** The tags I added (the ones I can take off). */
+  myTags: string[];
+  /** Entry in the server's shared library, '' = not shared. */
+  libraryId: string;
+  private: boolean;
+  /** Who first uploaded the picture ('' for private ones). */
+  uploaderId: string;
+  /** SHA-256 of the picture file. */
+  sha256: string;
 }
 
-const toSticker = (x: api.Sticker): Sticker => ({ id: s(x.id), mediaId: s(x.mediaId), tags: x.tags });
+const toSticker = (x: api.Sticker): Sticker => ({
+  id: s(x.id), mediaId: s(x.mediaId), tags: x.tags, myTags: x.myTags, libraryId: x.libraryId ? s(x.libraryId) : '',
+  private: x.private, uploaderId: x.uploaderId ? s(x.uploaderId) : '', sha256: x.sha256,
+});
+
+/** A picture in the server's shared sticker library (「大家的」). */
+export interface LibrarySticker {
+  id: string;
+  mediaId: string;
+  tags: string[];
+  myTags: string[];
+  uploaderId: string;
+  collectors: number;
+  /** My sticker for it, '' = not in my collection. */
+  mySticker: string;
+  w: number;
+  h: number;
+}
+
+const toLibrary = (x: api.LibrarySticker): LibrarySticker => ({
+  id: s(x.id), mediaId: s(x.mediaId), tags: x.tags, myTags: x.myTags, uploaderId: s(x.uploaderId), collectors: x.collectors,
+  mySticker: x.myStickerId ? s(x.myStickerId) : '', w: x.width, h: x.height,
+});
 
 export function toUser(u: common.User): User {
   return {
@@ -981,6 +1013,14 @@ export class Session {
     for (const id of unknown) this.fetchUser(id);
   }
 
+  private askedUsers = new Set<string>();
+  /** Makes sure a user's name is known (fetched once). */
+  wantUser(id: string) {
+    if (!id || this.view.users[id] || id === this.view.me?.id || this.askedUsers.has(id)) return;
+    this.askedUsers.add(id);
+    void this.fetchUser(id);
+  }
+
   private async fetchUser(id: string) {
     try {
       const u = await this.call('GET', `/api/v1/users/${id}`, common.UserSchema);
@@ -1044,10 +1084,11 @@ export class Session {
       { kind: 'file', mediaId: s(info.id), name: file.name, size: Number(info.size) });
   }
 
-  /** Sends one of my stickers: the picture with its tags (AIs read the tags). */
-  sendSticker(convId: string, st: Sticker) {
-    return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: BigInt(st.mediaId), stickerTags: st.tags }) },
-      { kind: 'image', mediaId: st.mediaId, w: 0, h: 0, stickerTags: st.tags.length ? st.tags : undefined });
+  /** Sends a sticker (mine or one from the shared library): the picture with its first 10 tags (AIs read the tags). */
+  sendSticker(convId: string, st: { mediaId: string; tags: string[] }) {
+    const tags = st.tags.slice(0, 10);
+    return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: BigInt(st.mediaId), stickerTags: tags }) },
+      { kind: 'image', mediaId: st.mediaId, w: 0, h: 0, stickerTags: tags.length ? tags : undefined });
   }
 
   /** Reads a NetEase song / playlist link; the cover is copied into my uploads. */
@@ -1093,8 +1134,35 @@ export class Session {
     return (await this.call('GET', '/api/v1/stickers', api.ListStickersResponseSchema)).stickers.map(toSticker);
   }
 
-  async addSticker(mediaId: string, tags: string[] = []): Promise<Sticker> {
-    return toSticker(await this.call('POST', '/api/v1/stickers', api.StickerSchema, { schema: api.AddStickerRequestSchema, value: { mediaId: BigInt(mediaId), tags } }));
+  /** private undefined = the server's default (shared unless the server says otherwise). */
+  async addSticker(mediaId: string, tags: string[] = [], priv?: boolean): Promise<Sticker> {
+    return toSticker(await this.call('POST', '/api/v1/stickers', api.StickerSchema, { schema: api.AddStickerRequestSchema, value: { mediaId: BigInt(mediaId), tags, private: priv } }));
+  }
+
+  async setStickerPrivate(id: string, priv: boolean): Promise<Sticker> {
+    return toSticker(await this.call('POST', `/api/v1/stickers/${id}/private`, api.StickerSchema, { schema: api.SetStickerPrivateRequestSchema, value: { private: priv } }));
+  }
+
+  /** One page of the shared library; next = offset of the next page, 0 = no more. */
+  async stickerLibrary(q: string, sort: 'hot' | 'new', offset = 0): Promise<{ items: LibrarySticker[]; next: number; disabled: boolean }> {
+    const qs = new URLSearchParams({ q, sort, offset: String(offset) });
+    const r = await this.call('GET', `/api/v1/sticker-library?${qs}`, api.ListLibraryResponseSchema);
+    return { items: r.items.map(toLibrary), next: r.nextOffset, disabled: r.disabled };
+  }
+
+  async collectSticker(libraryId: string): Promise<Sticker> {
+    return toSticker(await this.call('POST', `/api/v1/sticker-library/${libraryId}/collect`, api.StickerSchema));
+  }
+
+  async editLibraryTags(libraryId: string, add: string[], remove: string[]): Promise<LibrarySticker> {
+    return toLibrary(await this.call('PATCH', `/api/v1/sticker-library/${libraryId}/tags`, api.LibraryStickerSchema,
+      { schema: api.EditLibraryTagsRequestSchema, value: { add, remove } }));
+  }
+
+  /** Which of these files (SHA-256) the shared library has: sha -> library id. */
+  async lookupStickers(shas: string[]): Promise<Record<string, string>> {
+    const r = await this.call('POST', '/api/v1/sticker-library/lookup', api.LookupStickersResponseSchema, { schema: api.LookupStickersRequestSchema, value: { sha256: shas } });
+    return Object.fromEntries(Object.entries(r.libraryIds).map(([k, v]) => [k, s(v)]));
   }
 
   async setStickerTags(id: string, tags: string[]): Promise<Sticker> {

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/api.proto.
  */
 export const file_am_v1_api: GenFile = /*@__PURE__*/
-  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiUwoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uEhMKC21heF9kZXZpY2VzGAIgASgFIikKF0NyZWF0ZVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBmJ1bmRsZRgBIAEoDCIwCgpQYWlyVGlja2V0Eg4KBnRpY2tldBgBIAEoCRISCgpleHBpcmVzX2F0GAIgASgDIj4KF1JlZGVlbVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBnRpY2tldBgBIAEoCRITCgtkZXZpY2VfbmFtZRgCIAEoCSJMChJQYWlyUmVkZWVtUmVzcG9uc2USDQoFdG9rZW4YASABKAkSFwoCbWUYAiABKAsyCy5hbS52MS5Vc2VyEg4KBmJ1bmRsZRgDIAEoDCIvCgtDbGllbnRTdGF0ZRIMCgRkYXRhGAEgASgMEhIKCnVwZGF0ZWRfYXQYAiABKAMiPgoVUHV0Q2xpZW50U3RhdGVSZXF1ZXN0EgwKBGRhdGEYASABKAwSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJImQKClNlcnZlckluZm8SDAoEbmFtZRgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGRvd25sb2FkX3VybBgDIAEoCRIMCgRpY29uGAQgASgJEhMKC2luc3RhbmNlX2lkGAUgASgJIrwBCg1TZXJ2ZXJQcm9maWxlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSDAoEaWNvbhgDIAEoCRIUCgxtZW1iZXJfY291bnQYBCABKAUSFAoMb25saW5lX2NvdW50GAUgASgFEi0KDmxheW91dF9lZGl0b3JzGAYgASgOMhUuYW0udjEuUHJvZmlsZUVkaXRvcnMSHwoXd2lkZ2V0X2NvbnRlbnRfZWRpdGFibGUYByABKAgicQoTTGlzdEZyaWVuZHNSZXNwb25zZRIcCgdmcmllbmRzGAEgAygLMgsuYW0udjEuVXNlchIdCghpbmNvbWluZxgCIAMoCzILLmFtLnYxLlVzZXISHQoIb3V0Z29pbmcYAyADKAsyCy5hbS52MS5Vc2VyIiEKDUZyaWVuZFJlcXVlc3QSEAoIdXNlcm5hbWUYASABKAkiHwoMRnJpZW5kQWNjZXB0Eg8KB3VzZXJfaWQYASABKAMiIAoNT3BlbkRNUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIkMKEUxpc3RVc2Vyc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlchISCgpuZXh0X2FmdGVyGAIgASgDIjAKEkxpc3RCbG9ja3NSZXNwb25zZRIaCgV1c2VycxgBIAMoCzILLmFtLnYxLlVzZXIijgEKFFVwZGF0ZVByb2ZpbGVSZXF1ZXN0EhkKDGRpc3BsYXlfbmFtZRgBIAEoCUgAiAEBEhwKD2F2YXRhcl9tZWRpYV9pZBgCIAEoA0gBiAEBEhAKA2JpbxgDIAEoCUgCiAEBQg8KDV9kaXNwbGF5X25hbWVCEgoQX2F2YXRhcl9tZWRpYV9pZEIGCgRfYmlvIkoKElNldFByZXNlbmNlUmVxdWVzdBIRCglpbnZpc2libGUYASABKAgSIQoIYWN0aXZpdHkYAiABKAsyDy5hbS52MS5BY3Rpdml0eSI/ChhMaXN0TG9naW5SZWNvcmRzUmVzcG9uc2USIwoHcmVjb3JkcxgBIAMoCzISLmFtLnYxLkxvZ2luUmVjb3JkIlAKC0xvZ2luUmVjb3JkEgwKBGtpbmQYASABKAkSCgoCaXAYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyJGChJDcmVhdGVHcm91cFJlcXVlc3QSDAoEbmFtZRgBIAEoCRISCgptZW1iZXJfaWRzGAIgAygDEg4KBnB1YmxpYxgDIAEoCCI8ChRMaXN0Q2hhbm5lbHNSZXNwb25zZRIkCghjaGFubmVscxgBIAMoCzISLmFtLnYxLkNoYW5uZWxJbmZvIm0KC0NoYW5uZWxJbmZvEgoKAmlkGAEgASgDEgwKBG5hbWUYAiABKAkSDgoGYXZhdGFyGAMgASgJEg4KBm5vdGljZRgEIAEoCRIUCgxtZW1iZXJfY291bnQYBSABKAUSDgoGam9pbmVkGAYgASgIIigKFEludml0ZU1lbWJlcnNSZXF1ZXN0EhAKCHVzZXJfaWRzGAEgAygDIjkKFUludml0ZU1lbWJlcnNSZXNwb25zZRINCgVhZGRlZBgBIAMoAxIRCglyZXF1ZXN0ZWQYAiADKAMisAEKElVwZGF0ZUdyb3VwUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEwoGbm90aWNlGAMgASgJSAKIAQESGgoNam9pbl9hcHByb3ZhbBgEIAEoCEgDiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbCInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIiIKEFNldFBpbm5lZFJlcXVlc3QSDgoGcGlubmVkGAEgASgIIh4KDVNldERuZFJlcXVlc3QSDQoFdW50aWwYASABKAMiPgoRTXV0ZU1lbWJlclJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoAxIYChBkdXJhdGlvbl9zZWNvbmRzGAIgASgDIkQKGExpc3RKb2luUmVxdWVzdHNSZXNwb25zZRIoCghyZXF1ZXN0cxgBIAMoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0SW5mbyJeCg9Kb2luUmVxdWVzdEluZm8SGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgCIAEoCzILLmFtLnYxLlVzZXISEgoKY3JlYXRlZF9hdBgDIAEoAyI5ChJBZG1pbkRlbGV0ZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJEhMKC2Jsb2NrX21lZGlhGAIgASgIIpIBCglNZWRpYUluZm8SCgoCaWQYASABKAMSDAoEbWltZRgCIAEoCRIMCgRzaXplGAMgASgDEg0KBXdpZHRoGAQgASgFEg4KBmhlaWdodBgFIAEoBRIMCgRuYW1lGAYgASgJEhAKCGlzX2ltYWdlGAcgASgIEgsKA3VybBgIIAEoCRIRCgl0aHVtYl91cmwYCSABKAkiBwoFRW1wdHkiLwoOTGlzdEFJUmVzcG9uc2USHQoDYWlzGAEgAygLMhAuYW0udjEuQUlBY2NvdW50Im0KCUFJQWNjb3VudBIZCgR1c2VyGAEgASgLMgsuYW0udjEuVXNlchIQCghzZXR0aW5ncxgCIAEoCRIbChNzZXR0aW5nc191cGRhdGVkX2F0GAMgASgDEhYKDnNoYXJlX3JlcXVlc3RzGAQgASgFIicKD0NyZWF0ZUFJUmVxdWVzdBIUCgxkaXNwbGF5X25hbWUYASABKAkiQQoUUHV0QUlTZXR0aW5nc1JlcXVlc3QSEAoIc2V0dGluZ3MYASABKAkSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDIiMKDFJ1bkFJUmVxdWVzdBITCgtkZXZpY2VfbmFtZRgBIAEoCSI3ChNDcmVhdGVBSVJvb21SZXF1ZXN0EgwKBG5hbWUYASABKAkSEgoKbWVtYmVyX2lkcxgCIAMoAyJJCgdTdGlja2VyEgoKAmlkGAEgASgDEhAKCG1lZGlhX2lkGAIgASgDEgwKBHRhZ3MYAyADKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyI4ChRMaXN0U3RpY2tlcnNSZXNwb25zZRIgCghzdGlja2VycxgBIAMoCzIOLmFtLnYxLlN0aWNrZXIiMwoRQWRkU3RpY2tlclJlcXVlc3QSEAoIbWVkaWFfaWQYASABKAMSDAoEdGFncxgCIAMoCSIkChRVcGRhdGVTdGlja2VyUmVxdWVzdBIMCgR0YWdzGAEgAygJIiIKE1Jlc29sdmVNdXNpY1JlcXVlc3QSCwoDdXJsGAEgASgJIj8KCk11c2ljVHJhY2sSEgoKbmV0ZWFzZV9pZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIOCgZhcnRpc3QYAyABKAkikgEKFFJlc29sdmVNdXNpY1Jlc3BvbnNlEgwKBGtpbmQYASABKAkSEgoKbmV0ZWFzZV9pZBgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZhcnRpc3QYBCABKAkSFgoOY292ZXJfbWVkaWFfaWQYBSABKAMSIQoGdHJhY2tzGAYgAygLMhEuYW0udjEuTXVzaWNUcmFjayJ1CgxQb3J0cmFpdFBhY2sSNAoJbWVkaWFfaWRzGAEgAygLMiEuYW0udjEuUG9ydHJhaXRQYWNrLk1lZGlhSWRzRW50cnkaLwoNTWVkaWFJZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAM6AjgBIisKDVNoYXJlUmVxdWVzdHMSGgoFdXNlcnMYASADKAsyCy5hbS52MS5Vc2VyIiUKEkRlY2lkZVNoYXJlUmVxdWVzdBIPCgdhcHByb3ZlGAEgASgIIjUKD09wZW5HYW1lUmVxdWVzdBIMCgRraW5kGAEgASgJEhQKDGF1dG9fYXBwcm92ZRgCIAEoCCIvChFMaXN0R2FtZXNSZXNwb25zZRIaCgVnYW1lcxgBIAMoCzILLmFtLnYxLkdhbWUiVAoOR2FtZUFjdFJlcXVlc3QSDgoGYWN0aW9uGAEgASgJEgkKAXgYAiABKAUSCQoBeRgDIAEoBRIMCgR0ZXh0GAQgASgJEg4KBnRhcmdldBgFIAEoBSImCg5TZXRHYW1lUmVxdWVzdBIUCgxhdXRvX2FwcHJvdmUYASABKAgiJAoRRGVjaWRlR2FtZVJlcXVlc3QSDwoHYXBwcm92ZRgBIAEoCCprCg5Qcm9maWxlRWRpdG9ycxIfChtQUk9GSUxFX0VESVRPUlNfVU5TUEVDSUZJRUQQABIaChZQUk9GSUxFX0VESVRPUlNfQURNSU5TEAESHAoYUFJPRklMRV9FRElUT1JTX0VWRVJZT05FEAJCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common]);
+  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiUwoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uEhMKC21heF9kZXZpY2VzGAIgASgFIikKF0NyZWF0ZVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBmJ1bmRsZRgBIAEoDCIwCgpQYWlyVGlja2V0Eg4KBnRpY2tldBgBIAEoCRISCgpleHBpcmVzX2F0GAIgASgDIj4KF1JlZGVlbVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBnRpY2tldBgBIAEoCRITCgtkZXZpY2VfbmFtZRgCIAEoCSJMChJQYWlyUmVkZWVtUmVzcG9uc2USDQoFdG9rZW4YASABKAkSFwoCbWUYAiABKAsyCy5hbS52MS5Vc2VyEg4KBmJ1bmRsZRgDIAEoDCIvCgtDbGllbnRTdGF0ZRIMCgRkYXRhGAEgASgMEhIKCnVwZGF0ZWRfYXQYAiABKAMiPgoVUHV0Q2xpZW50U3RhdGVSZXF1ZXN0EgwKBGRhdGEYASABKAwSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJImQKClNlcnZlckluZm8SDAoEbmFtZRgBIAEoCRIPCgd2ZXJzaW9uGAIgASgJEhQKDGRvd25sb2FkX3VybBgDIAEoCRIMCgRpY29uGAQgASgJEhMKC2luc3RhbmNlX2lkGAUgASgJIrwBCg1TZXJ2ZXJQcm9maWxlEgwKBG5hbWUYASABKAkSEwoLZGVzY3JpcHRpb24YAiABKAkSDAoEaWNvbhgDIAEoCRIUCgxtZW1iZXJfY291bnQYBCABKAUSFAoMb25saW5lX2NvdW50GAUgASgFEi0KDmxheW91dF9lZGl0b3JzGAYgASgOMhUuYW0udjEuUHJvZmlsZUVkaXRvcnMSHwoXd2lkZ2V0X2NvbnRlbnRfZWRpdGFibGUYByABKAgicQoTTGlzdEZyaWVuZHNSZXNwb25zZRIcCgdmcmllbmRzGAEgAygLMgsuYW0udjEuVXNlchIdCghpbmNvbWluZxgCIAMoCzILLmFtLnYxLlVzZXISHQoIb3V0Z29pbmcYAyADKAsyCy5hbS52MS5Vc2VyIiEKDUZyaWVuZFJlcXVlc3QSEAoIdXNlcm5hbWUYASABKAkiHwoMRnJpZW5kQWNjZXB0Eg8KB3VzZXJfaWQYASABKAMiIAoNT3BlbkRNUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIkMKEUxpc3RVc2Vyc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlchISCgpuZXh0X2FmdGVyGAIgASgDIjAKEkxpc3RCbG9ja3NSZXNwb25zZRIaCgV1c2VycxgBIAMoCzILLmFtLnYxLlVzZXIijgEKFFVwZGF0ZVByb2ZpbGVSZXF1ZXN0EhkKDGRpc3BsYXlfbmFtZRgBIAEoCUgAiAEBEhwKD2F2YXRhcl9tZWRpYV9pZBgCIAEoA0gBiAEBEhAKA2JpbxgDIAEoCUgCiAEBQg8KDV9kaXNwbGF5X25hbWVCEgoQX2F2YXRhcl9tZWRpYV9pZEIGCgRfYmlvIkoKElNldFByZXNlbmNlUmVxdWVzdBIRCglpbnZpc2libGUYASABKAgSIQoIYWN0aXZpdHkYAiABKAsyDy5hbS52MS5BY3Rpdml0eSI/ChhMaXN0TG9naW5SZWNvcmRzUmVzcG9uc2USIwoHcmVjb3JkcxgBIAMoCzISLmFtLnYxLkxvZ2luUmVjb3JkIlAKC0xvZ2luUmVjb3JkEgwKBGtpbmQYASABKAkSCgoCaXAYAiABKAkSEwoLZGV2aWNlX25hbWUYAyABKAkSEgoKY3JlYXRlZF9hdBgEIAEoAyJGChJDcmVhdGVHcm91cFJlcXVlc3QSDAoEbmFtZRgBIAEoCRISCgptZW1iZXJfaWRzGAIgAygDEg4KBnB1YmxpYxgDIAEoCCI8ChRMaXN0Q2hhbm5lbHNSZXNwb25zZRIkCghjaGFubmVscxgBIAMoCzISLmFtLnYxLkNoYW5uZWxJbmZvIm0KC0NoYW5uZWxJbmZvEgoKAmlkGAEgASgDEgwKBG5hbWUYAiABKAkSDgoGYXZhdGFyGAMgASgJEg4KBm5vdGljZRgEIAEoCRIUCgxtZW1iZXJfY291bnQYBSABKAUSDgoGam9pbmVkGAYgASgIIigKFEludml0ZU1lbWJlcnNSZXF1ZXN0EhAKCHVzZXJfaWRzGAEgAygDIjkKFUludml0ZU1lbWJlcnNSZXNwb25zZRINCgVhZGRlZBgBIAMoAxIRCglyZXF1ZXN0ZWQYAiADKAMisAEKElVwZGF0ZUdyb3VwUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEwoGbm90aWNlGAMgASgJSAKIAQESGgoNam9pbl9hcHByb3ZhbBgEIAEoCEgDiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbCInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIiIKEFNldFBpbm5lZFJlcXVlc3QSDgoGcGlubmVkGAEgASgIIh4KDVNldERuZFJlcXVlc3QSDQoFdW50aWwYASABKAMiPgoRTXV0ZU1lbWJlclJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoAxIYChBkdXJhdGlvbl9zZWNvbmRzGAIgASgDIkQKGExpc3RKb2luUmVxdWVzdHNSZXNwb25zZRIoCghyZXF1ZXN0cxgBIAMoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0SW5mbyJeCg9Kb2luUmVxdWVzdEluZm8SGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgCIAEoCzILLmFtLnYxLlVzZXISEgoKY3JlYXRlZF9hdBgDIAEoAyI5ChJBZG1pbkRlbGV0ZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJEhMKC2Jsb2NrX21lZGlhGAIgASgIIpIBCglNZWRpYUluZm8SCgoCaWQYASABKAMSDAoEbWltZRgCIAEoCRIMCgRzaXplGAMgASgDEg0KBXdpZHRoGAQgASgFEg4KBmhlaWdodBgFIAEoBRIMCgRuYW1lGAYgASgJEhAKCGlzX2ltYWdlGAcgASgIEgsKA3VybBgIIAEoCRIRCgl0aHVtYl91cmwYCSABKAkiBwoFRW1wdHkiLwoOTGlzdEFJUmVzcG9uc2USHQoDYWlzGAEgAygLMhAuYW0udjEuQUlBY2NvdW50Im0KCUFJQWNjb3VudBIZCgR1c2VyGAEgASgLMgsuYW0udjEuVXNlchIQCghzZXR0aW5ncxgCIAEoCRIbChNzZXR0aW5nc191cGRhdGVkX2F0GAMgASgDEhYKDnNoYXJlX3JlcXVlc3RzGAQgASgFIicKD0NyZWF0ZUFJUmVxdWVzdBIUCgxkaXNwbGF5X25hbWUYASABKAkiQQoUUHV0QUlTZXR0aW5nc1JlcXVlc3QSEAoIc2V0dGluZ3MYASABKAkSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDIiMKDFJ1bkFJUmVxdWVzdBITCgtkZXZpY2VfbmFtZRgBIAEoCSI3ChNDcmVhdGVBSVJvb21SZXF1ZXN0EgwKBG5hbWUYASABKAkSEgoKbWVtYmVyX2lkcxgCIAMoAyKkAQoHU3RpY2tlchIKCgJpZBgBIAEoAxIQCghtZWRpYV9pZBgCIAEoAxIMCgR0YWdzGAMgAygJEhIKCmNyZWF0ZWRfYXQYBCABKAMSEgoKbGlicmFyeV9pZBgFIAEoAxIPCgdwcml2YXRlGAYgASgIEhMKC3VwbG9hZGVyX2lkGAcgASgDEg4KBnNoYTI1NhgIIAEoCRIPCgdteV90YWdzGAkgAygJIjgKFExpc3RTdGlja2Vyc1Jlc3BvbnNlEiAKCHN0aWNrZXJzGAEgAygLMg4uYW0udjEuU3RpY2tlciJVChFBZGRTdGlja2VyUmVxdWVzdBIQCghtZWRpYV9pZBgBIAEoAxIMCgR0YWdzGAIgAygJEhQKB3ByaXZhdGUYAyABKAhIAIgBAUIKCghfcHJpdmF0ZSIkChRVcGRhdGVTdGlja2VyUmVxdWVzdBIMCgR0YWdzGAEgAygJIisKGFNldFN0aWNrZXJQcml2YXRlUmVxdWVzdBIPCgdwcml2YXRlGAEgASgIIsABCg5MaWJyYXJ5U3RpY2tlchIKCgJpZBgBIAEoAxIQCghtZWRpYV9pZBgCIAEoAxIMCgR0YWdzGAMgAygJEg8KB215X3RhZ3MYBCADKAkSEwoLdXBsb2FkZXJfaWQYBSABKAMSEgoKY29sbGVjdG9ycxgGIAEoBRISCgpjcmVhdGVkX2F0GAcgASgDEhUKDW15X3N0aWNrZXJfaWQYCCABKAMSDQoFd2lkdGgYCSABKAUSDgoGaGVpZ2h0GAogASgFImIKE0xpc3RMaWJyYXJ5UmVzcG9uc2USJAoFaXRlbXMYASADKAsyFS5hbS52MS5MaWJyYXJ5U3RpY2tlchITCgtuZXh0X29mZnNldBgCIAEoBRIQCghkaXNhYmxlZBgDIAEoCCI1ChZFZGl0TGlicmFyeVRhZ3NSZXF1ZXN0EgsKA2FkZBgBIAMoCRIOCgZyZW1vdmUYAiADKAkiJwoVTG9va3VwU3RpY2tlcnNSZXF1ZXN0Eg4KBnNoYTI1NhgBIAMoCSKPAQoWTG9va3VwU3RpY2tlcnNSZXNwb25zZRJCCgtsaWJyYXJ5X2lkcxgBIAMoCzItLmFtLnYxLkxvb2t1cFN0aWNrZXJzUmVzcG9uc2UuTGlicmFyeUlkc0VudHJ5GjEKD0xpYnJhcnlJZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAM6AjgBIiIKE1Jlc29sdmVNdXNpY1JlcXVlc3QSCwoDdXJsGAEgASgJIj8KCk11c2ljVHJhY2sSEgoKbmV0ZWFzZV9pZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIOCgZhcnRpc3QYAyABKAkikgEKFFJlc29sdmVNdXNpY1Jlc3BvbnNlEgwKBGtpbmQYASABKAkSEgoKbmV0ZWFzZV9pZBgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZhcnRpc3QYBCABKAkSFgoOY292ZXJfbWVkaWFfaWQYBSABKAMSIQoGdHJhY2tzGAYgAygLMhEuYW0udjEuTXVzaWNUcmFjayJ1CgxQb3J0cmFpdFBhY2sSNAoJbWVkaWFfaWRzGAEgAygLMiEuYW0udjEuUG9ydHJhaXRQYWNrLk1lZGlhSWRzRW50cnkaLwoNTWVkaWFJZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAM6AjgBIisKDVNoYXJlUmVxdWVzdHMSGgoFdXNlcnMYASADKAsyCy5hbS52MS5Vc2VyIiUKEkRlY2lkZVNoYXJlUmVxdWVzdBIPCgdhcHByb3ZlGAEgASgIIjUKD09wZW5HYW1lUmVxdWVzdBIMCgRraW5kGAEgASgJEhQKDGF1dG9fYXBwcm92ZRgCIAEoCCIvChFMaXN0R2FtZXNSZXNwb25zZRIaCgVnYW1lcxgBIAMoCzILLmFtLnYxLkdhbWUiVAoOR2FtZUFjdFJlcXVlc3QSDgoGYWN0aW9uGAEgASgJEgkKAXgYAiABKAUSCQoBeRgDIAEoBRIMCgR0ZXh0GAQgASgJEg4KBnRhcmdldBgFIAEoBSImCg5TZXRHYW1lUmVxdWVzdBIUCgxhdXRvX2FwcHJvdmUYASABKAgiJAoRRGVjaWRlR2FtZVJlcXVlc3QSDwoHYXBwcm92ZRgBIAEoCCprCg5Qcm9maWxlRWRpdG9ycxIfChtQUk9GSUxFX0VESVRPUlNfVU5TUEVDSUZJRUQQABIaChZQUk9GSUxFX0VESVRPUlNfQURNSU5TEAESHAoYUFJPRklMRV9FRElUT1JTX0VWRVJZT05FEAJCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common]);
 
 /**
  * POST /api/v1/register
@@ -1320,7 +1320,10 @@ export const CreateAIRoomRequestSchema: GenMessage<CreateAIRoomRequest> = /*@__P
   messageDesc(file_am_v1_api, 45);
 
 /**
- * One sticker in my collection: one of my own uploaded images plus tags.
+ * One sticker in my collection. A shared one (library_id != 0) points at a
+ * picture in the server's shared library (LibrarySticker): its picture is
+ * the library's (the earliest upload of it) and its tags are everyone's
+ * tags for it. A private one is only mine: my own picture, my own tags.
  *
  * @generated from message am.v1.Sticker
  */
@@ -1336,7 +1339,8 @@ export type Sticker = Message<"am.v1.Sticker"> & {
   mediaId: bigint;
 
   /**
-   * At most 10 tags, 20 characters each (trimmed, no duplicates).
+   * At most 10 tags, 20 characters each (trimmed, no duplicates) for a
+   * private one; up to 20 for a shared one, most-added first.
    *
    * @generated from field: repeated string tags = 3;
    */
@@ -1346,6 +1350,41 @@ export type Sticker = Message<"am.v1.Sticker"> & {
    * @generated from field: int64 created_at = 4;
    */
   createdAt: bigint;
+
+  /**
+   * The shared library entry, 0 = not shared (private, or the library is
+   * turned off on this server).
+   *
+   * @generated from field: int64 library_id = 5;
+   */
+  libraryId: bigint;
+
+  /**
+   * @generated from field: bool private = 6;
+   */
+  private: boolean;
+
+  /**
+   * Who first uploaded the picture (shared ones).
+   *
+   * @generated from field: int64 uploader_id = 7;
+   */
+  uploaderId: bigint;
+
+  /**
+   * SHA-256 (hex) of the picture file.
+   *
+   * @generated from field: string sha256 = 8;
+   */
+  sha256: string;
+
+  /**
+   * The tags I added myself (the ones I can take off again). For a private
+   * sticker all of them.
+   *
+   * @generated from field: repeated string my_tags = 9;
+   */
+  myTags: string[];
 };
 
 /**
@@ -1375,9 +1414,13 @@ export const ListStickersResponseSchema: GenMessage<ListStickersResponse> = /*@_
   messageDesc(file_am_v1_api, 47);
 
 /**
- * POST /api/v1/stickers -> Sticker. The image must be my own upload; adding
- * the same image again returns the sticker already there. At most
- * limits.max_stickers per person (sticker_limit).
+ * POST /api/v1/stickers -> Sticker. The image must be my own upload or a
+ * picture I can see (from a chat). Shared unless private is set
+ * (stickers.default_public decides when it is not): a picture that is
+ * already in the shared library (same file, or one that looks the same) is
+ * merged into it. Adding the same picture again returns the sticker already
+ * there with the new tags added. At most limits.max_stickers per person
+ * (sticker_limit).
  *
  * @generated from message am.v1.AddStickerRequest
  */
@@ -1391,6 +1434,11 @@ export type AddStickerRequest = Message<"am.v1.AddStickerRequest"> & {
    * @generated from field: repeated string tags = 2;
    */
   tags: string[];
+
+  /**
+   * @generated from field: optional bool private = 3;
+   */
+  private?: boolean | undefined;
 };
 
 /**
@@ -1401,8 +1449,10 @@ export const AddStickerRequestSchema: GenMessage<AddStickerRequest> = /*@__PURE_
   messageDesc(file_am_v1_api, 48);
 
 /**
- * PATCH /api/v1/stickers/{id} -> Sticker (replaces the tags).
- * DELETE /api/v1/stickers/{id} -> Empty.
+ * PATCH /api/v1/stickers/{id} -> Sticker. Replaces the tags: for a shared
+ * sticker only my own tags change (tags other people added stay).
+ * DELETE /api/v1/stickers/{id} -> Empty. A shared picture leaves the library
+ * when nobody has it any more.
  *
  * @generated from message am.v1.UpdateStickerRequest
  */
@@ -1419,6 +1469,205 @@ export type UpdateStickerRequest = Message<"am.v1.UpdateStickerRequest"> & {
  */
 export const UpdateStickerRequestSchema: GenMessage<UpdateStickerRequest> = /*@__PURE__*/
   messageDesc(file_am_v1_api, 49);
+
+/**
+ * POST /api/v1/stickers/{id}/private -> Sticker. Private: only mine (my
+ * tags are kept; the library entry is taken down if nobody else has it).
+ * Shared: goes into the library (my tags go with it).
+ *
+ * @generated from message am.v1.SetStickerPrivateRequest
+ */
+export type SetStickerPrivateRequest = Message<"am.v1.SetStickerPrivateRequest"> & {
+  /**
+   * @generated from field: bool private = 1;
+   */
+  private: boolean;
+};
+
+/**
+ * Describes the message am.v1.SetStickerPrivateRequest.
+ * Use `create(SetStickerPrivateRequestSchema)` to create a new message.
+ */
+export const SetStickerPrivateRequestSchema: GenMessage<SetStickerPrivateRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 50);
+
+/**
+ * One picture in the server's shared sticker library (docs/design.md §11).
+ *
+ * @generated from message am.v1.LibrarySticker
+ */
+export type LibrarySticker = Message<"am.v1.LibrarySticker"> & {
+  /**
+   * @generated from field: int64 id = 1;
+   */
+  id: bigint;
+
+  /**
+   * @generated from field: int64 media_id = 2;
+   */
+  mediaId: bigint;
+
+  /**
+   * Everyone's tags, most-added first (at most 20).
+   *
+   * @generated from field: repeated string tags = 3;
+   */
+  tags: string[];
+
+  /**
+   * The ones I added.
+   *
+   * @generated from field: repeated string my_tags = 4;
+   */
+  myTags: string[];
+
+  /**
+   * Who first uploaded the picture.
+   *
+   * @generated from field: int64 uploader_id = 5;
+   */
+  uploaderId: bigint;
+
+  /**
+   * How many people have it in their collection.
+   *
+   * @generated from field: int32 collectors = 6;
+   */
+  collectors: number;
+
+  /**
+   * @generated from field: int64 created_at = 7;
+   */
+  createdAt: bigint;
+
+  /**
+   * My sticker for it, 0 = not in my collection.
+   *
+   * @generated from field: int64 my_sticker_id = 8;
+   */
+  myStickerId: bigint;
+
+  /**
+   * @generated from field: int32 width = 9;
+   */
+  width: number;
+
+  /**
+   * @generated from field: int32 height = 10;
+   */
+  height: number;
+};
+
+/**
+ * Describes the message am.v1.LibrarySticker.
+ * Use `create(LibraryStickerSchema)` to create a new message.
+ */
+export const LibraryStickerSchema: GenMessage<LibrarySticker> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 51);
+
+/**
+ * GET /api/v1/sticker-library?q=&sort=hot|new&offset= -> ListLibraryResponse.
+ * q: words separated by spaces, each must be part of one of the tags.
+ * sort: hot = most collected first (default), new = newest first.
+ *
+ * @generated from message am.v1.ListLibraryResponse
+ */
+export type ListLibraryResponse = Message<"am.v1.ListLibraryResponse"> & {
+  /**
+   * @generated from field: repeated am.v1.LibrarySticker items = 1;
+   */
+  items: LibrarySticker[];
+
+  /**
+   * Pass as offset for the next page; 0 = no more.
+   *
+   * @generated from field: int32 next_offset = 2;
+   */
+  nextOffset: number;
+
+  /**
+   * The library is turned off on this server (stickers.library).
+   *
+   * @generated from field: bool disabled = 3;
+   */
+  disabled: boolean;
+};
+
+/**
+ * Describes the message am.v1.ListLibraryResponse.
+ * Use `create(ListLibraryResponseSchema)` to create a new message.
+ */
+export const ListLibraryResponseSchema: GenMessage<ListLibraryResponse> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 52);
+
+/**
+ * POST /api/v1/sticker-library/{id}/collect -> Sticker: put it into my
+ * collection (the existing one if it is already there).
+ * PATCH /api/v1/sticker-library/{id}/tags -> LibrarySticker. Anyone can add
+ * tags (at most 20 per picture, sticker_tags_full); I can take off the ones
+ * I added, a site admin any.
+ *
+ * @generated from message am.v1.EditLibraryTagsRequest
+ */
+export type EditLibraryTagsRequest = Message<"am.v1.EditLibraryTagsRequest"> & {
+  /**
+   * @generated from field: repeated string add = 1;
+   */
+  add: string[];
+
+  /**
+   * @generated from field: repeated string remove = 2;
+   */
+  remove: string[];
+};
+
+/**
+ * Describes the message am.v1.EditLibraryTagsRequest.
+ * Use `create(EditLibraryTagsRequestSchema)` to create a new message.
+ */
+export const EditLibraryTagsRequestSchema: GenMessage<EditLibraryTagsRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 53);
+
+/**
+ * POST /api/v1/sticker-library/lookup -> LookupStickersResponse: which of
+ * these files (SHA-256, hex, at most 200) the library already has, so a
+ * client copying my stickers from another server collects them instead of
+ * uploading.
+ *
+ * @generated from message am.v1.LookupStickersRequest
+ */
+export type LookupStickersRequest = Message<"am.v1.LookupStickersRequest"> & {
+  /**
+   * @generated from field: repeated string sha256 = 1;
+   */
+  sha256: string[];
+};
+
+/**
+ * Describes the message am.v1.LookupStickersRequest.
+ * Use `create(LookupStickersRequestSchema)` to create a new message.
+ */
+export const LookupStickersRequestSchema: GenMessage<LookupStickersRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 54);
+
+/**
+ * @generated from message am.v1.LookupStickersResponse
+ */
+export type LookupStickersResponse = Message<"am.v1.LookupStickersResponse"> & {
+  /**
+   * sha256 -> library id, only the ones found.
+   *
+   * @generated from field: map<string, int64> library_ids = 1;
+   */
+  libraryIds: { [key: string]: bigint };
+};
+
+/**
+ * Describes the message am.v1.LookupStickersResponse.
+ * Use `create(LookupStickersResponseSchema)` to create a new message.
+ */
+export const LookupStickersResponseSchema: GenMessage<LookupStickersResponse> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 55);
 
 /**
  * POST /api/v1/music/resolve -> ResolveMusicResponse. Reads a NetEase Cloud
@@ -1441,7 +1690,7 @@ export type ResolveMusicRequest = Message<"am.v1.ResolveMusicRequest"> & {
  * Use `create(ResolveMusicRequestSchema)` to create a new message.
  */
 export const ResolveMusicRequestSchema: GenMessage<ResolveMusicRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 50);
+  messageDesc(file_am_v1_api, 56);
 
 /**
  * @generated from message am.v1.MusicTrack
@@ -1468,7 +1717,7 @@ export type MusicTrack = Message<"am.v1.MusicTrack"> & {
  * Use `create(MusicTrackSchema)` to create a new message.
  */
 export const MusicTrackSchema: GenMessage<MusicTrack> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 51);
+  messageDesc(file_am_v1_api, 57);
 
 /**
  * @generated from message am.v1.ResolveMusicResponse
@@ -1516,7 +1765,7 @@ export type ResolveMusicResponse = Message<"am.v1.ResolveMusicResponse"> & {
  * Use `create(ResolveMusicResponseSchema)` to create a new message.
  */
 export const ResolveMusicResponseSchema: GenMessage<ResolveMusicResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 52);
+  messageDesc(file_am_v1_api, 58);
 
 /**
  * GET /api/v1/users/{id}/portraits -> PortraitPack (anyone);
@@ -1538,7 +1787,7 @@ export type PortraitPack = Message<"am.v1.PortraitPack"> & {
  * Use `create(PortraitPackSchema)` to create a new message.
  */
 export const PortraitPackSchema: GenMessage<PortraitPack> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 53);
+  messageDesc(file_am_v1_api, 59);
 
 /**
  * POST /api/v1/ai/{id}/share-request -> Empty: I ask its owner (a push tells
@@ -1560,7 +1809,7 @@ export type ShareRequests = Message<"am.v1.ShareRequests"> & {
  * Use `create(ShareRequestsSchema)` to create a new message.
  */
 export const ShareRequestsSchema: GenMessage<ShareRequests> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 54);
+  messageDesc(file_am_v1_api, 60);
 
 /**
  * @generated from message am.v1.DecideShareRequest
@@ -1577,7 +1826,7 @@ export type DecideShareRequest = Message<"am.v1.DecideShareRequest"> & {
  * Use `create(DecideShareRequestSchema)` to create a new message.
  */
 export const DecideShareRequestSchema: GenMessage<DecideShareRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 55);
+  messageDesc(file_am_v1_api, 61);
 
 /**
  * @generated from message am.v1.OpenGameRequest
@@ -1599,7 +1848,7 @@ export type OpenGameRequest = Message<"am.v1.OpenGameRequest"> & {
  * Use `create(OpenGameRequestSchema)` to create a new message.
  */
 export const OpenGameRequestSchema: GenMessage<OpenGameRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 56);
+  messageDesc(file_am_v1_api, 62);
 
 /**
  * @generated from message am.v1.ListGamesResponse
@@ -1616,7 +1865,7 @@ export type ListGamesResponse = Message<"am.v1.ListGamesResponse"> & {
  * Use `create(ListGamesResponseSchema)` to create a new message.
  */
 export const ListGamesResponseSchema: GenMessage<ListGamesResponse> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 57);
+  messageDesc(file_am_v1_api, 63);
 
 /**
  * @generated from message am.v1.GameActRequest
@@ -1655,7 +1904,7 @@ export type GameActRequest = Message<"am.v1.GameActRequest"> & {
  * Use `create(GameActRequestSchema)` to create a new message.
  */
 export const GameActRequestSchema: GenMessage<GameActRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 58);
+  messageDesc(file_am_v1_api, 64);
 
 /**
  * @generated from message am.v1.SetGameRequest
@@ -1672,7 +1921,7 @@ export type SetGameRequest = Message<"am.v1.SetGameRequest"> & {
  * Use `create(SetGameRequestSchema)` to create a new message.
  */
 export const SetGameRequestSchema: GenMessage<SetGameRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 59);
+  messageDesc(file_am_v1_api, 65);
 
 /**
  * @generated from message am.v1.DecideGameRequest
@@ -1689,7 +1938,7 @@ export type DecideGameRequest = Message<"am.v1.DecideGameRequest"> & {
  * Use `create(DecideGameRequestSchema)` to create a new message.
  */
 export const DecideGameRequestSchema: GenMessage<DecideGameRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_api, 60);
+  messageDesc(file_am_v1_api, 66);
 
 /**
  * Who may rearrange the widgets on the server profile.

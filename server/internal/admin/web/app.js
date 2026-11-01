@@ -187,6 +187,7 @@ const PAGES = [
   { id: 'invites', name: '邀请码', render: renderInvites },
   { id: 'channels', name: '频道记录', render: renderChannels },
   { id: 'evidence', name: '删除记录', render: renderEvidence },
+  { id: 'stickers', name: '表情库', render: renderStickers },
   { id: 'audit', name: '操作记录', render: renderAudit },
   { id: 'logs', name: '运行日志', render: renderLogs },
   { id: 'settings', name: '设置', render: renderSettings },
@@ -819,6 +820,111 @@ async function renderEvidence(root, page) {
   load();
 }
 
+// ---------- sticker library ----------
+
+let stickerQuery = '';
+let stickerStatus = 'visible';
+let stickerSort = 'hot';
+let stickerPageNo = 1;
+
+// The shared sticker library (docs/design.md §11): what everyone on the
+// server sees under 「大家的」. Hide = not listed any more (people who
+// have it keep it); delete = gone from every collection, the picture is
+// kept here as evidence until it is purged.
+async function renderStickers(root, page) {
+  root.append(stateBanner() || '');
+  const search = el('input', { type: 'search', placeholder: '按标签搜', value: stickerQuery, 'aria-label': '按标签搜表情' });
+  let t;
+  search.addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { stickerQuery = search.value.trim(); stickerPageNo = 1; load(); }, 250);
+  });
+  const status = el('select', { 'aria-label': '显示哪些', onchange: () => { stickerStatus = status.value; stickerPageNo = 1; load(); } },
+    [['visible', '公开的'], ['hidden', '已隐藏'], ['deleted', '已删除'], ['all', '全部']].map(([v, n]) => el('option', { value: v, selected: v === stickerStatus }, n)));
+  const sort = el('select', { 'aria-label': '排序', onchange: () => { stickerSort = sort.value; stickerPageNo = 1; load(); } },
+    [['hot', '收藏多的在前'], ['new', '新加的在前']].map(([v, n]) => el('option', { value: v, selected: v === stickerSort }, n)));
+  const box = el('div');
+  root.append(head('表情库', '大家加进收藏的表情都在这里（同一张图只有一份，显示最早上传的人）。隐藏：「大家的」里不再出现，已经收藏的人还能用。删除：所有人的收藏里都没了，原图在这里保留到期后自动清除。',
+    el('div', { class: 'sticker-filters' }, search, status, sort)), box);
+
+  async function load() {
+    let data;
+    try {
+      data = await api('GET', 'stickers?q=' + encodeURIComponent(stickerQuery) + '&status=' + stickerStatus + '&sort=' + stickerSort + '&page=' + stickerPageNo);
+    } catch (e) { fail(e); return; }
+    if (currentPage !== page) return;
+    if (!data.items.length) {
+      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, stickerQuery ? '没有这个标签的表情' : '这里还没有表情。')));
+      return;
+    }
+    box.replaceChildren(el('div', { class: 'sticker-grid' }, data.items.map(card)),
+      pager(data.total, data.page_size, stickerPageNo, (p) => { stickerPageNo = p; load(); }));
+  }
+
+  function card(x) {
+    const img = el('a', { href: 'api/media/' + x.media_id, target: '_blank', rel: 'noopener', class: 'pic' },
+      el('img', { src: 'api/media/' + x.media_id + '?thumb=1', alt: x.tags.join('、') || '表情', loading: 'lazy' }));
+    const tags = el('div', { class: 'tags' }, x.tags.length ? x.tags.map((tag) => el('span', { class: 'tag' }, tag,
+      x.deleted_at ? '' : el('button', { class: 'x', type: 'button', title: '删掉这个标签', 'aria-label': '删掉标签 ' + tag, onclick: () => removeTag(x, tag) }, '×')))
+      : el('span', { class: 'muted' }, '没有标签'));
+    const state = x.deleted_at ? el('span', { class: 'tag bad' }, '已删除') : x.hidden_at ? el('span', { class: 'tag warn' }, '已隐藏') : '';
+    const actions = x.deleted_at ? el('div', { class: 'meta' }, '原因：' + x.delete_reason, el('br'), '保留到 ' + fmtDate(x.purge_after))
+      : el('div', { class: 'row' },
+        el('button', { class: 'btn small ghost', type: 'button', onclick: () => setHidden(x, !x.hidden_at) }, x.hidden_at ? '恢复显示' : '隐藏'),
+        el('button', { class: 'btn small danger', type: 'button', onclick: () => del(x) }, '删除'));
+    return el('article', { class: 'panel sticker-card' }, img,
+      el('div', { class: 'meta' }, state, state ? ' ' : '', (x.uploader_name || '(已不存在的账号)') + ' 最早上传 · ' + x.collectors + ' 人收藏'),
+      el('div', { class: 'meta' }, fmtTime(x.created_at)),
+      tags, actions);
+  }
+
+  async function setHidden(x, hidden) {
+    try {
+      await api('POST', 'stickers/' + x.id + '/hide', { hidden });
+      toast(hidden ? '已隐藏' : '已恢复显示');
+      load();
+    } catch (e) { fail(e); }
+  }
+
+  async function removeTag(x, tag) {
+    if (!await confirmDialog({ title: '删掉标签', text: '把「' + tag + '」从这张表情上删掉（所有人加的这个标签都会去掉）。', ok: '删掉', danger: true })) return;
+    try {
+      await api('POST', 'stickers/' + x.id + '/remove-tag', { tag });
+      toast('标签已删掉');
+      load();
+    } catch (e) { fail(e); }
+  }
+
+  async function del(x) {
+    const res = await dialog((close) => {
+      const reason = el('input', { type: 'text', maxlength: 200, placeholder: '比如：违规内容' });
+      const block = el('input', { type: 'checkbox' });
+      const submit = (e) => {
+        e.preventDefault();
+        if (!reason.value.trim()) { reason.focus(); return; }
+        close({ reason: reason.value.trim(), block: block.checked });
+      };
+      return [el('form', { onsubmit: submit },
+        el('h2', {}, '删除这张表情'),
+        el('div', { class: 'body' },
+          el('p', { class: 'muted' }, '所有人的收藏里都会去掉它，「大家的」里也看不到了。已经发出去的消息不受影响（要删消息请在频道记录里处理）。原图会在「表情库 → 已删除」里保留到期后自动清除。'),
+          el('label', {}, el('div', { class: 'field-label' }, '原因（会记入操作记录）'), reason),
+          el('label', { class: 'check' }, block, el('span', {}, '同时拉黑这张图（以后再上传会被拒绝，改过尺寸的也算）'))),
+        el('div', { class: 'foot' },
+          el('button', { class: 'btn', type: 'button', onclick: () => close(null) }, '取消'),
+          el('button', { class: 'btn primary danger-fill', type: 'submit' }, '删除')))];
+    });
+    if (!res) return;
+    try {
+      await api('POST', 'stickers/' + x.id + '/delete', res);
+      toast('已删除');
+      load();
+    } catch (e) { fail(e); }
+  }
+
+  load();
+}
+
 // ---------- audit ----------
 
 const AUDIT_TEXT = {
@@ -827,6 +933,8 @@ const AUDIT_TEXT = {
   site_admin_remove: '取消了站点管理员：', password_reset: '重置了密码：', invite_create: '生成了邀请码',
   invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录', server_profile: '修改了服务器主页设置',
   server_layout: '修改了服务器主页的小组件', profile_clear: '清空了个人主页：', guestbook_delete: '删除了一条留言',
+  sticker_hide: '在表情库里隐藏了一张表情', sticker_unhide: '在表情库里恢复显示了一张表情',
+  sticker_delete: '从表情库删除了一张表情', sticker_tag_remove: '删掉了表情库里的一个标签：',
 };
 
 async function renderAudit(root, page) {
@@ -924,6 +1032,12 @@ const SETTINGS = [
   { title: '留存', items: [
     { k: 'retention.evidence_days', label: '删除记录保留天数', help: '被删除消息的原内容保留多久，法规要求至少 180 天', type: 'int', min: 1, warnBelow: 180 },
     { k: 'retention.login_record_days', label: '登录记录保留天数', help: '登录时间、IP、设备，法规要求至少 180 天', type: 'int', min: 1, warnBelow: 180 },
+  ] },
+  { title: '表情包', items: [
+    { k: 'stickers.library', label: '公共表情库', help: '大家加进收藏的表情会出现在别人的「大家的」里，可以搜索和收藏，标签大家一起补。关掉后只剩各人自己的收藏。', type: 'bool' },
+    { k: 'stickers.default_public', label: '新加的表情默认公开', help: '关掉后默认不公开，大家要自己选「公开」才进公共库', type: 'bool' },
+    { k: 'stickers.dedupe_distance', label: '算作同一张图的相似度', help: '0–64，0 表示只有完全相同的文件才合并。10 能合并重新保存、改过尺寸的同一张图；调大可能把字不一样的表情合到一起。', type: 'int', min: 0, max: 64 },
+    { k: 'limits.max_stickers', label: '每人最多收藏几个表情', type: 'int', min: 0 },
   ] },
   { title: '图片黑名单', items: [
     { k: 'media.block_distance', label: '相似度容差', help: '0–64，越小越严格。6 能拦住改过尺寸或重新压缩的同一张图。', type: 'int', min: 0, max: 64 },

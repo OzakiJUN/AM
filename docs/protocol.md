@@ -213,14 +213,23 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 
 ### 表情
 
+表情分两种（docs/design.md 第 11 节）：**公开的**（默认，`stickers.default_public`）进服务器的公共表情库——同一张图（同一个文件，或看起来一样：256 位感知哈希相差不超过 `stickers.dedupe_distance`、动图 / 静图一样、长宽比差不到 5%）只有一份，用最早上传的那张，显示它的上传者；标签大家共用，每张最多 20 个。**不公开的**只有自己有，自己的图、自己的标签（最多 10 个）。`stickers.library = false` 时没有公共库，新加的都按自己的存，打开后服务器启动时会把它们补进库。
+
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
-| GET | `/api/v1/stickers` | — | `ListStickersResponse`：我的表情，最新的在前 |
-| POST | `/api/v1/stickers` | `AddStickerRequest` | `Sticker`：把我上传的一张图加进表情（不是图片 `not_image`，不是我上传的 `media_not_found`）。同一张图再加一次返回原来那个，标签合并。每人最多 `limits.max_stickers` 个（`sticker_limit`） |
-| PATCH | `/api/v1/stickers/{id}` | `UpdateStickerRequest` | `Sticker`：换标签 |
-| DELETE | `/api/v1/stickers/{id}` | — | `Empty`：从我的表情里删掉（发过的消息不受影响） |
+| GET | `/api/v1/stickers` | — | `ListStickersResponse`：我的表情，最新的在前。公开的 `library_id` 不为 0，`media_id` 是库里那张，`tags` 是大家的标签（加的人多的在前），`my_tags` 是我加的 |
+| POST | `/api/v1/stickers` | `AddStickerRequest` | `Sticker`：把一张图加进我的表情：我上传的，或者我能看到的（比如聊天里别人发的）。不是图片 `not_image`，看不到的 `media_not_found`。`private` 不填按服务器默认。公开的会和库里同样的图合并。同一张图再加一次返回原来那个，标签合并。每人最多 `limits.max_stickers` 个（`sticker_limit`） |
+| PATCH | `/api/v1/stickers/{id}` | `UpdateStickerRequest` | `Sticker`：换标签。公开的只改我自己加的那些，别人加的留着 |
+| POST | `/api/v1/stickers/{id}/private` | `SetStickerPrivateRequest` | `Sticker`：改成不公开（带着现在的标签变成我自己的；库里这张没别人收藏就从库里拿掉）或公开（进库，可能和库里同样的图合并） |
+| DELETE | `/api/v1/stickers/{id}` | — | `Empty`：从我的表情里删掉（发过的消息不受影响）。库里这张没人收藏了就从库里拿掉 |
+| GET | `/api/v1/sticker-library?q=&sort=hot\|new&offset=` | — | `ListLibraryResponse`：公共库，每页 60 个，`next_offset` 为 0 表示没有了。`q` 用空格分开的词，每个词都要是某个标签的一部分（不分大小写）。`hot`（默认）收藏的人多的在前，`new` 新加的在前。被管理员隐藏 / 删除的不列出。库关着时 `disabled = true` |
+| POST | `/api/v1/sticker-library/{id}/collect` | — | `Sticker`：收藏到我的表情（已经有就返回那个） |
+| PATCH | `/api/v1/sticker-library/{id}/tags` | `EditLibraryTagsRequest` | `LibrarySticker`：加标签（谁都能加，满 20 个 `sticker_tags_full`），去掉我加的（站点管理员能去掉所有人的） |
+| POST | `/api/v1/sticker-library/lookup` | `LookupStickersRequest` | `LookupStickersResponse`：这些文件（SHA-256，一次最多 200 个）库里有没有，有的给库 id。客户端把我的表情复制到别的服务器时先查，有的直接收藏，不用再传 |
 
-不是我的表情一律 `not_found`。
+不是我的表情一律 `not_found`；库里看不到的（被删了，或者被隐藏而我没收藏）`not_found`；库关着时收藏 / 改库标签 `sticker_library_off`。
+
+发图时除了自己上传的，也可以发我表情里的、或者公共库里（没被隐藏 / 删除）的图。
 
 ## WebSocket 流程
 
@@ -273,7 +282,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 `SendRequest` 必须带 `client_msg_id`（客户端随机生成，≤ 64 字符）。同一个账号重复发送同一个 `client_msg_id`，服务器返回第一次存下的事件。
 
 - 文字：`text`，可带 `reply_to` 和 `mentions`（文字里「@名字」对应的用户 id；客户端高亮这些名字，AI 被 @ 时会回）。
-- 图片：先上传，再发 `image{media_id}`，宽高由服务器填。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。
+- 图片：先上传，再发 `image{media_id}`，宽高由服务器填（也可以直接发我表情里的或公共表情库里的图，不用自己上传）。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。
 - 文件：先上传，再发 `file{media_id, name}`，`name` 为空时用上传时的文件名。
 - 划掉：`strike{target_event_id}`，只能划自己的文字 / 图片 / 文件消息，每条只能划一次。
 
@@ -349,6 +358,8 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
 | `ai_limit` | 403 | AI 账号已经建到 `limits.max_ai_per_user` 个 |
 | `sticker_limit` | 403 | 表情已经存到 `limits.max_stickers` 个 |
+| `sticker_tags_full` | 409 | 这张表情的标签已经有 20 个了 |
+| `sticker_library_off` | 403 | 这个服务器关掉了公共表情库（`stickers.library = false`） |
 | `game_limit` | 403 | 这个会话里没结束的桌游已经有 `limits.max_games_per_conv` 局（0 = 桌游关着） |
 | `game_full` | 409 | 这局没有空座位了 |
 | `game_state` | 409 | 这局现在不在那个阶段（还没开始、已经开始或已经结束、人不够） |
