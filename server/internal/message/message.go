@@ -100,6 +100,15 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 		if utf8.RuneCountInString(text) > s.limits.MaxTextLength {
 			return nil, apperr.ErrTooLong
 		}
+		if target := b.Text.GetReplyTo(); target != 0 {
+			ev, err := s.Get(ctx, me, conv.ID, target)
+			if err != nil {
+				return nil, err
+			}
+			if ev.Redaction != nil {
+				return nil, apperr.ErrNotFound
+			}
+		}
 		body.Body = &amv1.Event_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: b.Text.GetReplyTo(), Mentions: b.Text.GetMentions(), Mood: aiMood(me, b.Text.GetMood())}}
 		kind = KindText
 	case *amv1.SendRequest_Image:
@@ -388,6 +397,27 @@ func (s *Service) checkGroupModerator(ctx context.Context, actor int64, ev *stor
 		return apperr.ErrNoPermission
 	}
 	return nil
+}
+
+// Get returns one message only to a current member of its conversation.
+func (s *Service) Get(ctx context.Context, me *store.User, convID, eventID int64) (*amv1.Event, error) {
+	if _, err := s.st.GetConvForUser(ctx, convID, me.ID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, apperr.ErrNotMember
+		}
+		return nil, err
+	}
+	row, err := s.st.GetEvent(ctx, eventID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, apperr.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if row.ConvID != convID || !isMessage(row.BodyKind) {
+		return nil, apperr.ErrNotFound
+	}
+	return ToProto(row, me.ID)
 }
 
 // Sync returns events after each cursor's seq, for conversations the user is in.

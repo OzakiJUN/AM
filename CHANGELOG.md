@@ -2,6 +2,9 @@
 
 ## 未发布
 
+- 新增引用回复。右键消息选「回复」，输入框可预览或取消，发送后显示原话。AI 能理解回复目标，回复 AI 的旧消息也会叫到它。
+- 群聊 AI 改为每批新消息先判断是否参与，决定要说话后才生成回复。默认停顿 5 秒判断一次，连续聊天最长等 20 秒，可在 AI 设置里调整。
+
 ### 修复：插件在 Windows 上起不来、国内打不开工坊（2026-11-01）
 
 - 插件出错「fork/exec data\plugins\venv\Scripts\python.exe: The system cannot find the path specified」：插件目录是相对路径，NoneBot 在 AI 自己的文件夹里启动时就找不到 Python 了。现在用绝对路径。

@@ -19,6 +19,21 @@ func pathID(r *http.Request, name string) (int64, bool) {
 	return id, err == nil && id > 0
 }
 
+func (a *API) getMessage(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	convID, ok := pathID(r, "id")
+	eventID, eventOK := pathID(r, "event")
+	if !ok || !eventOK {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	ev, err := a.msg.Get(r.Context(), me, convID, eventID)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, ev)
+}
+
 // ---- lookups ----
 
 func (a *API) getConversation(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {

@@ -6,8 +6,11 @@
 export interface ChannelSettings {
   /** mention = only when @-mentioned or called by name; active = also joins in by itself. */
   mode: 'mention' | 'active';
-  /** 0–1: how often it joins in by itself. */
+  /** 0–1: the model's preference for joining a discussion. */
   chattiness: number;
+  /** Wait for a pause, but evaluate continuous discussion by maxBatchSeconds. */
+  batchSeconds: number;
+  maxBatchSeconds: number;
   /** Least seconds between two of its messages in one channel (being @-mentioned skips this). */
   minGapSeconds: number;
   /** Most messages per hour in one channel. */
@@ -16,7 +19,7 @@ export interface ChannelSettings {
   maxAIChain: number;
 }
 
-export const defaultChannels = (): ChannelSettings => ({ mode: 'active', chattiness: 0.5, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6 });
+export const defaultChannels = (): ChannelSettings => ({ mode: 'active', chattiness: 0.5, batchSeconds: 5, maxBatchSeconds: 20, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6 });
 
 /** Its day. Times are "HH:MM" on the device that runs it; each event moves by up to `jitterMinutes`. */
 export interface RoutineSettings {
@@ -45,8 +48,6 @@ export interface Said {
   ai: boolean;
   /** @-mentions it, or calls it by name. */
   toMe: boolean;
-  /** Human text worth considering, with no explicit mention of somebody else. */
-  discussion: boolean;
 }
 
 /** The message @-mentions the AI or calls it by name. */
@@ -84,11 +85,9 @@ export function decide(o: {
   if (last.ai && chain >= s.maxAIChain) return { act: 'no', delay: 0, why: 'waiting for a person' };
   if (last.toMe) return { act: 'reply', delay: 800 + 1200 * o.random2, why: 'spoken to' };
   if (s.mode !== 'active' || o.asleep) return { act: 'no', delay: 0, why: o.asleep ? 'asleep' : 'mention only' };
-  if (last.ai || !last.discussion) return { act: 'no', delay: 0, why: 'nothing to add' };
   const lastMine = Math.max(0, ...o.mySends);
-  if (lastMine && now - lastMine < s.minGapSeconds * 1000) return { act: 'no', delay: 0, why: 'cooldown' };
-  if (o.random >= 0.3 * s.chattiness) return { act: 'no', delay: 0, why: 'listening' };
-  return { act: 'maybe', delay: 5000 + 7000 * o.random2, why: 'considering a contribution' };
+  const cooldown = Math.max(0, lastMine + s.minGapSeconds * 1000 - now);
+  return { act: 'maybe', delay: Math.max(cooldown, s.batchSeconds * 1000), why: 'evaluate the batch' };
 }
 
 export type RoutineKind = 'wake' | 'meal' | 'play' | 'sleep';
@@ -235,4 +234,16 @@ export function proactive(o: {
   // Spread over a few minutes once it has been quiet long enough (a check every 30 s).
   if (o.now - o.lastChat > quiet && o.now - o.lastTopic > quiet && o.random < 0.1) return 'topic';
   return null;
+}
+
+/** Trailing pause, bounded by the first message in a burst; cooldown still applies. */
+export function batchDelay(now: number, firstAt: number, pauseSeconds: number, maxSeconds: number, cooldownUntil: number): number {
+  return Math.max(0, Math.min(now + pauseSeconds * 1000, firstAt + maxSeconds * 1000) - now, cooldownUntil - now);
+}
+
+export function shouldJoin(raw: string): boolean {
+  try {
+    const match = raw.match(/\{[\s\S]*\}/);
+    return !!match && JSON.parse(match[0]).reply === true;
+  } catch { return false; }
 }
