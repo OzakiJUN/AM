@@ -42,6 +42,7 @@ const GAME_TEXT: Record<GameKind, string> = {
   gomoku: '两个人轮流下，先连五个的赢。AI 也会下（不算很强）。',
   reversi: '夹住就翻，最后子多的赢。和 AI 下正合适。',
   undercover: '4–8 个人（AI 也算）各拿一个词，轮流描述、投票找卧底。',
+  trail: '2–6 个人各藏 3 个数，轮流提问、猜数，推理出别人的数。AI 也会推理。',
 };
 
 /** Everything that ships with the client (always installed, can't be removed). */

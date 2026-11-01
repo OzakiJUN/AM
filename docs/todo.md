@@ -16,7 +16,8 @@
 ## 这周要做（Weiqi 2026-11-01 定的顺序；每一批先给他计划，确认后再动代码）
 
 1. **共享表情包库**：2026-11-01 做完了（见 CHANGELOG「公共表情库」、design.md 第 11 节和第 7 节「表情也同步」），等 Weiqi 测试。Weiqi 定的：加进收藏就自动进公共库；带进新服务器的表情后台限速慢慢传。
-2. **Bot 移植**：Weiqi 以前的几个插件直接内置进 am-server（服务器自带的 bot，不用装 Python，管理面板开关，key 放 config.toml）。**等 Weiqi 把插件打包传过来**，并说明每个是干嘛的。OneBot v11 兼容层这周不做。
+2. **Bot 移植**（2026-11-01 改了方向）：Weiqi 只要能上传 OneBot（NoneBot2）插件，在 AI 设置里加「插件」栏；插件在频道里触发时用那个 AI 的身份发消息；插件要有改 config 的界面。他已经把 7 个插件发过来了（qqbot_ext_plugins.zip：画图 qqdraw、指令查询 qqhelp、随机接话 qqchime、电子博物馆 qqmuseum、游戏资讯 qqnews、状态监视 qqstatus、电子厕所 qqtoilet；只用了发消息、群信息 / 群列表、合并转发这几个 OneBot 接口，配置都从 driver config 读 `qqdraw_xxx` 这种键）。
+   - 计划已经提给他，**等他确认**：插件跑在运行这个 AI 的设备上（不上服务器），客户端开一个本机 OneBot v11 接口，起一个 NoneBot 进程连上来，插件不用改；消息和接口互相转换；需要本机有 Python 3.10+，客户端建独立环境、自动装依赖（可选国内 pip 镜像）；AI 设置的「插件」栏能上传 zip、开关、看日志；插件指令开头的消息 AI 自己不回；配置界面从代码里扫出配置项自动生成表单，可以再写 `am_plugin.json` 让它更好看，带 token / key 的项存进系统凭据管理器。
 3. **创意工坊**：数据类作品（主题、形象包、人格、表情包）2026-11-01 做完了（见 CHANGELOG「创意工坊能下载别人的作品了」、design.md 第 13 节）。`OzakiJUN/am-workshop` 已建好，检查工具、发布流程、说明和模板都推上去了。
    - 签名密钥 2026-11-01 设好了：私钥在 am-workshop 的 Secret 里，公钥写进了 `client/src/lib/workshopIndex.ts`，`index` 分支上的签名验证通过（现在还没有作品）。
    - 程序类（小游戏 / 组件 / 插件的沙盒和权限清单）还没做，manifest 里留了 `permissions`。

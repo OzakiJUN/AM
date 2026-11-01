@@ -197,6 +197,8 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
     case 'game_move':
     case 'game_say':
     case 'game_vote':
+    case 'game_ask':
+    case 'game_guess':
     case 'leave_game':
       if (!ctx.self) return { text: '现在用不了这个工具' };
       return { text: await ctx.self.game(name, a) };

@@ -1,6 +1,6 @@
 // Package game runs the small board games played in channels and shared AI
-// rooms (docs/design.md §13 小游戏): 五子棋 (gomoku), 黑白棋 (reversi) and
-// 谁是卧底 (undercover). People and AIs are players alike. The server holds
+// rooms (docs/design.md §13 小游戏): 五子棋 (gomoku), 黑白棋 (reversi),
+// 谁是卧底 (undercover) and 数字迷踪 (trail, trail.go). People and AIs are players alike. The server holds
 // the state and checks every move; this file is the pure rules (no I/O,
 // randomness passed in) and is unit-tested.
 package game
@@ -41,6 +41,7 @@ var Kinds = map[string]struct{ Min, Max int }{
 	Gomoku:     {2, 2},
 	Reversi:    {2, 2},
 	Undercover: {4, 8},
+	Trail:      {2, 6},
 }
 
 // Player is one seat. Word and Spy are secret (see View).
@@ -71,7 +72,7 @@ type State struct {
 	Turn  int   `json:"turn"`
 	Moves int   `json:"moves,omitempty"`
 	Last  []int `json:"last,omitempty"`
-	// Winner: board games seat+1 (-1 = draw); 谁是卧底 1 = civilians, 2 = undercover.
+	// Winner: board games and 数字迷踪 seat+1 (-1 = draw); 谁是卧底 1 = civilians, 2 = undercover.
 	Winner int    `json:"winner,omitempty"`
 	Result string `json:"result,omitempty"`
 	Phase  string `json:"phase,omitempty"` // 谁是卧底: describe / vote
@@ -80,6 +81,9 @@ type State struct {
 	// Votes[seat] = the seat voted for (-1 = not yet); kept secret until counted.
 	Votes []int    `json:"votes,omitempty"`
 	Words []string `json:"words,omitempty"` // [civilian, undercover], secret until the end
+	// 数字迷踪: everyone's numbers (secret, see View) and every action.
+	Hands []Hand   `json:"hands,omitempty"`
+	Steps []Step   `json:"steps,omitempty"`
 	Log   []string `json:"log,omitempty"`
 }
 
@@ -174,6 +178,8 @@ func (s *State) Start(r *rand.Rand, pairs [][2]string) error {
 		}
 		s.Round = 0
 		s.nextRound()
+	case Trail:
+		s.startTrail(r)
 	}
 	return nil
 }
@@ -460,6 +466,13 @@ func (s *State) Resign(seat int) error {
 	if s.Status != Playing {
 		return ErrGameState
 	}
+	if s.Kind == Trail {
+		if s.Players[seat].Out {
+			return ErrGameState
+		}
+		s.trailLeave(seat)
+		return nil
+	}
 	if s.Kind != Undercover {
 		s.end(2-seat, "resign")
 		return nil
@@ -504,6 +517,10 @@ func (s *State) View(viewer int64) *State {
 	v := *s
 	v.Players = append([]Player(nil), s.Players...)
 	v.Applicants = append([]int64(nil), s.Applicants...)
+	if s.Kind == Trail {
+		v.hideHands(viewer)
+		return &v
+	}
 	if s.Kind != Undercover || s.Status == Ended {
 		return &v
 	}

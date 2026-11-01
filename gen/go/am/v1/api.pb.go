@@ -3866,6 +3866,7 @@ func (x *ListGamesResponse) GetGames() []*Game {
 type GameActRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// move (x, y) | say (text) | vote (target seat) | resign
+	// 数字迷踪: ask (target seat, text = gt / lt / mult / odd / even, x) | guess (target seat, x)
 	Action        string `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
 	X             int32  `protobuf:"varint,2,opt,name=x,proto3" json:"x,omitempty"`
 	Y             int32  `protobuf:"varint,3,opt,name=y,proto3" json:"y,omitempty"`
