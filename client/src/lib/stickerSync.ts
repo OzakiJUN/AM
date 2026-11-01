@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import { ApiError, errorText } from './errors';
 import { usePrefs } from './prefs';
-import { isFinal, planCopies, type CopySticker, type CopyTask } from './stickerCopy';
+import { SETTLE_MS, isFinal, planCopies, privacyFixes, waiting, type CopySticker, type CopyTask } from './stickerCopy';
 import type { Session } from './session';
 import { loadStickers } from './stickers';
 import { session, useApp } from './store';
@@ -100,7 +100,18 @@ export async function runStickerSync(): Promise<void> {
         retry = true;
       }
     }
+    // Made private since it was copied: the copies go private too.
+    for (const fix of privacyFixes(lists, done)) {
+      try {
+        await session(fix.to)!.setStickerPrivate(fix.stickerId, true);
+        changed.add(fix.to);
+      } catch {
+        retry = true;
+      }
+    }
     const plan = planCopies(lists, done);
+    // Just added: copied in the next round, once there was time to tag it or make it private.
+    if (waiting(lists)) kickStickerSync(SETTLE_MS + 5_000);
     useStickerSync.setState({ left: plan.length });
     // Files the target's library already has: collect instead of upload.
     const known: Record<string, Record<string, string>> = {};

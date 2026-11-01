@@ -773,6 +773,7 @@ const pages = [];
   await B.click('button[aria-label="AI"]');
   await B.waitForSelector('aside button:has-text("小鱼和大家")');
 
+
   // Board games: Weiqi opens 五子棋 in 大厅; 小鱼 asks to join by itself, Weiqi lets it in and
   // starts; 小鱼 answers each move with the game tools; 小克 sees the game in 大厅's strip.
   await A.click('button[aria-label="频道"]');
@@ -905,11 +906,24 @@ const pages = [];
     await A.click('button[aria-label="服务器列表"]');
     await A.click('button[aria-label="切换到 第二服"]');
     await A.click('aside button:has-text("大厅")');
-    await A.click('button[aria-label="表情包"]');
-    await A.click('button[role="radio"]:has-text("我的")');
+    // New stickers wait 2 minutes before they are copied (time to tag them or make them private),
+    // and another of A's devices may do the copying: reopen the panel (it reloads) until both are there.
     // Tags travel with it (小克 may have added 「doge」 by now).
-    await A.waitForSelector('button[aria-label^="发表情 开心、狗头"]', { timeout: 30000 });
-    await A.waitForFunction(() => document.querySelectorAll('button[aria-label^="发表情 "]').length === 2, null, { timeout: 30000 });
+    const synced = async () =>
+      (await A.locator('button[aria-label^="发表情 开心、狗头"]').count()) === 1 && (await A.locator('button[aria-label^="发表情 "]').count()) >= 2;
+    for (let t = Date.now(); ; ) {
+      await A.click('button[aria-label="表情包"]');
+      await A.click('button[role="radio"]:has-text("我的")');
+      await wait(3000);
+      if (await synced()) break;
+      if (Date.now() - t > 300000) throw new Error('stickers not copied to the second server');
+      await A.click('button[aria-label="表情包"]'); // closes the panel
+      await wait(5000);
+    }
+    // The private one stayed private there: only the shared one is in 「大家的」.
+    await A.click('button[role="radio"]:has-text("大家的")');
+    await A.waitForSelector('button[aria-label^="发表情 开心、狗头"]');
+    if ((await A.locator('button[aria-label^="发表情 "]').count()) !== 1) throw new Error('private sticker shared on the second server');
     await shot(A, '30-stickers-synced');
   }
 

@@ -59,13 +59,13 @@ func testStickers(t *testing.T, a *app.App, base string) {
 	img3 := must(alice.cli.Upload(ctx, "fish.png", bytes.NewReader(encodePNG(stickerPic(3, 120, 120)))))
 	doc := must(alice.cli.Upload(ctx, "a.txt", strings.NewReader("not a picture")))
 
-	// Tags are trimmed, de-duplicated and capped.
-	s1 := must(alice.cli.AddSticker(ctx, img1.Id, " 狗头 ", "狗头", "", strings.Repeat("长", 30)))
-	if len(s1.Tags) != 2 || s1.Tags[0] != "狗头" || len([]rune(s1.Tags[1])) != 20 {
+	// Tags are trimmed, de-duplicated and capped, and keep the order they were typed in.
+	s1 := must(alice.cli.AddSticker(ctx, img1.Id, " 狗头 ", "狗头", "", strings.Repeat("长", 30), "abc"))
+	if len(s1.Tags) != 3 || s1.Tags[0] != "狗头" || len([]rune(s1.Tags[1])) != 20 || s1.Tags[2] != "abc" {
 		t.Fatalf("tags: %q", s1.Tags)
 	}
 	// The same picture again: same sticker, tags added.
-	if s := must(alice.cli.AddSticker(ctx, img1.Id, "doge")); s.Id != s1.Id || len(s.Tags) != 3 {
+	if s := must(alice.cli.AddSticker(ctx, img1.Id, "doge")); s.Id != s1.Id || len(s.Tags) != 4 {
 		t.Fatalf("re-add: %+v", s)
 	}
 	must(alice.cli.AddSticker(ctx, img2.Id))

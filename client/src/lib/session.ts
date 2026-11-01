@@ -190,11 +190,13 @@ export interface Sticker {
   uploaderId: string;
   /** SHA-256 of the picture file. */
   sha256: string;
+  /** When it was added to my collection (unix ms). */
+  createdAt: number;
 }
 
 const toSticker = (x: api.Sticker): Sticker => ({
   id: s(x.id), mediaId: s(x.mediaId), tags: x.tags, myTags: x.myTags, libraryId: x.libraryId ? s(x.libraryId) : '',
-  private: x.private, uploaderId: x.uploaderId ? s(x.uploaderId) : '', sha256: x.sha256,
+  private: x.private, uploaderId: x.uploaderId ? s(x.uploaderId) : '', sha256: x.sha256, createdAt: Number(x.createdAt),
 });
 
 /** A picture in the server's shared sticker library (「大家的」). */
