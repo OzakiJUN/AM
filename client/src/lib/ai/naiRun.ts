@@ -6,7 +6,7 @@ import { inTauri } from '../platform';
 import type { Session } from '../session';
 import type { Message } from '../types';
 import {
-  IMAGE_URL, SUB_URL, SUGGEST_URL, UPSCALE_URL, VIBE_URL, balanceText, buildPayload, costNote, drawOptions, errorText, extractPngs,
+  IMAGE_URL, NSFW_RE, SUB_URL, SUGGEST_URL, UPSCALE_URL, VIBE_URL, balanceText, buildPayload, costNote, drawOptions, errorText, extractPngs,
   hasCJK, isFree, orientationOf, parseSubscription, promptProblem, referenceCanvas, sizeFor, splitSections, styleSpecs, tagsText,
   takeRaw, takeStrength, usage, type DrawCommand, type DrawRequest, type DrawSettings, type NaiBalance, type Orientation,
 } from './nai';
@@ -186,11 +186,14 @@ async function draw(d: NaiDeps, convId: string, j: Job): Promise<{ pngs: Uint8Ar
   return { pngs, note: cost ? `${note}，${cost}` : note };
 }
 
-async function sendPictures(d: NaiDeps, convId: string, pngs: Uint8Array[]) {
+/** Sends the pictures, labelled for the museum ("NovelAI V5", adult content). */
+async function sendPictures(d: NaiDeps, convId: string, pngs: Uint8Array[], made?: { with: string; nsfw: boolean }) {
   for (const [i, png] of pngs.entries()) {
-    await d.s.sendFile(convId, new File([png.slice()], `nai-${Date.now()}-${i}.png`, { type: 'image/png' }));
+    await d.s.sendFile(convId, new File([png.slice()], `nai-${Date.now()}-${i}.png`, { type: 'image/png' }), made);
   }
 }
+
+const madeBy = (v5: boolean, prompt: string, nsfwAllowed: boolean) => ({ with: `NovelAI ${v5 ? 'V5' : 'V4.5'}`, nsfw: nsfwAllowed && NSFW_RE.test(prompt) });
 
 /** Pictures the command came with: an image the same person sent just before, or the one it replies to. */
 async function picturesFor(d: NaiDeps, convId: string, m: Message, limit = 2): Promise<Uint8Array[]> {
@@ -299,7 +302,7 @@ export async function runCommand(d: NaiDeps, convId: string, m: Message, cmd: Dr
       references: cmd.kind === 'charref' ? pics.slice(0, 1) : undefined,
     };
     const r = await draw(d, convId, job);
-    await sendPictures(d, convId, r.pngs);
+    await sendPictures(d, convId, r.pngs, madeBy(v5, [prompt, ...chars.flat()].join(' '), d.nsfwAllowed(convId)));
     await say([...notes, r.note].join('；'));
   } catch (e) {
     await say(e instanceof DrawError ? e.message : `没画成：${e instanceof Error ? e.message : String(e)}`).catch(() => {});
@@ -319,7 +322,7 @@ export async function drawForTool(d: NaiDeps, convId: string, a: Record<string, 
   const n = Math.max(1, Math.min(Math.min(4, d.draw.maxCount), Math.round(Number(a.count) || 1)));
   try {
     const r = await draw(d, convId, { v5: a.model === 'v5', prompt, negative, orientation, n });
-    await sendPictures(d, convId, r.pngs);
+    await sendPictures(d, convId, r.pngs, madeBy(a.model === 'v5', prompt, d.nsfwAllowed(convId)));
     return `画好了，${r.pngs.length} 张已经发到聊天里（${r.note}）。用一句话自然地说一下就行，不要再贴提示词。`;
   } catch (e) {
     return `没画成：${e instanceof Error ? e.message : String(e)}`;

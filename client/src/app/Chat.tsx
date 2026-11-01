@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, Ban, Bot, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
+  AlertCircle, Ban, Bot, Copy, Download, FileText, Hash, ImagePlus, Landmark, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
   Reply, X, SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
@@ -20,6 +20,7 @@ import { addFromChat } from '@/lib/stickers';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
 import { GameBar, GameButton } from './Games';
+import { HangDialog, MuseumButton, askHang, openMuseum } from './Museum';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait, usePortraitPack } from './Portrait';
 import { AISettingsDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
@@ -109,6 +110,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {group && !conv.left && (
             <>
               <GameButton v={v} conv={conv} />
+              <MuseumButton v={v} conv={conv} />
               <IconButton label="邀请成员" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
               {!conv.aiId && v.me?.type === 'human' && <IconButton label="添加 bot" onClick={(e) => addBotMenu(e, v, conv)}><Bot size={19} /></IconButton>}
               <IconButton label="频道设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
@@ -124,6 +126,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} pack={pack} />}
         </header>
         {group && <GameBar v={v} conv={conv} />}
+        {group && <HangDialog v={v} conv={conv} />}
         <div
           className="relative flex min-h-0 flex-1 flex-col"
           onPointerDownCapture={ai ? (e) => { pokeDown.current = [e.clientX, e.clientY]; } : undefined}
@@ -268,6 +271,11 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
           )}
         >
           {b.kind === 'system' ? systemText(b.sys, name) : `${name(msg.senderId)} 的一条消息已被 ${name(b.byId)} 删除（原因：${b.reason}）`}
+          {b.kind === 'system' && b.sys.t === 'museum' && !conv.left && (
+            <button type="button" className="press ml-2 font-medium text-accent hover:underline" onClick={() => openMuseum(v.id, conv.id)}>
+              {b.sys.kind === 'proposed' ? '去投票' : '看看'}
+            </button>
+          )}
         </span>
       </motion.div>
     );
@@ -289,6 +297,9 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
         label: '加到我的表情', icon: <Sticker size={16} />, key: `sticker:${b.mediaId}`,
         onClick: () => addFromChat(s.record.id, b.mediaId).then((st) => toast(st.private ? '加到「我的表情」了（不公开）' : '加到「我的表情」了')),
       });
+    }
+    if (b.kind === 'image' && !msg.pending && !msg.failed && conv.kind === 'group' && !conv.left) {
+      items.push({ label: '挂到博物馆…', icon: <Landmark size={16} />, onClick: () => askHang(s.record.id, conv.id, msg.id, b.mediaId, !!b.nsfw) });
     }
     if (b.kind === 'image' || b.kind === 'file') {
       items.push({

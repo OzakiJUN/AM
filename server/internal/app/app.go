@@ -19,6 +19,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/janitor"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/museum"
 	"github.com/OzakiJUN/am/server/internal/music"
 	"github.com/OzakiJUN/am/server/internal/plugin"
 	"github.com/OzakiJUN/am/server/internal/presence"
@@ -40,6 +41,8 @@ type App struct {
 	Plugins *plugin.Service
 	// Hosting: AIs run on this server (nil when hosting.enabled = false).
 	Hosting *hosting.Service
+	// Museum: channel museums (votes are settled in the background).
+	Museum  *museum.Service
 	Janitor *janitor.Janitor
 	Handler http.Handler
 }
@@ -115,6 +118,9 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		hosted.SetOnline(hub.IsOnline)
 	}
 
+	mus := museum.New(museum.Config{Enabled: cfg.Museum.Enabled, MinMembers: cfg.Museum.MinMembers, VoteMinutes: cfg.Museum.VoteMinutes}, st, ids, ms, log)
+	go mus.Run()
+
 	mux := http.NewServeMux()
 	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,
 		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
@@ -124,6 +130,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	if hosted != nil {
 		api.SetHosting(hosted)
 	}
+	api.SetMuseum(mus)
 	api.Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
 
@@ -136,12 +143,14 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Stickers: sk,
 		Plugins:  plugins,
 		Hosting:  hosted,
+		Museum:   mus,
 		Janitor:  janitor.New(st, md, cfg.Retention, log),
 		Handler:  mux,
 	}, nil
 }
 
 func (a *App) Close() {
+	a.Museum.Close()
 	if a.Hosting != nil {
 		a.Hosting.Close()
 	}

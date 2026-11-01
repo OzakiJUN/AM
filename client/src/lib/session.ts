@@ -284,6 +284,59 @@ const toPlugin = (p: api.AIPlugin): Plugin => ({
   enabled: p.enabled, uploadedAt: Number(p.uploadedAt),
 });
 
+/** A work in a channel museum. */
+export interface MuseumArt {
+  /** '' = an empty place. */
+  id: string;
+  mediaId: string;
+  title: string;
+  byUserId: string;
+  method: string;
+  nsfw: boolean;
+  likes: number;
+  liked: boolean;
+  hungAt: number;
+  /** First hall 1–8, 0 = warehouse. */
+  slot: number;
+  convId: string;
+  convName: string;
+  /** NSFW where it isn't allowed: no picture. */
+  hidden: boolean;
+}
+
+export interface MuseumVote {
+  id: string;
+  text: string;
+  byUserId: string;
+  endsAt: number;
+  yes: number;
+  no: number;
+  /** 1 agree, -1 against, 0 not yet. */
+  mine: number;
+  mediaId: string;
+}
+
+export interface MuseumView {
+  /** 8 entries; id '' = empty. */
+  hall: MuseumArt[];
+  second: MuseumArt[];
+  store: MuseumArt[];
+  votes: MuseumVote[];
+  needsVote: boolean;
+  voteMinutes: number;
+}
+
+export interface MuseumResult {
+  done: boolean;
+  text: string;
+  voteId: string;
+}
+
+const toArt = (a: api.MuseumArt): MuseumArt => ({
+  id: a.id ? s(a.id) : '', mediaId: a.mediaId ? s(a.mediaId) : '', title: a.title, byUserId: a.byUserId ? s(a.byUserId) : '', method: a.method,
+  nsfw: a.nsfw, likes: a.likes, liked: a.liked, hungAt: Number(a.hungAt), slot: a.slot, convId: a.convId ? s(a.convId) : '', convName: a.convName, hidden: a.hidden,
+});
+
 const toSticker = (x: api.Sticker): Sticker => ({
   id: s(x.id), mediaId: s(x.mediaId), tags: x.tags, myTags: x.myTags, libraryId: x.libraryId ? s(x.libraryId) : '',
   private: x.private, uploaderId: x.uploaderId ? s(x.uploaderId) : '', sha256: x.sha256, createdAt: Number(x.createdAt),
@@ -349,7 +402,7 @@ function toBody(e: ev.Event): MessageBody | null {
     case 'text':
       return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined, mentions: b.value.mentions.length ? b.value.mentions.map(s) : undefined };
     case 'image':
-      return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height, stickerTags: b.value.stickerTags.length ? b.value.stickerTags : undefined };
+      return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height, stickerTags: b.value.stickerTags.length ? b.value.stickerTags : undefined, madeWith: b.value.madeWith || undefined, nsfw: b.value.nsfw || undefined };
     case 'file':
       return { kind: 'file', mediaId: s(b.value.mediaId), name: b.value.name, size: Number(b.value.size) };
     case 'sysConv': {
@@ -365,6 +418,13 @@ function toBody(e: ev.Event): MessageBody | null {
       else if (c.nsfw !== undefined) sys = { t: 'nsfw', op: o, on: c.nsfw };
       else return null;
       return { kind: 'system', sys };
+    }
+    case 'sysMuseum': {
+      const m = b.value;
+      return {
+        kind: 'system',
+        sys: { t: 'museum', op: op(m.operatorId), kind: m.kind, text: m.text, voteId: m.voteId ? s(m.voteId) : undefined, mediaId: m.mediaId ? s(m.mediaId) : undefined, endsAt: Number(m.endsAt) || undefined },
+      };
     }
     case 'sysMember': {
       const m = b.value;
@@ -398,6 +458,10 @@ export function systemText(sys: SysEvent, name: (id: string) => string): string 
     case 'avatar': return `${name(sys.op)} 更换了频道头像`;
     case 'approval': return `${name(sys.op)} ${sys.on ? '开启' : '关闭'}了加入审批`;
     case 'nsfw': return `${name(sys.op)} ${sys.on ? '允许' : '关闭'}了 NSFW 内容`;
+    case 'museum':
+      if (sys.kind === 'proposed') return `博物馆 · ${name(sys.op)} 发起投票：${sys.text}`;
+      if (sys.kind === 'done') return `博物馆 · ${name(sys.op)}：${sys.text}`;
+      return `博物馆 · ${sys.text}`;
     case 'dissolved': return `${name(sys.op)} 解散了频道`;
     case 'join': return sys.op === sys.target ? `${name(sys.target)} 加入了频道` : `${name(sys.op)} 邀请 ${name(sys.target)} 加入了频道`;
     case 'leave': return `${name(sys.target)} 退出了频道`;
@@ -636,6 +700,48 @@ export class Session {
     return this.aiInfo(await this.call('PUT', '/api/v1/me/ai/settings', api.AIAccountSchema, {
       schema: api.PutAISettingsRequestSchema, value: { settings, baseUpdatedAt: BigInt(base) },
     }));
+  }
+
+  // ---- the channel museum (docs/design.md §13 博物馆) ----
+
+  async museum(convId: string): Promise<MuseumView> {
+    const r = await this.call('GET', `/api/v1/conversations/${convId}/museum`, api.MuseumViewSchema);
+    return {
+      hall: r.hall.map(toArt), second: r.second.map(toArt), store: r.store.map(toArt), needsVote: r.needsVote, voteMinutes: r.voteMinutes,
+      votes: r.votes.map((v) => ({ id: s(v.id), text: v.text, byUserId: s(v.byUserId), endsAt: Number(v.endsAt), yes: v.yes, no: v.no, mine: v.mine, mediaId: v.mediaId ? s(v.mediaId) : '' })),
+    };
+  }
+
+  /** Hangs a chat picture (eventId) or a work (artId); slot 0 = the first empty place. */
+  async museumHang(convId: string, req: { eventId?: string; artId?: string; title?: string; slot?: number; nsfw?: boolean }): Promise<MuseumResult> {
+    return this.museumResult(await this.call('POST', `/api/v1/conversations/${convId}/museum/hang`, api.MuseumResultSchema, {
+      schema: api.MuseumHangRequestSchema,
+      value: { eventId: BigInt(req.eventId ?? 0), artId: BigInt(req.artId ?? 0), title: req.title ?? '', slot: req.slot ?? 0, nsfw: !!req.nsfw },
+    }));
+  }
+
+  async museumRemove(convId: string, artId: string): Promise<MuseumResult> {
+    return this.museumResult(await this.call('POST', `/api/v1/conversations/${convId}/museum/remove`, api.MuseumResultSchema, {
+      schema: api.MuseumActRequestSchema, value: { artId: BigInt(artId) },
+    }));
+  }
+
+  async museumSwap(convId: string, a: number, b: number): Promise<MuseumResult> {
+    return this.museumResult(await this.call('POST', `/api/v1/conversations/${convId}/museum/swap`, api.MuseumResultSchema, {
+      schema: api.MuseumActRequestSchema, value: { a, b },
+    }));
+  }
+
+  private museumResult(r: api.MuseumResult): MuseumResult {
+    return { done: r.done, text: r.text, voteId: r.voteId ? s(r.voteId) : '' };
+  }
+
+  async museumLike(artId: string, on: boolean): Promise<MuseumArt> {
+    return toArt(await this.call(on ? 'POST' : 'DELETE', `/api/v1/museum/arts/${artId}/like`, api.MuseumArtSchema));
+  }
+
+  async museumVote(voteId: string, agree: boolean) {
+    await this.call('POST', `/api/v1/museum/votes/${voteId}`, api.MuseumVoteSchema, { schema: api.MuseumVoteRequestSchema, value: { agree } });
   }
 
   /** Saves settings JSON; base = updatedAt it was edited from (state_conflict otherwise). */
@@ -1263,10 +1369,11 @@ export class Session {
     return fromJsonString(api.MediaInfoSchema, r.body, { ignoreUnknownFields: true });
   }
 
-  async sendFile(convId: string, file: File) {
+  /** made: how an AI made the picture ("NovelAI V5") and its adult flag (kept only for AI / bot senders). */
+  async sendFile(convId: string, file: File, made?: { with: string; nsfw: boolean }) {
     const info = await this.upload(file);
     if (info.isImage) {
-      return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: info.id }) },
+      return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: info.id, madeWith: made?.with ?? '', nsfw: !!made?.nsfw }) },
         { kind: 'image', mediaId: s(info.id), w: info.width, h: info.height });
     }
     return this.sendBody(convId, { case: 'file', value: create(ev.FileMsgSchema, { mediaId: info.id, name: file.name }) },

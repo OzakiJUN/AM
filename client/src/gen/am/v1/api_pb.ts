@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/api.proto.
  */
 export const file_am_v1_api: GenFile = /*@__PURE__*/
-  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiUwoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uEhMKC21heF9kZXZpY2VzGAIgASgFIikKF0NyZWF0ZVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBmJ1bmRsZRgBIAEoDCIwCgpQYWlyVGlja2V0Eg4KBnRpY2tldBgBIAEoCRISCgpleHBpcmVzX2F0GAIgASgDIj4KF1JlZGVlbVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBnRpY2tldBgBIAEoCRITCgtkZXZpY2VfbmFtZRgCIAEoCSJMChJQYWlyUmVkZWVtUmVzcG9uc2USDQoFdG9rZW4YASABKAkSFwoCbWUYAiABKAsyCy5hbS52MS5Vc2VyEg4KBmJ1bmRsZRgDIAEoDCIvCgtDbGllbnRTdGF0ZRIMCgRkYXRhGAEgASgMEhIKCnVwZGF0ZWRfYXQYAiABKAMiPgoVUHV0Q2xpZW50U3RhdGVSZXF1ZXN0EgwKBGRhdGEYASABKAwSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJIoYBCgpTZXJ2ZXJJbmZvEgwKBG5hbWUYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIUCgxkb3dubG9hZF91cmwYAyABKAkSDAoEaWNvbhgEIAEoCRITCgtpbnN0YW5jZV9pZBgFIAEoCRIPCgdwbHVnaW5zGAYgASgIEg8KB2hvc3RpbmcYByABKAgivAEKDVNlcnZlclByb2ZpbGUSDAoEbmFtZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRIMCgRpY29uGAMgASgJEhQKDG1lbWJlcl9jb3VudBgEIAEoBRIUCgxvbmxpbmVfY291bnQYBSABKAUSLQoObGF5b3V0X2VkaXRvcnMYBiABKA4yFS5hbS52MS5Qcm9maWxlRWRpdG9ycxIfChd3aWRnZXRfY29udGVudF9lZGl0YWJsZRgHIAEoCCJxChNMaXN0RnJpZW5kc1Jlc3BvbnNlEhwKB2ZyaWVuZHMYASADKAsyCy5hbS52MS5Vc2VyEh0KCGluY29taW5nGAIgAygLMgsuYW0udjEuVXNlchIdCghvdXRnb2luZxgDIAMoCzILLmFtLnYxLlVzZXIiIQoNRnJpZW5kUmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCSIfCgxGcmllbmRBY2NlcHQSDwoHdXNlcl9pZBgBIAEoAyIgCg1PcGVuRE1SZXF1ZXN0Eg8KB3VzZXJfaWQYASABKAMiQwoRTGlzdFVzZXJzUmVzcG9uc2USGgoFdXNlcnMYASADKAsyCy5hbS52MS5Vc2VyEhIKCm5leHRfYWZ0ZXIYAiABKAMiMAoSTGlzdEJsb2Nrc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlciKOAQoUVXBkYXRlUHJvZmlsZVJlcXVlc3QSGQoMZGlzcGxheV9uYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEAoDYmlvGAMgASgJSAKIAQFCDwoNX2Rpc3BsYXlfbmFtZUISChBfYXZhdGFyX21lZGlhX2lkQgYKBF9iaW8iSgoSU2V0UHJlc2VuY2VSZXF1ZXN0EhEKCWludmlzaWJsZRgBIAEoCBIhCghhY3Rpdml0eRgCIAEoCzIPLmFtLnYxLkFjdGl2aXR5Ij8KGExpc3RMb2dpblJlY29yZHNSZXNwb25zZRIjCgdyZWNvcmRzGAEgAygLMhIuYW0udjEuTG9naW5SZWNvcmQiUAoLTG9naW5SZWNvcmQSDAoEa2luZBgBIAEoCRIKCgJpcBgCIAEoCRITCgtkZXZpY2VfbmFtZRgDIAEoCRISCgpjcmVhdGVkX2F0GAQgASgDIkYKEkNyZWF0ZUdyb3VwUmVxdWVzdBIMCgRuYW1lGAEgASgJEhIKCm1lbWJlcl9pZHMYAiADKAMSDgoGcHVibGljGAMgASgIIjwKFExpc3RDaGFubmVsc1Jlc3BvbnNlEiQKCGNoYW5uZWxzGAEgAygLMhIuYW0udjEuQ2hhbm5lbEluZm8ibQoLQ2hhbm5lbEluZm8SCgoCaWQYASABKAMSDAoEbmFtZRgCIAEoCRIOCgZhdmF0YXIYAyABKAkSDgoGbm90aWNlGAQgASgJEhQKDG1lbWJlcl9jb3VudBgFIAEoBRIOCgZqb2luZWQYBiABKAgiKAoUSW52aXRlTWVtYmVyc1JlcXVlc3QSEAoIdXNlcl9pZHMYASADKAMiOQoVSW52aXRlTWVtYmVyc1Jlc3BvbnNlEg0KBWFkZGVkGAEgAygDEhEKCXJlcXVlc3RlZBgCIAMoAyLMAQoSVXBkYXRlR3JvdXBSZXF1ZXN0EhEKBG5hbWUYASABKAlIAIgBARIcCg9hdmF0YXJfbWVkaWFfaWQYAiABKANIAYgBARITCgZub3RpY2UYAyABKAlIAogBARIaCg1qb2luX2FwcHJvdmFsGAQgASgISAOIAQESEQoEbnNmdxgFIAEoCEgEiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbEIHCgVfbnNmdyInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIiIKEFNldFBpbm5lZFJlcXVlc3QSDgoGcGlubmVkGAEgASgIIh4KDVNldERuZFJlcXVlc3QSDQoFdW50aWwYASABKAMiPgoRTXV0ZU1lbWJlclJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoAxIYChBkdXJhdGlvbl9zZWNvbmRzGAIgASgDIkQKGExpc3RKb2luUmVxdWVzdHNSZXNwb25zZRIoCghyZXF1ZXN0cxgBIAMoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0SW5mbyJeCg9Kb2luUmVxdWVzdEluZm8SGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgCIAEoCzILLmFtLnYxLlVzZXISEgoKY3JlYXRlZF9hdBgDIAEoAyI5ChJBZG1pbkRlbGV0ZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJEhMKC2Jsb2NrX21lZGlhGAIgASgIIpIBCglNZWRpYUluZm8SCgoCaWQYASABKAMSDAoEbWltZRgCIAEoCRIMCgRzaXplGAMgASgDEg0KBXdpZHRoGAQgASgFEg4KBmhlaWdodBgFIAEoBRIMCgRuYW1lGAYgASgJEhAKCGlzX2ltYWdlGAcgASgIEgsKA3VybBgIIAEoCRIRCgl0aHVtYl91cmwYCSABKAkiBwoFRW1wdHkiLwoOTGlzdEFJUmVzcG9uc2USHQoDYWlzGAEgAygLMhAuYW0udjEuQUlBY2NvdW50IpABCglBSUFjY291bnQSGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISEAoIc2V0dGluZ3MYAiABKAkSGwoTc2V0dGluZ3NfdXBkYXRlZF9hdBgDIAEoAxIWCg5zaGFyZV9yZXF1ZXN0cxgEIAEoBRIhCgdob3N0aW5nGAUgASgLMhAuYW0udjEuQUlIb3N0aW5nIngKCUFJSG9zdGluZxIOCgZzdGF0dXMYASABKAkSFQoNcmVqZWN0X3JlYXNvbhgCIAEoCRIUCgxyZXF1ZXN0ZWRfYXQYAyABKAMSDQoFc3RhdGUYBCABKAkSDQoFZXJyb3IYBSABKAkSEAoId29ya19kaXIYBiABKAkiJwoNSG9zdEFJUmVxdWVzdBIWCg5wcm92aWRlcnNfanNvbhgBIAEoCSInCg9DcmVhdGVBSVJlcXVlc3QSFAoMZGlzcGxheV9uYW1lGAEgASgJIkEKFFB1dEFJU2V0dGluZ3NSZXF1ZXN0EhAKCHNldHRpbmdzGAEgASgJEhcKD2Jhc2VfdXBkYXRlZF9hdBgCIAEoAyIjCgxSdW5BSVJlcXVlc3QSEwoLZGV2aWNlX25hbWUYASABKAkiNwoTQ3JlYXRlQUlSb29tUmVxdWVzdBIMCgRuYW1lGAEgASgJEhIKCm1lbWJlcl9pZHMYAiADKAMipAEKB1N0aWNrZXISCgoCaWQYASABKAMSEAoIbWVkaWFfaWQYAiABKAMSDAoEdGFncxgDIAMoCRISCgpjcmVhdGVkX2F0GAQgASgDEhIKCmxpYnJhcnlfaWQYBSABKAMSDwoHcHJpdmF0ZRgGIAEoCBITCgt1cGxvYWRlcl9pZBgHIAEoAxIOCgZzaGEyNTYYCCABKAkSDwoHbXlfdGFncxgJIAMoCSI4ChRMaXN0U3RpY2tlcnNSZXNwb25zZRIgCghzdGlja2VycxgBIAMoCzIOLmFtLnYxLlN0aWNrZXIiVQoRQWRkU3RpY2tlclJlcXVlc3QSEAoIbWVkaWFfaWQYASABKAMSDAoEdGFncxgCIAMoCRIUCgdwcml2YXRlGAMgASgISACIAQFCCgoIX3ByaXZhdGUiJAoUVXBkYXRlU3RpY2tlclJlcXVlc3QSDAoEdGFncxgBIAMoCSIrChhTZXRTdGlja2VyUHJpdmF0ZVJlcXVlc3QSDwoHcHJpdmF0ZRgBIAEoCCLAAQoOTGlicmFyeVN0aWNrZXISCgoCaWQYASABKAMSEAoIbWVkaWFfaWQYAiABKAMSDAoEdGFncxgDIAMoCRIPCgdteV90YWdzGAQgAygJEhMKC3VwbG9hZGVyX2lkGAUgASgDEhIKCmNvbGxlY3RvcnMYBiABKAUSEgoKY3JlYXRlZF9hdBgHIAEoAxIVCg1teV9zdGlja2VyX2lkGAggASgDEg0KBXdpZHRoGAkgASgFEg4KBmhlaWdodBgKIAEoBSJiChNMaXN0TGlicmFyeVJlc3BvbnNlEiQKBWl0ZW1zGAEgAygLMhUuYW0udjEuTGlicmFyeVN0aWNrZXISEwoLbmV4dF9vZmZzZXQYAiABKAUSEAoIZGlzYWJsZWQYAyABKAgiNQoWRWRpdExpYnJhcnlUYWdzUmVxdWVzdBILCgNhZGQYASADKAkSDgoGcmVtb3ZlGAIgAygJIicKFUxvb2t1cFN0aWNrZXJzUmVxdWVzdBIOCgZzaGEyNTYYASADKAkijwEKFkxvb2t1cFN0aWNrZXJzUmVzcG9uc2USQgoLbGlicmFyeV9pZHMYASADKAsyLS5hbS52MS5Mb29rdXBTdGlja2Vyc1Jlc3BvbnNlLkxpYnJhcnlJZHNFbnRyeRoxCg9MaWJyYXJ5SWRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgDOgI4ASIiChNSZXNvbHZlTXVzaWNSZXF1ZXN0EgsKA3VybBgBIAEoCSI/CgpNdXNpY1RyYWNrEhIKCm5ldGVhc2VfaWQYASABKAkSDQoFdGl0bGUYAiABKAkSDgoGYXJ0aXN0GAMgASgJIpIBChRSZXNvbHZlTXVzaWNSZXNwb25zZRIMCgRraW5kGAEgASgJEhIKCm5ldGVhc2VfaWQYAiABKAkSDQoFdGl0bGUYAyABKAkSDgoGYXJ0aXN0GAQgASgJEhYKDmNvdmVyX21lZGlhX2lkGAUgASgDEiEKBnRyYWNrcxgGIAMoCzIRLmFtLnYxLk11c2ljVHJhY2sidQoMUG9ydHJhaXRQYWNrEjQKCW1lZGlhX2lkcxgBIAMoCzIhLmFtLnYxLlBvcnRyYWl0UGFjay5NZWRpYUlkc0VudHJ5Gi8KDU1lZGlhSWRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgDOgI4ASIrCg1TaGFyZVJlcXVlc3RzEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlciIlChJEZWNpZGVTaGFyZVJlcXVlc3QSDwoHYXBwcm92ZRgBIAEoCCI1Cg9PcGVuR2FtZVJlcXVlc3QSDAoEa2luZBgBIAEoCRIUCgxhdXRvX2FwcHJvdmUYAiABKAgiLwoRTGlzdEdhbWVzUmVzcG9uc2USGgoFZ2FtZXMYASADKAsyCy5hbS52MS5HYW1lIlQKDkdhbWVBY3RSZXF1ZXN0Eg4KBmFjdGlvbhgBIAEoCRIJCgF4GAIgASgFEgkKAXkYAyABKAUSDAoEdGV4dBgEIAEoCRIOCgZ0YXJnZXQYBSABKAUiJgoOU2V0R2FtZVJlcXVlc3QSFAoMYXV0b19hcHByb3ZlGAEgASgIIiQKEURlY2lkZUdhbWVSZXF1ZXN0Eg8KB2FwcHJvdmUYASABKAgixAEKEFBsdWdpbkNvbmZpZ0l0ZW0SCwoDa2V5GAEgASgJEg0KBWxhYmVsGAIgASgJEgwKBGhlbHAYAyABKAkSDAoEdHlwZRgEIAEoCRIUCgxkZWZhdWx0X2pzb24YBSABKAkSDwoHb3B0aW9ucxgGIAMoCRINCgVncm91cBgHIAEoCRIOCgZzZWNyZXQYCCABKAgSEAoDbWluGAkgASgBSACIAQESEAoDbWF4GAogASgBSAGIAQFCBgoEX21pbkIGCgRfbWF4Iq4CCghBSVBsdWdpbhIKCgJpZBgBIAEoAxINCgVhaV9pZBgCIAEoAxILCgNkaXIYAyABKAkSDAoEbmFtZRgEIAEoCRITCgtkZXNjcmlwdGlvbhgFIAEoCRINCgV1c2FnZRgGIAEoCRIQCghjb21tYW5kcxgHIAMoCRIQCghyZXF1aXJlcxgIIAMoCRItCgxjb25maWdfaXRlbXMYCSADKAsyFy5hbS52MS5QbHVnaW5Db25maWdJdGVtEhMKC2NvbmZpZ19qc29uGAogASgJEhMKC3NlY3JldHNfc2V0GAsgAygJEg4KBnN0YXR1cxgMIAEoCRIVCg1yZWplY3RfcmVhc29uGA0gASgJEg8KB2VuYWJsZWQYDiABKAgSEwoLdXBsb2FkZWRfYXQYDyABKAMigwEKE0xpc3RQbHVnaW5zUmVzcG9uc2USIAoHcGx1Z2lucxgBIAMoCzIPLmFtLnYxLkFJUGx1Z2luEhIKCmhvc3Rfc3RhdGUYAiABKAkSEgoKaG9zdF9lcnJvchgDIAEoCRILCgNsb2cYBCADKAkSFQoNY29tbWFuZF9zdGFydBgFIAMoCSIoChRVcGxvYWRQbHVnaW5zUmVxdWVzdBIQCghtZWRpYV9pZBgBIAEoAyJMChNVcGRhdGVQbHVnaW5SZXF1ZXN0EhQKB2VuYWJsZWQYASABKAhIAIgBARITCgtjb25maWdfanNvbhgCIAEoCUIKCghfZW5hYmxlZCprCg5Qcm9maWxlRWRpdG9ycxIfChtQUk9GSUxFX0VESVRPUlNfVU5TUEVDSUZJRUQQABIaChZQUk9GSUxFX0VESVRPUlNfQURNSU5TEAESHAoYUFJPRklMRV9FRElUT1JTX0VWRVJZT05FEAJCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common]);
+  fileDesc("Cg9hbS92MS9hcGkucHJvdG8SBWFtLnYxInUKD1JlZ2lzdGVyUmVxdWVzdBITCgtpbnZpdGVfY29kZRgBIAEoCRIQCgh1c2VybmFtZRgCIAEoCRIQCghwYXNzd29yZBgDIAEoCRIUCgxkaXNwbGF5X25hbWUYBCABKAkSEwoLZGV2aWNlX25hbWUYBSABKAkiXAoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJEhMKC2RldmljZV9uYW1lGAMgASgJEhMKC2ludml0ZV9jb2RlGAQgASgJIjkKD1Nlc3Npb25SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIXCgJtZRgCIAEoCzILLmFtLnYxLlVzZXIiUwoUTGlzdFNlc3Npb25zUmVzcG9uc2USJgoIc2Vzc2lvbnMYASADKAsyFC5hbS52MS5EZXZpY2VTZXNzaW9uEhMKC21heF9kZXZpY2VzGAIgASgFIikKF0NyZWF0ZVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBmJ1bmRsZRgBIAEoDCIwCgpQYWlyVGlja2V0Eg4KBnRpY2tldBgBIAEoCRISCgpleHBpcmVzX2F0GAIgASgDIj4KF1JlZGVlbVBhaXJUaWNrZXRSZXF1ZXN0Eg4KBnRpY2tldBgBIAEoCRITCgtkZXZpY2VfbmFtZRgCIAEoCSJMChJQYWlyUmVkZWVtUmVzcG9uc2USDQoFdG9rZW4YASABKAkSFwoCbWUYAiABKAsyCy5hbS52MS5Vc2VyEg4KBmJ1bmRsZRgDIAEoDCIvCgtDbGllbnRTdGF0ZRIMCgRkYXRhGAEgASgMEhIKCnVwZGF0ZWRfYXQYAiABKAMiPgoVUHV0Q2xpZW50U3RhdGVSZXF1ZXN0EgwKBGRhdGEYASABKAwSFwoPYmFzZV91cGRhdGVkX2F0GAIgASgDImgKDURldmljZVNlc3Npb24SCgoCaWQYASABKAMSEwoLZGV2aWNlX25hbWUYAiABKAkSEgoKY3JlYXRlZF9hdBgDIAEoAxIRCglsYXN0X3NlZW4YBCABKAMSDwoHY3VycmVudBgFIAEoCCJIChNMaXN0SW52aXRlc1Jlc3BvbnNlEh4KB2ludml0ZXMYASADKAsyDS5hbS52MS5JbnZpdGUSEQoJcmVtYWluaW5nGAIgASgFInYKBkludml0ZRIMCgRjb2RlGAEgASgJEhIKCmNyZWF0ZWRfYXQYAiABKAMSDwoHdXNlZF9ieRgDIAEoAxIUCgx1c2VkX2J5X25hbWUYBCABKAkSEQoJam9pbl9jb2RlGAUgASgJEhAKCGpvaW5fdXJsGAYgASgJIoYBCgpTZXJ2ZXJJbmZvEgwKBG5hbWUYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIUCgxkb3dubG9hZF91cmwYAyABKAkSDAoEaWNvbhgEIAEoCRITCgtpbnN0YW5jZV9pZBgFIAEoCRIPCgdwbHVnaW5zGAYgASgIEg8KB2hvc3RpbmcYByABKAgivAEKDVNlcnZlclByb2ZpbGUSDAoEbmFtZRgBIAEoCRITCgtkZXNjcmlwdGlvbhgCIAEoCRIMCgRpY29uGAMgASgJEhQKDG1lbWJlcl9jb3VudBgEIAEoBRIUCgxvbmxpbmVfY291bnQYBSABKAUSLQoObGF5b3V0X2VkaXRvcnMYBiABKA4yFS5hbS52MS5Qcm9maWxlRWRpdG9ycxIfChd3aWRnZXRfY29udGVudF9lZGl0YWJsZRgHIAEoCCJxChNMaXN0RnJpZW5kc1Jlc3BvbnNlEhwKB2ZyaWVuZHMYASADKAsyCy5hbS52MS5Vc2VyEh0KCGluY29taW5nGAIgAygLMgsuYW0udjEuVXNlchIdCghvdXRnb2luZxgDIAMoCzILLmFtLnYxLlVzZXIiIQoNRnJpZW5kUmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCSIfCgxGcmllbmRBY2NlcHQSDwoHdXNlcl9pZBgBIAEoAyIgCg1PcGVuRE1SZXF1ZXN0Eg8KB3VzZXJfaWQYASABKAMiQwoRTGlzdFVzZXJzUmVzcG9uc2USGgoFdXNlcnMYASADKAsyCy5hbS52MS5Vc2VyEhIKCm5leHRfYWZ0ZXIYAiABKAMiMAoSTGlzdEJsb2Nrc1Jlc3BvbnNlEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlciKOAQoUVXBkYXRlUHJvZmlsZVJlcXVlc3QSGQoMZGlzcGxheV9uYW1lGAEgASgJSACIAQESHAoPYXZhdGFyX21lZGlhX2lkGAIgASgDSAGIAQESEAoDYmlvGAMgASgJSAKIAQFCDwoNX2Rpc3BsYXlfbmFtZUISChBfYXZhdGFyX21lZGlhX2lkQgYKBF9iaW8iSgoSU2V0UHJlc2VuY2VSZXF1ZXN0EhEKCWludmlzaWJsZRgBIAEoCBIhCghhY3Rpdml0eRgCIAEoCzIPLmFtLnYxLkFjdGl2aXR5Ij8KGExpc3RMb2dpblJlY29yZHNSZXNwb25zZRIjCgdyZWNvcmRzGAEgAygLMhIuYW0udjEuTG9naW5SZWNvcmQiUAoLTG9naW5SZWNvcmQSDAoEa2luZBgBIAEoCRIKCgJpcBgCIAEoCRITCgtkZXZpY2VfbmFtZRgDIAEoCRISCgpjcmVhdGVkX2F0GAQgASgDIkYKEkNyZWF0ZUdyb3VwUmVxdWVzdBIMCgRuYW1lGAEgASgJEhIKCm1lbWJlcl9pZHMYAiADKAMSDgoGcHVibGljGAMgASgIIjwKFExpc3RDaGFubmVsc1Jlc3BvbnNlEiQKCGNoYW5uZWxzGAEgAygLMhIuYW0udjEuQ2hhbm5lbEluZm8ibQoLQ2hhbm5lbEluZm8SCgoCaWQYASABKAMSDAoEbmFtZRgCIAEoCRIOCgZhdmF0YXIYAyABKAkSDgoGbm90aWNlGAQgASgJEhQKDG1lbWJlcl9jb3VudBgFIAEoBRIOCgZqb2luZWQYBiABKAgiKAoUSW52aXRlTWVtYmVyc1JlcXVlc3QSEAoIdXNlcl9pZHMYASADKAMiOQoVSW52aXRlTWVtYmVyc1Jlc3BvbnNlEg0KBWFkZGVkGAEgAygDEhEKCXJlcXVlc3RlZBgCIAMoAyLMAQoSVXBkYXRlR3JvdXBSZXF1ZXN0EhEKBG5hbWUYASABKAlIAIgBARIcCg9hdmF0YXJfbWVkaWFfaWQYAiABKANIAYgBARITCgZub3RpY2UYAyABKAlIAogBARIaCg1qb2luX2FwcHJvdmFsGAQgASgISAOIAQESEQoEbnNmdxgFIAEoCEgEiAEBQgcKBV9uYW1lQhIKEF9hdmF0YXJfbWVkaWFfaWRCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbEIHCgVfbnNmdyInChRUcmFuc2Zlckdyb3VwUmVxdWVzdBIPCgd1c2VyX2lkGAEgASgDIiIKEFNldFBpbm5lZFJlcXVlc3QSDgoGcGlubmVkGAEgASgIIh4KDVNldERuZFJlcXVlc3QSDQoFdW50aWwYASABKAMiPgoRTXV0ZU1lbWJlclJlcXVlc3QSDwoHdXNlcl9pZBgBIAEoAxIYChBkdXJhdGlvbl9zZWNvbmRzGAIgASgDIkQKGExpc3RKb2luUmVxdWVzdHNSZXNwb25zZRIoCghyZXF1ZXN0cxgBIAMoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0SW5mbyJeCg9Kb2luUmVxdWVzdEluZm8SGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgCIAEoCzILLmFtLnYxLlVzZXISEgoKY3JlYXRlZF9hdBgDIAEoAyI5ChJBZG1pbkRlbGV0ZVJlcXVlc3QSDgoGcmVhc29uGAEgASgJEhMKC2Jsb2NrX21lZGlhGAIgASgIIpIBCglNZWRpYUluZm8SCgoCaWQYASABKAMSDAoEbWltZRgCIAEoCRIMCgRzaXplGAMgASgDEg0KBXdpZHRoGAQgASgFEg4KBmhlaWdodBgFIAEoBRIMCgRuYW1lGAYgASgJEhAKCGlzX2ltYWdlGAcgASgIEgsKA3VybBgIIAEoCRIRCgl0aHVtYl91cmwYCSABKAkiBwoFRW1wdHkiLwoOTGlzdEFJUmVzcG9uc2USHQoDYWlzGAEgAygLMhAuYW0udjEuQUlBY2NvdW50IpABCglBSUFjY291bnQSGQoEdXNlchgBIAEoCzILLmFtLnYxLlVzZXISEAoIc2V0dGluZ3MYAiABKAkSGwoTc2V0dGluZ3NfdXBkYXRlZF9hdBgDIAEoAxIWCg5zaGFyZV9yZXF1ZXN0cxgEIAEoBRIhCgdob3N0aW5nGAUgASgLMhAuYW0udjEuQUlIb3N0aW5nIngKCUFJSG9zdGluZxIOCgZzdGF0dXMYASABKAkSFQoNcmVqZWN0X3JlYXNvbhgCIAEoCRIUCgxyZXF1ZXN0ZWRfYXQYAyABKAMSDQoFc3RhdGUYBCABKAkSDQoFZXJyb3IYBSABKAkSEAoId29ya19kaXIYBiABKAkiJwoNSG9zdEFJUmVxdWVzdBIWCg5wcm92aWRlcnNfanNvbhgBIAEoCSInCg9DcmVhdGVBSVJlcXVlc3QSFAoMZGlzcGxheV9uYW1lGAEgASgJIkEKFFB1dEFJU2V0dGluZ3NSZXF1ZXN0EhAKCHNldHRpbmdzGAEgASgJEhcKD2Jhc2VfdXBkYXRlZF9hdBgCIAEoAyIjCgxSdW5BSVJlcXVlc3QSEwoLZGV2aWNlX25hbWUYASABKAkiNwoTQ3JlYXRlQUlSb29tUmVxdWVzdBIMCgRuYW1lGAEgASgJEhIKCm1lbWJlcl9pZHMYAiADKAMipAEKB1N0aWNrZXISCgoCaWQYASABKAMSEAoIbWVkaWFfaWQYAiABKAMSDAoEdGFncxgDIAMoCRISCgpjcmVhdGVkX2F0GAQgASgDEhIKCmxpYnJhcnlfaWQYBSABKAMSDwoHcHJpdmF0ZRgGIAEoCBITCgt1cGxvYWRlcl9pZBgHIAEoAxIOCgZzaGEyNTYYCCABKAkSDwoHbXlfdGFncxgJIAMoCSI4ChRMaXN0U3RpY2tlcnNSZXNwb25zZRIgCghzdGlja2VycxgBIAMoCzIOLmFtLnYxLlN0aWNrZXIiVQoRQWRkU3RpY2tlclJlcXVlc3QSEAoIbWVkaWFfaWQYASABKAMSDAoEdGFncxgCIAMoCRIUCgdwcml2YXRlGAMgASgISACIAQFCCgoIX3ByaXZhdGUiJAoUVXBkYXRlU3RpY2tlclJlcXVlc3QSDAoEdGFncxgBIAMoCSIrChhTZXRTdGlja2VyUHJpdmF0ZVJlcXVlc3QSDwoHcHJpdmF0ZRgBIAEoCCLAAQoOTGlicmFyeVN0aWNrZXISCgoCaWQYASABKAMSEAoIbWVkaWFfaWQYAiABKAMSDAoEdGFncxgDIAMoCRIPCgdteV90YWdzGAQgAygJEhMKC3VwbG9hZGVyX2lkGAUgASgDEhIKCmNvbGxlY3RvcnMYBiABKAUSEgoKY3JlYXRlZF9hdBgHIAEoAxIVCg1teV9zdGlja2VyX2lkGAggASgDEg0KBXdpZHRoGAkgASgFEg4KBmhlaWdodBgKIAEoBSJiChNMaXN0TGlicmFyeVJlc3BvbnNlEiQKBWl0ZW1zGAEgAygLMhUuYW0udjEuTGlicmFyeVN0aWNrZXISEwoLbmV4dF9vZmZzZXQYAiABKAUSEAoIZGlzYWJsZWQYAyABKAgiNQoWRWRpdExpYnJhcnlUYWdzUmVxdWVzdBILCgNhZGQYASADKAkSDgoGcmVtb3ZlGAIgAygJIicKFUxvb2t1cFN0aWNrZXJzUmVxdWVzdBIOCgZzaGEyNTYYASADKAkijwEKFkxvb2t1cFN0aWNrZXJzUmVzcG9uc2USQgoLbGlicmFyeV9pZHMYASADKAsyLS5hbS52MS5Mb29rdXBTdGlja2Vyc1Jlc3BvbnNlLkxpYnJhcnlJZHNFbnRyeRoxCg9MaWJyYXJ5SWRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgDOgI4ASIiChNSZXNvbHZlTXVzaWNSZXF1ZXN0EgsKA3VybBgBIAEoCSI/CgpNdXNpY1RyYWNrEhIKCm5ldGVhc2VfaWQYASABKAkSDQoFdGl0bGUYAiABKAkSDgoGYXJ0aXN0GAMgASgJIpIBChRSZXNvbHZlTXVzaWNSZXNwb25zZRIMCgRraW5kGAEgASgJEhIKCm5ldGVhc2VfaWQYAiABKAkSDQoFdGl0bGUYAyABKAkSDgoGYXJ0aXN0GAQgASgJEhYKDmNvdmVyX21lZGlhX2lkGAUgASgDEiEKBnRyYWNrcxgGIAMoCzIRLmFtLnYxLk11c2ljVHJhY2sidQoMUG9ydHJhaXRQYWNrEjQKCW1lZGlhX2lkcxgBIAMoCzIhLmFtLnYxLlBvcnRyYWl0UGFjay5NZWRpYUlkc0VudHJ5Gi8KDU1lZGlhSWRzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgDOgI4ASIrCg1TaGFyZVJlcXVlc3RzEhoKBXVzZXJzGAEgAygLMgsuYW0udjEuVXNlciIlChJEZWNpZGVTaGFyZVJlcXVlc3QSDwoHYXBwcm92ZRgBIAEoCCI1Cg9PcGVuR2FtZVJlcXVlc3QSDAoEa2luZBgBIAEoCRIUCgxhdXRvX2FwcHJvdmUYAiABKAgiLwoRTGlzdEdhbWVzUmVzcG9uc2USGgoFZ2FtZXMYASADKAsyCy5hbS52MS5HYW1lIlQKDkdhbWVBY3RSZXF1ZXN0Eg4KBmFjdGlvbhgBIAEoCRIJCgF4GAIgASgFEgkKAXkYAyABKAUSDAoEdGV4dBgEIAEoCRIOCgZ0YXJnZXQYBSABKAUiJgoOU2V0R2FtZVJlcXVlc3QSFAoMYXV0b19hcHByb3ZlGAEgASgIIiQKEURlY2lkZUdhbWVSZXF1ZXN0Eg8KB2FwcHJvdmUYASABKAgixAEKEFBsdWdpbkNvbmZpZ0l0ZW0SCwoDa2V5GAEgASgJEg0KBWxhYmVsGAIgASgJEgwKBGhlbHAYAyABKAkSDAoEdHlwZRgEIAEoCRIUCgxkZWZhdWx0X2pzb24YBSABKAkSDwoHb3B0aW9ucxgGIAMoCRINCgVncm91cBgHIAEoCRIOCgZzZWNyZXQYCCABKAgSEAoDbWluGAkgASgBSACIAQESEAoDbWF4GAogASgBSAGIAQFCBgoEX21pbkIGCgRfbWF4Iq4CCghBSVBsdWdpbhIKCgJpZBgBIAEoAxINCgVhaV9pZBgCIAEoAxILCgNkaXIYAyABKAkSDAoEbmFtZRgEIAEoCRITCgtkZXNjcmlwdGlvbhgFIAEoCRINCgV1c2FnZRgGIAEoCRIQCghjb21tYW5kcxgHIAMoCRIQCghyZXF1aXJlcxgIIAMoCRItCgxjb25maWdfaXRlbXMYCSADKAsyFy5hbS52MS5QbHVnaW5Db25maWdJdGVtEhMKC2NvbmZpZ19qc29uGAogASgJEhMKC3NlY3JldHNfc2V0GAsgAygJEg4KBnN0YXR1cxgMIAEoCRIVCg1yZWplY3RfcmVhc29uGA0gASgJEg8KB2VuYWJsZWQYDiABKAgSEwoLdXBsb2FkZWRfYXQYDyABKAMigwEKE0xpc3RQbHVnaW5zUmVzcG9uc2USIAoHcGx1Z2lucxgBIAMoCzIPLmFtLnYxLkFJUGx1Z2luEhIKCmhvc3Rfc3RhdGUYAiABKAkSEgoKaG9zdF9lcnJvchgDIAEoCRILCgNsb2cYBCADKAkSFQoNY29tbWFuZF9zdGFydBgFIAMoCSIoChRVcGxvYWRQbHVnaW5zUmVxdWVzdBIQCghtZWRpYV9pZBgBIAEoAyJMChNVcGRhdGVQbHVnaW5SZXF1ZXN0EhQKB2VuYWJsZWQYASABKAhIAIgBARITCgtjb25maWdfanNvbhgCIAEoCUIKCghfZW5hYmxlZCLbAQoJTXVzZXVtQXJ0EgoKAmlkGAEgASgDEhAKCG1lZGlhX2lkGAIgASgDEg0KBXRpdGxlGAMgASgJEhIKCmJ5X3VzZXJfaWQYBCABKAMSDgoGbWV0aG9kGAUgASgJEgwKBG5zZncYBiABKAgSDQoFbGlrZXMYByABKAUSDQoFbGlrZWQYCCABKAgSDwoHaHVuZ19hdBgJIAEoAxIMCgRzbG90GAogASgFEg8KB2NvbnZfaWQYCyABKAMSEQoJY29udl9uYW1lGAwgASgJEg4KBmhpZGRlbhgNIAEoCCKEAQoKTXVzZXVtVm90ZRIKCgJpZBgBIAEoAxIMCgR0ZXh0GAIgASgJEhIKCmJ5X3VzZXJfaWQYAyABKAMSDwoHZW5kc19hdBgEIAEoAxILCgN5ZXMYBSABKAUSCgoCbm8YBiABKAUSDAoEbWluZRgHIAEoBRIQCghtZWRpYV9pZBgIIAEoAyK7AQoKTXVzZXVtVmlldxIeCgRoYWxsGAEgAygLMhAuYW0udjEuTXVzZXVtQXJ0EiAKBnNlY29uZBgCIAMoCzIQLmFtLnYxLk11c2V1bUFydBIfCgVzdG9yZRgDIAMoCzIQLmFtLnYxLk11c2V1bUFydBIgCgV2b3RlcxgEIAMoCzIRLmFtLnYxLk11c2V1bVZvdGUSEgoKbmVlZHNfdm90ZRgFIAEoCBIUCgx2b3RlX21pbnV0ZXMYBiABKAUiYAoRTXVzZXVtSGFuZ1JlcXVlc3QSEAoIZXZlbnRfaWQYASABKAMSDgoGYXJ0X2lkGAIgASgDEg0KBXRpdGxlGAMgASgJEgwKBHNsb3QYBCABKAUSDAoEbnNmdxgFIAEoCCI4ChBNdXNldW1BY3RSZXF1ZXN0Eg4KBmFydF9pZBgBIAEoAxIJCgFhGAIgASgFEgkKAWIYAyABKAUiOwoMTXVzZXVtUmVzdWx0EgwKBGRvbmUYASABKAgSDAoEdGV4dBgCIAEoCRIPCgd2b3RlX2lkGAMgASgDIiIKEU11c2V1bVZvdGVSZXF1ZXN0Eg0KBWFncmVlGAEgASgIKmsKDlByb2ZpbGVFZGl0b3JzEh8KG1BST0ZJTEVfRURJVE9SU19VTlNQRUNJRklFRBAAEhoKFlBST0ZJTEVfRURJVE9SU19BRE1JTlMQARIcChhQUk9GSUxFX0VESVRPUlNfRVZFUllPTkUQAkIqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM", [file_am_v1_common]);
 
 /**
  * POST /api/v1/register
@@ -2301,6 +2301,327 @@ export type UpdatePluginRequest = Message<"am.v1.UpdatePluginRequest"> & {
  */
 export const UpdatePluginRequestSchema: GenMessage<UpdatePluginRequest> = /*@__PURE__*/
   messageDesc(file_am_v1_api, 73);
+
+/**
+ * @generated from message am.v1.MuseumArt
+ */
+export type MuseumArt = Message<"am.v1.MuseumArt"> & {
+  /**
+   * @generated from field: int64 id = 1;
+   */
+  id: bigint;
+
+  /**
+   * @generated from field: int64 media_id = 2;
+   */
+  mediaId: bigint;
+
+  /**
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * @generated from field: int64 by_user_id = 4;
+   */
+  byUserId: bigint;
+
+  /**
+   * "投稿", or how an AI made it ("NovelAI V5").
+   *
+   * @generated from field: string method = 5;
+   */
+  method: string;
+
+  /**
+   * @generated from field: bool nsfw = 6;
+   */
+  nsfw: boolean;
+
+  /**
+   * @generated from field: int32 likes = 7;
+   */
+  likes: number;
+
+  /**
+   * I liked it.
+   *
+   * @generated from field: bool liked = 8;
+   */
+  liked: boolean;
+
+  /**
+   * When it last went up (unix ms; 0 = never).
+   *
+   * @generated from field: int64 hung_at = 9;
+   */
+  hungAt: bigint;
+
+  /**
+   * First hall position 1–8; 0 = in the warehouse.
+   *
+   * @generated from field: int32 slot = 10;
+   */
+  slot: number;
+
+  /**
+   * The channel whose hall it is in (second hall: where it comes from).
+   *
+   * @generated from field: int64 conv_id = 11;
+   */
+  convId: bigint;
+
+  /**
+   * @generated from field: string conv_name = 12;
+   */
+  convName: string;
+
+  /**
+   * NSFW and this channel doesn't allow it: no picture.
+   *
+   * @generated from field: bool hidden = 13;
+   */
+  hidden: boolean;
+};
+
+/**
+ * Describes the message am.v1.MuseumArt.
+ * Use `create(MuseumArtSchema)` to create a new message.
+ */
+export const MuseumArtSchema: GenMessage<MuseumArt> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 74);
+
+/**
+ * @generated from message am.v1.MuseumVote
+ */
+export type MuseumVote = Message<"am.v1.MuseumVote"> & {
+  /**
+   * @generated from field: int64 id = 1;
+   */
+  id: bigint;
+
+  /**
+   * @generated from field: string text = 2;
+   */
+  text: string;
+
+  /**
+   * @generated from field: int64 by_user_id = 3;
+   */
+  byUserId: bigint;
+
+  /**
+   * @generated from field: int64 ends_at = 4;
+   */
+  endsAt: bigint;
+
+  /**
+   * @generated from field: int32 yes = 5;
+   */
+  yes: number;
+
+  /**
+   * @generated from field: int32 no = 6;
+   */
+  no: number;
+
+  /**
+   * My ballot: 1 agree, -1 against, 0 not yet.
+   *
+   * @generated from field: int32 mine = 7;
+   */
+  mine: number;
+
+  /**
+   * The picture, when it's about hanging a new one.
+   *
+   * @generated from field: int64 media_id = 8;
+   */
+  mediaId: bigint;
+};
+
+/**
+ * Describes the message am.v1.MuseumVote.
+ * Use `create(MuseumVoteSchema)` to create a new message.
+ */
+export const MuseumVoteSchema: GenMessage<MuseumVote> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 75);
+
+/**
+ * GET /api/v1/conversations/{id}/museum -> MuseumView
+ *
+ * @generated from message am.v1.MuseumView
+ */
+export type MuseumView = Message<"am.v1.MuseumView"> & {
+  /**
+   * The first hall: one entry per position (id 0 = empty).
+   *
+   * @generated from field: repeated am.v1.MuseumArt hall = 1;
+   */
+  hall: MuseumArt[];
+
+  /**
+   * The second hall: the most liked across (public) channels.
+   *
+   * @generated from field: repeated am.v1.MuseumArt second = 2;
+   */
+  second: MuseumArt[];
+
+  /**
+   * This channel's warehouse, newest first.
+   *
+   * @generated from field: repeated am.v1.MuseumArt store = 3;
+   */
+  store: MuseumArt[];
+
+  /**
+   * @generated from field: repeated am.v1.MuseumVote votes = 4;
+   */
+  votes: MuseumVote[];
+
+  /**
+   * Changes need a vote here (more members than museum.min_members).
+   *
+   * @generated from field: bool needs_vote = 5;
+   */
+  needsVote: boolean;
+
+  /**
+   * @generated from field: int32 vote_minutes = 6;
+   */
+  voteMinutes: number;
+};
+
+/**
+ * Describes the message am.v1.MuseumView.
+ * Use `create(MuseumViewSchema)` to create a new message.
+ */
+export const MuseumViewSchema: GenMessage<MuseumView> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 76);
+
+/**
+ * POST /api/v1/conversations/{id}/museum/hang -> MuseumResult
+ *
+ * @generated from message am.v1.MuseumHangRequest
+ */
+export type MuseumHangRequest = Message<"am.v1.MuseumHangRequest"> & {
+  /**
+   * A picture in this channel's chat (new work), or
+   *
+   * @generated from field: int64 event_id = 1;
+   */
+  eventId: bigint;
+
+  /**
+   * a work from this channel's warehouse / hall (moved to `slot`).
+   *
+   * @generated from field: int64 art_id = 2;
+   */
+  artId: bigint;
+
+  /**
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * 1–8 = that position (others move back; the last one goes to the
+   * warehouse when the hall is full), 0 = the first empty one.
+   *
+   * @generated from field: int32 slot = 4;
+   */
+  slot: number;
+
+  /**
+   * @generated from field: bool nsfw = 5;
+   */
+  nsfw: boolean;
+};
+
+/**
+ * Describes the message am.v1.MuseumHangRequest.
+ * Use `create(MuseumHangRequestSchema)` to create a new message.
+ */
+export const MuseumHangRequestSchema: GenMessage<MuseumHangRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 77);
+
+/**
+ * POST /api/v1/conversations/{id}/museum/remove (art_id) and
+ * POST /api/v1/conversations/{id}/museum/swap (a, b) -> MuseumResult
+ *
+ * @generated from message am.v1.MuseumActRequest
+ */
+export type MuseumActRequest = Message<"am.v1.MuseumActRequest"> & {
+  /**
+   * @generated from field: int64 art_id = 1;
+   */
+  artId: bigint;
+
+  /**
+   * @generated from field: int32 a = 2;
+   */
+  a: number;
+
+  /**
+   * @generated from field: int32 b = 3;
+   */
+  b: number;
+};
+
+/**
+ * Describes the message am.v1.MuseumActRequest.
+ * Use `create(MuseumActRequestSchema)` to create a new message.
+ */
+export const MuseumActRequestSchema: GenMessage<MuseumActRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 78);
+
+/**
+ * @generated from message am.v1.MuseumResult
+ */
+export type MuseumResult = Message<"am.v1.MuseumResult"> & {
+  /**
+   * Done now (no vote needed); otherwise a vote started.
+   *
+   * @generated from field: bool done = 1;
+   */
+  done: boolean;
+
+  /**
+   * @generated from field: string text = 2;
+   */
+  text: string;
+
+  /**
+   * @generated from field: int64 vote_id = 3;
+   */
+  voteId: bigint;
+};
+
+/**
+ * Describes the message am.v1.MuseumResult.
+ * Use `create(MuseumResultSchema)` to create a new message.
+ */
+export const MuseumResultSchema: GenMessage<MuseumResult> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 79);
+
+/**
+ * POST /api/v1/museum/votes/{id} -> MuseumVote
+ *
+ * @generated from message am.v1.MuseumVoteRequest
+ */
+export type MuseumVoteRequest = Message<"am.v1.MuseumVoteRequest"> & {
+  /**
+   * @generated from field: bool agree = 1;
+   */
+  agree: boolean;
+};
+
+/**
+ * Describes the message am.v1.MuseumVoteRequest.
+ * Use `create(MuseumVoteRequestSchema)` to create a new message.
+ */
+export const MuseumVoteRequestSchema: GenMessage<MuseumVoteRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_api, 80);
 
 /**
  * Who may rearrange the widgets on the server profile.

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/event.proto.
  */
 export const file_am_v1_event: GenFile = /*@__PURE__*/
-  fileDesc("ChFhbS92MS9ldmVudC5wcm90bxIFYW0udjEiowMKBUV2ZW50EhAKCGV2ZW50X2lkGAEgASgDEg8KB2NvbnZfaWQYAiABKAMSCwoDc2VxGAMgASgDEhEKCXNlbmRlcl9pZBgEIAEoAxISCgpjcmVhdGVkX2F0GAUgASgDEhUKDWNsaWVudF9tc2dfaWQYBiABKAkSHgoEdGV4dBgKIAEoCzIOLmFtLnYxLlRleHRNc2dIABIgCgVpbWFnZRgLIAEoCzIPLmFtLnYxLkltYWdlTXNnSAASHgoEZmlsZRgMIAEoCzIOLmFtLnYxLkZpbGVNc2dIABIiCgZzdHJpa2UYFCABKAsyEC5hbS52MS5TdHJpa2VBY3RIABItCgxhZG1pbl9kZWxldGUYFSABKAsyFS5hbS52MS5BZG1pbkRlbGV0ZUFjdEgAEiYKCnN5c19tZW1iZXIYHiABKAsyEC5hbS52MS5TeXNNZW1iZXJIABIiCghzeXNfY29udhgfIAEoCzIOLmFtLnYxLlN5c0NvbnZIABIjCglyZWRhY3Rpb24YKCABKAsyEC5hbS52MS5SZWRhY3Rpb25CBgoEYm9keSJJCgdUZXh0TXNnEgwKBHRleHQYASABKAkSEAoIcmVwbHlfdG8YAiABKAMSEAoIbWVudGlvbnMYAyADKAMSDAoEbW9vZBgEIAEoCSJRCghJbWFnZU1zZxIQCghtZWRpYV9pZBgBIAEoAxINCgV3aWR0aBgCIAEoBRIOCgZoZWlnaHQYAyABKAUSFAoMc3RpY2tlcl90YWdzGAQgAygJIjcKB0ZpbGVNc2cSEAoIbWVkaWFfaWQYASABKAMSDAoEbmFtZRgCIAEoCRIMCgRzaXplGAMgASgDIiQKCVN0cmlrZUFjdBIXCg90YXJnZXRfZXZlbnRfaWQYASABKAMiOQoOQWRtaW5EZWxldGVBY3QSFwoPdGFyZ2V0X2V2ZW50X2lkGAEgASgDEg4KBnJlYXNvbhgCIAEoCSJDCglSZWRhY3Rpb24SEgoKZGVsZXRlZF9ieRgBIAEoAxIOCgZyZWFzb24YAiABKAkSEgoKZGVsZXRlZF9hdBgDIAEoAyKoAgoJU3lzTWVtYmVyEicKBmFjdGlvbhgBIAEoDjIXLmFtLnYxLlN5c01lbWJlci5BY3Rpb24SFgoOdGFyZ2V0X3VzZXJfaWQYAiABKAMSEwoLb3BlcmF0b3JfaWQYAyABKAMSDQoFdW50aWwYBCABKAMSIwoIbmV3X3JvbGUYBSABKA4yES5hbS52MS5NZW1iZXJSb2xlIpABCgZBY3Rpb24SFgoSQUNUSU9OX1VOU1BFQ0lGSUVEEAASDwoLQUNUSU9OX0pPSU4QARIQCgxBQ1RJT05fTEVBVkUQAhIPCgtBQ1RJT05fS0lDSxADEg8KC0FDVElPTl9NVVRFEAQSEQoNQUNUSU9OX1VOTVVURRAFEhYKEkFDVElPTl9ST0xFX0NIQU5HRRAGIugBCgdTeXNDb252EhMKC29wZXJhdG9yX2lkGAEgASgDEhEKBG5hbWUYAiABKAlIAIgBARITCgZhdmF0YXIYAyABKAlIAYgBARITCgZub3RpY2UYBCABKAlIAogBARIRCglkaXNzb2x2ZWQYBSABKAgSGgoNam9pbl9hcHByb3ZhbBgGIAEoCEgDiAEBEg8KB2NyZWF0ZWQYByABKAgSEQoEbnNmdxgIIAEoCEgEiAEBQgcKBV9uYW1lQgkKB19hdmF0YXJCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbEIHCgVfbnNmd0IqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM", [file_am_v1_common]);
+  fileDesc("ChFhbS92MS9ldmVudC5wcm90bxIFYW0udjEiywMKBUV2ZW50EhAKCGV2ZW50X2lkGAEgASgDEg8KB2NvbnZfaWQYAiABKAMSCwoDc2VxGAMgASgDEhEKCXNlbmRlcl9pZBgEIAEoAxISCgpjcmVhdGVkX2F0GAUgASgDEhUKDWNsaWVudF9tc2dfaWQYBiABKAkSHgoEdGV4dBgKIAEoCzIOLmFtLnYxLlRleHRNc2dIABIgCgVpbWFnZRgLIAEoCzIPLmFtLnYxLkltYWdlTXNnSAASHgoEZmlsZRgMIAEoCzIOLmFtLnYxLkZpbGVNc2dIABIiCgZzdHJpa2UYFCABKAsyEC5hbS52MS5TdHJpa2VBY3RIABItCgxhZG1pbl9kZWxldGUYFSABKAsyFS5hbS52MS5BZG1pbkRlbGV0ZUFjdEgAEiYKCnN5c19tZW1iZXIYHiABKAsyEC5hbS52MS5TeXNNZW1iZXJIABIiCghzeXNfY29udhgfIAEoCzIOLmFtLnYxLlN5c0NvbnZIABImCgpzeXNfbXVzZXVtGCAgASgLMhAuYW0udjEuU3lzTXVzZXVtSAASIwoJcmVkYWN0aW9uGCggASgLMhAuYW0udjEuUmVkYWN0aW9uQgYKBGJvZHkiSQoHVGV4dE1zZxIMCgR0ZXh0GAEgASgJEhAKCHJlcGx5X3RvGAIgASgDEhAKCG1lbnRpb25zGAMgAygDEgwKBG1vb2QYBCABKAkicgoISW1hZ2VNc2cSEAoIbWVkaWFfaWQYASABKAMSDQoFd2lkdGgYAiABKAUSDgoGaGVpZ2h0GAMgASgFEhQKDHN0aWNrZXJfdGFncxgEIAMoCRIRCgltYWRlX3dpdGgYBSABKAkSDAoEbnNmdxgGIAEoCCI3CgdGaWxlTXNnEhAKCG1lZGlhX2lkGAEgASgDEgwKBG5hbWUYAiABKAkSDAoEc2l6ZRgDIAEoAyIkCglTdHJpa2VBY3QSFwoPdGFyZ2V0X2V2ZW50X2lkGAEgASgDIjkKDkFkbWluRGVsZXRlQWN0EhcKD3RhcmdldF9ldmVudF9pZBgBIAEoAxIOCgZyZWFzb24YAiABKAkiQwoJUmVkYWN0aW9uEhIKCmRlbGV0ZWRfYnkYASABKAMSDgoGcmVhc29uGAIgASgJEhIKCmRlbGV0ZWRfYXQYAyABKAMiqAIKCVN5c01lbWJlchInCgZhY3Rpb24YASABKA4yFy5hbS52MS5TeXNNZW1iZXIuQWN0aW9uEhYKDnRhcmdldF91c2VyX2lkGAIgASgDEhMKC29wZXJhdG9yX2lkGAMgASgDEg0KBXVudGlsGAQgASgDEiMKCG5ld19yb2xlGAUgASgOMhEuYW0udjEuTWVtYmVyUm9sZSKQAQoGQWN0aW9uEhYKEkFDVElPTl9VTlNQRUNJRklFRBAAEg8KC0FDVElPTl9KT0lOEAESEAoMQUNUSU9OX0xFQVZFEAISDwoLQUNUSU9OX0tJQ0sQAxIPCgtBQ1RJT05fTVVURRAEEhEKDUFDVElPTl9VTk1VVEUQBRIWChJBQ1RJT05fUk9MRV9DSEFOR0UQBiLoAQoHU3lzQ29udhITCgtvcGVyYXRvcl9pZBgBIAEoAxIRCgRuYW1lGAIgASgJSACIAQESEwoGYXZhdGFyGAMgASgJSAGIAQESEwoGbm90aWNlGAQgASgJSAKIAQESEQoJZGlzc29sdmVkGAUgASgIEhoKDWpvaW5fYXBwcm92YWwYBiABKAhIA4gBARIPCgdjcmVhdGVkGAcgASgIEhEKBG5zZncYCCABKAhIBIgBAUIHCgVfbmFtZUIJCgdfYXZhdGFyQgkKB19ub3RpY2VCEAoOX2pvaW5fYXBwcm92YWxCBwoFX25zZncimQEKCVN5c011c2V1bRIMCgRraW5kGAEgASgJEhMKC29wZXJhdG9yX2lkGAIgASgDEgwKBHRleHQYAyABKAkSDwoHdm90ZV9pZBgEIAEoAxIPCgdlbmRzX2F0GAUgASgDEg4KBmFydF9pZBgGIAEoAxIQCghtZWRpYV9pZBgHIAEoAxILCgN5ZXMYCCABKAUSCgoCbm8YCSABKAVCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common]);
 
 /**
  * Everything that happens in a conversation is an Event.
@@ -107,6 +107,12 @@ export type Event = Message<"am.v1.Event"> & {
      */
     value: SysConv;
     case: "sysConv";
+  } | {
+    /**
+     * @generated from field: am.v1.SysMuseum sys_museum = 32;
+     */
+    value: SysMuseum;
+    case: "sysMuseum";
   } | { case: undefined; value?: undefined };
 
   /**
@@ -188,6 +194,20 @@ export type ImageMsg = Message<"am.v1.ImageMsg"> & {
    * @generated from field: repeated string sticker_tags = 4;
    */
   stickerTags: string[];
+
+  /**
+   * How an AI made it (e.g. "NovelAI V5"); only kept on ai / bot messages.
+   *
+   * @generated from field: string made_with = 5;
+   */
+  madeWith: string;
+
+  /**
+   * An AI drew it with adult content; only kept on ai / bot messages.
+   *
+   * @generated from field: bool nsfw = 6;
+   */
+  nsfw: boolean;
 };
 
 /**
@@ -446,4 +466,72 @@ export type SysConv = Message<"am.v1.SysConv"> & {
  */
 export const SysConvSchema: GenMessage<SysConv> = /*@__PURE__*/
   messageDesc(file_am_v1_event, 8);
+
+/**
+ * The channel's museum (docs/design.md §13 博物馆), generated by the server:
+ * a proposal to vote on, its result, or a change made without a vote.
+ *
+ * @generated from message am.v1.SysMuseum
+ */
+export type SysMuseum = Message<"am.v1.SysMuseum"> & {
+  /**
+   * proposed | passed | failed | done
+   *
+   * @generated from field: string kind = 1;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: int64 operator_id = 2;
+   */
+  operatorId: bigint;
+
+  /**
+   * What happens, in words (e.g. "把《夕阳》挂进第一展厅 No.3").
+   *
+   * @generated from field: string text = 3;
+   */
+  text: string;
+
+  /**
+   * @generated from field: int64 vote_id = 4;
+   */
+  voteId: bigint;
+
+  /**
+   * proposed: when the vote ends (unix ms).
+   *
+   * @generated from field: int64 ends_at = 5;
+   */
+  endsAt: bigint;
+
+  /**
+   * @generated from field: int64 art_id = 6;
+   */
+  artId: bigint;
+
+  /**
+   * The picture a proposal to hang is about.
+   *
+   * @generated from field: int64 media_id = 7;
+   */
+  mediaId: bigint;
+
+  /**
+   * @generated from field: int32 yes = 8;
+   */
+  yes: number;
+
+  /**
+   * @generated from field: int32 no = 9;
+   */
+  no: number;
+};
+
+/**
+ * Describes the message am.v1.SysMuseum.
+ * Use `create(SysMuseumSchema)` to create a new message.
+ */
+export const SysMuseumSchema: GenMessage<SysMuseum> = /*@__PURE__*/
+  messageDesc(file_am_v1_event, 9);
 

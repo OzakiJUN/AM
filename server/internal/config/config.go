@@ -31,6 +31,7 @@ type Config struct {
 	Stickers  Stickers  `toml:"stickers"`
 	Plugins   Plugins   `toml:"plugins"`
 	Hosting   Hosting   `toml:"hosting"`
+	Museum    Museum    `toml:"museum"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
@@ -115,6 +116,13 @@ type Hosting struct {
 	ClientPath string `toml:"client_path"`
 	// NoSpawn: keep the records but start no clients (tests).
 	NoSpawn bool `toml:"-"`
+}
+
+// Museum configures channel museums (docs/design.md §13 博物馆).
+type Museum struct {
+	Enabled     bool `toml:"enabled"`
+	MinMembers  int  `toml:"min_members"`
+	VoteMinutes int  `toml:"vote_minutes"`
 }
 
 type Media struct {
@@ -310,6 +318,9 @@ func (c *Config) validate() error {
 	}
 	if u := c.Plugins.PipIndex; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
 		return errors.New("plugins.pip_index must start with https://")
+	}
+	if c.Museum.MinMembers < 0 || c.Museum.VoteMinutes < 1 {
+		return errors.New("museum: min_members >= 0, vote_minutes >= 1")
 	}
 	if c.Hosting.MaxPerUser < 0 {
 		return errors.New("hosting.max_per_user must be >= 0")

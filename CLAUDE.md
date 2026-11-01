@@ -282,6 +282,13 @@ update the docs in the same commit.
   `lib/workshopStore.ts` (IndexedDB), `lib/workshop.ts` (install / update /
   sideload / apply), downloads through Rust `web_get_bytes`. Only data works
   for now (theme, portrait, persona, stickers); program works need a sandbox first.
+- Channel museum (docs/design.md §13 博物馆): `server/internal/museum`
+  (`rules.go` pure + tested: 8-place first hall, queue jump, swap, second
+  hall ranking, titles; `museum.go` votes when members > `museum.min_members`,
+  settled every 10 s, `sys_museum` events). Art media is readable by channel
+  members, or by everyone for public channels (`CanAccessMedia`), and never
+  GC'd. `ImageMsg.made_with` / `nsfw` are kept only for bot / ai senders.
+  Client: `app/Museum.tsx` (header button, window, 「挂到博物馆」 dialog).
 - NetEase songs in the desktop app play from `ammusic://<id>` served by Rust
   (`src-tauri/src/music.rs`: NetEase headers, follows the CDN redirect,
   in-memory cache, Range); browser dev mode uses the outer url directly.
