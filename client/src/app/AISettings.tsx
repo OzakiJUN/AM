@@ -14,7 +14,7 @@ import { deviceId } from '@/lib/deviceId';
 import { errorText } from '@/lib/errors';
 import { newProviderId, putProvider, removeProvider, useProviders } from '@/lib/ai/keys';
 import { TEMPLATES, defaultSettings, type AISettings } from '@/lib/ai/persona';
-import { KIND_LABEL, PRESETS, balanceQuery, balanceText, buildRequest, errorOf, streamReader, type Provider, type ProviderKind } from '@/lib/ai/providers';
+import { KIND_LABEL, PRESETS, chatProviders, balanceQuery, balanceText, buildRequest, errorOf, streamReader, type Provider, type ProviderKind } from '@/lib/ai/providers';
 import { checkBalance, useBalance } from '@/lib/ai/balance';
 import { aiSettings, refreshAIs, runHere, saveSettings, useAI } from '@/lib/ai/runner';
 import { openConv, openProfile, session, useApp } from '@/lib/store';
@@ -23,6 +23,7 @@ import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, 
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { forgetPack } from './Portrait';
 import { PluginsTab } from './PluginsTab';
+import { DrawTab } from './DrawTab';
 import { MOODS, MOOD_LABEL, packFromFiles, type Mood } from '@/lib/portraits';
 import { personaTemplates, portraitFiles, useWorkshop } from '@/lib/workshop';
 
@@ -47,7 +48,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
     try {
       const info = await s.createAI(name.trim());
       const template = templates.find((t) => t.key === tpl) ?? TEMPLATES[0];
-      const p = providers[0];
+      const p = chatProviders(providers)[0];
       const preset = p && PRESETS.find((x) => x.baseUrl === p.baseUrl);
       const settings: AISettings = { ...defaultSettings(template), providerId: p?.id ?? '', model: preset?.model ?? '' };
       await s.putAISettings(info.user.id, JSON.stringify(settings), 0);
@@ -93,7 +94,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
   );
 }
 
-type Tab = 'persona' | 'model' | 'social' | 'computer' | 'plugins' | 'profile' | 'run' | 'log';
+type Tab = 'persona' | 'model' | 'social' | 'computer' | 'draw' | 'plugins' | 'profile' | 'run' | 'log';
 
 /** One AI's settings. */
 export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClose: () => void; aiId: string }) {
@@ -112,7 +113,7 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
       <div className="mb-4">
         <Segmented id="ai-tab" value={tab} onChange={setTab} options={[
           { value: 'persona', label: '人格' }, { value: 'model', label: '模型' }, { value: 'social', label: '频道与作息' },
-          { value: 'computer', label: '电脑' }, { value: 'plugins', label: '插件' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
+          { value: 'computer', label: '电脑' }, { value: 'draw', label: '画画' }, { value: 'plugins', label: '插件' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
         ]} />
       </div>
       {!info ? (
@@ -123,6 +124,7 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
           {tab === 'model' && <ModelTab draft={draft} set={set} save={save} />}
           {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
           {tab === 'social' && <SocialTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
+          {tab === 'draw' && <DrawTab draft={draft} set={set} save={save} />}
           {tab === 'plugins' && <PluginsTab aiId={aiId} aiName={info.user.name} />}
           {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
           {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} onClose={onClose} />}
@@ -188,7 +190,7 @@ function ModelTab({ draft, set, save }: TabProps) {
         <div className="flex gap-2">
           <select value={draft.providerId} onChange={(e) => set({ providerId: e.target.value })} className={cx(inputClass, 'h-11 flex-1')} aria-label="模型服务商">
             <option value="">（还没选）</option>
-            {providers.map((p) => <option key={p.id} value={p.id}>{p.name} · {KIND_LABEL[p.kind]}</option>)}
+            {chatProviders(providers).map((p) => <option key={p.id} value={p.id}>{p.name} · {KIND_LABEL[p.kind]}</option>)}
           </select>
           <Button variant="soft" onClick={() => setManage(true)}><KeyRound size={15} /> 管理服务商</Button>
         </div>
@@ -818,7 +820,7 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
         </div>
         {!here && <Button variant="primary" onClick={() => runHere(serverId, aiId).then(() => toast('现在由这台设备运行'))}><Cpu size={15} /> 在这台设备上运行</Button>}
       </div>
-      <HostCard serverId={serverId} aiId={aiId} providerId={draft.providerId} />
+      <HostCard serverId={serverId} aiId={aiId} providerId={draft.providerId} drawProviderId={draft.draw.providerId} />
       <Field label="谁能和它聊">
         <Segmented id="ai-who" value={draft.whoCanChat} onChange={(w) => set({ whoCanChat: w })} options={[
           { value: 'owner', label: '只有我' }, { value: 'everyone', label: '服务器里所有人' },
@@ -845,7 +847,7 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
  * 托管到服务器 (docs/design.md §10): ask the site admin to run this AI on the
  * server (its model key goes along), see where the request is, stop it.
  */
-function HostCard({ serverId, aiId, providerId }: { serverId: string; aiId: string; providerId: string }) {
+function HostCard({ serverId, aiId, providerId, drawProviderId }: { serverId: string; aiId: string; providerId: string; drawProviderId: string }) {
   const s = session(serverId);
   const h = useAI((st) => st.byServer[serverId]?.find((a) => a.user.id === aiId)?.hosting);
   const providers = useProviders((st) => st.list);
@@ -859,11 +861,12 @@ function HostCard({ serverId, aiId, providerId }: { serverId: string; aiId: stri
   const provider = providers.find((p) => p.id === providerId);
   const request = () => ask({
     title: '托管到服务器？',
-    text: `服务器管理员同意后，这个 AI 会在服务器上运行，你这台设备关着它也在线。它用的模型 key（${provider?.name ?? '还没选'}）会交给服务器保存。在服务器上它只能在自己的文件夹里读写文件，不能看屏幕、动鼠标键盘、运行命令、开浏览器。`,
+    text: `服务器管理员同意后，这个 AI 会在服务器上运行，你这台设备关着它也在线。它用的模型 key（${provider?.name ?? '还没选'}${drawProviderId ? '，还有画画用的 NovelAI token' : ''}）会交给服务器保存。在服务器上它只能在自己的文件夹里读写文件，不能看屏幕、动鼠标键盘、运行命令、开浏览器。`,
     ok: '发送申请',
     run: async () => {
       if (!provider?.key) throw new Error('先在「模型」里选好服务商并填 key');
-      const r = await s.hostAI(aiId, [provider]);
+      const draw = drawProviderId ? providers.find((p) => p.id === drawProviderId && p.kind === 'novelai') : undefined;
+      const r = await s.hostAI(aiId, draw ? [provider, draw] : [provider]);
       await refreshAIs(serverId);
       toast(r.status === 'approved' ? '已经在服务器上运行了' : '申请发出去了，等管理员同意');
     },
@@ -1003,16 +1006,18 @@ function ProviderForm({ initial, onDone }: { initial: Provider; onDone: () => vo
         </Field>
       </div>
       <Field label="接口地址"><Input value={p.baseUrl} onChange={(e) => set({ baseUrl: e.target.value.trim() })} required aria-label="接口地址" /></Field>
-      <Field label="key"><Input type="password" value={p.key} onChange={(e) => set({ key: e.target.value.trim() })} placeholder="sk-..." autoComplete="off" aria-label="key" /></Field>
+      <Field label={p.kind === 'novelai' ? 'NovelAI token' : 'key'} hint={p.kind === 'novelai' ? 'NovelAI 网页 → 设置 → Account → Get Persistent API Token；只用来画画（AI 设置 →「画画」里选它）' : undefined}>
+        <Input type="password" value={p.key} onChange={(e) => set({ key: e.target.value.trim() })} placeholder={p.kind === 'novelai' ? 'pst-...' : 'sk-...'} autoComplete="off" aria-label="key" />
+      </Field>
       {balanceQuery(p) && (
-        <Field label="余额低于多少时提醒我" hint="按这个服务商的币种（DeepSeek 是人民币，OpenRouter 是美元），0 = 不提醒">
+        <Field label="余额低于多少时提醒我" hint={p.kind === 'novelai' ? '按 Anlas 算，0 = 不提醒' : '按这个服务商的币种（DeepSeek 是人民币，OpenRouter 是美元），0 = 不提醒'}>
           <Input type="number" min={0} step={1} value={p.lowBalance ?? 5} onChange={(e) => set({ lowBalance: Math.max(0, Number(e.target.value) || 0) })} aria-label="低余额提醒" className="w-32" />
         </Field>
       )}
-      <div className="flex items-end gap-2">
+      {p.kind !== 'novelai' && <div className="flex items-end gap-2">
         <div className="flex-1"><Field label="测试用的模型名"><Input value={model} onChange={(e) => setModel(e.target.value.trim())} aria-label="测试用的模型名" /></Field></div>
         <Button variant="soft" disabled={!p.baseUrl || !model} onClick={tryIt}>测试</Button>
-      </div>
+      </div>}
       {test && <p className={cx('text-[0.85rem]', test.startsWith('能用') ? 'text-emerald-600 dark:text-emerald-300' : 'text-ink-soft dark:text-white/60')}>{test}</p>}
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone}>返回</Button>

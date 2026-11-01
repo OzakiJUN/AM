@@ -115,4 +115,5 @@ message SysConv {
   optional bool join_approval = 6;
   // Set when the group was just created.
   bool created = 7;
+  optional bool nsfw = 8;
 }

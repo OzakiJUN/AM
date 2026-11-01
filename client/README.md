@@ -72,6 +72,8 @@ AM_E2E_JOIN=<管理员加入码> AM_E2E_IMAGE=任意图片.png AM_E2E_OUT=/tmp n
 
 构建和预览时还要带上 `AM_DEV_WORKSHOP=http://127.0.0.1:8460/workshop` 和 `AM_DEV_WORKSHOP_KEY=6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=`：脚本自己用一把测试密钥签一个本地的工坊列表（主题、表情包、人格，一个 SHA-256 对不上的、一个下架的），测安装、拒绝被改过的包、下架的不显示、套用主题、导入表情包、人格出现在新建 AI 的模板里、从文件安装要先确认。
 
+测 AI 画画：构建和预览时带上 `AM_DEV_NAI=http://127.0.0.1:8460/nai`（脚本自己的 NovelAI 替身，token 是 `nai-test`）：脚本会加 NovelAI 服务商、在「画画」里选它，测 `/nai`（中文翻译）、`/nai5`、余额、查标签、私信里 NSFW 被拒、AI 自己调用 `draw_picture`。
+
 测 AI 托管：给第一个服务器的 `config.toml` 加 `[hosting]` `client_path = "<一个脚本>"`，脚本把第二个参数（host 文件）复制到某个路径再一直运行（比如 `cp "$2" /tmp/host-file.json; exec sleep 100000`），并设 `AM_E2E_HOST_FILE=<那个路径>`：脚本会申请托管、用 `#host=` 打开 host 模式的页面当服务器上的客户端，检查 AI 从那里回话，再收回到自己的设备。
 
 再起第二个全新的服务器、构建和预览时都带上 `AM_DEV_SERVER2`，并设 `AM_E2E_JOIN2=<第二个服务器的管理员加入码>`，脚本还会测资料同步：用「用我的资料」加入第二个服务器（不用输密码），检查签名、状态、主页都复制过去了（最后还检查表情也在后台传过去了），再在第二个服务器改签名，等它同步回第一个；配对过的新设备会收到「你在另一台设备上加入了」，点加入用保存的密码登录。

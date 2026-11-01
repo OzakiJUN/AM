@@ -529,7 +529,9 @@ type Conversation struct {
 	Public bool `protobuf:"varint,12,opt,name=public,proto3" json:"public,omitempty"`
 	// Shared AI room: the AI (bot / ai account) this private group belongs to.
 	// Clients list it on the AI page; the AI answers everyone in it. 0 = none.
-	AiId          int64 `protobuf:"varint,13,opt,name=ai_id,json=aiId,proto3" json:"ai_id,omitempty"`
+	AiId int64 `protobuf:"varint,13,opt,name=ai_id,json=aiId,proto3" json:"ai_id,omitempty"`
+	// Channel: adult content allowed (AIs drawing). Owners / admins switch it.
+	Nsfw          bool `protobuf:"varint,14,opt,name=nsfw,proto3" json:"nsfw,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -653,6 +655,13 @@ func (x *Conversation) GetAiId() int64 {
 		return x.AiId
 	}
 	return 0
+}
+
+func (x *Conversation) GetNsfw() bool {
+	if x != nil {
+		return x.Nsfw
+	}
+	return false
 }
 
 // Per-user settings and state inside one conversation.
@@ -1024,7 +1033,7 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x16\n" +
 	"\x06online\x18\x02 \x01(\bR\x06online\x12\x1c\n" +
 	"\tinvisible\x18\x03 \x01(\bR\tinvisible\x12+\n" +
-	"\bactivity\x18\x04 \x01(\v2\x0f.am.v1.ActivityR\bactivity\"\x94\x03\n" +
+	"\bactivity\x18\x04 \x01(\v2\x0f.am.v1.ActivityR\bactivity\"\xa8\x03\n" +
 	"\fConversation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12#\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x0f.am.v1.ConvKindR\x04kind\x12\x12\n" +
@@ -1039,7 +1048,8 @@ const file_am_v1_common_proto_rawDesc = "" +
 	" \x01(\bR\fjoinApproval\x124\n" +
 	"\fmember_roles\x18\v \x03(\x0e2\x11.am.v1.MemberRoleR\vmemberRoles\x12\x16\n" +
 	"\x06public\x18\f \x01(\bR\x06public\x12\x13\n" +
-	"\x05ai_id\x18\r \x01(\x03R\x04aiId\"\xb0\x01\n" +
+	"\x05ai_id\x18\r \x01(\x03R\x04aiId\x12\x12\n" +
+	"\x04nsfw\x18\x0e \x01(\bR\x04nsfw\"\xb0\x01\n" +
 	"\vMemberState\x12%\n" +
 	"\x04role\x18\x01 \x01(\x0e2\x11.am.v1.MemberRoleR\x04role\x12\x19\n" +
 	"\bread_seq\x18\x02 \x01(\x03R\areadSeq\x12!\n" +

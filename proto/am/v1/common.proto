@@ -112,6 +112,8 @@ message Conversation {
   // Shared AI room: the AI (bot / ai account) this private group belongs to.
   // Clients list it on the AI page; the AI answers everyone in it. 0 = none.
   int64 ai_id = 13;
+  // Channel: adult content allowed (AIs drawing). Owners / admins switch it.
+  bool nsfw = 14;
 }
 
 // Per-user settings and state inside one conversation.

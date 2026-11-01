@@ -28,6 +28,7 @@ export const CATEGORY_LABEL: Record<ToolCategory, { name: string; hint: string; 
   social: { name: '主动找人说话', hint: '自己去频道里发消息、给你发私信（作息、找人玩）（不用开「操作电脑」）' },
   remote: { name: '操作别人的电脑', hint: '请别人的电脑帮它做事；做不做、能做什么由对方在他的电脑上决定（默认都不让）' },
   games: { name: '玩桌游', hint: '在频道和共享聊天里开局、申请加入、下棋、玩谁是卧底（不用开「操作电脑」）' },
+  draw: { name: '画画', hint: '用 NovelAI 画图发到聊天里（要在「画画」里接好 NovelAI；不用开「操作电脑」）' },
 };
 
 const obj = (props: Record<string, unknown>, required: string[] = []) => ({ type: 'object', properties: props, required });
@@ -132,6 +133,15 @@ export const TOOLS: ToolDef[] = [
   },
   { name: 'join_game', category: 'games', own: true, description: '申请加入一局还没开始的桌游（开局的人同意后坐下）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
   { name: 'start_game', category: 'games', own: true, description: '开始你开的那局（人要够）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
+  {
+    name: 'draw_picture', category: 'draw', own: true,
+    description: '用 NovelAI 画一张（或几张）图，直接发到现在的聊天里。prompt 用英文写：Danbooru 风格标签或英文句子都行（人数标签开头，如 1girl / 1boy / 2girls；可以写 artist:名字）。有人让你画画、或者你想画给对方看时用。',
+    parameters: obj({
+      prompt: str('英文提示词'), negative: str('不想要的东西（英文，可以不写）'),
+      orientation: { type: 'string', enum: ['portrait', 'landscape', 'square'], description: '竖图 / 横图 / 方图' },
+      count: num('几张（1–4，默认 1；多于 1 张会扣 Anlas）'), model: { type: 'string', enum: ['v4.5', 'v5'], description: '默认 v4.5' },
+    }, ['prompt']),
+  },
   { name: 'view_game', category: 'games', own: true, description: '看一局桌游现在的样子：棋盘、轮到谁、大家说了什么。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
   {
     name: 'game_move', category: 'games', own: true, description: '五子棋 / 黑白棋落子（轮到你时）。位置写成「H8」：列字母 + 行号。',
@@ -268,6 +278,7 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'game_guess': return `猜 ${args.seat} 号有 ${args.x}`;
     case 'leave_game': return `退出游戏 ${args.game_id}`;
     case 'wait': return `等 ${args.seconds} 秒`;
+    case 'draw_picture': return `画画：${short(args.prompt, 60)}`;
     default:
       if (name.startsWith(MCP_PREFIX)) {
         const [server, ...tool] = name.slice(MCP_PREFIX.length).split('__');

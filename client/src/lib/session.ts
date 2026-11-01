@@ -362,6 +362,7 @@ function toBody(e: ev.Event): MessageBody | null {
       else if (c.notice !== undefined) sys = { t: 'notice', op: o };
       else if (c.avatar !== undefined) sys = { t: 'avatar', op: o };
       else if (c.joinApproval !== undefined) sys = { t: 'approval', op: o, on: c.joinApproval };
+      else if (c.nsfw !== undefined) sys = { t: 'nsfw', op: o, on: c.nsfw };
       else return null;
       return { kind: 'system', sys };
     }
@@ -396,6 +397,7 @@ export function systemText(sys: SysEvent, name: (id: string) => string): string 
     case 'notice': return `${name(sys.op)} 修改了频道公告`;
     case 'avatar': return `${name(sys.op)} 更换了频道头像`;
     case 'approval': return `${name(sys.op)} ${sys.on ? '开启' : '关闭'}了加入审批`;
+    case 'nsfw': return `${name(sys.op)} ${sys.on ? '允许' : '关闭'}了 NSFW 内容`;
     case 'dissolved': return `${name(sys.op)} 解散了频道`;
     case 'join': return sys.op === sys.target ? `${name(sys.target)} 加入了频道` : `${name(sys.op)} 邀请 ${name(sys.target)} 加入了频道`;
     case 'leave': return `${name(sys.target)} 退出了频道`;
@@ -1007,6 +1009,7 @@ export class Session {
       members,
       notice: c.notice,
       joinApproval: c.joinApproval,
+      nsfw: c.nsfw,
       public: c.public,
       aiId: s(c.aiId) || undefined,
       lastSeq: Number(c.lastSeq),
@@ -1451,7 +1454,7 @@ export class Session {
     });
   }
 
-  async updateGroup(convId: string, value: { name?: string; notice?: string; joinApproval?: boolean; avatarMediaId?: bigint }) {
+  async updateGroup(convId: string, value: { name?: string; notice?: string; joinApproval?: boolean; nsfw?: boolean; avatarMediaId?: bigint }) {
     this.upsertConv(await this.call('PATCH', `/api/v1/groups/${convId}`, common.ConversationSchema, { schema: api.UpdateGroupRequestSchema, value }));
   }
 

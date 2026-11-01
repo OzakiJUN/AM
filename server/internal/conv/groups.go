@@ -350,7 +350,8 @@ func (s *Service) UpdateGroup(ctx context.Context, me *store.User, convID int64,
 		avatarMedia, change.Avatar = &id, &url
 	}
 	change.JoinApproval = req.JoinApproval
-	if name == nil && notice == nil && avatarMedia == nil && req.JoinApproval == nil {
+	change.Nsfw = req.Nsfw
+	if name == nil && notice == nil && avatarMedia == nil && req.JoinApproval == nil && req.Nsfw == nil {
 		return s.ConvView(ctx, convID, me.ID)
 	}
 
@@ -365,6 +366,11 @@ func (s *Service) UpdateGroup(ctx context.Context, me *store.User, convID int64,
 		}
 		if err := q.UpdateConvInfo(ctx, convID, name, avatarMedia, notice, req.JoinApproval); err != nil {
 			return err
+		}
+		if req.Nsfw != nil {
+			if err := q.SetConvNsfw(ctx, convID, req.GetNsfw()); err != nil {
+				return err
+			}
 		}
 		row, err = s.msg.AppendSystem(ctx, q, convID, me.ID, &amv1.Event{Body: &amv1.Event_SysConv{SysConv: change}})
 		return err

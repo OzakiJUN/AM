@@ -57,6 +57,7 @@ function workshopFiles() {
   return workshop;
 }
 
+const naiRequests = [];
 const mock = createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/workshop/')) {
     const f = workshopFiles()[req.url.slice('/workshop/'.length)];
@@ -72,8 +73,33 @@ const mock = createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'image/png' });
     return res.end(readFileSync(IMAGE));
   }
-  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
   if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
+  // A fake NovelAI (the client is built with AM_DEV_NAI=http://127.0.0.1:<mock port>/nai).
+  if (req.url.startsWith('/nai/')) {
+    if (req.headers.authorization !== 'Bearer nai-test') return res.writeHead(401, cors).end('{"message":"bad token"}');
+    const path = req.url.slice(4);
+    if (path.startsWith('/user/subscription')) {
+      res.writeHead(200, { ...cors, 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ tier: 3, expiresAt: 1900000000, trainingStepsLeft: { fixedTrainingStepsLeft: 1000, purchasedTrainingSteps: 0 }, usage: { percent: 90 } }));
+    }
+    if (path.startsWith('/ai/generate-image/suggest-tags')) {
+      res.writeHead(200, { ...cors, 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ tags: [{ tag: 'artist:mika pikazo', count: 1234, confidence: 0.9 }] }));
+    }
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      const j = JSON.parse(body || '{}');
+      naiRequests.push(j);
+      const n = j.parameters?.n_samples ?? 1;
+      const files = {};
+      for (let i = 0; i < n; i++) files[`image_${i}.png`] = new Uint8Array(readFileSync(IMAGE));
+      res.writeHead(200, { ...cors, 'Content-Type': 'application/zip' });
+      res.end(Buffer.from(zipSync(files)));
+    });
+    return;
+  }
   let body = '';
   req.on('data', (c) => (body += c));
   req.on('end', async () => {
@@ -81,6 +107,18 @@ const mock = createServer((req, res) => {
     if (req.headers.authorization !== 'Bearer sk-test') return res.writeHead(401, cors).end('{"error":{"message":"bad key"}}');
     const last = j.messages?.at(-1)?.content ?? '';
     if (j.tools) seenTools = j.tools.map((t) => t.function.name);
+    // Translating a drawing description (V4.5): English back.
+    if ((j.messages?.find((m) => m.role === 'system')?.content ?? '').startsWith('You are a translator')) {
+      res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: 'a girl with silver hair and cat ears' } }] })}\n\n`);
+      return res.end('data: [DONE]\n\n');
+    }
+    // Asked to draw: the draw_picture tool, then a word about it.
+    if (last.includes?.('给我画') && j.messages.at(-1).role === 'user' && j.tools?.some((t) => t.function.name === 'draw_picture')) {
+      res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_d', function: { name: 'draw_picture', arguments: '{"prompt":"1girl, solo, sunflower field","orientation":"square"}' } }] } }] })}\n\n`);
+      return res.end('data: [DONE]\n\n');
+    }
     res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
     // Asked to use the clipboard: call the tool first, then answer.
     const wantsTool = last.includes?.('剪贴板') && j.messages.at(-1).role === 'user' && j.tools?.some((t) => t.function.name === 'set_clipboard');
@@ -836,6 +874,54 @@ const pages = [];
     await A.keyboard.press('Escape');
     await H.close();
   }
+
+  // Drawing with NovelAI (a fake one): the token as a provider, picked in 画画; /nai (Chinese translated by its own
+  // model), /nai5, the balance, tag lookup, NSFW refused in a DM, and the AI drawing by itself (draw_picture).
+  await A.click('button[aria-label="AI"]');
+  await A.click('aside button:has-text("小鱼"):has-text("我的")');
+  await A.click('button[aria-label="模型服务商"]');
+  await A.click('div[role="dialog"] button:has-text("添加服务商")');
+  await A.click('div[role="dialog"] button:has-text("NovelAI（画画）")');
+  await A.fill('div[role="dialog"] input[aria-label="key"]', 'nai-test');
+  await A.click('div[role="dialog"] button[type="submit"]:has-text("保存")');
+  await A.waitForSelector('div[role="dialog"] >> text=NovelAI（画画）');
+  await A.keyboard.press('Escape');
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("画画")');
+  await A.selectOption('div[role="dialog"] select[aria-label="NovelAI 账号"]', { label: 'NovelAI（画画）' });
+  await A.click('div[role="dialog"] button:has-text("保存")');
+  await A.waitForSelector('text=已保存');
+  await shot(A, '29h-draw-settings');
+  await A.keyboard.press('Escape');
+  const pics = () => A.locator('section img').count();
+  const say = async (text) => {
+    await A.fill('textarea[aria-label="消息"]', text);
+    await A.press('textarea[aria-label="消息"]', 'Enter');
+  };
+  let before = await pics();
+  await say('/nai 横图 银发猫耳少女');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("收到，NovelAI V4.5 画图中")', { timeout: 20000 });
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("NovelAI V4.5，")', { timeout: 30000 });
+  if ((await pics()) <= before) throw new Error('no picture from /nai');
+  let req = naiRequests.at(-1);
+  if (!req.input.startsWith('a girl with silver hair and cat ears') || req.parameters.width !== 1216 || req.model !== 'nai-diffusion-4-5-full') throw new Error('bad /nai request ' + JSON.stringify(req).slice(0, 300));
+  await say('/nai5 *2 夜晚的城市');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("NovelAI V5，")', { timeout: 30000 });
+  req = naiRequests.at(-1);
+  if (!req.input.startsWith('夜晚的城市') || req.parameters.n_samples !== 2 || req.model !== 'nai-diffusion-5-full') throw new Error('bad /nai5 request');
+  await say('/nai余额');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("剩余 1000 Anlas")', { timeout: 20000 });
+  await say('/查画师 mika');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("画师:mika pikazo（1234 张")', { timeout: 20000 });
+  const count = naiRequests.length;
+  await say('/nai nude girl');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("这里没开 NSFW")', { timeout: 20000 });
+  if (naiRequests.length !== count) throw new Error('NSFW drawn in a DM where it is off');
+  before = await pics();
+  await say('给我画一张向日葵');
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("放好啦（画好了")', { timeout: 30000 });
+  if (naiRequests.at(-1).input !== '1girl, solo, sunflower field, very aesthetic, masterpiece, no text' || (await pics()) <= before) throw new Error('draw_picture did not draw');
+  await shot(A, '29i-drawing');
 
   // Board games: Weiqi opens 五子棋 in 大厅; 小鱼 asks to join by itself, Weiqi lets it in and
   // starts; 小鱼 answers each move with the game tools; 小克 sees the game in 大厅's strip.

@@ -235,6 +235,15 @@ export function GroupDialog({ open, onClose, v, conv }: { open: boolean; onClose
             <Toggle label="加入审批" checked={conv.joinApproval} onChange={(on) => current().updateGroup(conv.id, { joinApproval: on }).catch(toastError)} />
           </div>
         )}
+        {canManage && (
+          <div className="flex items-center justify-between rounded-2xl bg-black/[0.03] px-4 py-3 dark:bg-white/5">
+            <div>
+              <div className="font-medium">允许 NSFW</div>
+              <div className="text-[0.82rem] text-ink-soft dark:text-white/50">AI 在这个频道里画画时可以画成人内容（涉及未成年的永远不画）</div>
+            </div>
+            <Toggle label="允许 NSFW" checked={conv.nsfw} onChange={(on) => current().updateGroup(conv.id, { nsfw: on }).catch(toastError)} />
+          </div>
+        )}
         <div className="flex items-center gap-2 pt-1">
           <Button variant="danger" onClick={leave}><LogOut size={16} />{conv.myRole === 'owner' ? '解散频道' : '退出频道'}</Button>
           <div className="flex-1" />

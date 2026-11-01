@@ -3,7 +3,8 @@
 // Claude's and Gemini's own. Pure: builds requests and reads streamed
 // replies; lib/ai/runner.ts sends them (transport.aiRequest).
 
-export type ProviderKind = 'openai' | 'claude' | 'gemini';
+/** novelai: only for drawing (lib/ai/nai.ts); its key is the NovelAI API token. */
+export type ProviderKind = 'openai' | 'claude' | 'gemini' | 'novelai';
 
 /** A model service I have a key for (kept in the credential store, lib/ai/keys.ts). */
 export interface Provider {
@@ -45,6 +46,7 @@ export function balanceQuery(p: Provider): BalanceQuery | null {
   if (host === 'api.deepseek.com') return { url: 'https://api.deepseek.com/user/balance', headers: auth, topUp: 'https://platform.deepseek.com/top_up' };
   // OpenRouter answers only for a management key (403 otherwise).
   if (host === 'openrouter.ai') return { url: 'https://openrouter.ai/api/v1/credits', headers: auth, topUp: 'https://openrouter.ai/settings/credits' };
+  if (p.kind === 'novelai') return { url: 'https://image.novelai.net/user/subscription', headers: auth, topUp: 'https://novelai.net/' };
   return null;
 }
 
@@ -66,13 +68,20 @@ export function parseBalance(p: Provider, status: number, body: string): Balance
     const b = list.find((x) => x.currency === 'CNY') ?? list[0];
     return b && Number.isFinite(b.amount) ? b : { error: '余额读不懂' };
   }
+  // NovelAI: Anlas left (fixed + purchased).
+  const left = o.trainingStepsLeft as Record<string, number> | number | undefined;
+  if (left !== undefined) {
+    const amount = typeof left === 'number' ? left : Number(left.fixedTrainingStepsLeft ?? 0) + Number(left.purchasedTrainingSteps ?? 0);
+    return Number.isFinite(amount) ? { amount, currency: 'Anlas' } : { error: '余额读不懂' };
+  }
   const d = o.data as { total_credits?: number; total_usage?: number } | undefined;
   if (d && typeof d.total_credits === 'number') return { amount: Math.round((d.total_credits - (d.total_usage ?? 0)) * 100) / 100, currency: 'USD' };
   return { error: '余额读不懂' };
 }
 
 /** "¥12.30" / "$4.50" */
-export const balanceText = (b: Balance) => `${b.currency === 'CNY' ? '¥' : b.currency === 'USD' ? '$' : b.currency + ' '}${b.amount.toFixed(2)}`;
+export const balanceText = (b: Balance) =>
+  b.currency === 'Anlas' ? `${b.amount} Anlas` : `${b.currency === 'CNY' ? '¥' : b.currency === 'USD' ? '$' : b.currency + ' '}${b.amount.toFixed(2)}`;
 
 /** A plain chat turn (the conversation as the model sees it). */
 export interface ChatMsg {
@@ -112,7 +121,10 @@ export interface ChatRequest {
   tools?: ToolSpec[];
 }
 
-export const KIND_LABEL: Record<ProviderKind, string> = { openai: 'OpenAI 兼容', claude: 'Claude', gemini: 'Gemini' };
+export const KIND_LABEL: Record<ProviderKind, string> = { openai: 'OpenAI 兼容', claude: 'Claude', gemini: 'Gemini', novelai: 'NovelAI（画画）' };
+
+/** Providers that can chat (NovelAI only draws). */
+export const chatProviders = <T extends { kind: ProviderKind }>(list: T[]) => list.filter((p) => p.kind !== 'novelai');
 
 /** Ready-made addresses (the user can type any other). */
 export const PRESETS: { name: string; kind: ProviderKind; baseUrl: string; model: string }[] = [
@@ -122,6 +134,7 @@ export const PRESETS: { name: string; kind: ProviderKind; baseUrl: string; model
   { name: 'Claude', kind: 'claude', baseUrl: 'https://api.anthropic.com', model: '' },
   { name: 'Gemini', kind: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com', model: '' },
   { name: '本机模型（Ollama 等）', kind: 'openai', baseUrl: 'http://localhost:11434/v1', model: '' },
+  { name: 'NovelAI（画画）', kind: 'novelai', baseUrl: 'https://image.novelai.net', model: '' },
 ];
 
 const trim = (u: string) => u.replace(/\/+$/, '');
@@ -248,6 +261,8 @@ export function buildRequest(p: Provider, r: ChatRequest): { url: string; header
           ...(tools && { tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters })) }] }),
         }),
       };
+    case 'novelai':
+      throw new Error('NovelAI 只能用来画画，不能聊天：在「模型」里换一个聊天用的服务商');
   }
 }
 
@@ -318,6 +333,8 @@ export function streamReader(kind: ProviderKind) {
         }
         return text;
       }
+      default:
+        return '';
     }
   };
   return {

@@ -54,6 +54,8 @@ export interface Conversation {
   members: Member[];
   notice: string;
   joinApproval: boolean;
+  /** Channel: adult content allowed (AI drawing). */
+  nsfw: boolean;
   /** Channel (group) open to everyone on the server. */
   public: boolean;
   /** Shared AI room: the AI it belongs to (listed on the AI page). */
@@ -79,6 +81,7 @@ export type SysEvent =
   | { t: 'notice'; op: string }
   | { t: 'avatar'; op: string }
   | { t: 'approval'; op: string; on: boolean }
+  | { t: 'nsfw'; op: string; on: boolean }
   | { t: 'dissolved'; op: string }
   | { t: 'join'; op: string; target: string }
   | { t: 'leave'; target: string }
