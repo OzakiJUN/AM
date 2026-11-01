@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { boardText, coord, gameText, gomokuMove, parseCoord, resultText, type Game } from './games.ts';
+import { trailAnswer, trailMove, trailOptions, type GameState, type TrailStep, boardText, coord, gameText, gomokuMove, parseCoord, resultText, type Game } from './games.ts';
 
 assert.equal(coord(7, 7), 'H8');
 assert.deepEqual(parseCoord('H8', 15), [7, 7]);
@@ -48,3 +48,33 @@ assert.ok(ut.includes('你的词是「苹果」') && ut.includes('第1轮 1号 W
 assert.equal(resultText({ ...u, status: 'ended', players: [u.players[0], { ...u.players[1], spy: true }], state: { turn: -1, winner: 2, words: ['梨', '苹果'] } }, nameOf),
   '卧底赢了，卧底是 小鱼（平民：梨，卧底：苹果）');
 console.log('games ok');
+
+// ---- 数字迷踪 ----
+{
+  const hands = [
+    { nums: [3, 8, 15], shown: [false, false, false], hinted: [false, false, false] }, // me
+    { nums: [0, 0, 0], shown: [false, false, false], hinted: [false, false, false] }, // really 2 11 19
+  ];
+  const players = [{ userId: 'a', out: false, spy: false, word: '' }, { userId: 'b', out: false, spy: false, word: '' }];
+  const st = (steps: TrailStep[]): GameState => ({ turn: 0, hands, steps });
+  // No information: every 3 of the 17 numbers I don't hold.
+  assert.equal(trailOptions(st([]), 0, 1).sets, 680);
+  // "Nothing bigger than 18" and "something bigger than 17": one of them is exactly 18 — no, 18: >17 and not >18.
+  const s1: TrailStep[] = [
+    { seat: 0, target: 1, kind: 'ask', q: 'gt', x: 18, yes: false, hint: -1 },
+    { seat: 0, target: 1, kind: 'ask', q: 'gt', x: 17, yes: true, hint: -1 },
+  ];
+  const o = trailOptions(st(s1), 0, 1);
+  assert.equal(o.count.get(18), o.sets, '18 must be there');
+  assert.deepEqual(trailMove(st(s1), players, 0), { action: 'guess', target: 1, x: 18 });
+  // A wrong guess rules the number out; a right one later still counts for earlier questions.
+  const s2: TrailStep[] = [{ seat: 0, target: 1, kind: 'guess', x: 5, yes: false, hint: 0, odd: true }];
+  assert.equal(trailOptions(st(s2), 0, 1).count.get(5), undefined);
+  // Without anything certain the move is a question.
+  assert.equal(trailMove(st([]), players, 0).action, 'ask');
+  assert.equal(trailAnswer([4, 9], 'mult', 3), true);
+  assert.equal(trailAnswer([4, 10], 'odd', 0), false);
+  const g: Game = { id: '1', convId: 'c', kind: 'trail', hostId: 'a', status: 'playing', players, applicants: [], autoApprove: true, waitingOn: ['a'], state: st(s1), createdAt: 0, updatedAt: 0 };
+  const text = gameText(g, 'a', (id) => (id === 'a' ? '我' : '小鱼'));
+  assert.ok(text.includes('你的数：3 8 15') && text.includes('有没有比 18 大的数？——没有') && text.includes('game_guess'), text);
+}

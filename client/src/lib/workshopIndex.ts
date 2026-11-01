@@ -3,8 +3,8 @@
 // key (Ed25519). Pure: parsing, signature check, versions, mirrors.
 // Unit-tested in workshopIndex.test.ts.
 
-/** The workshop's public key (base64). Set from `am-server workshop-keygen`; '' = not set up yet. */
-export const WORKSHOP_PUBLIC_KEY = '';
+/** The workshop's public key (base64), from `am-server workshop-keygen` (Weiqi, 2026-11-01). The private key is only in am-workshop's GitHub Secret WORKSHOP_SIGNING_KEY. */
+export const WORKSHOP_PUBLIC_KEY = 'tkZXsOreW8PwAA2HkJhukqfJaxD9FlmVQBkL5rItfjs=';
 
 const RAW = 'https://raw.githubusercontent.com/OzakiJUN/am-workshop/index';
 export const INDEX_URL = `${RAW}/index.json`;

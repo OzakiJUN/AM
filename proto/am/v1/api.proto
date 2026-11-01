@@ -600,6 +600,7 @@ message ListGamesResponse {
 
 message GameActRequest {
   // move (x, y) | say (text) | vote (target seat) | resign
+  // 数字迷踪: ask (target seat, text = gt / lt / mult / odd / even, x) | guess (target seat, x)
   string action = 1;
   int32 x = 2;
   int32 y = 3;

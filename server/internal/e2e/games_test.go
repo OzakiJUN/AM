@@ -139,3 +139,56 @@ func testGames(t *testing.T, a *app.App, base string) {
 		t.Fatal("history paging")
 	}
 }
+
+// 数字迷踪: everyone sees only their own numbers; questions are answered
+// truthfully; a right guess turns a number up.
+func TestTrailGame(t *testing.T) {
+	forEachDB(t, func(t *testing.T, a *app.App, base string) {
+		ctx := ctxT(t)
+		us := newServerUsers(t, a, base, "ann", "bob")
+		ann, bob := us[0], us[1]
+		ch := must(ann.cli.CreateGroup(ctx, "推理社", bob.me.Id))
+		g := must(ann.cli.OpenGame(ctx, ch.Id, "trail", true))
+		must(bob.cli.GameStep(ctx, g.Id, "join"))
+		g = must(ann.cli.GameStep(ctx, g.Id, "start"))
+		type hand struct {
+			Nums  []int  `json:"nums"`
+			Shown []bool `json:"shown"`
+		}
+		var st struct {
+			Hands []hand `json:"hands"`
+			Steps []struct {
+				Yes bool `json:"yes"`
+			} `json:"steps"`
+		}
+		if err := json.Unmarshal([]byte(g.StateJson), &st); err != nil || len(st.Hands) != 2 {
+			t.Fatalf("state: %v %s", err, g.StateJson)
+		}
+		if st.Hands[0].Nums[0] == 0 || st.Hands[1].Nums[0] != 0 {
+			t.Fatalf("ann sees her numbers, not bob's: %+v", st.Hands)
+		}
+		// Bob's real numbers, from his own view.
+		var bs struct{ Hands []hand }
+		_ = json.Unmarshal([]byte(must(bob.cli.ListGames(ctx, ch.Id)).Games[0].StateJson), &bs)
+		bobNums := bs.Hands[1].Nums
+		if bobNums[0] == 0 || bs.Hands[0].Nums[0] != 0 {
+			t.Fatalf("bob's view: %+v", bs.Hands)
+		}
+		_, err := bob.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "guess", Target: 0, X: 1})
+		wantCode(t, err, "not_your_turn")
+		_, err = ann.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "ask", Target: 1, Text: "mult", X: 9})
+		wantCode(t, err, "game_bad_move")
+		g = must(ann.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "ask", Target: 1, Text: "gt", X: 19}))
+		_ = json.Unmarshal([]byte(g.StateJson), &st)
+		has20 := bobNums[0] == 20 || bobNums[1] == 20 || bobNums[2] == 20
+		if st.Steps[0].Yes != has20 {
+			t.Fatalf("answer to 'bigger than 19' for %v: %v", bobNums, st.Steps[0].Yes)
+		}
+		must(bob.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "ask", Target: 0, Text: "odd"}))
+		g = must(ann.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "guess", Target: 1, X: int32(bobNums[1])}))
+		_ = json.Unmarshal([]byte(g.StateJson), &st)
+		if !st.Hands[1].Shown[1] || st.Hands[1].Nums[1] != bobNums[1] {
+			t.Fatalf("right guess turned up for everyone: %+v", st.Hands[1])
+		}
+	}, func(*config.Config) {})
+}

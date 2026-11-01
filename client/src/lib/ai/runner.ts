@@ -31,7 +31,7 @@ import { firstFree, placements } from '../widgets';
 import { describePage, editPage, type PageEdit } from './page';
 import { applyRemember, recentAcrossChats, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory, type Who } from './memory';
 import { CATEGORY_NAME, useWorkshop } from '../workshop';
-import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, type Game, type GameKind } from '../games';
+import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, trailMove, type Game, type GameKind, type TrailQ } from '../games';
 
 interface AIState {
   /** My AI accounts per server (owner view, with settings). */
@@ -723,7 +723,7 @@ function onGame(run: Run, g: Game) {
     const playing = Object.values(run.s.view.games).filter((x) => x.status !== 'ended' && seatOf(x, me) >= 0).length;
     const delay = wantsToJoin({
       s: st.games, free: GAME_INFO[g.kind].max - g.players.length, playing, byOwner: g.hostId === run.ai.user.ownerId,
-      manyPlayers: g.kind === 'undercover', asleep: isAsleep(st.routine, now.getHours() * 60 + now.getMinutes()), random: Math.random(), random2: Math.random(),
+      manyPlayers: g.kind === 'undercover' || g.kind === 'trail', asleep: isAsleep(st.routine, now.getHours() * 60 + now.getMinutes()), random: Math.random(), random2: Math.random(),
     });
     if (delay !== null) {
       setTimeout(() => {
@@ -801,6 +801,9 @@ async function fallbackMove(run: Run, g: Game) {
     const word = g.players[seat]?.word ?? '';
     const text = FILLER.find((f) => !word || !f.includes(word)) ?? '嗯……';
     await run.s.actGame(g.id, { action: 'say', text }).catch(() => {});
+  } else if (g.kind === 'trail' && seat >= 0) {
+    const m = trailMove(st, g.players, seat);
+    await run.s.actGame(g.id, m.action === 'guess' ? { action: 'guess', target: m.target, x: m.x } : { action: 'ask', target: m.target, text: m.q, x: m.x }).catch(() => {});
   } else if (g.kind === 'undercover' && st.phase === 'vote') {
     const others = g.players.flatMap((p, i) => (i !== seat && !p.out ? [i] : []));
     if (others.length) await run.s.actGame(g.id, { action: 'vote', target: others[Math.floor(Math.random() * others.length)] }).catch(() => {});
@@ -840,7 +843,7 @@ async function gameTool(run: Run, tool: string, a: Record<string, unknown>): Pro
       const c = groups.find((x) => x.name === name) ?? groups.find((x) => x.name.includes(name));
       if (!c) return `你不在叫「${a.channel}」的频道里`;
       const kind = str(a.kind) as GameKind;
-      if (!GAME_INFO[kind]) return '没有这种游戏：gomoku / reversi / undercover';
+      if (!GAME_INFO[kind]) return '没有这种游戏：gomoku / reversi / undercover / trail';
       const g = await s.openGame(c.id, kind, true);
       return `开好了，编号 ${g.id}，在「${c.name}」等人加入（申请的人直接进）。人够了会自动开始，也可以用 start_game。可以在频道里喊大家来玩。`;
     }
@@ -865,6 +868,10 @@ async function gameTool(run: Run, tool: string, a: Record<string, unknown>): Pro
       return after(await s.actGame(str(a.game_id), { action: 'say', text: str(a.text) }));
     case 'game_vote':
       return after(await s.actGame(str(a.game_id), { action: 'vote', target: Math.round(Number(a.seat)) - 1 }));
+    case 'game_ask':
+      return after(await s.actGame(str(a.game_id), { action: 'ask', target: Math.round(Number(a.seat)) - 1, text: str(a.question) as TrailQ, x: Math.round(Number(a.x) || 0) }));
+    case 'game_guess':
+      return after(await s.actGame(str(a.game_id), { action: 'guess', target: Math.round(Number(a.seat)) - 1, x: Math.round(Number(a.x)) }));
   }
   return `没有这个工具：${tool}`;
 }
@@ -887,7 +894,8 @@ async function playTimeGame(run: Run): Promise<boolean> {
   const live = groups.filter((c) => c.members.some((m) => m.userId !== me && !!run.s.view.presence[m.userId]));
   const c = live[Math.floor(Math.random() * live.length)];
   if (!c) return false;
-  const kind: GameKind = c.members.length >= 5 && Math.random() < 0.4 ? 'undercover' : Math.random() < 0.6 ? 'gomoku' : 'reversi';
+  const r = Math.random();
+  const kind: GameKind = c.members.length >= 5 && r < 0.3 ? 'undercover' : c.members.length >= 3 && r < 0.55 ? 'trail' : Math.random() < 0.6 ? 'gomoku' : 'reversi';
   const g = await run.s.openGame(c.id, kind, true).catch(() => null);
   if (!g) return false;
   await reply(run, c.id, { note: `（系统提示：你刚在这里开了一局${GAME_INFO[kind].name}，编号 ${g.id}。用一句话喊大家来玩，点上面的游戏条就能加入。）`, moment: 'play' });

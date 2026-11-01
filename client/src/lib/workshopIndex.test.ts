@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { compareVersions, newerOrSame, parseIndex, sha256Hex, verifySignature, viaMirror } from './workshopIndex.ts';
+import { WORKSHOP_PUBLIC_KEY, compareVersions, newerOrSame, parseIndex, sha256Hex, verifySignature, viaMirror } from './workshopIndex.ts';
 
 const enc = new TextEncoder();
 const index = enc.encode(JSON.stringify({
@@ -28,6 +28,12 @@ assert.equal(await verifySignature(index, sig, ''), false, 'no key set: nothing 
 const goPub = '6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=';
 const goSig = 'mqPmjdloxO3nou5MCkDmfNa15ZkF84gpWEd8Xzv4IZXIxFeILDhKYJHmcJvE2yPMIgjgiwwrOj15Q7rjJF2GCA==';
 assert.equal(await verifySignature(enc.encode('{"format":1}'), goSig, goPub), true, 'Go-signed vector');
+
+// The real workshop key: the first index published by am-workshop's publish workflow checks out.
+const realIndex = enc.encode("{\n \"format\": 1,\n \"generated_at\": 1793520369000,\n \"max_package_mb\": 20,\n \"items\": []\n}\n");
+assert.equal(await verifySignature(realIndex, "j/wnbWbKi65KRsc57FrBA1gWA606+g46DCz5cJelNdxHqc8TEmn5jSB5fVhhmMvwWqczd73dEm6Q+q+6xnD3AQ=="), true, 'built-in key matches the published index');
+assert.equal(await verifySignature(realIndex, "j/wnbWbKi65KRsc57FrBA1gWA606+g46DCz5cJelNdxHqc8TEmn5jSB5fVhhmMvwWqczd73dEm6Q+q+6xnD3AQ==", goPub), false);
+assert.equal(WORKSHOP_PUBLIC_KEY.length, 44);
 
 const idx = parseIndex(index);
 assert.equal(idx.items.length, 1, 'unknown types and bad entries dropped');

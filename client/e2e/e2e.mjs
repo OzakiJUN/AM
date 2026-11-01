@@ -734,16 +734,16 @@ const pages = [];
     return !!img && !img.src.includes('/assets/');
   }, null, { timeout: 10000 });
 
-  // Shared room: everyone in it talks to the AI, which answers each time.
+  // Shared room: the AI listens; called by name, it answers.
   await A.click('button[aria-label="AI 设置"]');
   await A.click('div[role="dialog"] button[role="radio"]:has-text("频道与作息")');
   await A.click('div[role="dialog"] button:has-text("开一个共享聊天")');
   await A.waitForSelector('aside button:has-text("小鱼和大家")');
   await A.keyboard.press('Escape');
   await A.waitForSelector('header h2:has-text("小鱼和大家")');
-  await A.fill('textarea[aria-label="消息"]', '大家好呀');
+  await A.fill('textarea[aria-label="消息"]', '小鱼，大家好呀');
   await A.press('textarea[aria-label="消息"]', 'Enter');
-  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：Weiqi：大家好呀")', { timeout: 15000 });
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：Weiqi：小鱼，大家好呀")', { timeout: 15000 });
   await wait(400);
   await shot(A, '29c-ai-room');
 
@@ -807,6 +807,29 @@ const pages = [];
   await wait(400);
   await shot(A, '32b-game-history');
   await A.keyboard.press('Escape');
+  // 数字迷踪: 小克 joins Weiqi's game; each sees only their own numbers; a question and a guess are shown to both.
+  await A.click('header button[aria-label="开一局游戏"]');
+  await A.click('button[role="menuitem"]:has-text("数字迷踪")');
+  await A.waitForSelector('text=开了一局数字迷踪');
+  await B.click('[aria-label="这里的游戏"] button:has-text("数字迷踪")');
+  await B.click('div[role="dialog"] button:has-text("加入")');
+  await A.click('[data-testid="game-applicants"] > div:has-text("小克") button:has-text("同意")');
+  await A.click('div[role="dialog"] button:has-text("开始")');
+  await A.waitForSelector('[data-testid="trail-act"]');
+  const aCards = await A.locator('[data-testid="trail-hands"] [data-testid="card"]').allTextContents();
+  if (aCards.filter((t) => /^\d+/.test(t)).length !== 3 || aCards.filter((t) => t.startsWith('?')).length < 3) throw new Error(`trail cards: ${aCards}`);
+  await A.click('[data-testid="trail-act"] button[type="submit"]');
+  await B.waitForSelector('[data-testid="trail-steps"] >> text=问 2号 小克：有没有比 10 大的数？');
+  await B.click('[data-testid="trail-act"] button[role="radio"]:has-text("猜")');
+  await B.fill('[data-testid="trail-act"] input[aria-label="猜的数"]', '20');
+  await B.click('[data-testid="trail-act"] button[type="submit"]');
+  await A.waitForSelector('[data-testid="trail-steps"] >> text=猜 1号 Weiqi 有 20');
+  await wait(400);
+  await shot(A, '32c-trail');
+  await A.click('div[role="dialog"] button:has-text("结束这局")');
+  await A.waitForSelector('[data-testid="game-status"]:has-text("这局被关掉了")');
+  await A.click('div[role="dialog"] button:has-text("关闭")');
+  await B.keyboard.press('Escape');
   // The workshop: built-in games, opening one from there.
   await A.click('button[aria-label="创意工坊"]');
   await A.click('button[aria-label="谁是卧底"]');
@@ -884,7 +907,8 @@ const pages = [];
     await A.click('aside button:has-text("大厅")');
     await A.click('button[aria-label="表情包"]');
     await A.click('button[role="radio"]:has-text("我的")');
-    await A.waitForSelector('button[aria-label="发表情 开心、狗头"]', { timeout: 30000 });
+    // Tags travel with it (小克 may have added 「doge」 by now).
+    await A.waitForSelector('button[aria-label^="发表情 开心、狗头"]', { timeout: 30000 });
     await A.waitForFunction(() => document.querySelectorAll('button[aria-label^="发表情 "]').length === 2, null, { timeout: 30000 });
     await shot(A, '30-stickers-synced');
   }

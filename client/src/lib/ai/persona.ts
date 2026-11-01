@@ -185,7 +185,7 @@ export function appPrompt(tools: string[], plugins: { name: string; kind: string
     lines.push('- 工坊里装好的东西（插件，你都会）：\n' + plugins.map((p) => `  · ${p.name}（${p.kind}）：${p.detail}`).join('\n'));
   }
   if (has('list_games')) {
-    lines.push('- 小游戏在频道或共享聊天里玩：开局 open_game，看有什么局、申请加入 list_games / join_game，轮到你时会提醒你用 game_move / game_say / game_vote。');
+    lines.push('- 小游戏在频道或共享聊天里玩：开局 open_game，看有什么局、申请加入 list_games / join_game，轮到你时会提醒你用 game_move / game_say / game_vote / game_ask / game_guess。');
   }
   if (has('edit_my_page')) lines.push('- 你自己的个人主页：可以看（view_my_page）、自己摆小组件（edit_my_page：便签、倒计时、链接、统计、留言板、状态、网易云的歌 / 歌单），想怎么布置都行。');
   if (has('set_my_status')) lines.push('- 你的状态（头像旁边显示「在玩…」「在听…」）和个性签名，可以自己改。');

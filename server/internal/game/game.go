@@ -99,7 +99,7 @@ func (s *Service) broadcast(ctx context.Context, g *store.Game, st *State) {
 	}
 	var others []int64
 	for _, u := range ids[g.ConvID] {
-		if st.Seat(u) >= 0 && st.Kind == Undercover {
+		if st.Seat(u) >= 0 && (st.Kind == Undercover || st.Kind == Trail) {
 			s.push.ToUsers([]int64{u}, &amv1.ServerFrame{Msg: &amv1.ServerFrame_Game{Game: view(g, st, u)}}, 0)
 			continue
 		}
@@ -404,6 +404,10 @@ func (s *Service) Act(ctx context.Context, me *store.User, id int64, req *amv1.G
 			return st.Say(seat, req.GetText())
 		case "vote":
 			return st.Vote(seat, int(req.GetTarget()))
+		case "ask":
+			return st.Ask(seat, int(req.GetTarget()), req.GetText(), int(req.GetX()))
+		case "guess":
+			return st.Guess(seat, int(req.GetTarget()), int(req.GetX()))
 		case "resign":
 			return st.Resign(seat)
 		}

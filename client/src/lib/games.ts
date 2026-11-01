@@ -4,7 +4,7 @@
 // coordinates, the text an AI reads, and a fallback move for AIs whose
 // model did not move.
 
-export type GameKind = 'gomoku' | 'reversi' | 'undercover';
+export type GameKind = 'gomoku' | 'reversi' | 'undercover' | 'trail';
 
 export interface GamePlayer {
   userId: string;
@@ -28,7 +28,30 @@ export interface GameState {
   words?: string[];
   log?: string[];
   legal?: [number, number][];
+  /** 数字迷踪: everyone's numbers (0 = hidden from me) and every action. */
+  hands?: TrailHand[];
+  steps?: TrailStep[];
 }
+
+export interface TrailHand {
+  nums: number[];
+  shown: boolean[];
+  hinted: boolean[];
+}
+
+export interface TrailStep {
+  seat: number;
+  target: number;
+  kind: 'ask' | 'guess';
+  q?: TrailQ;
+  x: number;
+  yes: boolean;
+  /** After a wrong guess: which of the guesser's cards had its parity given away (-1 = none). */
+  hint: number;
+  odd?: boolean;
+}
+
+export type TrailQ = 'gt' | 'lt' | 'mult' | 'odd' | 'even';
 
 export interface Game {
   id: string;
@@ -45,6 +68,10 @@ export interface Game {
   updatedAt: number;
 }
 
+/** 数字迷踪: numbers go from 1 to TRAIL_MAX; the game ends after TRAIL_STEPS actions (server: trail.go). */
+export const TRAIL_MAX = 20;
+export const TRAIL_STEPS = 90;
+
 export const GAME_INFO: Record<GameKind, { name: string; players: string; min: number; max: number; rules: string }> = {
   gomoku: {
     name: '五子棋', players: '2 人', min: 2, max: 2,
@@ -58,9 +85,130 @@ export const GAME_INFO: Record<GameKind, { name: string; players: string; min: n
     name: '谁是卧底', players: '4–8 人', min: 4, max: 8,
     rules: '每人拿到一个词，卧底的词和大家的相近但不一样（7 人以上 2 个卧底）。按座位轮流用一句话描述自己的词（不能直接说出来），说完大家投票，票最多的出局。卧底全部出局平民赢；卧底人数追平平民，或撑过 8 轮，卧底赢。',
   },
+  trail: {
+    name: '数字迷踪', players: '2–6 人', min: 2, max: 6,
+    rules: `每人发 3 个 1–20 之间的数（大家的都不一样），只有自己看得到。轮到你时做一件事：问某个人一个问题（他有没有比 X 大的、比 X 小的、X 的倍数、单数、双数），系统如实回答，大家都看得到；或者猜他的一个数：猜中了那个数就翻开，猜错了你要公开自己一张牌是单数还是双数。数全被翻开的人出局，最后剩下的人赢。${TRAIL_STEPS} 步还没分出胜负时，没翻开的数最多的人赢。`,
+  },
 };
 
 export const KINDS = Object.keys(GAME_INFO) as GameKind[];
+
+// ---- 数字迷踪 ----
+
+/** The questions, with the range of X (none for odd / even). */
+export const TRAIL_QUESTIONS: { q: TrailQ; text: string; label: (x: number) => string; min: number; max: number }[] = [
+  { q: 'gt', text: '有没有比 X 大的数', label: (x) => `有没有比 ${x} 大的数`, min: 1, max: TRAIL_MAX - 1 },
+  { q: 'lt', text: '有没有比 X 小的数', label: (x) => `有没有比 ${x} 小的数`, min: 2, max: TRAIL_MAX },
+  { q: 'mult', text: '有没有 X 的倍数', label: (x) => `有没有 ${x} 的倍数`, min: 2, max: 6 },
+  { q: 'odd', text: '有没有单数', label: () => '有没有单数', min: 0, max: 0 },
+  { q: 'even', text: '有没有双数', label: () => '有没有双数', min: 0, max: 0 },
+];
+
+export const questionText = (q: TrailQ, x: number) => TRAIL_QUESTIONS.find((t) => t.q === q)?.label(x) ?? q;
+
+/** Same rule as the server (server/internal/game/trail.go Answer). */
+export function trailAnswer(nums: number[], q: TrailQ, x: number): boolean {
+  return nums.some((n) => (q === 'gt' && n > x) || (q === 'lt' && n < x) || (q === 'mult' && n % x === 0) || (q === 'odd' && n % 2 === 1) || (q === 'even' && n % 2 === 0));
+}
+
+/** One action as a line: "2号 小鱼 问 1号 Weiqi：有没有比 10 大的数？——有". */
+export function stepText(g: Game, st: TrailStep, nameOf: (id: string) => string): string {
+  const who = (i: number) => `${i + 1}号 ${nameOf(g.players[i]?.userId ?? '')}`;
+  if (st.kind === 'ask') return `${who(st.seat)} 问 ${who(st.target)}：${questionText(st.q!, st.x)}？——${st.yes ? '有' : '没有'}`;
+  const tail = st.yes ? '猜中了，翻开' : `没猜中${st.hint >= 0 ? `，${who(st.seat)} 的第 ${st.hint + 1} 张是${st.odd ? '单数' : '双数'}` : ''}`;
+  return `${who(st.seat)} 猜 ${who(st.target)} 有 ${st.x}：${tail}`;
+}
+
+/** A hand as text from `me`'s view: "7 ? ?(单)"; shown ones marked. */
+export function handText(h: TrailHand, mine: boolean): string {
+  return h.nums.map((n, i) => {
+    if (h.shown[i]) return `[${n}已翻开]`;
+    if (mine) return h.hinted[i] ? `${n}(已公开${n % 2 ? '单' : '双'}数)` : String(n);
+    return h.hinted[i] ? '?(公开过单双)' : '?';
+  }).join(' ');
+}
+
+/**
+ * What `me` can still know about `target`'s hidden numbers, from everything
+ * public plus my own hand: every set of numbers that fits all answers.
+ * Returns how many sets fit and, per number, in how many of them it is.
+ */
+export function trailOptions(st: GameState, mySeat: number, target: number): { sets: number; count: Map<number, number> } {
+  const hands = st.hands ?? [];
+  const steps = st.steps ?? [];
+  const h = hands[target];
+  const count = new Map<number, number>();
+  if (!h) return { sets: 0, count };
+  const k = h.nums.filter((_, i) => !h.shown[i]).length;
+  const known = new Set<number>();
+  hands.forEach((x, i) => x.nums.forEach((n, j) => { if (x.shown[j] || i === mySeat) known.add(n); }));
+  // Numbers guessed wrong on the target are not theirs.
+  for (const s of steps) if (s.kind === 'guess' && s.target === target && !s.yes) known.add(s.x);
+  const pool: number[] = [];
+  for (let n = 1; n <= TRAIL_MAX; n++) if (!known.has(n) && n !== 0) pool.push(n);
+  // Parity of the target's hidden hinted cards.
+  let odd = 0;
+  let even = 0;
+  steps.forEach((s) => {
+    if (s.kind === 'guess' && !s.yes && s.seat === target && s.hint >= 0 && !h.shown[s.hint]) {
+      if (s.odd) odd++;
+      else even++;
+    }
+  });
+  // Numbers of the target turned up after each question (they were hidden then).
+  const asks = steps.map((s, i) => ({ s, later: steps.slice(i + 1).filter((t) => t.kind === 'guess' && t.yes && t.target === target).map((t) => t.x) }))
+    .filter(({ s }) => s.kind === 'ask' && s.target === target);
+  let sets = 0;
+  const pick: number[] = [];
+  const walk = (from: number) => {
+    if (pick.length === k) {
+      if (pick.filter((n) => n % 2 === 1).length < odd || pick.filter((n) => n % 2 === 0).length < even) return;
+      for (const { s, later } of asks) if (trailAnswer([...pick, ...later], s.q!, s.x) !== s.yes) return;
+      sets++;
+      for (const n of pick) count.set(n, (count.get(n) ?? 0) + 1);
+      return;
+    }
+    for (let i = from; i < pool.length; i++) {
+      pick.push(pool[i]);
+      walk(i + 1);
+      pick.pop();
+    }
+  };
+  walk(0);
+  return { sets, count };
+}
+
+/**
+ * A sensible 数字迷踪 action for `mySeat` when the model didn't act: guess a
+ * number that must be there, else a likely one when few options are left,
+ * else ask the question that splits the possibilities best.
+ */
+export function trailMove(st: GameState, players: GamePlayer[], mySeat: number):
+  { action: 'guess'; target: number; x: number } | { action: 'ask'; target: number; q: TrailQ; x: number } {
+  let best: { target: number; sets: number; count: Map<number, number> } | null = null;
+  for (let t = 0; t < players.length; t++) {
+    if (t === mySeat || players[t].out) continue;
+    const o = trailOptions(st, mySeat, t);
+    for (const [n, c] of o.count) if (o.sets > 0 && c === o.sets) return { action: 'guess', target: t, x: n };
+    if (!best || (o.sets > 0 && o.sets < best.sets)) best = { target: t, ...o };
+  }
+  const t = best?.target ?? players.findIndex((p, i) => i !== mySeat && !p.out);
+  if (best && best.sets > 0 && best.sets <= 3) {
+    const [n] = [...best.count.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { action: 'guess', target: t, x: n };
+  }
+  // Ask: the question whose answer splits the remaining sets most evenly (estimated on the candidate numbers).
+  const cands = best ? [...best.count.keys()] : [];
+  let q: { q: TrailQ; x: number; score: number } = { q: 'gt', x: 10, score: Infinity };
+  for (const t2 of TRAIL_QUESTIONS) {
+    for (let x = t2.min; x <= t2.max; x++) {
+      const yes = cands.filter((n) => trailAnswer([n], t2.q, x)).length;
+      const score = Math.abs(yes * 2 - cands.length);
+      if (score < q.score && yes > 0 && yes < cands.length) q = { q: t2.q, x, score };
+    }
+  }
+  return { action: 'ask', target: t, q: q.q, x: q.x };
+}
 
 /** Column letters A–O (plain, no skipped letters: easier for models). */
 const COLS = 'ABCDEFGHIJKLMNO';
@@ -131,6 +279,11 @@ export function resultText(g: Game, nameOf: (id: string) => string): string {
     const words = st.words?.length === 2 ? `（平民：${st.words[0]}，卧底：${st.words[1]}）` : '';
     return `${w === 1 ? '平民赢了' : st.result === 'rounds' ? '卧底撑过了 8 轮，卧底赢了' : '卧底赢了'}，卧底是 ${spies}${words}`;
   }
+  if (g.kind === 'trail') {
+    if (w === -1) return `${TRAIL_STEPS} 步到了，平局`;
+    const p = g.players[w - 1];
+    return w > 0 ? `${p ? nameOf(p.userId) : '?'} 赢了${st.result === 'steps' ? `（${TRAIL_STEPS} 步到了，剩下的数最多）` : ''}` : '这局结束了';
+  }
   if (w === -1) return '平局';
   if (w > 0) {
     const p = g.players[w - 1];
@@ -170,6 +323,20 @@ export function gameText(g: Game, me: string, nameOf: (id: string) => string): s
       lines.push(st.phase === 'vote'
         ? '轮到你投票了：用 game_vote 投给你觉得是卧底的人（填座位号，不能投自己）。'
         : '轮到你描述了：用 game_say 说一句话描述你的词（不能说出词本身，别太直白，也别太偏）。');
+    }
+    return lines.join('\n');
+  }
+  if (g.kind === 'trail') {
+    const hands = st.hands ?? [];
+    if (seat >= 0 && hands[seat]) lines.push(`你的数：${handText(hands[seat], true)}`);
+    g.players.forEach((p, i) => {
+      if (i === seat || !hands[i]) return;
+      lines.push(`${i + 1}号 ${nameOf(p.userId)}${p.out ? '（已出局）' : ''} 的牌：${hands[i].nums.map((n, k) => (hands[i].shown[k] ? String(n) : hands[i].hinted[k] ? '?（公开过单双）' : '?')).join(' ')}`);
+    });
+    const steps = (st.steps ?? []).map((x) => stepText(g, x, nameOf));
+    if (steps.length) lines.push(`到现在 ${steps.length} 步（最多 ${TRAIL_STEPS} 步）：\n` + steps.join('\n'));
+    if (mine) {
+      lines.push('轮到你了，二选一：用 game_ask 问某个人一个问题（target 写座位号，question 写 gt / lt / mult / odd / even，x 是数字：gt = 有没有比 x 大的，lt = 比 x 小的，mult = x 的倍数，x 在 2–6），或者用 game_guess 猜某个人的一个数（target 座位号，x 1–20）。从所有问答里推理：别问已经知道答案的问题；能确定的数就直接猜。');
     }
     return lines.join('\n');
   }

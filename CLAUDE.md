@@ -241,7 +241,8 @@ update the docs in the same commit.
   `portrait_packs` (`User.portraits_at` = cache version, `ownPack` needs
   `neutral`, `usePortraitPack` in `app/Portrait.tsx`); voice input is only
   the `SpeechInput` slot in `lib/voice.ts` (null implementation).
-- Board games + workshop (docs/design.md §13): the server holds each game
+- Board games + workshop (docs/design.md §13; 数字迷踪 = `game/trail.go`, our
+  own design — never clone a published game): the server holds each game
   as one JSON row (`games`, locked while changed) and checks the rules in
   `server/internal/game` (`rules.go` pure + tested; `View` hides secret
   words; push `game` per viewer); client `lib/games.ts` (pure, tested: coords,
