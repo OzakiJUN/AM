@@ -168,3 +168,33 @@ export function splitStatusTag(text: string): { status?: string; text: string } 
 export function isSkip(text: string): boolean {
   return /^\s*(\[[^\]]*\]\s*)*\[?\s*skip\s*\]?\s*$/i.test(text);
 }
+
+/** Board games (docs/design.md §13 小游戏): asking to join, opening games in its play time. */
+export interface GameSettings {
+  /** Asks to join games opened where it is (channels, its shared room). */
+  join: boolean;
+  /** 0–1: how keen it is (its owner's games: almost always). */
+  eagerness: number;
+  /** In its play time, opens a game itself when nobody has one waiting. */
+  open: boolean;
+  /** Games it plays at the same time. */
+  maxAtOnce: number;
+}
+
+export const defaultGames = (): GameSettings => ({ join: true, eagerness: 0.6, open: true, maxAtOnce: 1 });
+
+/**
+ * Whether to ask to join a game that just opened. `free` = seats left,
+ * `playing` = games it is already in. Returns the delay before asking
+ * (a person-like pause) or null.
+ */
+export function wantsToJoin(o: {
+  s: GameSettings; free: number; playing: number; byOwner: boolean; manyPlayers: boolean; asleep: boolean; random: number; random2: number;
+}): number | null {
+  if (!o.s.join || o.free <= 0 || o.asleep || o.playing >= Math.max(1, o.s.maxAtOnce)) return null;
+  let p = Math.max(0, Math.min(1, o.s.eagerness));
+  if (o.manyPlayers) p = Math.min(1, p + 0.15); // party games need people
+  if (o.byOwner) p = 1; // its owner wants to play with it
+  if (o.random >= p) return null;
+  return 4000 + 11000 * o.random2;
+}

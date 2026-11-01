@@ -17,6 +17,8 @@ if (!JOIN || !IMAGE) {
 // A fake model service (OpenAI-compatible, streamed) for the AI scenario.
 const MOCK_PORT = Number(process.env.AM_E2E_MOCK_PORT ?? 8460);
 let seenTools = [];
+const GAME_MOVES = ['I9', 'G9', 'I7', 'G7'];
+let gameMove = 0;
 const mock = createServer((req, res) => {
   // Also a fake NetEase for the music widgets (the test server's media.netease_api points here).
   if (req.method === 'GET' && req.url.startsWith('/api/song/detail/')) {
@@ -49,6 +51,14 @@ const mock = createServer((req, res) => {
     if (wantsTool) {
       res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_1', function: { name: 'set_clipboard', arguments: '{"text":"小鱼' } }] } }] })}\n\n`);
       res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '到此一游"}' } }] } }] })}\n\n`);
+      return res.end('data: [DONE]\n\n');
+    }
+    // A board game turn: move with game_move (the next free point of a fixed list), then stay quiet.
+    const game = typeof last === 'string' && j.messages.at(-1).role === 'user' && j.tools?.some((t) => t.function.name === 'game_move')
+      ? /游戏编号 (\d+)[\s\S]*轮到你了：用 game_move/.exec(last) : null;
+    if (game) {
+      const at = GAME_MOVES[gameMove++ % GAME_MOVES.length];
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_g', function: { name: 'game_move', arguments: JSON.stringify({ game_id: game[1], at }) } }] } }] })}\n\n`);
       return res.end('data: [DONE]\n\n');
     }
     // In a channel: answer when @-mentioned, otherwise stay quiet with [skip].
@@ -335,9 +345,10 @@ const pages = [];
   await A.click('button[role="radio"]:has-text("染色")');
   if ((await A.evaluate(() => document.documentElement.style.getPropertyValue('--glass-tint'))) !== '14%') throw new Error('glass style not applied');
   await A.click('button[role="radio"]:has-text("磨砂")');
-  // The workshop page is there, saying it is not ready yet.
+  // The workshop: built-in items by category.
   await A.click('button[aria-label="创意工坊"]');
-  await A.waitForSelector('text=暂时还不能用');
+  await A.click('button[role="tab"]:has-text("小游戏")');
+  await A.waitForSelector('button[aria-label="五子棋"]');
   await wait(500);
   await shot(A, '11c-workshop');
 
@@ -684,6 +695,38 @@ const pages = [];
   await A.keyboard.press('Escape');
   await B.click('button[aria-label="AI"]');
   await B.waitForSelector('aside button:has-text("小鱼和大家")');
+
+  // Board games: Weiqi opens 五子棋 in 大厅; 小鱼 asks to join by itself, Weiqi lets it in and
+  // starts; 小鱼 answers each move with the game tools; 小克 sees the game in 大厅's strip.
+  await A.click('button[aria-label="频道"]');
+  await A.click('aside button:has-text("大厅")');
+  await A.click('header button[aria-label="开一局游戏"]');
+  await A.click('button[role="menuitem"]:has-text("五子棋")');
+  await A.waitForSelector('text=开了一局五子棋');
+  await A.waitForSelector('[data-testid="game-applicants"] >> text=小鱼', { timeout: 30000 });
+  await shot(A, '31-game-apply');
+  await A.click('[data-testid="game-applicants"] button:has-text("同意")');
+  await A.click('div[role="dialog"] button:has-text("开始")');
+  await A.click('button[aria-label="H8"]');
+  await A.waitForSelector('[data-testid="game-status"]:has-text("轮到 小鱼")');
+  await A.waitForSelector('[data-testid="game-status"]:has-text("轮到 你")', { timeout: 30000 });
+  await A.waitForSelector('button[aria-label="I9"] span');
+  await wait(500);
+  await shot(A, '32-game-board');
+  await B.click('button[aria-label="频道"]');
+  await B.click('aside button:has-text("大厅")');
+  await B.waitForSelector('[aria-label="这里的游戏"] >> text=五子棋');
+  await A.click('div[role="dialog"] button:has-text("认输")');
+  await A.waitForSelector('[data-testid="game-status"]:has-text("小鱼（白）赢了")');
+  await A.keyboard.press('Escape');
+  // The workshop: built-in games, opening one from there.
+  await A.click('button[aria-label="创意工坊"]');
+  await A.click('button[aria-label="谁是卧底"]');
+  await A.waitForSelector('div[role="dialog"] >> text=在哪里开局');
+  await wait(400);
+  await shot(A, '33-workshop');
+  await A.keyboard.press('Escape');
+  await A.click('button[aria-label="AI"]');
 
   // Someone else's AI on my computer: 小克 lets 小鱼 read what she copied; Weiqi asks 小鱼 to look.
   await B.evaluate(() => navigator.clipboard.writeText('小克复制的字'));

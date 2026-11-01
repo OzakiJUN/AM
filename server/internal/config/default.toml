@@ -71,6 +71,9 @@ pair_code_minutes = 5
 max_ai_per_user = 5
 # How many stickers one person may keep in their collection.
 max_stickers = 1000
+# How many board games (五子棋, 黑白棋, 谁是卧底) may be open or running at
+# once in one channel or shared AI room. 0 = games are turned off.
+max_games_per_conv = 3
 
 [retention]
 # How long admin-deleted content is kept in the evidence store before it is

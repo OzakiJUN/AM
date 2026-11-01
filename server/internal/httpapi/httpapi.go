@@ -20,6 +20,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/conv"
+	"github.com/OzakiJUN/am/server/internal/game"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/music"
@@ -45,14 +46,15 @@ type API struct {
 	profile   *profile.Service
 	stickers  *sticker.Service
 	music     *music.Service
+	games     *game.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	maxUpload int64
 }
 
 func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service, ps *presence.Service,
-	prof *profile.Service, sk *sticker.Service, mu *music.Service, loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
-	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, profile: prof, stickers: sk, music: mu, log: log,
+	prof *profile.Service, sk *sticker.Service, mu *music.Service, gs *game.Service, loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
+	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, profile: prof, stickers: sk, music: mu, games: gs, log: log,
 		limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
 }
 
@@ -83,6 +85,16 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/ai/{id}/share-requests/{user}", a.authed(a.decideShareRequest))
 	mux.HandleFunc("POST /api/v1/music/resolve", a.authed(a.resolveMusic))
 	mux.HandleFunc("GET /api/v1/stickers", a.authed(a.listStickers))
+	mux.HandleFunc("GET /api/v1/conversations/{id}/games", a.authed(a.listGames))
+	mux.HandleFunc("POST /api/v1/conversations/{id}/games", a.authed(a.openGame))
+	mux.HandleFunc("GET /api/v1/games/{id}", a.authed(a.getGame))
+	mux.HandleFunc("PATCH /api/v1/games/{id}", a.authed(a.setGame))
+	mux.HandleFunc("POST /api/v1/games/{id}/applicants/{user}", a.authed(a.decideGame))
+	mux.HandleFunc("POST /api/v1/games/{id}/act", a.authed(a.actGame))
+	mux.HandleFunc("POST /api/v1/games/{id}/join", a.authed(a.gameStep("join")))
+	mux.HandleFunc("POST /api/v1/games/{id}/start", a.authed(a.gameStep("start")))
+	mux.HandleFunc("POST /api/v1/games/{id}/leave", a.authed(a.gameStep("leave")))
+	mux.HandleFunc("POST /api/v1/games/{id}/end", a.authed(a.gameStep("end")))
 	mux.HandleFunc("POST /api/v1/stickers", a.authed(a.addSticker))
 	mux.HandleFunc("PATCH /api/v1/stickers/{id}", a.authed(a.updateSticker))
 	mux.HandleFunc("DELETE /api/v1/stickers/{id}", a.authed(a.deleteSticker))

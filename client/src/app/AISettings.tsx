@@ -383,6 +383,25 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </span>
         </div>
       </Field>
+      <Field label="桌游" hint="有人在它在的频道、共享聊天里开局时，它会自己申请加入（你开的局它基本都来）；休息时间没人开局，它会自己开一局喊大家">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+            <span className="flex-1 text-[0.9rem]">自己申请加入</span>
+            <Toggle label="自己申请加入桌游" checked={draft.games.join} onChange={(join) => set({ games: { ...draft.games, join } })} />
+          </div>
+          {draft.games.join && (
+            <div className="flex items-center gap-3 px-1">
+              <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">随缘</span>
+              <Slider label="多想玩" value={draft.games.eagerness} min={0} max={1} step={0.05} onChange={(eagerness) => set({ games: { ...draft.games, eagerness } })} />
+              <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">每局都来</span>
+            </div>
+          )}
+          <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+            <span className="flex-1 text-[0.9rem]">休息时间自己开局</span>
+            <Toggle label="休息时间自己开局" checked={draft.games.open} onChange={(open) => set({ games: { ...draft.games, open } })} />
+          </div>
+        </div>
+      </Field>
       <Field label="在频道里">
         <Segmented id="ai-ch-mode" value={ch.mode} onChange={(mode) => setCh({ mode })} options={[
           { value: 'active', label: '会自己接话' }, { value: 'mention', label: '只在被 @ 或叫名字时说话' },

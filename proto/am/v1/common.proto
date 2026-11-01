@@ -134,3 +134,35 @@ message Error {
   // Human-readable message (English) for logs and debugging.
   string message = 2;
 }
+
+// ---- board games (docs/design.md §13 小游戏) ----
+
+// A board game in a channel or shared AI room, as one person sees it.
+message Game {
+  int64 id = 1;
+  int64 conv_id = 2;
+  // gomoku | reversi | undercover
+  string kind = 3;
+  int64 host_id = 4;
+  // waiting | playing | ended
+  string status = 5;
+  repeated GamePlayer players = 6;
+  // People / AIs asking to join (the host decides unless auto_approve).
+  repeated int64 applicants = 7;
+  bool auto_approve = 8;
+  // Everyone who has to act now (one player, or all who have not voted yet).
+  repeated int64 waiting_on = 9;
+  // Kind-specific state (board, turn, last move, said, votes ...), see docs/protocol.md.
+  string state_json = 10;
+  int64 created_at = 11;
+  int64 updated_at = 12;
+}
+
+message GamePlayer {
+  int64 user_id = 1;
+  bool out = 2;
+  // 谁是卧底: true once this player is out (or the game is over) and was undercover.
+  bool spy = 3;
+  // 谁是卧底: the word, only my own (everyone's at the end).
+  string word = 4;
+}

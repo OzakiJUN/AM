@@ -64,6 +64,12 @@ func (j *Janitor) RunOnce(ctx context.Context) {
 	} else if n > 0 {
 		j.log.Info("purged deleted guestbook entries", "rows", n)
 	}
+	// Finished board games are kept 30 days (game.KeepEnded), then dropped.
+	if n, err := j.st.DeleteEndedGames(ctx, now.Add(-30*24*time.Hour).UnixMilli()); err != nil {
+		j.log.Error("purge ended games", "err", err)
+	} else if n > 0 {
+		j.log.Info("purged finished games", "rows", n)
+	}
 	if n, err := j.st.PurgePairTickets(ctx, now.UnixMilli()); err != nil {
 		j.log.Error("purge pairing codes", "err", err)
 	} else if n > 0 {

@@ -119,3 +119,36 @@ func (c *Client) DecideShare(ctx context.Context, aiID, userID int64, approve bo
 	out := &amv1.Conversation{}
 	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/ai/%d/share-requests/%d", aiID, userID), &amv1.DecideShareRequest{Approve: approve}, out)
 }
+
+// ---- board games ----
+
+func (c *Client) OpenGame(ctx context.Context, convID int64, kind string, auto bool) (*amv1.Game, error) {
+	out := &amv1.Game{}
+	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/conversations/%d/games", convID), &amv1.OpenGameRequest{Kind: kind, AutoApprove: auto}, out)
+}
+
+func (c *Client) ListGames(ctx context.Context, convID int64) (*amv1.ListGamesResponse, error) {
+	out := &amv1.ListGamesResponse{}
+	return out, c.call(ctx, http.MethodGet, fmt.Sprintf("/api/v1/conversations/%d/games", convID), nil, out)
+}
+
+// GameStep is join, start, leave or end.
+func (c *Client) GameStep(ctx context.Context, id int64, step string) (*amv1.Game, error) {
+	out := &amv1.Game{}
+	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/games/%d/%s", id, step), nil, out)
+}
+
+func (c *Client) DecideGame(ctx context.Context, id, user int64, approve bool) (*amv1.Game, error) {
+	out := &amv1.Game{}
+	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/games/%d/applicants/%d", id, user), &amv1.DecideGameRequest{Approve: approve}, out)
+}
+
+func (c *Client) SetGameAuto(ctx context.Context, id int64, on bool) (*amv1.Game, error) {
+	out := &amv1.Game{}
+	return out, c.call(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/games/%d", id), &amv1.SetGameRequest{AutoApprove: on}, out)
+}
+
+func (c *Client) ActGame(ctx context.Context, id int64, req *amv1.GameActRequest) (*amv1.Game, error) {
+	out := &amv1.Game{}
+	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/games/%d/act", id), req, out)
+}

@@ -3319,6 +3319,267 @@ func (x *DecideShareRequest) GetApprove() bool {
 	return false
 }
 
+type OpenGameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	AutoApprove   bool                   `protobuf:"varint,2,opt,name=auto_approve,json=autoApprove,proto3" json:"auto_approve,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OpenGameRequest) Reset() {
+	*x = OpenGameRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenGameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenGameRequest) ProtoMessage() {}
+
+func (x *OpenGameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenGameRequest.ProtoReflect.Descriptor instead.
+func (*OpenGameRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *OpenGameRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *OpenGameRequest) GetAutoApprove() bool {
+	if x != nil {
+		return x.AutoApprove
+	}
+	return false
+}
+
+type ListGamesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Games         []*Game                `protobuf:"bytes,1,rep,name=games,proto3" json:"games,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGamesResponse) Reset() {
+	*x = ListGamesResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGamesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGamesResponse) ProtoMessage() {}
+
+func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGamesResponse.ProtoReflect.Descriptor instead.
+func (*ListGamesResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *ListGamesResponse) GetGames() []*Game {
+	if x != nil {
+		return x.Games
+	}
+	return nil
+}
+
+type GameActRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// move (x, y) | say (text) | vote (target seat) | resign
+	Action        string `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
+	X             int32  `protobuf:"varint,2,opt,name=x,proto3" json:"x,omitempty"`
+	Y             int32  `protobuf:"varint,3,opt,name=y,proto3" json:"y,omitempty"`
+	Text          string `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	Target        int32  `protobuf:"varint,5,opt,name=target,proto3" json:"target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GameActRequest) Reset() {
+	*x = GameActRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GameActRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GameActRequest) ProtoMessage() {}
+
+func (x *GameActRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GameActRequest.ProtoReflect.Descriptor instead.
+func (*GameActRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *GameActRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *GameActRequest) GetX() int32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *GameActRequest) GetY() int32 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *GameActRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *GameActRequest) GetTarget() int32 {
+	if x != nil {
+		return x.Target
+	}
+	return 0
+}
+
+type SetGameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AutoApprove   bool                   `protobuf:"varint,1,opt,name=auto_approve,json=autoApprove,proto3" json:"auto_approve,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetGameRequest) Reset() {
+	*x = SetGameRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetGameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetGameRequest) ProtoMessage() {}
+
+func (x *SetGameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetGameRequest.ProtoReflect.Descriptor instead.
+func (*SetGameRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *SetGameRequest) GetAutoApprove() bool {
+	if x != nil {
+		return x.AutoApprove
+	}
+	return false
+}
+
+type DecideGameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Approve       bool                   `protobuf:"varint,1,opt,name=approve,proto3" json:"approve,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecideGameRequest) Reset() {
+	*x = DecideGameRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecideGameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecideGameRequest) ProtoMessage() {}
+
+func (x *DecideGameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecideGameRequest.ProtoReflect.Descriptor instead.
+func (*DecideGameRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *DecideGameRequest) GetApprove() bool {
+	if x != nil {
+		return x.Approve
+	}
+	return false
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -3554,6 +3815,21 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\rShareRequests\x12!\n" +
 	"\x05users\x18\x01 \x03(\v2\v.am.v1.UserR\x05users\".\n" +
 	"\x12DecideShareRequest\x12\x18\n" +
+	"\aapprove\x18\x01 \x01(\bR\aapprove\"H\n" +
+	"\x0fOpenGameRequest\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12!\n" +
+	"\fauto_approve\x18\x02 \x01(\bR\vautoApprove\"6\n" +
+	"\x11ListGamesResponse\x12!\n" +
+	"\x05games\x18\x01 \x03(\v2\v.am.v1.GameR\x05games\"p\n" +
+	"\x0eGameActRequest\x12\x16\n" +
+	"\x06action\x18\x01 \x01(\tR\x06action\x12\f\n" +
+	"\x01x\x18\x02 \x01(\x05R\x01x\x12\f\n" +
+	"\x01y\x18\x03 \x01(\x05R\x01y\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\x12\x16\n" +
+	"\x06target\x18\x05 \x01(\x05R\x06target\"3\n" +
+	"\x0eSetGameRequest\x12!\n" +
+	"\fauto_approve\x18\x01 \x01(\bR\vautoApprove\"-\n" +
+	"\x11DecideGameRequest\x12\x18\n" +
 	"\aapprove\x18\x01 \x01(\bR\aapprove*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
@@ -3573,7 +3849,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -3632,38 +3908,45 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*PortraitPack)(nil),             // 54: am.v1.PortraitPack
 	(*ShareRequests)(nil),            // 55: am.v1.ShareRequests
 	(*DecideShareRequest)(nil),       // 56: am.v1.DecideShareRequest
-	nil,                              // 57: am.v1.PortraitPack.MediaIdsEntry
-	(*User)(nil),                     // 58: am.v1.User
-	(*Activity)(nil),                 // 59: am.v1.Activity
+	(*OpenGameRequest)(nil),          // 57: am.v1.OpenGameRequest
+	(*ListGamesResponse)(nil),        // 58: am.v1.ListGamesResponse
+	(*GameActRequest)(nil),           // 59: am.v1.GameActRequest
+	(*SetGameRequest)(nil),           // 60: am.v1.SetGameRequest
+	(*DecideGameRequest)(nil),        // 61: am.v1.DecideGameRequest
+	nil,                              // 62: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 63: am.v1.User
+	(*Activity)(nil),                 // 64: am.v1.Activity
+	(*Game)(nil),                     // 65: am.v1.Game
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	58, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	63, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	58, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	63, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	58, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	58, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	58, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	58, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	58, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	59, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	63, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	63, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	63, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	63, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	63, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	64, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	58, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	58, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	63, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	63, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	58, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	63, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	47, // 18: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
 	52, // 19: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	57, // 20: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
-	58, // 21: am.v1.ShareRequests.users:type_name -> am.v1.User
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	62, // 20: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	63, // 21: am.v1.ShareRequests.users:type_name -> am.v1.User
+	65, // 22: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -3680,7 +3963,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   57,
+			NumMessages:   62,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

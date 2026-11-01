@@ -236,9 +236,35 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
    - `client_state`：我的另一台设备存了共享数据（`PUT /api/v1/me/client-state`），重新取一次。
    - `server_moved`：服务器换了公网地址（管理员换了中转）。客户端用同一个证书指纹连新地址，连上了再切过去。
    - `ai_share_request{ai_id, user}`：有人申请和我的 AI 聊（发给主人的所有设备）。
+   - `game`：我所在的会话里一局桌游变了（我看到的样子，见「桌游」）。
 5. 请求带客户端自定的 `req_id`，响应带同一个 `req_id`。
 
 服务器每 30 秒发一次 WebSocket ping；客户端也可以发 `ping` 帧。客户端读得太慢会被断开，重连后 sync 即可。
+
+### 桌游（docs/design.md §13 小游戏）
+
+频道和共享聊天里的小桌游：五子棋（`gomoku`，2 人）、黑白棋（`reversi`，2 人）、谁是卧底（`undercover`，4–8 人）。服务器存整局状态、检查每一步；人和 bot / AI 一样当玩家。只有这个会话的成员能看、能玩（否则 `not_member`）。
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/conversations/{id}/games` | — | `ListGamesResponse`：等人中、进行中的，和 6 小时内结束的（最多 50 局，新的在前） |
+| POST | `/api/v1/conversations/{id}/games` | `OpenGameRequest` | `Game`：开一局，我坐 1 号（执黑）。`auto_approve` = 谁申请都直接坐下。同一个会话同时最多 `limits.max_games_per_conv` 局没结束（`game_limit`；0 = 关掉桌游） |
+| GET | `/api/v1/games/{id}` | — | `Game` |
+| POST | `/api/v1/games/{id}/join` | — | `Game`：自动同意时直接坐下，否则进申请列表（`applicants`）。只能在开始前（`game_state`）；满了 `game_full` |
+| POST | `/api/v1/games/{id}/applicants/{user}` | `DecideGameRequest` | `Game`：开局的人同意 / 拒绝一个申请（别人 `no_permission`，没这个申请 `not_found`） |
+| PATCH | `/api/v1/games/{id}` | `SetGameRequest` | `Game`：开局的人开关自动同意；打开时把在等的申请都放进来（坐得下的） |
+| POST | `/api/v1/games/{id}/start` | — | `Game`：开局的人开始（人不够 `game_state`）。谁是卧底此时发词 |
+| POST | `/api/v1/games/{id}/act` | `GameActRequest` | `Game`：`move`（`x`、`y`，从左上角 0 开始）/ `say`（`text`，最多 60 字，不能包含自己的词）/ `vote`（`target` 座位号，从 0 开始，不能投自己）/ `resign`。不是玩家 `no_permission`，没轮到 `not_your_turn`，不合规则 `game_bad_move`，阶段不对 `game_state` |
+| POST | `/api/v1/games/{id}/leave` | — | `Game`：开始前退出（开局的人退出 = 关掉这局）；进行中 = 认输（谁是卧底里是自己出局） |
+| POST | `/api/v1/games/{id}/end` | — | `Game`：开局的人结束这局（没有输赢，`result = "closed"`） |
+
+每次变化服务器把 `ServerFrame.game` 推给会话里的所有人，每人收到的是自己能看到的样子：
+
+- `Game.players`：座位顺序（1 号执黑）。谁是卧底里 `word` 只有自己的，`spy` 只在那人出局后才是真的；结束后所有人的词和身份都公开。
+- `Game.waiting_on`：现在要行动的人（轮到的一个人，或投票阶段还没投的所有人）。
+- `Game.state_json`：JSON，`size`、`board`（一维数组，`y*size+x`，0 空 1 黑 2 白）、`turn`（座位号，-1 = 没有）、`moves`、`last`（`[x, y]`）、`winner`（棋：座位号 + 1，-1 平局；谁是卧底：1 平民赢，2 卧底赢）、`result`（`resign` 认输、`closed` 被关掉、`rounds` 卧底撑过 8 轮）、`legal`（黑白棋轮到的人能下的位置）、`phase`（`describe` / `vote`）、`round`、`said`（`{seat, round, text}`）、`votes`（投票阶段只给 -1 没投 / -2 已投，计票后不再给）、`words`（结束后 `[平民词, 卧底词]`）、`log`（`out:座位`、`tie`、`left:座位`、`pass`）。
+
+结束的局 30 天后由 janitor 删除。
 
 ### 发消息
 
@@ -321,6 +347,11 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
 | `ai_limit` | 403 | AI 账号已经建到 `limits.max_ai_per_user` 个 |
 | `sticker_limit` | 403 | 表情已经存到 `limits.max_stickers` 个 |
+| `game_limit` | 403 | 这个会话里没结束的桌游已经有 `limits.max_games_per_conv` 局（0 = 桌游关着） |
+| `game_full` | 409 | 这局没有空座位了 |
+| `game_state` | 409 | 这局现在不在那个阶段（还没开始、已经开始或已经结束、人不够） |
+| `not_your_turn` | 409 | 还没轮到你（或这轮已经投过票） |
+| `game_bad_move` | 400 | 不合规则：位置被占、黑白棋没夹住子、描述里有自己的词或太长、投给自己 / 出局的人 |
 | `music_link_invalid` | 400 | 不是网易云的歌曲 / 歌单链接 |
 | `music_unavailable` | 502 | 没能从网易云读到（链接对不上、网易云没回答，或者服务器关掉了这个功能） |
 | `too_many_devices` | 403 | 这个账号登录的设备已经到 `limits.max_devices` 台，先退出一台（登录、生成登录码、用登录码时） |

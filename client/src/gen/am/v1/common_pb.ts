@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/common.proto.
  */
 export const file_am_v1_common: GenFile = /*@__PURE__*/
-  fileDesc("ChJhbS92MS9jb21tb24ucHJvdG8SBWFtLnYxIuoBCgRVc2VyEgoKAmlkGAEgASgDEhAKCHVzZXJuYW1lGAIgASgJEhQKDGRpc3BsYXlfbmFtZRgDIAEoCRIOCgZhdmF0YXIYBCABKAkSKAoMYWNjb3VudF90eXBlGAUgASgOMhIuYW0udjEuQWNjb3VudFR5cGUSEAoIb3duZXJfaWQYBiABKAMSGgoSb3duZXJfZGlzcGxheV9uYW1lGAcgASgJEhUKDWF2YXRhcl9zdGF0aWMYCCABKAkSCwoDYmlvGAkgASgJEgwKBGdvbmUYCiABKAgSFAoMcG9ydHJhaXRzX2F0GAsgASgDIjsKCEFjdGl2aXR5EiEKBGtpbmQYASABKA4yEy5hbS52MS5BY3Rpdml0eUtpbmQSDAoEdGV4dBgCIAEoCSJhCghQcmVzZW5jZRIPCgd1c2VyX2lkGAEgASgDEg4KBm9ubGluZRgCIAEoCBIRCglpbnZpc2libGUYAyABKAgSIQoIYWN0aXZpdHkYBCABKAsyDy5hbS52MS5BY3Rpdml0eSKqAgoMQ29udmVyc2F0aW9uEgoKAmlkGAEgASgDEh0KBGtpbmQYAiABKA4yDy5hbS52MS5Db252S2luZBIMCgRuYW1lGAMgASgJEg4KBmF2YXRhchgEIAEoCRIQCghvd25lcl9pZBgFIAEoAxIQCghsYXN0X3NlcRgGIAEoAxIcCgdtZW1iZXJzGAcgAygLMgsuYW0udjEuVXNlchIgCgRzZWxmGAggASgLMhIuYW0udjEuTWVtYmVyU3RhdGUSDgoGbm90aWNlGAkgASgJEhUKDWpvaW5fYXBwcm92YWwYCiABKAgSJwoMbWVtYmVyX3JvbGVzGAsgAygOMhEuYW0udjEuTWVtYmVyUm9sZRIOCgZwdWJsaWMYDCABKAgSDQoFYWlfaWQYDSABKAMifgoLTWVtYmVyU3RhdGUSHwoEcm9sZRgBIAEoDjIRLmFtLnYxLk1lbWJlclJvbGUSEAoIcmVhZF9zZXEYAiABKAMSFAoMcGlubmVkX29yZGVyGAMgASgDEhEKCWRuZF91bnRpbBgEIAEoAxITCgttdXRlZF91bnRpbBgFIAEoAyImCgVFcnJvchIMCgRjb2RlGAEgASgJEg8KB21lc3NhZ2UYAiABKAkqbgoLQWNjb3VudFR5cGUSHAoYQUNDT1VOVF9UWVBFX1VOU1BFQ0lGSUVEEAASFgoSQUNDT1VOVF9UWVBFX0hVTUFOEAESFAoQQUNDT1VOVF9UWVBFX0JPVBACEhMKD0FDQ09VTlRfVFlQRV9BSRADKrcBCgxBY3Rpdml0eUtpbmQSHQoZQUNUSVZJVFlfS0lORF9VTlNQRUNJRklFRBAAEhsKF0FDVElWSVRZX0tJTkRfTElTVEVOSU5HEAESGQoVQUNUSVZJVFlfS0lORF9QTEFZSU5HEAISGwoXQUNUSVZJVFlfS0lORF9UVU5JTkdfQUkQAxIZChVBQ1RJVklUWV9LSU5EX1dPUktJTkcQBBIYChRBQ1RJVklUWV9LSU5EX0NVU1RPTRAFKkwKCENvbnZLaW5kEhkKFUNPTlZfS0lORF9VTlNQRUNJRklFRBAAEhAKDENPTlZfS0lORF9ETRABEhMKD0NPTlZfS0lORF9HUk9VUBACKm8KCk1lbWJlclJvbGUSGwoXTUVNQkVSX1JPTEVfVU5TUEVDSUZJRUQQABIWChJNRU1CRVJfUk9MRV9NRU1CRVIQARIVChFNRU1CRVJfUk9MRV9BRE1JThACEhUKEU1FTUJFUl9ST0xFX09XTkVSEANCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z");
+  fileDesc("ChJhbS92MS9jb21tb24ucHJvdG8SBWFtLnYxIuoBCgRVc2VyEgoKAmlkGAEgASgDEhAKCHVzZXJuYW1lGAIgASgJEhQKDGRpc3BsYXlfbmFtZRgDIAEoCRIOCgZhdmF0YXIYBCABKAkSKAoMYWNjb3VudF90eXBlGAUgASgOMhIuYW0udjEuQWNjb3VudFR5cGUSEAoIb3duZXJfaWQYBiABKAMSGgoSb3duZXJfZGlzcGxheV9uYW1lGAcgASgJEhUKDWF2YXRhcl9zdGF0aWMYCCABKAkSCwoDYmlvGAkgASgJEgwKBGdvbmUYCiABKAgSFAoMcG9ydHJhaXRzX2F0GAsgASgDIjsKCEFjdGl2aXR5EiEKBGtpbmQYASABKA4yEy5hbS52MS5BY3Rpdml0eUtpbmQSDAoEdGV4dBgCIAEoCSJhCghQcmVzZW5jZRIPCgd1c2VyX2lkGAEgASgDEg4KBm9ubGluZRgCIAEoCBIRCglpbnZpc2libGUYAyABKAgSIQoIYWN0aXZpdHkYBCABKAsyDy5hbS52MS5BY3Rpdml0eSKqAgoMQ29udmVyc2F0aW9uEgoKAmlkGAEgASgDEh0KBGtpbmQYAiABKA4yDy5hbS52MS5Db252S2luZBIMCgRuYW1lGAMgASgJEg4KBmF2YXRhchgEIAEoCRIQCghvd25lcl9pZBgFIAEoAxIQCghsYXN0X3NlcRgGIAEoAxIcCgdtZW1iZXJzGAcgAygLMgsuYW0udjEuVXNlchIgCgRzZWxmGAggASgLMhIuYW0udjEuTWVtYmVyU3RhdGUSDgoGbm90aWNlGAkgASgJEhUKDWpvaW5fYXBwcm92YWwYCiABKAgSJwoMbWVtYmVyX3JvbGVzGAsgAygOMhEuYW0udjEuTWVtYmVyUm9sZRIOCgZwdWJsaWMYDCABKAgSDQoFYWlfaWQYDSABKAMifgoLTWVtYmVyU3RhdGUSHwoEcm9sZRgBIAEoDjIRLmFtLnYxLk1lbWJlclJvbGUSEAoIcmVhZF9zZXEYAiABKAMSFAoMcGlubmVkX29yZGVyGAMgASgDEhEKCWRuZF91bnRpbBgEIAEoAxITCgttdXRlZF91bnRpbBgFIAEoAyImCgVFcnJvchIMCgRjb2RlGAEgASgJEg8KB21lc3NhZ2UYAiABKAki8AEKBEdhbWUSCgoCaWQYASABKAMSDwoHY29udl9pZBgCIAEoAxIMCgRraW5kGAMgASgJEg8KB2hvc3RfaWQYBCABKAMSDgoGc3RhdHVzGAUgASgJEiIKB3BsYXllcnMYBiADKAsyES5hbS52MS5HYW1lUGxheWVyEhIKCmFwcGxpY2FudHMYByADKAMSFAoMYXV0b19hcHByb3ZlGAggASgIEhIKCndhaXRpbmdfb24YCSADKAMSEgoKc3RhdGVfanNvbhgKIAEoCRISCgpjcmVhdGVkX2F0GAsgASgDEhIKCnVwZGF0ZWRfYXQYDCABKAMiRQoKR2FtZVBsYXllchIPCgd1c2VyX2lkGAEgASgDEgsKA291dBgCIAEoCBILCgNzcHkYAyABKAgSDAoEd29yZBgEIAEoCSpuCgtBY2NvdW50VHlwZRIcChhBQ0NPVU5UX1RZUEVfVU5TUEVDSUZJRUQQABIWChJBQ0NPVU5UX1RZUEVfSFVNQU4QARIUChBBQ0NPVU5UX1RZUEVfQk9UEAISEwoPQUNDT1VOVF9UWVBFX0FJEAMqtwEKDEFjdGl2aXR5S2luZBIdChlBQ1RJVklUWV9LSU5EX1VOU1BFQ0lGSUVEEAASGwoXQUNUSVZJVFlfS0lORF9MSVNURU5JTkcQARIZChVBQ1RJVklUWV9LSU5EX1BMQVlJTkcQAhIbChdBQ1RJVklUWV9LSU5EX1RVTklOR19BSRADEhkKFUFDVElWSVRZX0tJTkRfV09SS0lORxAEEhgKFEFDVElWSVRZX0tJTkRfQ1VTVE9NEAUqTAoIQ29udktpbmQSGQoVQ09OVl9LSU5EX1VOU1BFQ0lGSUVEEAASEAoMQ09OVl9LSU5EX0RNEAESEwoPQ09OVl9LSU5EX0dST1VQEAIqbwoKTWVtYmVyUm9sZRIbChdNRU1CRVJfUk9MRV9VTlNQRUNJRklFRBAAEhYKEk1FTUJFUl9ST0xFX01FTUJFUhABEhUKEU1FTUJFUl9ST0xFX0FETUlOEAISFQoRTUVNQkVSX1JPTEVfT1dORVIQA0IqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM");
 
 /**
  * Public profile of an account.
@@ -334,6 +334,126 @@ export type Error = Message<"am.v1.Error"> & {
  */
 export const ErrorSchema: GenMessage<Error> = /*@__PURE__*/
   messageDesc(file_am_v1_common, 5);
+
+/**
+ * A board game in a channel or shared AI room, as one person sees it.
+ *
+ * @generated from message am.v1.Game
+ */
+export type Game = Message<"am.v1.Game"> & {
+  /**
+   * @generated from field: int64 id = 1;
+   */
+  id: bigint;
+
+  /**
+   * @generated from field: int64 conv_id = 2;
+   */
+  convId: bigint;
+
+  /**
+   * gomoku | reversi | undercover
+   *
+   * @generated from field: string kind = 3;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: int64 host_id = 4;
+   */
+  hostId: bigint;
+
+  /**
+   * waiting | playing | ended
+   *
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * @generated from field: repeated am.v1.GamePlayer players = 6;
+   */
+  players: GamePlayer[];
+
+  /**
+   * People / AIs asking to join (the host decides unless auto_approve).
+   *
+   * @generated from field: repeated int64 applicants = 7;
+   */
+  applicants: bigint[];
+
+  /**
+   * @generated from field: bool auto_approve = 8;
+   */
+  autoApprove: boolean;
+
+  /**
+   * Everyone who has to act now (one player, or all who have not voted yet).
+   *
+   * @generated from field: repeated int64 waiting_on = 9;
+   */
+  waitingOn: bigint[];
+
+  /**
+   * Kind-specific state (board, turn, last move, said, votes ...), see docs/protocol.md.
+   *
+   * @generated from field: string state_json = 10;
+   */
+  stateJson: string;
+
+  /**
+   * @generated from field: int64 created_at = 11;
+   */
+  createdAt: bigint;
+
+  /**
+   * @generated from field: int64 updated_at = 12;
+   */
+  updatedAt: bigint;
+};
+
+/**
+ * Describes the message am.v1.Game.
+ * Use `create(GameSchema)` to create a new message.
+ */
+export const GameSchema: GenMessage<Game> = /*@__PURE__*/
+  messageDesc(file_am_v1_common, 6);
+
+/**
+ * @generated from message am.v1.GamePlayer
+ */
+export type GamePlayer = Message<"am.v1.GamePlayer"> & {
+  /**
+   * @generated from field: int64 user_id = 1;
+   */
+  userId: bigint;
+
+  /**
+   * @generated from field: bool out = 2;
+   */
+  out: boolean;
+
+  /**
+   * 谁是卧底: true once this player is out (or the game is over) and was undercover.
+   *
+   * @generated from field: bool spy = 3;
+   */
+  spy: boolean;
+
+  /**
+   * 谁是卧底: the word, only my own (everyone's at the end).
+   *
+   * @generated from field: string word = 4;
+   */
+  word: string;
+};
+
+/**
+ * Describes the message am.v1.GamePlayer.
+ * Use `create(GamePlayerSchema)` to create a new message.
+ */
+export const GamePlayerSchema: GenMessage<GamePlayer> = /*@__PURE__*/
+  messageDesc(file_am_v1_common, 7);
 
 /**
  * Account type is fixed by the server when the account is created.

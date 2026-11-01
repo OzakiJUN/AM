@@ -23,10 +23,11 @@ import {
   systemPrompt, toChat,
   type AISettings, type RoutineMoment,
 } from './persona';
-import { addressed, dayPlan, decide, dueEvents, isAsleep, isSkip, splitStatusTag, type Said } from './social';
+import { addressed, dayPlan, decide, dueEvents, isAsleep, isSkip, splitStatusTag, wantsToJoin, type Said } from './social';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
 import { firstFree, placements } from '../widgets';
+import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, type Game, type GameKind } from '../games';
 
 interface AIState {
   /** My AI accounts per server (owner view, with settings). */
@@ -151,6 +152,10 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
         void greet(run);
         // Messages are still loading right after connecting: look a moment later.
         setTimeout(() => void catchUp(run).catch(() => {}), 4000);
+        // Games that went on while it was away (its turn, games to join).
+        setTimeout(() => {
+          for (const c of Object.values(run.s.view.convs)) if (c.kind === 'group' && !c.left) void run.s.listGames(c.id).catch(() => {});
+        }, 5000);
       }
     },
     (r) => {
@@ -163,6 +168,7 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
     },
     (convId, m) => onMessage(run, convId, m),
   );
+  run.s.onGame = (g) => onGame(run, g);
   runs.set(key, run);
   patch('running', key, false);
   run.routine = setInterval(() => void tickRoutine(run), 30_000);
@@ -503,12 +509,192 @@ function selfApi(run: Run): SelfApi {
       const r = await s.remoteTool(u.id, tool, argsJson);
       return { text: r.ok ? r.text : `没做成：${r.text}`, images: r.images.length ? r.images : undefined };
     },
+    game: (tool, a) => gameTool(run, tool, a),
     async messageOwner(text) {
       const owner = run.ai.user.ownerId;
       if (!owner) throw new Error('没有主人');
       await s.sendText(await s.openDM(owner), text);
     },
   };
+}
+
+// ---------- board games (docs/design.md §13 小游戏) ----------
+
+const gameTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const gameSeen = new Set<string>();
+const gameBusy = new Set<string>();
+
+const gk = (run: Run, id: string) => `${k(run.serverId, run.ai.user.id)}|${id}`;
+
+/** A game changed: ask to join, start mine when full, take my turn. */
+function onGame(run: Run, g: Game) {
+  const me = run.ai.user.id;
+  const seat = seatOf(g, me);
+  const key = gk(run, g.id);
+  if (!run.s.view.convs[g.convId]) return;
+  if (g.status === 'waiting' && seat < 0 && !g.applicants.includes(me) && !gameSeen.has(key)) {
+    gameSeen.add(key);
+    const st = run.settings;
+    const now = new Date();
+    const playing = Object.values(run.s.view.games).filter((x) => x.status !== 'ended' && seatOf(x, me) >= 0).length;
+    const delay = wantsToJoin({
+      s: st.games, free: GAME_INFO[g.kind].max - g.players.length, playing, byOwner: g.hostId === run.ai.user.ownerId,
+      manyPlayers: g.kind === 'undercover', asleep: isAsleep(st.routine, now.getHours() * 60 + now.getMinutes()), random: Math.random(), random2: Math.random(),
+    });
+    if (delay !== null) {
+      setTimeout(() => {
+        const cur = run.s.view.games[g.id];
+        if (cur?.status === 'waiting' && seatOf(cur, me) < 0) void run.s.gameStep(g.id, 'join').catch(() => {});
+      }, delay);
+    }
+    return;
+  }
+  // A game it opened: start once full (谁是卧底: once enough people sat for a minute).
+  if (g.status === 'waiting' && g.hostId === me && !gameTimers.has(key)) {
+    const info = GAME_INFO[g.kind];
+    if (g.players.length >= info.min) {
+      gameTimers.set(key, setTimeout(() => {
+        gameTimers.delete(key);
+        const cur = run.s.view.games[g.id];
+        if (cur?.status === 'waiting' && cur.players.length >= info.min) void run.s.gameStep(g.id, 'start').catch(() => {});
+      }, g.players.length >= info.max ? 2500 : 60_000));
+    }
+    return;
+  }
+  if (g.status === 'playing' && g.waitingOn.includes(me) && !gameTimers.has(key) && !gameBusy.has(key)) {
+    gameTimers.set(key, setTimeout(() => {
+      gameTimers.delete(key);
+      void gameTurn(run, g.id);
+    }, 1500 + 2500 * Math.random()));
+  }
+}
+
+/** Its turn: the model looks at the game and acts with the game tools; a fallback move if it didn't. */
+async function gameTurn(run: Run, id: string) {
+  const key = gk(run, id);
+  const me = run.ai.user.id;
+  const g = run.s.view.games[id];
+  if (!g || g.status !== 'playing' || !g.waitingOn.includes(me) || gameBusy.has(key)) return;
+  gameBusy.add(key);
+  try {
+    const note = `（系统提示：你在这里玩一局桌游，现在轮到你。）\n${gameText(g, me, (u) => run.s.nameOf(u))}\n`
+      + '现在就用工具行动，不用先问别人。行动完想在这里说句话（比如逗逗对手）就简短说一句，不想说就只回 [skip]。';
+    await reply(run, g.convId, { note }).catch(() => {});
+    const now = run.s.view.games[id];
+    if (now && now.status === 'playing' && now.waitingOn.includes(me) && now.updatedAt === g.updatedAt) await fallbackMove(run, now);
+  } finally {
+    gameBusy.delete(key);
+  }
+}
+
+const FILLER = ['这个东西挺常见的', '我觉得大家都见过', '说不太清，反正我挺喜欢的', '生活里经常能碰到'];
+
+/** The model didn't act (no tools, a bad move, an error): play something reasonable so the game goes on. */
+async function fallbackMove(run: Run, g: Game) {
+  const me = run.ai.user.id;
+  const seat = seatOf(g, me);
+  const st = g.state;
+  if (g.kind === 'gomoku' && st.board && st.size) {
+    const [x, y] = gomokuMove(st.board, st.size, seat + 1);
+    if (x >= 0) await run.s.actGame(g.id, { action: 'move', x, y }).catch(() => {});
+  } else if (g.kind === 'reversi' && st.legal?.length) {
+    const [x, y] = st.legal[Math.floor(Math.random() * st.legal.length)];
+    await run.s.actGame(g.id, { action: 'move', x, y }).catch(() => {});
+  } else if (g.kind === 'undercover' && st.phase === 'describe') {
+    const word = g.players[seat]?.word ?? '';
+    const text = FILLER.find((f) => !word || !f.includes(word)) ?? '嗯……';
+    await run.s.actGame(g.id, { action: 'say', text }).catch(() => {});
+  } else if (g.kind === 'undercover' && st.phase === 'vote') {
+    const others = g.players.flatMap((p, i) => (i !== seat && !p.out ? [i] : []));
+    if (others.length) await run.s.actGame(g.id, { action: 'vote', target: others[Math.floor(Math.random() * others.length)] }).catch(() => {});
+  }
+}
+
+/** The game tools (agent.ts list_games … leave_game) for the model. */
+async function gameTool(run: Run, tool: string, a: Record<string, unknown>): Promise<string> {
+  const s = run.s;
+  const me = run.ai.user.id;
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
+  const nameOf = (u: string) => s.nameOf(u);
+  const groups = Object.values(s.view.convs).filter((c) => c.kind === 'group' && !c.left);
+  const find = async (id: string) => {
+    let g = s.view.games[id];
+    if (!g) {
+      for (const c of groups) await s.listGames(c.id).catch(() => []);
+      g = s.view.games[id];
+    }
+    if (!g) throw new Error(`没有编号 ${id} 的游戏（用 list_games 看看）`);
+    return g;
+  };
+  const after = (g: Game) => (g.status === 'ended' ? `这局结束了：${resultText(g, nameOf)}` : '好了。');
+  switch (tool) {
+    case 'list_games': {
+      const all = (await Promise.all(groups.map((c) => s.listGames(c.id).catch(() => [] as Game[])))).flat().filter((g) => g.status !== 'ended');
+      if (!all.length) return '现在没有人开局。想玩可以用 open_game 自己开一局。';
+      return all.map((g) => {
+        const where = s.view.convs[g.convId]?.name ?? '';
+        const mine = seatOf(g, me) >= 0 ? '（你在玩）' : g.applicants.includes(me) ? '（你申请了）' : '';
+        const st = g.status === 'waiting' ? `等人 ${g.players.length}/${GAME_INFO[g.kind].max}` : g.waitingOn.includes(me) ? '轮到你' : '进行中';
+        return `编号 ${g.id}：${GAME_INFO[g.kind].name}，在「${where}」，${nameOf(g.hostId)} 开的，${st}${mine}`;
+      }).join('\n');
+    }
+    case 'open_game': {
+      const name = str(a.channel).replace(/^[#「]|」$/g, '');
+      const c = groups.find((x) => x.name === name) ?? groups.find((x) => x.name.includes(name));
+      if (!c) return `你不在叫「${a.channel}」的频道里`;
+      const kind = str(a.kind) as GameKind;
+      if (!GAME_INFO[kind]) return '没有这种游戏：gomoku / reversi / undercover';
+      const g = await s.openGame(c.id, kind, true);
+      return `开好了，编号 ${g.id}，在「${c.name}」等人加入（申请的人直接进）。人够了会自动开始，也可以用 start_game。可以在频道里喊大家来玩。`;
+    }
+    case 'join_game': {
+      const g = await s.gameStep(str(a.game_id), 'join');
+      return seatOf(g, me) >= 0 ? '坐下了，等开局。' : '申请了，等开局的人同意。';
+    }
+    case 'start_game':
+      await s.gameStep(str(a.game_id), 'start');
+      return '开始了。';
+    case 'leave_game':
+      return after(await s.gameStep(str(a.game_id), 'leave'));
+    case 'view_game':
+      return gameText(await find(str(a.game_id)), me, nameOf);
+    case 'game_move': {
+      const g = await find(str(a.game_id));
+      const at = parseCoord(str(a.at), g.state.size ?? 15);
+      if (!at) return `看不懂位置「${str(a.at)}」，写成列字母 + 行号，比如 H8`;
+      return after(await s.actGame(g.id, { action: 'move', x: at[0], y: at[1] }));
+    }
+    case 'game_say':
+      return after(await s.actGame(str(a.game_id), { action: 'say', text: str(a.text) }));
+    case 'game_vote':
+      return after(await s.actGame(str(a.game_id), { action: 'vote', target: Math.round(Number(a.seat)) - 1 }));
+  }
+  return `没有这个工具：${tool}`;
+}
+
+/** In its play time: join a game waiting in its channels, or open one (owner's settings allowing). */
+async function playTimeGame(run: Run): Promise<boolean> {
+  const st = run.settings.games;
+  const me = run.ai.user.id;
+  if (!st.join && !st.open) return false;
+  const groups = Object.values(run.s.view.convs).filter((c) => c.kind === 'group' && !c.left);
+  const all = (await Promise.all(groups.map((c) => run.s.listGames(c.id).catch(() => [] as Game[])))).flat();
+  if (all.some((g) => g.status !== 'ended' && seatOf(g, me) >= 0)) return true;
+  const waiting = all.find((g) => g.status === 'waiting' && g.players.length < GAME_INFO[g.kind].max && !g.applicants.includes(me));
+  if (waiting && st.join) {
+    await run.s.gameStep(waiting.id, 'join').catch(() => {});
+    return true;
+  }
+  if (!st.open) return false;
+  // A channel with someone online to play with.
+  const live = groups.filter((c) => c.members.some((m) => m.userId !== me && !!run.s.view.presence[m.userId]));
+  const c = live[Math.floor(Math.random() * live.length)];
+  if (!c) return false;
+  const kind: GameKind = c.members.length >= 5 && Math.random() < 0.4 ? 'undercover' : Math.random() < 0.6 ? 'gomoku' : 'reversi';
+  const g = await run.s.openGame(c.id, kind, true).catch(() => null);
+  if (!g) return false;
+  await reply(run, c.id, { note: `（系统提示：你刚在这里开了一局${GAME_INFO[kind].name}，编号 ${g.id}。用一句话喊大家来玩，点上面的游戏条就能加入。）`, moment: 'play' });
+  return true;
 }
 
 // ---------- growing its persona, silently (persona.ts evolvePrompt / parseEvolved) ----------
@@ -648,6 +834,8 @@ async function routineMoment(run: Run, kind: RoutineMoment) {
   const toOwner = kind === 'wake' || kind === 'sleep' || (ownerOnline && (kind === 'meal' || r.seekOwner));
   if (toOwner) await reply(run, await s.openDM(owner), { note: routinePrompt(kind, { time, ownerOnline }), moment: kind });
   else if (kind === 'meal' || kind === 'play') await showStatus(run, kind === 'play' ? '休息中' : '在吃饭', kind);
+  // Play time: a board game first (join one, or open one); otherwise look for AIs to chat with.
+  if (kind === 'play' && (await playTimeGame(run).catch(() => false))) return;
   if (kind === 'play' && r.seekAIs) {
     // A channel where another AI is: invite it to play.
     const withAIs = Object.values(s.view.convs).filter((c) => c.kind === 'group' && !c.left && c.members.some((m) => {

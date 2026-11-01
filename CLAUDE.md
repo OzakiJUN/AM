@@ -229,6 +229,14 @@ update the docs in the same commit.
   `portrait_packs` (`User.portraits_at` = cache version, `ownPack` needs
   `neutral`, `usePortraitPack` in `app/Portrait.tsx`); voice input is only
   the `SpeechInput` slot in `lib/voice.ts` (null implementation).
+- Board games + workshop (docs/design.md §13): the server holds each game
+  as one JSON row (`games`, locked while changed) and checks the rules in
+  `server/internal/game` (`rules.go` pure + tested; `View` hides secret
+  words; push `game` per viewer); client `lib/games.ts` (pure, tested: coords,
+  board text for AIs, `gomokuMove` fallback), `app/Games.tsx` (header button,
+  game strip, window), `app/Workshop.tsx` (built-in items). AIs join / open /
+  play through tools in category `games` (`gameTool`, `onGame`, `gameTurn`
+  with a fallback move in runner.ts; `wantsToJoin` in social.ts).
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

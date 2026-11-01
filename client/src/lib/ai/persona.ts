@@ -1,6 +1,6 @@
 // An AI's persona and settings (docs/design.md §9), kept as JSON on the
 // server (only the owner reads it: GET/PUT /api/v1/ai). Pure.
-import { defaultChannels, defaultRoutine, type ChannelSettings, type RoutineSettings } from './social.ts';
+import { defaultChannels, defaultGames, defaultRoutine, type ChannelSettings, type GameSettings, type RoutineSettings } from './social.ts';
 import { MOODS, splitMoodTag } from '../portraits.ts';
 import type { ChatMsg } from './providers.ts';
 
@@ -46,6 +46,8 @@ export interface AISettings {
   channels: ChannelSettings;
   /** Its day: getting up, meals, play, bed (lib/ai/social.ts). */
   routine: RoutineSettings;
+  /** Board games: joining, opening (lib/ai/social.ts). */
+  games: GameSettings;
 }
 
 /** What an AI may do on the computer that runs it (docs/design.md §9, 操作电脑). */
@@ -79,7 +81,7 @@ export interface McpServer {
 
 export type ToolCategory =
   | 'files_read' | 'files_write' | 'files_delete' | 'command' | 'open' | 'clipboard' | 'screen' | 'input'
-  | 'ui' | 'browser' | 'mcp' | 'self' | 'social' | 'remote';
+  | 'ui' | 'browser' | 'mcp' | 'self' | 'social' | 'remote' | 'games';
 export type Level = 'allow' | 'ask' | 'deny';
 
 /**
@@ -90,7 +92,7 @@ export type Level = 'allow' | 'ask' | 'deny';
 export const DEFAULT_LEVELS: Record<ToolCategory, Level> = {
   files_read: 'allow', files_write: 'allow', files_delete: 'ask', command: 'ask',
   open: 'allow', clipboard: 'allow', screen: 'allow', input: 'allow',
-  ui: 'allow', browser: 'allow', mcp: 'ask', self: 'allow', social: 'allow', remote: 'allow',
+  ui: 'allow', browser: 'allow', mcp: 'ask', self: 'allow', social: 'allow', remote: 'allow', games: 'allow',
 };
 
 export const defaultComputer = (): ComputerSettings => ({
@@ -135,6 +137,7 @@ export function defaultSettings(template = TEMPLATES[0]): AISettings {
     v: 1, persona: { ...template.persona }, template: template.key, providerId: '', model: '', temperature: 0.8,
     contextSize: 30, maxTokens: 1000, whoCanChat: 'owner', evolve: false, computer: defaultComputer(),
     channels: defaultChannels(), routine: defaultRoutine(), catchUp: { enabled: true, hours: 12, max: 5 }, roomDailyPerPerson: 50,
+    games: defaultGames(),
   };
 }
 
@@ -148,6 +151,7 @@ export function parseSettings(json: string): AISettings {
     return {
       ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } },
       channels: { ...d.channels, ...v.channels }, routine: { ...d.routine, ...v.routine }, catchUp: { ...d.catchUp, ...v.catchUp },
+      games: { ...d.games, ...v.games },
     };
   } catch {
     return d;

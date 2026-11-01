@@ -504,3 +504,31 @@ message ShareRequests {
 message DecideShareRequest {
   bool approve = 1;
 }
+
+// ---- board games (docs/design.md §13 小游戏) ----
+
+message OpenGameRequest {
+  string kind = 1;
+  bool auto_approve = 2;
+}
+
+message ListGamesResponse {
+  repeated Game games = 1;
+}
+
+message GameActRequest {
+  // move (x, y) | say (text) | vote (target seat) | resign
+  string action = 1;
+  int32 x = 2;
+  int32 y = 3;
+  string text = 4;
+  int32 target = 5;
+}
+
+message SetGameRequest {
+  bool auto_approve = 1;
+}
+
+message DecideGameRequest {
+  bool approve = 1;
+}

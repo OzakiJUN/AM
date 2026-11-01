@@ -27,6 +27,7 @@ export const CATEGORY_LABEL: Record<ToolCategory, { name: string; hint: string; 
   self: { name: '改自己的资料', hint: '改自己的状态（正在玩什么）、个性签名、主页上的一张便签（不用开「操作电脑」）' },
   social: { name: '主动找人说话', hint: '自己去频道里发消息、给你发私信（作息、找人玩）（不用开「操作电脑」）' },
   remote: { name: '操作别人的电脑', hint: '请别人的电脑帮它做事；做不做、能做什么由对方在他的电脑上决定（默认都不让）' },
+  games: { name: '玩桌游', hint: '在频道和共享聊天里开局、申请加入、下棋、玩谁是卧底（不用开「操作电脑」）' },
 };
 
 const obj = (props: Record<string, unknown>, required: string[] = []) => ({ type: 'object', properties: props, required });
@@ -109,6 +110,28 @@ export const TOOLS: ToolDef[] = [
     }, ['person', 'tool']),
   },
   { name: 'message_owner', category: 'social', own: true, description: '给你的主人发一条私信。', parameters: obj({ text: str('要说的话') }, ['text']) },
+  { name: 'list_games', category: 'games', own: true, description: '列出你在的频道和共享聊天里正在等人、正在进行的桌游（五子棋、黑白棋、谁是卧底）。', parameters: obj({}) },
+  {
+    name: 'open_game', category: 'games', own: true,
+    description: '在你在的某个频道开一局桌游，等别人加入（谁申请都直接让进来）。kind：gomoku 五子棋 / reversi 黑白棋（2 人），undercover 谁是卧底（4–8 人）。人够了用 start_game 开始。',
+    parameters: obj({ channel: str('频道名'), kind: { type: 'string', enum: ['gomoku', 'reversi', 'undercover'] } }, ['channel', 'kind']),
+  },
+  { name: 'join_game', category: 'games', own: true, description: '申请加入一局还没开始的桌游（开局的人同意后坐下）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
+  { name: 'start_game', category: 'games', own: true, description: '开始你开的那局（人要够）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
+  { name: 'view_game', category: 'games', own: true, description: '看一局桌游现在的样子：棋盘、轮到谁、大家说了什么。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
+  {
+    name: 'game_move', category: 'games', own: true, description: '五子棋 / 黑白棋落子（轮到你时）。位置写成「H8」：列字母 + 行号。',
+    parameters: obj({ game_id: str('游戏编号'), at: str('位置，例如 H8') }, ['game_id', 'at']),
+  },
+  {
+    name: 'game_say', category: 'games', own: true, description: '谁是卧底：轮到你描述时，用一句话描述你的词（不能说出词本身）。',
+    parameters: obj({ game_id: str('游戏编号'), text: str('描述，最多 60 字') }, ['game_id', 'text']),
+  },
+  {
+    name: 'game_vote', category: 'games', own: true, description: '谁是卧底：投票阶段投给你觉得是卧底的人。',
+    parameters: obj({ game_id: str('游戏编号'), seat: num('座位号（1 开始，不能投自己）') }, ['game_id', 'seat']),
+  },
+  { name: 'leave_game', category: 'games', own: true, description: '退出一局（没开始就是不玩了；下到一半就是认输）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
   { name: 'wait', description: '等几秒（等程序打开、页面加载）。', parameters: obj({ seconds: num('秒数，最多 30') }, ['seconds']) },
 ];
 
@@ -207,6 +230,15 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'send_to_channel': return `在频道「${short(args.channel, 20)}」说：${short(args.text, 60)}`;
     case 'message_owner': return `私信主人：${short(args.text, 60)}`;
     case 'use_computer_of': return `请 ${short(args.person, 20)} 的电脑：${describeCall(String(args.tool ?? ''), argsOf(String(args.args_json ?? '')))}`;
+    case 'list_games': return '看看有什么桌游';
+    case 'open_game': return `在 ${short(args.channel, 20)} 开一局 ${args.kind}`;
+    case 'join_game': return `申请加入游戏 ${args.game_id}`;
+    case 'start_game': return `开始游戏 ${args.game_id}`;
+    case 'view_game': return `看游戏 ${args.game_id}`;
+    case 'game_move': return `落子 ${short(args.at, 8)}`;
+    case 'game_say': return `描述：${short(args.text, 60)}`;
+    case 'game_vote': return `投票给 ${args.seat} 号`;
+    case 'leave_game': return `退出游戏 ${args.game_id}`;
     case 'wait': return `等 ${args.seconds} 秒`;
     default:
       if (name.startsWith(MCP_PREFIX)) {

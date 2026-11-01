@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { addressed, dayPlan, decide, defaultChannels, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, type Said } from './social.ts';
+import { addressed, dayPlan, decide, defaultChannels, defaultGames, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
 
 const s = defaultChannels();
 const me = 'ai';
@@ -58,4 +58,15 @@ assert.deepEqual(splitStatusTag('晚安～【status：睡觉中】'), { status: 
 assert.deepEqual(splitStatusTag('没有'), { text: '没有' });
 assert.ok(isSkip('[skip]') && isSkip(' skip ') && isSkip('[mood:neutral] [skip]'));
 assert.ok(!isSkip('skip 这个我不知道'));
+// Games: keen by default, nearly always for its owner's games, never when full, asleep or busy.
+const gs = defaultGames();
+const j = (o: Partial<Parameters<typeof wantsToJoin>[0]>) => wantsToJoin({ s: gs, free: 1, playing: 0, byOwner: false, manyPlayers: false, asleep: false, random: 0.5, random2: 0, ...o });
+assert.equal(j({}), 4000);
+assert.equal(j({ random: 0.7 }), null);
+assert.equal(j({ random: 0.7, manyPlayers: true }), 4000);
+assert.equal(j({ random: 0.99, byOwner: true }), 4000);
+assert.equal(j({ free: 0 }), null);
+assert.equal(j({ asleep: true }), null);
+assert.equal(j({ playing: 1 }), null);
+assert.equal(j({ s: { ...gs, join: false } }), null);
 console.log('ai social ok');

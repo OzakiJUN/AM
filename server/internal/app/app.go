@@ -11,6 +11,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/conv"
+	"github.com/OzakiJUN/am/server/internal/game"
 	"github.com/OzakiJUN/am/server/internal/gateway"
 	"github.com/OzakiJUN/am/server/internal/httpapi"
 	"github.com/OzakiJUN/am/server/internal/idgen"
@@ -74,7 +75,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 
 	mux := http.NewServeMux()
 	httpapi.New(acct, cs, ms, md, ps, prof, sticker.New(st, ids, md, cfg.Limits.MaxStickers),
-		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
+		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
 
 	return &App{

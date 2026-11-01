@@ -17,6 +17,7 @@ import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { StickerManager, StickerPanel } from './Stickers';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
+import { GameBar, GameButton } from './Games';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait, usePortraitPack } from './Portrait';
 import { AISettingsDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
@@ -103,6 +104,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           </div>
           {group && !conv.left && (
             <>
+              <GameButton v={v} conv={conv} />
               <IconButton label="邀请成员" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
               {!conv.aiId && v.me?.type === 'human' && <IconButton label="添加 bot" onClick={(e) => addBotMenu(e, v, conv)}><Bot size={19} /></IconButton>}
               <IconButton label="频道设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
@@ -117,6 +119,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {ai && peer && <PortraitPosButton />}
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} pack={pack} />}
         </header>
+        {group && <GameBar v={v} conv={conv} />}
         <div
           className="relative flex min-h-0 flex-1 flex-col"
           onPointerDownCapture={ai ? (e) => { pokeDown.current = [e.clientX, e.clientY]; } : undefined}

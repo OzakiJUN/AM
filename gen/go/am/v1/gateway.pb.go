@@ -319,6 +319,7 @@ type ServerFrame struct {
 	//	*ServerFrame_RemoteTool
 	//	*ServerFrame_RemoteToolResult
 	//	*ServerFrame_AiShareRequest
+	//	*ServerFrame_Game
 	Msg           isServerFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -530,6 +531,15 @@ func (x *ServerFrame) GetAiShareRequest() *AIShareRequestPush {
 	return nil
 }
 
+func (x *ServerFrame) GetGame() *Game {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_Game); ok {
+			return x.Game
+		}
+	}
+	return nil
+}
+
 type isServerFrame_Msg interface {
 	isServerFrame_Msg()
 }
@@ -609,6 +619,11 @@ type ServerFrame_AiShareRequest struct {
 	AiShareRequest *AIShareRequestPush `protobuf:"bytes,40,opt,name=ai_share_request,json=aiShareRequest,proto3,oneof"`
 }
 
+type ServerFrame_Game struct {
+	// A board game in one of my conversations changed (my own view of it).
+	Game *Game `protobuf:"bytes,41,opt,name=game,proto3,oneof"`
+}
+
 func (*ServerFrame_Error) isServerFrame_Msg() {}
 
 func (*ServerFrame_Auth) isServerFrame_Msg() {}
@@ -644,6 +659,8 @@ func (*ServerFrame_RemoteTool) isServerFrame_Msg() {}
 func (*ServerFrame_RemoteToolResult) isServerFrame_Msg() {}
 
 func (*ServerFrame_AiShareRequest) isServerFrame_Msg() {}
+
+func (*ServerFrame_Game) isServerFrame_Msg() {}
 
 type AuthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2080,7 +2097,7 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\vremote_tool\x18\x0f \x01(\v2\x18.am.v1.RemoteToolRequestH\x00R\n" +
 	"remoteTool\x12G\n" +
 	"\x12remote_tool_result\x18\x10 \x01(\v2\x17.am.v1.RemoteToolResultH\x00R\x10remoteToolResultB\x05\n" +
-	"\x03msg\"\xc0\a\n" +
+	"\x03msg\"\xe3\a\n" +
 	"\vServerFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12$\n" +
 	"\x05error\x18\n" +
@@ -2103,7 +2120,8 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\vremote_tool\x18& \x01(\v2\x15.am.v1.RemoteToolPushH\x00R\n" +
 	"remoteTool\x12K\n" +
 	"\x12remote_tool_result\x18' \x01(\v2\x1b.am.v1.RemoteToolResultPushH\x00R\x10remoteToolResult\x12E\n" +
-	"\x10ai_share_request\x18( \x01(\v2\x19.am.v1.AIShareRequestPushH\x00R\x0eaiShareRequestB\x05\n" +
+	"\x10ai_share_request\x18( \x01(\v2\x19.am.v1.AIShareRequestPushH\x00R\x0eaiShareRequest\x12!\n" +
+	"\x04game\x18) \x01(\v2\v.am.v1.GameH\x00R\x04gameB\x05\n" +
 	"\x03msg\"=\n" +
 	"\vAuthRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
@@ -2250,14 +2268,15 @@ var file_am_v1_gateway_proto_goTypes = []any{
 	(*RemoteToolResultPush)(nil), // 27: am.v1.RemoteToolResultPush
 	(*AIShareRequestPush)(nil),   // 28: am.v1.AIShareRequestPush
 	(*Error)(nil),                // 29: am.v1.Error
-	(*User)(nil),                 // 30: am.v1.User
-	(*Conversation)(nil),         // 31: am.v1.Conversation
-	(*Presence)(nil),             // 32: am.v1.Presence
-	(*TextMsg)(nil),              // 33: am.v1.TextMsg
-	(*ImageMsg)(nil),             // 34: am.v1.ImageMsg
-	(*FileMsg)(nil),              // 35: am.v1.FileMsg
-	(*StrikeAct)(nil),            // 36: am.v1.StrikeAct
-	(*Event)(nil),                // 37: am.v1.Event
+	(*Game)(nil),                 // 30: am.v1.Game
+	(*User)(nil),                 // 31: am.v1.User
+	(*Conversation)(nil),         // 32: am.v1.Conversation
+	(*Presence)(nil),             // 33: am.v1.Presence
+	(*TextMsg)(nil),              // 34: am.v1.TextMsg
+	(*ImageMsg)(nil),             // 35: am.v1.ImageMsg
+	(*FileMsg)(nil),              // 36: am.v1.FileMsg
+	(*StrikeAct)(nil),            // 37: am.v1.StrikeAct
+	(*Event)(nil),                // 38: am.v1.Event
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
 	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
@@ -2285,31 +2304,32 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	25, // 22: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
 	27, // 23: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
 	28, // 24: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
-	30, // 25: am.v1.AuthResponse.me:type_name -> am.v1.User
-	31, // 26: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
-	32, // 27: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
-	33, // 28: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
-	34, // 29: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
-	35, // 30: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
-	36, // 31: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
-	37, // 32: am.v1.SendResponse.event:type_name -> am.v1.Event
-	9,  // 33: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
-	37, // 34: am.v1.SyncResponse.events:type_name -> am.v1.Event
-	37, // 35: am.v1.EventPush.event:type_name -> am.v1.Event
-	31, // 36: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
-	0,  // 37: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
-	30, // 38: am.v1.FriendPush.user:type_name -> am.v1.User
-	1,  // 39: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
-	30, // 40: am.v1.JoinRequestPush.user:type_name -> am.v1.User
-	30, // 41: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
-	32, // 42: am.v1.PresencePush.presence:type_name -> am.v1.Presence
-	30, // 43: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
-	30, // 44: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
-	45, // [45:45] is the sub-list for method output_type
-	45, // [45:45] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	30, // 25: am.v1.ServerFrame.game:type_name -> am.v1.Game
+	31, // 26: am.v1.AuthResponse.me:type_name -> am.v1.User
+	32, // 27: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
+	33, // 28: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
+	34, // 29: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
+	35, // 30: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
+	36, // 31: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
+	37, // 32: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
+	38, // 33: am.v1.SendResponse.event:type_name -> am.v1.Event
+	9,  // 34: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
+	38, // 35: am.v1.SyncResponse.events:type_name -> am.v1.Event
+	38, // 36: am.v1.EventPush.event:type_name -> am.v1.Event
+	32, // 37: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
+	0,  // 38: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
+	31, // 39: am.v1.FriendPush.user:type_name -> am.v1.User
+	1,  // 40: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
+	31, // 41: am.v1.JoinRequestPush.user:type_name -> am.v1.User
+	31, // 42: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
+	33, // 43: am.v1.PresencePush.presence:type_name -> am.v1.Presence
+	31, // 44: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
+	31, // 45: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
+	46, // [46:46] is the sub-list for method output_type
+	46, // [46:46] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }
@@ -2347,6 +2367,7 @@ func file_am_v1_gateway_proto_init() {
 		(*ServerFrame_RemoteTool)(nil),
 		(*ServerFrame_RemoteToolResult)(nil),
 		(*ServerFrame_AiShareRequest)(nil),
+		(*ServerFrame_Game)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[4].OneofWrappers = []any{
 		(*SendRequest_Text)(nil),

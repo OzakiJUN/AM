@@ -791,6 +791,214 @@ func (x *Error) GetMessage() string {
 	return ""
 }
 
+// A board game in a channel or shared AI room, as one person sees it.
+type Game struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ConvId int64                  `protobuf:"varint,2,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	// gomoku | reversi | undercover
+	Kind   string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	HostId int64  `protobuf:"varint,4,opt,name=host_id,json=hostId,proto3" json:"host_id,omitempty"`
+	// waiting | playing | ended
+	Status  string        `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Players []*GamePlayer `protobuf:"bytes,6,rep,name=players,proto3" json:"players,omitempty"`
+	// People / AIs asking to join (the host decides unless auto_approve).
+	Applicants  []int64 `protobuf:"varint,7,rep,packed,name=applicants,proto3" json:"applicants,omitempty"`
+	AutoApprove bool    `protobuf:"varint,8,opt,name=auto_approve,json=autoApprove,proto3" json:"auto_approve,omitempty"`
+	// Everyone who has to act now (one player, or all who have not voted yet).
+	WaitingOn []int64 `protobuf:"varint,9,rep,packed,name=waiting_on,json=waitingOn,proto3" json:"waiting_on,omitempty"`
+	// Kind-specific state (board, turn, last move, said, votes ...), see docs/protocol.md.
+	StateJson     string `protobuf:"bytes,10,opt,name=state_json,json=stateJson,proto3" json:"state_json,omitempty"`
+	CreatedAt     int64  `protobuf:"varint,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     int64  `protobuf:"varint,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Game) Reset() {
+	*x = Game{}
+	mi := &file_am_v1_common_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Game) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Game) ProtoMessage() {}
+
+func (x *Game) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_common_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Game.ProtoReflect.Descriptor instead.
+func (*Game) Descriptor() ([]byte, []int) {
+	return file_am_v1_common_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Game) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Game) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *Game) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Game) GetHostId() int64 {
+	if x != nil {
+		return x.HostId
+	}
+	return 0
+}
+
+func (x *Game) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Game) GetPlayers() []*GamePlayer {
+	if x != nil {
+		return x.Players
+	}
+	return nil
+}
+
+func (x *Game) GetApplicants() []int64 {
+	if x != nil {
+		return x.Applicants
+	}
+	return nil
+}
+
+func (x *Game) GetAutoApprove() bool {
+	if x != nil {
+		return x.AutoApprove
+	}
+	return false
+}
+
+func (x *Game) GetWaitingOn() []int64 {
+	if x != nil {
+		return x.WaitingOn
+	}
+	return nil
+}
+
+func (x *Game) GetStateJson() string {
+	if x != nil {
+		return x.StateJson
+	}
+	return ""
+}
+
+func (x *Game) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *Game) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+type GamePlayer struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	UserId int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Out    bool                   `protobuf:"varint,2,opt,name=out,proto3" json:"out,omitempty"`
+	// 谁是卧底: true once this player is out (or the game is over) and was undercover.
+	Spy bool `protobuf:"varint,3,opt,name=spy,proto3" json:"spy,omitempty"`
+	// 谁是卧底: the word, only my own (everyone's at the end).
+	Word          string `protobuf:"bytes,4,opt,name=word,proto3" json:"word,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GamePlayer) Reset() {
+	*x = GamePlayer{}
+	mi := &file_am_v1_common_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GamePlayer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GamePlayer) ProtoMessage() {}
+
+func (x *GamePlayer) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_common_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GamePlayer.ProtoReflect.Descriptor instead.
+func (*GamePlayer) Descriptor() ([]byte, []int) {
+	return file_am_v1_common_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GamePlayer) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *GamePlayer) GetOut() bool {
+	if x != nil {
+		return x.Out
+	}
+	return false
+}
+
+func (x *GamePlayer) GetSpy() bool {
+	if x != nil {
+		return x.Spy
+	}
+	return false
+}
+
+func (x *GamePlayer) GetWord() string {
+	if x != nil {
+		return x.Word
+	}
+	return ""
+}
+
 var File_am_v1_common_proto protoreflect.FileDescriptor
 
 const file_am_v1_common_proto_rawDesc = "" +
@@ -841,7 +1049,33 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"mutedUntil\"5\n" +
 	"\x05Error\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*n\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xe0\x02\n" +
+	"\x04Game\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
+	"\aconv_id\x18\x02 \x01(\x03R\x06convId\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x17\n" +
+	"\ahost_id\x18\x04 \x01(\x03R\x06hostId\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12+\n" +
+	"\aplayers\x18\x06 \x03(\v2\x11.am.v1.GamePlayerR\aplayers\x12\x1e\n" +
+	"\n" +
+	"applicants\x18\a \x03(\x03R\n" +
+	"applicants\x12!\n" +
+	"\fauto_approve\x18\b \x01(\bR\vautoApprove\x12\x1d\n" +
+	"\n" +
+	"waiting_on\x18\t \x03(\x03R\twaitingOn\x12\x1d\n" +
+	"\n" +
+	"state_json\x18\n" +
+	" \x01(\tR\tstateJson\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\v \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\f \x01(\x03R\tupdatedAt\"]\n" +
+	"\n" +
+	"GamePlayer\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x10\n" +
+	"\x03out\x18\x02 \x01(\bR\x03out\x12\x10\n" +
+	"\x03spy\x18\x03 \x01(\bR\x03spy\x12\x12\n" +
+	"\x04word\x18\x04 \x01(\tR\x04word*n\n" +
 	"\vAccountType\x12\x1c\n" +
 	"\x18ACCOUNT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12ACCOUNT_TYPE_HUMAN\x10\x01\x12\x14\n" +
@@ -878,7 +1112,7 @@ func file_am_v1_common_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_am_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_am_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_am_v1_common_proto_goTypes = []any{
 	(AccountType)(0),     // 0: am.v1.AccountType
 	(ActivityKind)(0),    // 1: am.v1.ActivityKind
@@ -890,21 +1124,24 @@ var file_am_v1_common_proto_goTypes = []any{
 	(*Conversation)(nil), // 7: am.v1.Conversation
 	(*MemberState)(nil),  // 8: am.v1.MemberState
 	(*Error)(nil),        // 9: am.v1.Error
+	(*Game)(nil),         // 10: am.v1.Game
+	(*GamePlayer)(nil),   // 11: am.v1.GamePlayer
 }
 var file_am_v1_common_proto_depIdxs = []int32{
-	0, // 0: am.v1.User.account_type:type_name -> am.v1.AccountType
-	1, // 1: am.v1.Activity.kind:type_name -> am.v1.ActivityKind
-	5, // 2: am.v1.Presence.activity:type_name -> am.v1.Activity
-	2, // 3: am.v1.Conversation.kind:type_name -> am.v1.ConvKind
-	4, // 4: am.v1.Conversation.members:type_name -> am.v1.User
-	8, // 5: am.v1.Conversation.self:type_name -> am.v1.MemberState
-	3, // 6: am.v1.Conversation.member_roles:type_name -> am.v1.MemberRole
-	3, // 7: am.v1.MemberState.role:type_name -> am.v1.MemberRole
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	0,  // 0: am.v1.User.account_type:type_name -> am.v1.AccountType
+	1,  // 1: am.v1.Activity.kind:type_name -> am.v1.ActivityKind
+	5,  // 2: am.v1.Presence.activity:type_name -> am.v1.Activity
+	2,  // 3: am.v1.Conversation.kind:type_name -> am.v1.ConvKind
+	4,  // 4: am.v1.Conversation.members:type_name -> am.v1.User
+	8,  // 5: am.v1.Conversation.self:type_name -> am.v1.MemberState
+	3,  // 6: am.v1.Conversation.member_roles:type_name -> am.v1.MemberRole
+	3,  // 7: am.v1.MemberState.role:type_name -> am.v1.MemberRole
+	11, // 8: am.v1.Game.players:type_name -> am.v1.GamePlayer
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_common_proto_init() }
@@ -918,7 +1155,7 @@ func file_am_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_common_proto_rawDesc), len(file_am_v1_common_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

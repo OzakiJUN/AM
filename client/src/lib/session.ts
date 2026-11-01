@@ -10,6 +10,7 @@ import { ApiError, errorFromBody } from './errors';
 import { encodeJoinCode, joinUrl } from './joincode';
 import { createTransport, type Endpoint, type Socket, type Transport } from './transport';
 import type { Part as SyncPart } from './profileSync';
+import { parseGame, type Game, type GameKind } from './games';
 import type { Background, LayoutModel, WidgetModel } from './widgets';
 import type { Activity, ActivityKind, ChannelInfo, Conversation, Invite, JoinRequest, MemberRole, Message, MessageBody, Presence, SysEvent, User } from './types';
 
@@ -55,6 +56,8 @@ export interface SessionView {
   presence: Record<string, Presence>;
   /** Server icon (media path), '' when none. */
   icon: string;
+  /** Board games in my conversations that I have seen (id -> my view of it). */
+  games: Record<string, Game>;
 }
 
 /** A profile page: the widget board and what the viewer may do with it. */
@@ -346,6 +349,7 @@ export class Session {
       users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '',
       presence: {},
       icon: '',
+      games: {},
     };
   }
 
@@ -469,6 +473,55 @@ export class Session {
   /** Takes my AI out of a channel (it is put in with inviteMembers). */
   aiLeaveChannel(id: string, convId: string) {
     return this.call('DELETE', `/api/v1/ai/${id}/channels/${convId}`, null);
+  }
+
+  // ---- board games (docs/design.md §13 小游戏) ----
+
+  /** Called for every game update (the AI runner watches these). */
+  onGame?: (g: Game) => void;
+
+  private putGame(g: Game) {
+    const old = this.view.games[g.id];
+    if (old && old.updatedAt > g.updatedAt) return; // an older push arriving late
+    this.patch({ games: { ...this.view.games, [g.id]: g } });
+    this.onGame?.(g);
+  }
+
+  async listGames(convId: string): Promise<Game[]> {
+    const r = await this.call('GET', `/api/v1/conversations/${convId}/games`, api.ListGamesResponseSchema);
+    const list = r.games.map(parseGame);
+    const games = { ...this.view.games };
+    for (const g of Object.values(games)) if (g.convId === convId && !list.some((x) => x.id === g.id)) delete games[g.id];
+    for (const g of list) games[g.id] = g;
+    this.patch({ games });
+    return list;
+  }
+
+  private async gameCall(method: string, path: string, req?: { schema: DescMessage; value: object }): Promise<Game> {
+    const g = parseGame(await this.call(method, path, common.GameSchema, req));
+    this.putGame(g);
+    return g;
+  }
+
+  openGame(convId: string, kind: GameKind, autoApprove: boolean) {
+    return this.gameCall('POST', `/api/v1/conversations/${convId}/games`, { schema: api.OpenGameRequestSchema, value: { kind, autoApprove } });
+  }
+
+  /** join / start / leave / end */
+  gameStep(id: string, step: 'join' | 'start' | 'leave' | 'end') {
+    return this.gameCall('POST', `/api/v1/games/${id}/${step}`);
+  }
+
+  decideGame(id: string, userId: string, approve: boolean) {
+    return this.gameCall('POST', `/api/v1/games/${id}/applicants/${userId}`, { schema: api.DecideGameRequestSchema, value: { approve } });
+  }
+
+  setGameAuto(id: string, autoApprove: boolean) {
+    return this.gameCall('PATCH', `/api/v1/games/${id}`, { schema: api.SetGameRequestSchema, value: { autoApprove } });
+  }
+
+  actGame(id: string, act: { action: 'move' | 'say' | 'vote' | 'resign'; x?: number; y?: number; text?: string; target?: number }) {
+    return this.gameCall('POST', `/api/v1/games/${id}/act`, { schema: api.GameActRequestSchema, value: act });
   }
 
   // ---- an AI's portraits and share requests ----
@@ -709,6 +762,10 @@ export class Session {
       case 'serverMoved':
         if (f.msg.value.address && f.msg.value.address !== this.record.endpoint.address) this.onMoved?.(f.msg.value.address);
         break;
+      case 'game': {
+        this.putGame(parseGame(f.msg.value));
+        break;
+      }
       case 'aiShareRequest': {
         const p = f.msg.value;
         if (p.user) this.onShareRequest?.(s(p.aiId), toUser(p.user));
