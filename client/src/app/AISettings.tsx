@@ -438,7 +438,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
         ]} />
       </Field>
       {ch.mode === 'active' && (
-        <Field label="话多少" hint="越往右，越常考虑主动加入讨论；没有新内容时会保持安静。">
+        <Field label="话多少" hint="每批消息都会交给模型判断。越往右越愿意参与讨论；没有新内容时会保持安静。">
           <div className="flex items-center gap-3">
             <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">安静</span>
             <Slider label="话多少" value={ch.chattiness} min={0} max={1} step={0.05} onChange={(chattiness) => setCh({ chattiness })} />
@@ -446,6 +446,10 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </div>
         </Field>
       )}
+      {ch.mode === 'active' && <div className="grid grid-cols-2 gap-3">
+        <Field label="停顿几秒后判断">{num(ch.batchSeconds, 1, 30, (batchSeconds) => setCh({ batchSeconds }), '消息批量判断停顿秒数')}</Field>
+        <Field label="连续聊天最多等几秒" hint="受发言冷却时间限制">{num(ch.maxBatchSeconds, 1, 120, (maxBatchSeconds) => setCh({ maxBatchSeconds }), '消息批量判断最长等待秒数')}</Field>
+      </div>}
       <div className="grid grid-cols-3 gap-3">
         <Field label="两句之间至少（秒）" hint="被 @ 时不受限制">{num(ch.minGapSeconds, 0, 3600, (minGapSeconds) => setCh({ minGapSeconds }), '两句之间至少几秒')}</Field>
         <Field label="每小时最多几句" hint="每个频道分开算">{num(ch.maxPerHour, 1, 200, (maxPerHour) => setCh({ maxPerHour }), '每小时最多几句')}</Field>

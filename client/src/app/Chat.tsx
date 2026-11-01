@@ -2,12 +2,13 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type R
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle, Ban, Bot, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
-  SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
+  Reply, X, SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
 import { closeConv, current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
+import { replyPreview, replyTarget } from '@/lib/replies';
 import { systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message, User } from '@/lib/types';
 import { applyMention, matchPeople, mentionParts, mentionQuery, mentionedIds } from '@/lib/mentions';
@@ -39,6 +40,8 @@ const EMPTY = {
  */
 export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const convId = useOpenConv(page, v.id);
+  const [replying, setReplying] = useState<{ convId: string; id: string } | null>(null);
+  useEffect(() => setReplying(null), [convId, v.id]);
   const membersFolded = usePrefs((p) => p.membersFolded);
   const setPrefs = usePrefs((p) => p.set);
   const [groupOpen, setGroupOpen] = useState(false);
@@ -127,7 +130,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           onClickCapture={ai ? poke : undefined}
           onMouseMove={ai && peer ? (e) => { e.currentTarget.style.cursor = hitPortrait(e.currentTarget, e.clientX, e.clientY) ? 'pointer' : ''; } : undefined}
         >
-          <MessageList key={conv.id} v={v} conv={conv} streaming={streaming} fromBottom={ai} />
+          <MessageList key={conv.id} v={v} conv={conv} streaming={streaming} fromBottom={ai} onReply={(id) => setReplying({ convId: conv.id, id })} />
           {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} pack={pack} poked={poked} />}
         </div>
         {myAI && aiError && (
@@ -137,7 +140,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
             <button onClick={() => setAIOpen(true)} className="shrink-0 underline">打开设置</button>
           </div>
         )}
-        <Composer v={v} conv={conv} blocked={blocked} />
+        <Composer key={conv.id} v={v} conv={conv} blocked={blocked} replyId={replying?.convId === conv.id ? replying.id : undefined} onCancelReply={() => setReplying(null)} />
         {myAI && peer && <AISettingsDialog open={aiOpen} onClose={() => setAIOpen(false)} aiId={peer.id} />}
       </section>
       <AnimatePresence initial={false}>
@@ -180,7 +183,7 @@ function aiMood(v: SessionView, convId: string, aiId: string | undefined, stream
  * fromBottom (AI chats): a short conversation sits at the bottom and grows
  * upwards, so the portrait at the top never hides the newest messages.
  */
-function MessageList({ v, conv, streaming, fromBottom }: { v: SessionView; conv: Conversation; streaming?: string; fromBottom?: boolean }) {
+function MessageList({ v, conv, streaming, fromBottom, onReply }: { v: SessionView; conv: Conversation; streaming?: string; fromBottom?: boolean; onReply: (id: string) => void }) {
   const list = v.messages[conv.id] ?? [];
   const ref = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -229,7 +232,7 @@ function MessageList({ v, conv, streaming, fromBottom }: { v: SessionView; conv:
     const grouped = !gap && prevSender === m.senderId && m.body.kind !== 'system' && m.body.kind !== 'deleted';
     last = m.time;
     prevSender = m.body.kind === 'system' ? '' : m.senderId;
-    items.push(<MessageItem key={m.id} v={v} conv={conv} msg={m} grouped={grouped} animate={m.time > mountedAt.current} onView={setViewer} />);
+    items.push(<MessageItem key={m.id} v={v} conv={conv} msg={m} grouped={grouped} animate={m.time > mountedAt.current} onView={setViewer} onReply={onReply} />);
   }
   return (
     <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fromBottom && 'flex flex-col')}>
@@ -249,8 +252,8 @@ function MessageList({ v, conv, streaming, fromBottom }: { v: SessionView; conv:
   );
 }
 
-const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, onView }: {
-  v: SessionView; conv: Conversation; msg: Message; grouped: boolean; animate: boolean; onView: (id: string) => void;
+const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, onView, onReply }: {
+  v: SessionView; conv: Conversation; msg: Message; grouped: boolean; animate: boolean; onView: (id: string) => void; onReply: (id: string) => void;
 }) {
   const b = msg.body;
   const name = (id: string) => v.users[id]?.name ?? (id === v.me?.id ? v.me?.name ?? '我' : '某人');
@@ -277,6 +280,7 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
   const menu = (e: React.MouseEvent) => {
     const s = current();
     const items: MenuItem[] = [];
+    if (!msg.pending && !msg.failed && !conv.left) items.push({ label: '回复', icon: <Reply size={16} />, onClick: () => onReply(msg.id) });
     if (b.kind === 'text') items.push({ label: '复制', icon: <Copy size={16} />, onClick: () => copyText(b.text) });
     if (b.kind === 'image') items.push({ label: '查看原图', icon: <ImagePlus size={16} />, onClick: () => onView(b.mediaId) });
     if (b.kind === 'image' && !msg.pending && !msg.failed) {
@@ -293,7 +297,8 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
       });
     }
     if (msg.failed) {
-      if (b.kind === 'text') items.push({ label: '重新发送', icon: <RotateCw size={16} />, onClick: () => { s.dropFailed(conv.id, msg.id); s.sendText(conv.id, b.text).catch(toastError); } });
+      if (!msg.pending && !msg.failed && !conv.left) items.push({ label: '回复', icon: <Reply size={16} />, onClick: () => onReply(msg.id) });
+    if (b.kind === 'text') items.push({ label: '重新发送', icon: <RotateCw size={16} />, onClick: () => { s.dropFailed(conv.id, msg.id); s.sendText(conv.id, b.text, b.mood, b.mentions, b.replyTo).catch(toastError); } });
       items.push({ label: '删掉这条', icon: <Trash2 size={16} />, danger: true, onClick: () => s.dropFailed(conv.id, msg.id) });
     } else if (!msg.pending) {
       if (mine && !msg.struck && !conv.left) {
@@ -334,6 +339,7 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
             <IdentityChip user={sender} />
           </div>
         )}
+        {b.kind === 'text' && b.replyTo && <ReplyQuote v={v} convId={conv.id} message={msg} />}
         <div className={cx('flex items-end gap-2', mine && 'flex-row-reverse')}>
           <Body msg={msg} mine={mine} onView={onView} />
           {msg.pending && !msg.failed && <span className="mb-1 text-ink-soft"><Spinner size={13} /></span>}
@@ -350,6 +356,20 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
     </motion.div>
   );
 });
+
+function ReplyQuote({ v, convId, message }: { v: SessionView; convId: string; message: Message }) {
+  const target = replyTarget(message, v.messages[convId] ?? [], v.replyTargets[convId]);
+  const id = message.body.kind === 'text' ? message.body.replyTo : undefined;
+  useEffect(() => {
+    if (id && target === undefined) void current().loadReplyTarget(convId, id).catch(() => {});
+  }, [convId, id, target]);
+  return (
+    <div className="mb-1 max-w-full rounded-lg border-l-2 border-accent/50 bg-black/[0.04] px-3 py-1.5 text-[0.78rem] dark:bg-white/5">
+      <div className="font-medium text-ink-soft">回复 {target?.senderId ? v.users[target.senderId]?.name ?? '某人' : '原消息'}</div>
+      <div className="max-w-80 truncate" title={replyPreview(target)}>{replyPreview(target)}</div>
+    </div>
+  );
+}
 
 /** The AI's reply while it is being written (only on the device that runs it). */
 function StreamingReply({ v, aiId, text }: { v: SessionView; aiId: string; text: string }) {
@@ -473,7 +493,7 @@ function ImageViewer({ mediaId, onClose }: { mediaId: string | null; onClose: ()
 
 const EMOJI = '😀😂🤣😊😍🥰😘😎🤔😅😭😡🥺😴🤯👍👎👏🙏💪🎉❤️🔥✨💯🤝👀🫡🥳😇😋🤗😏😬🙄😱🤤'.match(/\p{Extended_Pictographic}️?/gu)!;
 
-function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; blocked: boolean }) {
+function Composer({ v, conv, blocked, replyId, onCancelReply }: { v: SessionView; conv: Conversation; blocked: boolean; replyId?: string; onCancelReply: () => void }) {
   const [text, setText] = useState('');
   // @-mentions (channels): who was picked from the list, and the list being shown.
   const picked = useRef(new Map<string, string>());
@@ -489,14 +509,17 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
   const imgRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const replyMessage = replyId ? (v.messages[conv.id] ?? []).find((m) => m.id === replyId) ?? v.replyTargets[conv.id]?.[replyId] : undefined;
+  useEffect(() => { if (replyId) taRef.current?.focus(); }, [replyId]);
   const muted = conv.mutedUntil > Date.now();
   const disabled = !!conv.left || muted || blocked || v.status !== 'online';
 
   const submit = () => {
     const t = text.trim();
     if (!t || disabled) return;
-    current().sendText(conv.id, t, undefined, mentionedIds(t, picked.current)).catch(toastError);
+    current().sendText(conv.id, t, undefined, mentionedIds(t, picked.current), replyId).catch(toastError);
     setText('');
+    onCancelReply();
     picked.current.clear();
     setAt(null);
   };
@@ -575,6 +598,13 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
   const placeholder = conv.left ? '你已经不在这个频道里了' : muted ? '你被禁言了' : blocked ? '你屏蔽了对方，取消屏蔽后才能发消息' : v.status !== 'online' ? '正在连接服务器…' : '说点什么…（Enter 发送，Shift+Enter 换行）';
   return (
     <div className="relative shrink-0 px-4 pb-4">
+      {replyId && (
+        <div className="mb-2 flex items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm">
+          <Reply size={16} />
+          <div className="min-w-0 flex-1"><div className="font-medium">回复 {replyMessage?.senderId ? v.users[replyMessage.senderId]?.name ?? '某人' : '原消息'}</div><div className="truncate">{replyPreview(replyMessage)}</div></div>
+          <IconButton label="取消回复" onClick={onCancelReply}><X size={16} /></IconButton>
+        </div>
+      )}
       <AnimatePresence>
         {drag && (
           <motion.div
@@ -681,6 +711,7 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
             value={text}
             onChange={(e) => onText(e.target.value, e.target.selectionStart)}
             onKeyDown={(e) => {
+              if (e.key === 'Escape' && replyId && !at) { e.preventDefault(); onCancelReply(); return; }
               if (at && people.length && !e.nativeEvent.isComposing) {
                 const n = people.length;
                 if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

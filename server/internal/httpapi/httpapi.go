@@ -63,6 +63,7 @@ func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media
 
 // Register adds the API routes to mux.
 func (a *API) Register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/v1/conversations/{id}/messages/{event}", a.authed(a.getMessage))
 	mux.HandleFunc("GET /api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"ok":true}`)
