@@ -44,25 +44,27 @@ export async function scanQRFromFile(file: Blob): Promise<string | null> {
   return jsQR(img.data, img.width, img.height)?.data ?? null;
 }
 
-let notifyAllowed: boolean | null = null;
-
-/** Shows a desktop notification (asks for permission the first time). */
-export async function notify(title: string, body: string) {
+/** Returns an error for the settings test. Background callers can ignore it. */
+export async function notify(title: string, body: string, viewingChat = false): Promise<string | undefined> {
   if (localStorage.getItem('am-notify') === 'off') return;
   try {
     if (inTauri) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      if (await invoke<boolean>('windows_notify', { title, body, viewingChat })) return;
+    }
+    if (viewingChat && document.visibilityState === 'visible' && document.hasFocus()) return;
+    if (inTauri) {
       const n = await import('@tauri-apps/plugin-notification');
-      if (notifyAllowed === null) {
-        notifyAllowed = (await n.isPermissionGranted()) || (await n.requestPermission()) === 'granted';
-      }
-      if (notifyAllowed) n.sendNotification({ title, body });
+      if (!(await n.isPermissionGranted()) && (await n.requestPermission()) !== 'granted') return '系统未允许 AM 发送通知';
+      n.sendNotification({ title, body });
       return;
     }
-    if (!('Notification' in window)) return;
+    if (!('Notification' in window)) return '当前浏览器不支持桌面通知';
     if (Notification.permission === 'default') await Notification.requestPermission();
-    if (Notification.permission === 'granted') new Notification(title, { body });
-  } catch {
-    /* notifications unavailable */
+    if (Notification.permission !== 'granted') return '浏览器未允许通知';
+    new Notification(title, { body });
+  } catch (err) {
+    return String(err);
   }
 }
 

@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { ACCENTS, GLASS_DEFAULTS, GLASS_STYLES, imageFileToDataURL, useTheme } from '@/lib/theme';
 import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/store';
 import { usePrefs } from '@/lib/prefs';
-import { inTauri, openUrl } from '@/lib/platform';
+import { inTauri, notify, openUrl } from '@/lib/platform';
 import { CATEGORY_LABEL, REMOTE_CATEGORIES } from '@/lib/ai/agent';
 import type { Level, ToolCategory } from '@/lib/ai/persona';
 import { newAllow, useRemote, type RemoteAllow } from '@/lib/ai/remote';
@@ -413,14 +413,20 @@ function Servers() {
 
 function Notify() {
   const [on, setOn] = useState(() => localStorage.getItem('am-notify') !== 'off');
+  const [testResult, setTestResult] = useState('');
   const closeToTray = usePrefs((p) => p.closeToTray);
   const setPrefs = usePrefs((p) => p.set);
   return (
     <div className="max-w-3xl">
       <h2 className="text-[1.4rem] font-semibold">通知与窗口</h2>
       <Row title="桌面通知" desc="窗口不在前台、或者在看别的会话时，新消息弹系统通知">
+        {on && <Button size="sm" variant="soft" onClick={async () => {
+          const error = await notify('AM 通知测试', '能看到这条，就说明系统通知已显示。');
+          setTestResult(error ? '发送失败：' + error : '已向系统发送测试通知。');
+        }}>测试通知</Button>}
         <Toggle label="桌面通知" checked={on} onChange={(v) => { setOn(v); localStorage.setItem('am-notify', v ? 'on' : 'off'); }} />
       </Row>
+      {on && testResult && <p role="status" className="text-sm text-ink-soft">{testResult}</p>}
       {inTauri && (
         <Row title="点窗口的关闭按钮时" desc="收到托盘：AM 继续在后台收消息，在这台设备上运行的 AI 也保持在线；右下角托盘图标点一下打开，右键可以退出">
           <Segmented id="close-to-tray" value={closeToTray ? 'tray' : 'quit'} onChange={(x) => setPrefs({ closeToTray: x === 'tray' })} options={[

@@ -213,6 +213,34 @@ fn set_close_to_tray(on: bool) {
     CLOSE_TO_TRAY.store(on, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Windows portable builds do not have an installer-created Start Menu
+/// identity. Register a path-independent per-user sender and use that exact
+/// identity for the toast. Other platforms keep their notification plugin.
+#[tauri::command]
+fn windows_notify(window: tauri::WebviewWindow, title: String, body: String, viewing_chat: bool) -> Res<bool> {
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::{enums::HKEY_CURRENT_USER, RegKey};
+        if viewing_chat && window.is_visible().unwrap_or(false)
+            && !window.is_minimized().unwrap_or(true) && window.is_focused().unwrap_or(false)
+        {
+            return Ok(true);
+        }
+        let config = window.config();
+        let id = &config.identifier;
+        let path = format!(r"Software\Classes\AppUserModelId\{id}");
+        let (key, _) = RegKey::predef(HKEY_CURRENT_USER).create_subkey(path).map_err(|e| e.to_string())?;
+        key.set_value("DisplayName", &config.product_name.as_deref().unwrap_or("AM")).map_err(|e| e.to_string())?;
+        tauri_winrt_notification::Toast::new(id).title(&title).text1(&body).show().map_err(|e| e.to_string())?;
+        Ok(true)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (window, title, body, viewing_chat);
+        Ok(false)
+    }
+}
+
 fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
@@ -395,7 +423,7 @@ pub fn run() {
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, ws_open, ws_send, ws_close
+            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");
