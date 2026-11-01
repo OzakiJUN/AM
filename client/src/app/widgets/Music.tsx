@@ -1,7 +1,7 @@
 // Our own music widgets (replacing the NetEase embed): 「一首歌」 and 「歌单」.
 // Songs are sound files the owner uploaded; lib/player.ts plays them with
 // one audio element for the whole app.
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { Disc3, Loader2, Music2, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { clock, next, prev, seek, toggle, usePlayer, type Track } from '@/lib/player';
@@ -76,52 +76,102 @@ function PlayButton({ track, queue, disabled, big }: { track?: Track; queue?: Tr
   );
 }
 
-/** Progress of the current song if it is one of `keys` (click to jump). */
-function Progress({ keys, editing }: { keys: string[]; editing: boolean }) {
+/** Progress of the current song if it is one of `keys` (click to jump). `light` = white, over a picture. */
+function Progress({ keys, editing, light }: { keys: string[]; editing: boolean; light?: boolean }) {
   const st = usePlayer((s) => (s.track && keys.includes(s.track.key) ? s : null));
   const frac = st && st.duration ? st.time / st.duration : 0;
   return (
-    <div className="flex items-center gap-2 text-[0.7rem] tabular-nums text-ink-soft dark:text-white/50">
+    <div className={cx('flex items-center gap-2 text-[0.7rem] tabular-nums', light ? 'text-white/85 [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]' : 'text-ink-soft dark:text-white/50')}>
       <span className="w-8 text-right">{clock(st?.time ?? 0)}</span>
       <div
         role="slider"
         aria-label="播放进度"
         aria-valuenow={Math.round(frac * 100)}
-        className="relative h-1.5 flex-1 cursor-pointer rounded-full bg-black/10 dark:bg-white/10"
+        className={cx('relative h-1.5 flex-1 cursor-pointer rounded-full', light ? 'bg-white/30' : 'bg-black/10 dark:bg-white/10')}
         onClick={(e) => {
           if (editing || !st) return;
           const r = e.currentTarget.getBoundingClientRect();
           seek((e.clientX - r.left) / r.width);
         }}
       >
-        <motion.div className="absolute inset-y-0 left-0 rounded-full bg-accent" animate={{ width: `${frac * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 24 }} />
+        <motion.div className={cx('absolute inset-y-0 left-0 rounded-full', light ? 'bg-white' : 'bg-accent')} animate={{ width: `${frac * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 24 }} />
       </div>
       <span className="w-8">{clock(st?.duration ?? 0)}</span>
     </div>
   );
 }
 
-export function SongWidget({ serverId, keyBase, song, coverId, editing, tall }: {
-  serverId: string; keyBase: string; song: SongConfig; coverId: string; editing: boolean; tall: boolean;
+/** One line that glides back and forth when it is too long to fit (eased, with pauses at the ends). */
+function Marquee({ text, className }: { text: string; className?: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLSpanElement>(null);
+  const [over, setOver] = useState(0);
+  useLayoutEffect(() => {
+    const measure = () => setOver(Math.max(0, (inner.current?.scrollWidth ?? 0) - (box.current?.clientWidth ?? 0)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (box.current) ro.observe(box.current);
+    return () => ro.disconnect();
+  }, [text]);
+  return (
+    <div ref={box} className={cx('min-w-0 overflow-hidden whitespace-nowrap', className)}>
+      <motion.span
+        ref={inner}
+        className="inline-block"
+        animate={over ? { x: [0, 0, -over - 4, -over - 4] } : { x: 0 }}
+        transition={over ? { duration: 2 + over / 30, times: [0, 0.2, 0.8, 1], ease: 'easeInOut', repeat: Infinity, repeatType: 'reverse' } : spring}
+      >
+        {text}
+      </motion.span>
+    </div>
+  );
+}
+
+/**
+ * 「一首歌」: the cover fills the widget (cropped, never stretched; blurred
+ * if the owner chose so), the title glides along the top, a plain white
+ * play icon in the middle, the progress bar at the bottom.
+ */
+export function SongWidget({ serverId, keyBase, song, coverId, editing, blur }: {
+  serverId: string; keyBase: string; song: SongConfig; coverId: string; editing: boolean; blur: boolean;
 }) {
   const track = trackOf(`${keyBase}:0`, serverId, song);
-  const error = usePlayer((s) => (track && s.track?.key === track.key ? s.error : undefined));
-  const playing = usePlayer((s) => !!track && s.track?.key === track.key && s.playing);
+  const cur = usePlayer((s) => (track && s.track?.key === track.key ? s : null));
+  const url = useMediaUrl(coverId ? mediaPath(coverId) : undefined);
   if (!track && !editing) return <Placeholder text="还没选歌" />;
+  const playing = !!cur?.playing;
+  const title = `${song.title || '未命名'}${song.artist ? ` - ${song.artist}` : ''}`;
   return (
-    <div className={cx('flex h-full gap-3 p-3', tall ? 'flex-col' : 'items-center')}>
-      <Cover id={coverId} className={tall ? 'aspect-square w-full flex-1 rounded-2xl' : 'h-full max-h-16 w-16 rounded-xl'}>
-        {playing && <span className="absolute right-1.5 bottom-1.5 rounded-md bg-black/40 px-1 py-0.5 text-white"><Bars on /></span>}
-      </Cover>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5"><span className="truncate font-semibold">{song.title || '未命名'}</span>{song.neteaseId && <Netease />}</div>
-            <div className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">{error ?? (song.artist || ' ')}</div>
-          </div>
-          <PlayButton track={track} disabled={editing} />
+    <div className="relative h-full overflow-hidden text-white">
+      {url
+        ? <img src={url} alt="" draggable={false} className={cx('absolute inset-0 h-full w-full object-cover', blur && 'scale-110 blur-md')} />
+        : <div className="absolute inset-0 bg-gradient-to-br from-accent-300 via-accent to-violet-500" />}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/5 to-black/55" aria-hidden />
+      <div className="relative flex h-full flex-col justify-between p-3">
+        <div className="flex items-center gap-1.5 [text-shadow:0_1px_4px_rgba(0,0,0,0.6)]">
+          {playing && <Bars on />}
+          <Marquee text={title} className="flex-1 text-[0.95rem] font-semibold" />
+          {song.neteaseId && <Netease />}
         </div>
-        {track && <Progress keys={[track.key]} editing={editing} />}
+        <motion.button
+          type="button"
+          disabled={editing || !track}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (track) void toggle(track);
+          }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.86 }}
+          transition={spring}
+          aria-label={playing ? '暂停' : '播放'}
+          className="mx-auto flex items-center justify-center text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)] disabled:opacity-50"
+        >
+          {cur?.loading ? <Loader2 size={40} className="animate-spin" /> : playing ? <Pause size={40} fill="currentColor" /> : <Play size={40} fill="currentColor" className="translate-x-[2px]" />}
+        </motion.button>
+        <div>
+          {cur?.error && <div className="mb-1 truncate text-[0.72rem] text-rose-200 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{cur.error}</div>}
+          {track ? <Progress keys={[track.key]} editing={editing} light /> : <div className="text-center text-[0.75rem] text-white/80">还没选歌</div>}
+        </div>
       </div>
     </div>
   );

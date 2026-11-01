@@ -237,6 +237,17 @@ update the docs in the same commit.
   game strip, window), `app/Workshop.tsx` (built-in items). AIs join / open /
   play through tools in category `games` (`gameTool`, `onGame`, `gameTurn`
   with a fallback move in runner.ts; `wantsToJoin` in social.ts).
+- NetEase songs in the desktop app play from `ammusic://<id>` served by Rust
+  (`src-tauri/src/music.rs`: NetEase headers, follows the CDN redirect,
+  in-memory cache, Range); browser dev mode uses the outer url directly.
+- AI memory / initiative (docs/design.md §9): every reply's system prompt
+  has `appPrompt` (what AM offers, from its tools) and `elsewherePrompt`
+  (last 12 h in channels shared with everyone here + its games; never other
+  DMs); `proactive` in social.ts (hello / status / quiet topics, tick every
+  30 s); its own page through `view_my_page` / `edit_my_page`
+  (`lib/ai/page.ts`, pure + tested). Game turns are `silent` replies (tools
+  only); one remark after the game. Games: `rematch`, history (`?ended=1`,
+  `retention.games_days`).
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 

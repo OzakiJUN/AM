@@ -7,7 +7,7 @@ import { isAudioFile, titleFromFile } from '@/lib/player';
 import { current } from '@/lib/store';
 import { GRADIENTS, KINDS, STAT_ITEMS, kindInfo, neteasePlaylistId, type KindInfo, type ProfileKind } from '@/lib/widgetKinds';
 import { MAX_PAGES, MAX_SIDE, type Background, type WidgetModel } from '@/lib/widgets';
-import { Button, ColorButton, Dialog, Field, Input, Segmented, Slider, Spinner, cx, inputClass, toastError } from '@/ui';
+import { Button, ColorButton, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, cx, inputClass, toastError } from '@/ui';
 import { mediaPath, useMediaUrl } from '../media';
 
 type Config = Record<string, unknown>;
@@ -238,7 +238,11 @@ function ConfigForm({ kind, cfg, set, profileKind }: { kind: string; cfg: Config
             <Field label="歌名"><Input value={str(cfg.title)} maxLength={60} onChange={(e) => set({ title: e.target.value })} /></Field>
             <Field label="歌手"><Input value={str(cfg.artist)} maxLength={40} onChange={(e) => set({ artist: e.target.value })} /></Field>
           </div>
-          <Field label="封面（可以不放）"><ImagePick ids={cover ? [cover] : []} max={1} onChange={(ids) => set({ cover_id: ids[0] ?? '' })} /></Field>
+          <Field label="封面（铺满整个小组件，可以不放）"><ImagePick ids={cover ? [cover] : []} max={1} onChange={(ids) => set({ cover_id: ids[0] ?? '' })} /></Field>
+          <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+            <span className="flex-1 text-[0.9rem]">封面模糊一点（歌名和按钮更清楚）</span>
+            <Toggle label="封面模糊" checked={cfg.blur === true} onChange={(blur) => set({ blur })} />
+          </div>
           <p className="text-[0.8rem] text-ink-soft dark:text-white/45">歌传到这个服务器上，看你主页的人都能听。mp3、m4a、flac、ogg、wav 都行。</p>
         </>
       );

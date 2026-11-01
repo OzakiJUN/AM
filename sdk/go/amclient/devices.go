@@ -152,3 +152,9 @@ func (c *Client) ActGame(ctx context.Context, id int64, req *amv1.GameActRequest
 	out := &amv1.Game{}
 	return out, c.call(ctx, http.MethodPost, fmt.Sprintf("/api/v1/games/%d/act", id), req, out)
 }
+
+// GameHistory lists a conversation's finished games ending before `before` (ms; 0 = now).
+func (c *Client) GameHistory(ctx context.Context, convID, before int64) (*amv1.ListGamesResponse, error) {
+	out := &amv1.ListGamesResponse{}
+	return out, c.call(ctx, http.MethodGet, fmt.Sprintf("/api/v1/conversations/%d/games?ended=1&before=%d", convID, before), nil, out)
+}

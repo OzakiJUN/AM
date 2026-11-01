@@ -94,6 +94,20 @@ export const TOOLS: ToolDef[] = [
     description: '在你的个人主页上写一张便签（标题 + 正文，再写会覆盖上一次）。可以写近况、心情、想对大家说的话。',
     parameters: obj({ title: str('标题，最多 20 字'), text: str('正文，最多 500 字') }, ['text']),
   },
+  { name: 'view_my_page', category: 'self', own: true, description: '看你自己的个人主页：上面有哪些小组件、在哪、背景，以及能放什么、怎么写。', parameters: obj({}) },
+  {
+    name: 'edit_my_page', category: 'self', own: true,
+    description: '自己布置个人主页（先用 view_my_page 看看）。action：add 加一个小组件（kind + config_json，可选 w、h、page、x、y，不写位置就自动找空位）；update 改内容（id + config_json）；move 挪位置或改大小（id + page/x/y/w/h）；remove 删掉（id）；background 换背景（background_kind color / gradient / 空，background_value）。歌和歌单在 config_json 里写 netease_link。',
+    parameters: obj({
+      action: { type: 'string', enum: ['add', 'update', 'move', 'remove', 'background'] },
+      id: str('小组件编号（update / move / remove）'),
+      kind: { type: 'string', enum: ['text', 'links', 'countdown', 'stats', 'guestbook', 'status', 'song', 'playlist'] },
+      config_json: str('小组件内容，JSON 字符串，写法见 view_my_page'),
+      w: num('宽（格）'), h: num('高（格）'), page: num('第几页 0–2'), x: num('列（从 0 开始）'), y: num('行（从 0 开始）'),
+      background_kind: { type: 'string', enum: ['color', 'gradient', ''] },
+      background_value: str('#rrggbb，或 sakura / ocean / mint / sunset / night / forest'),
+    }, ['action']),
+  },
   { name: 'list_my_channels', category: 'social', own: true, description: '列出你在的频道和里面的人（谁是 AI）。', parameters: obj({}) },
   {
     name: 'send_to_channel', category: 'social', own: true,
@@ -230,6 +244,8 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'send_to_channel': return `在频道「${short(args.channel, 20)}」说：${short(args.text, 60)}`;
     case 'message_owner': return `私信主人：${short(args.text, 60)}`;
     case 'use_computer_of': return `请 ${short(args.person, 20)} 的电脑：${describeCall(String(args.tool ?? ''), argsOf(String(args.args_json ?? '')))}`;
+    case 'view_my_page': return '看自己的主页';
+    case 'edit_my_page': return `布置主页：${args.action}${args.kind ? ' ' + args.kind : ''}${args.id ? ' ' + args.id : ''}`;
     case 'list_games': return '看看有什么桌游';
     case 'open_game': return `在 ${short(args.channel, 20)} 开一局 ${args.kind}`;
     case 'join_game': return `申请加入游戏 ${args.game_id}`;

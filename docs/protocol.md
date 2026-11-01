@@ -248,6 +248,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/conversations/{id}/games` | — | `ListGamesResponse`：等人中、进行中的，和 6 小时内结束的（最多 50 局，新的在前） |
+| GET | `/api/v1/conversations/{id}/games?ended=1&before=<ms>` | — | `ListGamesResponse`：对局记录，结束时间早于 `before`（0 / 不写 = 现在）的局，按结束时间新的在前，每次 30 局 |
 | POST | `/api/v1/conversations/{id}/games` | `OpenGameRequest` | `Game`：开一局，我坐 1 号（执黑）。`auto_approve` = 谁申请都直接坐下。同一个会话同时最多 `limits.max_games_per_conv` 局没结束（`game_limit`；0 = 关掉桌游） |
 | GET | `/api/v1/games/{id}` | — | `Game` |
 | POST | `/api/v1/games/{id}/join` | — | `Game`：自动同意时直接坐下，否则进申请列表（`applicants`）。只能在开始前（`game_state`）；满了 `game_full` |
@@ -257,6 +258,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | POST | `/api/v1/games/{id}/act` | `GameActRequest` | `Game`：`move`（`x`、`y`，从左上角 0 开始）/ `say`（`text`，最多 60 字，不能包含自己的词）/ `vote`（`target` 座位号，从 0 开始，不能投自己）/ `resign`。不是玩家 `no_permission`，没轮到 `not_your_turn`，不合规则 `game_bad_move`，阶段不对 `game_state` |
 | POST | `/api/v1/games/{id}/leave` | — | `Game`：开始前退出（开局的人退出 = 关掉这局）；进行中 = 认输（谁是卧底里是自己出局） |
 | POST | `/api/v1/games/{id}/end` | — | `Game`：开局的人结束这局（没有输赢，`result = "closed"`） |
+| POST | `/api/v1/games/{id}/rematch` | — | `Game`：再来一局：只能对结束了的局（`game_state`），只有当时的玩家能用（`no_permission`）；新开一局，我是开局的人，原来的玩家（还在这个会话里的）直接坐好，两人局交换座位（换先后手），等开局的人点开始。也受 `game_limit` 限制 |
 
 每次变化服务器把 `ServerFrame.game` 推给会话里的所有人，每人收到的是自己能看到的样子：
 
@@ -264,7 +266,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 - `Game.waiting_on`：现在要行动的人（轮到的一个人，或投票阶段还没投的所有人）。
 - `Game.state_json`：JSON，`size`、`board`（一维数组，`y*size+x`，0 空 1 黑 2 白）、`turn`（座位号，-1 = 没有）、`moves`、`last`（`[x, y]`）、`winner`（棋：座位号 + 1，-1 平局；谁是卧底：1 平民赢，2 卧底赢）、`result`（`resign` 认输、`closed` 被关掉、`rounds` 卧底撑过 8 轮）、`legal`（黑白棋轮到的人能下的位置）、`phase`（`describe` / `vote`）、`round`、`said`（`{seat, round, text}`）、`votes`（投票阶段只给 -1 没投 / -2 已投，计票后不再给）、`words`（结束后 `[平民词, 卧底词]`）、`log`（`out:座位`、`tie`、`left:座位`、`pass`）。
 
-结束的局 30 天后由 janitor 删除。
+结束的局 `retention.games_days` 天后（默认 180）由 janitor 删除。
 
 ### 发消息
 

@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { addressed, dayPlan, decide, defaultChannels, defaultGames, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
+import { addressed, dayPlan, decide, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
 
 const s = defaultChannels();
 const me = 'ai';
@@ -69,4 +69,19 @@ assert.equal(j({ free: 0 }), null);
 assert.equal(j({ asleep: true }), null);
 assert.equal(j({ playing: 1 }), null);
 assert.equal(j({ s: { ...gs, join: false } }), null);
+// Talking first: hello when the owner comes online, a topic after a quiet spell, not while asleep.
+const H = 3_600_000;
+const T = 100 * H;
+const pr = (o: Partial<Parameters<typeof proactive>[0]>) => proactive({
+  s: defaultProactive(), now: T, asleep: false, ownerOnline: true, wasOnline: true, lastGreet: 0, lastChat: T - 60_000, lastTopic: 0, activityChanged: false, random: 0.5, ...o,
+});
+assert.equal(pr({ wasOnline: false, lastChat: T - 2 * H }), 'greet');
+assert.equal(pr({ wasOnline: false, lastChat: T - 2 * H, lastGreet: T - H }), null); // greeted an hour ago
+assert.equal(pr({ wasOnline: false, lastChat: T - 2 * H, asleep: true }), null);
+assert.equal(pr({ ownerOnline: false }), null);
+assert.equal(pr({ activityChanged: true, lastChat: T - H, random: 0.2 }), 'activity');
+assert.equal(pr({ lastChat: T - 4 * H, random: 0.05 }), 'topic');
+assert.equal(pr({ lastChat: T - 4 * H, random: 0.5 }), null);
+assert.equal(pr({ lastChat: T - 2 * H, random: 0.05 }), null); // not quiet long enough
+assert.equal(pr({ lastChat: T - 4 * H, random: 0.05, s: { ...defaultProactive(), topics: false } }), null);
 console.log('ai social ok');

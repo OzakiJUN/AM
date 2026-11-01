@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { EVOLVE_KEEP, adoptPersona, defaultSettings, evolvePrompt, parseEvolved, parseSettings, previewText, systemPrompt, toChat, TEMPLATES } from './persona.ts';
+import { EVOLVE_KEEP, adoptPersona, appPrompt, elsewherePrompt, defaultSettings, evolvePrompt, parseEvolved, parseSettings, previewText, systemPrompt, toChat, TEMPLATES } from './persona.ts';
 
 // Settings survive missing / unknown fields.
 assert.equal(parseSettings('').contextSize, 30);
@@ -43,4 +43,10 @@ assert.equal(st.persona.intro, '11');
 assert.ok(evolvePrompt({ name: '小鱼', owner: 'Weiqi', persona: old, lines: ['Weiqi：今天好累'] }).includes('Weiqi：今天好累'));
 assert.deepEqual(parseSettings('{}').catchUp, { enabled: true, hours: 12, max: 5 });
 
+// What it knows about AM comes from its tools; memory from elsewhere only when there is any.
+const ap = appPrompt(['list_games', 'set_my_status']);
+assert.ok(ap.includes('五子棋') && ap.includes('状态') && !ap.includes('个人主页'), ap);
+assert.equal(elsewherePrompt([], []), '');
+const ep = elsewherePrompt(['「大厅」Weiqi：我赢了'], ['和 Weiqi 下五子棋：Weiqi（黑）赢了']);
+assert.ok(ep.includes('桌游：\n和 Weiqi') && ep.includes('最近的聊天：\n「大厅」'), ep);
 console.log('ai persona ok');

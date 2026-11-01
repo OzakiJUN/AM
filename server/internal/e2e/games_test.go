@@ -113,4 +113,29 @@ func testGames(t *testing.T, a *app.App, base string) {
 	}
 	_, err = eve.cli.ListGames(ctx, ch.Id)
 	wantCode(t, err, "not_member")
+
+	// 再来一局: the same four seated again, waiting for the start.
+	r := must(cat.cli.GameStep(ctx, u.Id, "rematch"))
+	if r.Id == u.Id || r.Status != "waiting" || r.HostId != cat.me.Id || len(r.Players) != 4 {
+		t.Fatalf("rematch %+v", r)
+	}
+	_, err = eve.cli.GameStep(ctx, u.Id, "rematch")
+	wantCode(t, err, "not_member")
+	_, err = bob.cli.GameStep(ctx, g.Id, "rematch")
+	wantCode(t, err, "game_limit") // the reversi game and this rematch are open
+	// Gomoku rematch swaps colours: bob (white before) is black now.
+	must(cat.cli.GameStep(ctx, r.Id, "leave")) // cat was host: closes it
+	g2 := must(bob.cli.GameStep(ctx, g.Id, "rematch"))
+	if g2.Players[0].UserId != bob.me.Id || g2.Players[1].UserId != ann.me.Id {
+		t.Fatalf("colours not swapped: %+v", g2.Players)
+	}
+
+	// 对局记录: the finished games, newest first.
+	h := must(dan.cli.GameHistory(ctx, ch.Id, 0)).Games
+	if len(h) != 3 || h[0].Id != r.Id || h[1].Id != u.Id || h[2].Id != g.Id {
+		t.Fatalf("history %d", len(h))
+	}
+	if len(must(dan.cli.GameHistory(ctx, ch.Id, h[1].UpdatedAt)).Games) != 1 {
+		t.Fatal("history paging")
+	}
 }

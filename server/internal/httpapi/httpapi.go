@@ -95,6 +95,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/games/{id}/start", a.authed(a.gameStep("start")))
 	mux.HandleFunc("POST /api/v1/games/{id}/leave", a.authed(a.gameStep("leave")))
 	mux.HandleFunc("POST /api/v1/games/{id}/end", a.authed(a.gameStep("end")))
+	mux.HandleFunc("POST /api/v1/games/{id}/rematch", a.authed(a.gameStep("rematch")))
 	mux.HandleFunc("POST /api/v1/stickers", a.authed(a.addSticker))
 	mux.HandleFunc("PATCH /api/v1/stickers/{id}", a.authed(a.updateSticker))
 	mux.HandleFunc("DELETE /api/v1/stickers/{id}", a.authed(a.deleteSticker))

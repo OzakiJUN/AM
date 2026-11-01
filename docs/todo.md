@@ -10,12 +10,13 @@
 6. 以后收藏的表情包（第三阶段）也要加进资料同步（design.md 第 7 节「资料同步」）。
 7. **bot / AI 账号的管理放到 AI 栏**（第二阶段做 bot 时）：主页、资料、在哪些频道等都在 AI 栏里设置（design.md 第 10 节）。
 8. 安卓端：存密码和共享密钥要接 Android Keystore（现在只有 Windows 凭据管理器），扫登录码 / 加入码用摄像头（Tauri 扫码插件）。
-9. **自动更新**（方案已定，见 design.md 第 3 节「更新」）：AI 功能做好、给朋友试之前完成。
-10. **AI 第 2 批收尾**（design.md 第 9 节「操作电脑」）：2a、2b 已完成，等 Weiqi 在 Windows 上整批测试（界面自动化、自己的浏览器、MCP 只有桌面版能用）。还差游戏（截图 + 虚拟手柄，小批）。用真的 DeepSeek key 测一遍工具调用（云端开发环境要先放开 api.deepseek.com）。
-11. **AI 第 3 批收尾**：已做人格无感迭代、离线补回、共享聊天、别人的 AI 操作我的电脑。还差：别人主动「申请共用」某个 AI（现在只能主人拉人）、频道里「添加 bot」按钮。
-12. AI 余额查询和低余额提醒；AI 形象包（自定义立绘）上传。
-13. **工坊默认小游戏**（第五阶段，Weiqi 提的）：跟 AI 一起玩、让不同人的 AI 坐一桌玩桌游（AI 们各自跑在主人的设备上，经服务器同步牌局）。
-14. **AI 玩游戏**：优先用游戏自己的接口 / mod（例如 Minecraft 用 mineflayer 机器人，不占鼠标），没有接口的才截图 + 键鼠 / 虚拟手柄。参考项目：dsh-game-bridge（DeepSeek Harness 的游戏插件：DXcam 截屏 + RapidOCR，虚拟 Xbox 手柄 ViGEmBus + SendInput；F12 一键收回控制、游戏窗口不在前台就不动、反作弊游戏直接拒绝、默认只演练不真按、操作留记录——第 2 批的「让鼠标」和急停照这个思路），ZerolanLiveRobot（B 站弹幕 + 看屏幕 + mineflayer 操作 Minecraft）、DeepSeek Harness（DeepSeek 开源的 agent 框架，插件式，开发者预览版）、AI-XiaoPi（弹幕 → 模型 → TTS 的直播助手）、digital-human-livestream（LiveTalking 二次开发：B 站弹幕 → DeepSeek → EdgeTTS → wav2lip / MuseTalk 数字人，要 CUDA 显卡）。以后做 AI 直播 / 语音时再细看。
+9. **自动更新**（方案已定，见 design.md 第 3 节「更新」）：AI 功能做好、给朋友试之前完成——现在就是下一个。要先定签名密钥放哪（GitHub Secrets），Weiqi 确认后开工。在那之前手动升级：只换 exe，`config.toml` 和 `data\` 不动（docs/server-setup.md「升级到新版本」）。
+10. **AI 第 2 批收尾**（design.md 第 9 节「操作电脑」）：2a、2b 已完成，等 Weiqi 在 Windows 上整批测试（界面自动化、自己的浏览器、MCP 只有桌面版能用）。用真的 DeepSeek key 测一遍工具调用（云端开发环境要先放开 api.deepseek.com）。游戏只接有 AI 接口的（Minecraft、环世界的 MCP 模板，已做），截图 + 虚拟手柄不做了（Weiqi 定的）。
+11. **以后做 AI 直播 / 语音时参考**：dsh-game-bridge（DeepSeek Harness 的游戏插件：DXcam 截屏 + RapidOCR，虚拟 Xbox 手柄 ViGEmBus + SendInput；F12 一键收回控制、游戏窗口不在前台就不动、反作弊游戏直接拒绝、默认只演练不真按、操作留记录——第 2 批的「让鼠标」和急停照这个思路），ZerolanLiveRobot（B 站弹幕 + 看屏幕 + mineflayer 操作 Minecraft）、DeepSeek Harness（DeepSeek 开源的 agent 框架，插件式，开发者预览版）、AI-XiaoPi（弹幕 → 模型 → TTS 的直播助手）、digital-human-livestream（LiveTalking 二次开发：B 站弹幕 → DeepSeek → EdgeTTS → wav2lip / MuseTalk 数字人，要 CUDA 显卡）。以后做 AI 直播 / 语音时再细看。
+
+## Weiqi 第三批测试反馈（2026-11-01）
+
+8 条 + 追加的 3 条（再来一局、关闭对局、对局记录）都做完了（见 CHANGELOG「第三批测试反馈」），第 8 条（更新）是回答 + 升级说明，自动更新见上面第 9 条。等 Weiqi 找人一起测。
 
 ## Weiqi 第二批测试反馈（2026-10-31，周日 1:00 额度重置后直接改，不用再等确认）
 

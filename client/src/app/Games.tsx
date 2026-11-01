@@ -5,18 +5,20 @@
 // rules; lib/games.ts reads its state.
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Crown, Flag, Gamepad2, LogOut, Play, Users, X } from 'lucide-react';
+import { Crown, Flag, Gamepad2, History, LogOut, Play, RotateCcw, Users, X } from 'lucide-react';
 import { create } from 'zustand';
 import { GAME_INFO, KINDS, coord, countStones, resultText, seatOf, type Game, type GameKind } from '@/lib/games';
 import { session } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation } from '@/lib/types';
-import { Button, Dialog, IconButton, Input, Toggle, cx, openMenu, spring, toast } from '@/ui';
+import { chatTime } from '@/lib/format';
+import { Button, Dialog, IconButton, Input, Spinner, Toggle, cx, openMenu, spring, toast } from '@/ui';
 import { UserAvatar } from './media';
 
-/** The game window that is open (one at a time). */
-export const useGameWindow = create<{ serverId: string; id: string }>(() => ({ serverId: '', id: '' }));
+/** The game window that is open (one at a time), and finished games I closed (out of the strip). */
+export const useGameWindow = create<{ serverId: string; id: string; closed: string[] }>(() => ({ serverId: '', id: '', closed: [] }));
 export const openGameWindow = (serverId: string, id: string) => useGameWindow.setState({ serverId, id });
+const closeGame = (id: string) => useGameWindow.setState((s) => ({ id: s.id === id ? '' : s.id, closed: [...s.closed, id] }));
 
 /** Opens a game of `kind` in a conversation and shows it. */
 export async function startGame(serverId: string, convId: string, kind: GameKind) {
@@ -26,20 +28,67 @@ export async function startGame(serverId: string, convId: string, kind: GameKind
   return g;
 }
 
-/** Header button: 「开一局」 menu. */
+/** Header button: 「开一局」 menu, and this conversation's game history. */
 export function GameButton({ v, conv }: { v: SessionView; conv: Conversation }) {
+  const [history, setHistory] = useState(false);
   return (
-    <IconButton label="开一局游戏" onClick={(e) => {
-      const r = e.currentTarget.getBoundingClientRect();
-      openMenu({ clientX: r.left, clientY: r.bottom + 6 }, KINDS.map((k) => ({
-        label: `${GAME_INFO[k].name}（${GAME_INFO[k].players}）`,
-        icon: <Gamepad2 size={15} />,
-        key: `game:${conv.id}:${k}`,
-        onClick: () => startGame(v.id, conv.id, k),
-      })));
-    }}>
-      <Gamepad2 size={19} />
-    </IconButton>
+    <>
+      <IconButton label="开一局游戏" onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        openMenu({ clientX: r.left, clientY: r.bottom + 6 }, [
+          ...KINDS.map((k) => ({
+            label: `${GAME_INFO[k].name}（${GAME_INFO[k].players}）`,
+            icon: <Gamepad2 size={15} />,
+            key: `game:${conv.id}:${k}`,
+            onClick: () => startGame(v.id, conv.id, k),
+          })),
+          { label: '对局记录', icon: <History size={15} />, key: `history:${conv.id}`, onClick: () => setHistory(true) },
+        ]);
+      }}>
+        <Gamepad2 size={19} />
+      </IconButton>
+      <Dialog open={history} onClose={() => setHistory(false)} title={`对局记录 · ${conv.name}`} width={560}>
+        {history && <GameHistory v={v} conv={conv} onOpen={() => setHistory(false)} />}
+      </Dialog>
+    </>
+  );
+}
+
+/** Finished games here, newest first; click one to see how it ended. */
+function GameHistory({ v, conv, onOpen }: { v: SessionView; conv: Conversation; onOpen: () => void }) {
+  const [list, setList] = useState<Game[] | null>(null);
+  const [more, setMore] = useState(false);
+  const load = async (before = 0) => {
+    const page = await session(v.id)!.gameHistory(conv.id, before);
+    setList((l) => [...(before ? l ?? [] : []), ...page]);
+    setMore(page.length >= 30);
+  };
+  useEffect(() => {
+    void load().catch(() => setList([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v.id, conv.id]);
+  if (!list) return <div className="flex justify-center py-8"><Spinner /></div>;
+  if (!list.length) return <p className="py-8 text-center text-ink-soft dark:text-white/50">这里还没有下完的局。</p>;
+  return (
+    <div className="space-y-1.5" data-testid="game-history">
+      <div className="max-h-[60vh] space-y-1.5 overflow-y-auto">
+        {list.map((g) => (
+          <button key={g.id} onClick={() => { session(v.id)!.showGame(g); openGameWindow(v.id, g.id); onOpen(); }}
+            className="press flex w-full items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 text-left hover:bg-black/[0.06] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]">
+            <Gamepad2 size={16} className="shrink-0 text-accent" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{GAME_INFO[g.kind].name}</span>
+                <span className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">{g.players.map((p) => name(v, p.userId)).join('、')}</span>
+              </div>
+              <div className="truncate text-[0.82rem]">{resultText(g, (id) => name(v, id))}</div>
+            </div>
+            <span className="shrink-0 text-[0.75rem] text-ink-soft dark:text-white/45">{chatTime(g.updatedAt)}</span>
+          </button>
+        ))}
+      </div>
+      {more && <Button variant="soft" className="w-full" onClick={() => load(list.at(-1)!.updatedAt)}>更早的</Button>}
+    </div>
   );
 }
 
@@ -59,10 +108,11 @@ export function GameBar({ v, conv }: { v: SessionView; conv: Conversation }) {
   useEffect(() => {
     void session(v.id)?.listGames(conv.id).catch(() => {});
   }, [v.id, conv.id]);
+  const closed = useGameWindow((s) => s.closed);
   const games = useMemo(
-    () => Object.values(v.games).filter((g) => g.convId === conv.id && (g.status !== 'ended' || Date.now() - g.updatedAt < 30 * 60_000))
+    () => Object.values(v.games).filter((g) => g.convId === conv.id && !closed.includes(g.id) && (g.status !== 'ended' || Date.now() - g.updatedAt < 30 * 60_000))
       .sort((a, b) => b.createdAt - a.createdAt).slice(0, 4),
-    [v.games, conv.id],
+    [v.games, conv.id, closed],
   );
   const win = useGameWindow();
   const open = win.serverId === v.id && v.games[win.id]?.convId === conv.id ? v.games[win.id] : undefined;
@@ -82,6 +132,12 @@ export function GameBar({ v, conv }: { v: SessionView; conv: Conversation }) {
                 <Gamepad2 size={15} className="shrink-0" />
                 <span className="font-medium">{GAME_INFO[g.kind].name}</span>
                 <span className={cx('max-w-[16rem] truncate', mine ? 'text-white/85' : 'text-ink-soft dark:text-white/55')}>{statusLine(v, g)}</span>
+                {g.status === 'ended' && (
+                  <span role="button" tabIndex={0} aria-label="关闭这局" title="关闭" className="-mr-1 rounded-md p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
+                    onClick={(e) => { e.stopPropagation(); closeGame(g.id); }}>
+                    <X size={13} />
+                  </span>
+                )}
               </motion.button>
             );
           })}
@@ -147,6 +203,12 @@ function GameWindow({ v, g }: { v: SessionView; g: Game }) {
           {g.status === 'playing' && host && (
             <Button variant="soft" onClick={() => s().gameStep(g.id, 'end')}><X size={15} /> 结束这局</Button>
           )}
+          {g.status === 'ended' && seat >= 0 && (
+            <Button variant="primary" onClick={() => s().gameStep(g.id, 'rematch').then((x) => openGameWindow(v.id, x.id))}><RotateCcw size={15} /> 再来一局</Button>
+          )}
+          {g.status === 'ended' && (
+            <Button variant="soft" onClick={() => closeGame(g.id)}><X size={15} /> 关闭</Button>
+          )}
         </div>
         <p className="text-[0.78rem] leading-relaxed text-ink-soft dark:text-white/45">{info.rules}</p>
       </div>
@@ -177,6 +239,9 @@ function Seats({ v, g }: { v: SessionView; g: Game }) {
     </div>
   );
 }
+
+/** The five star points of a 15×15 board (天元 and the four 星). */
+const STARS = new Set(['3,3', '11,3', '7,7', '3,11', '11,11']);
 
 /** 五子棋 / 黑白棋 board: click an empty (legal) point on my turn. */
 function Board({ v, g }: { v: SessionView; g: Game }) {
@@ -221,19 +286,27 @@ function Board({ v, g }: { v: SessionView; g: Game }) {
               aria-label={coord(x, y)}
               disabled={!can || busy}
               onClick={() => void go(x, y)}
-              className={cx('group relative flex items-center justify-center', go15 ? 'border-[0.5px] border-black/25' : 'border border-black/25', can && 'cursor-pointer')}
+              className={cx('group relative flex items-center justify-center', !go15 && 'border border-black/25', can && 'cursor-pointer')}
               style={{ width: cell, height: cell }}
             >
+              {go15 && (
+                // 五子棋 is played on the points: each cell draws the two lines through its centre (cut at the edges).
+                <>
+                  <span aria-hidden className="absolute top-1/2 h-px -translate-y-1/2 bg-black/45" style={{ left: x === 0 ? '50%' : 0, right: x === n - 1 ? '50%' : 0 }} />
+                  <span aria-hidden className="absolute left-1/2 w-px -translate-x-1/2 bg-black/45" style={{ top: y === 0 ? '50%' : 0, bottom: y === n - 1 ? '50%' : 0 }} />
+                  {STARS.has(`${x},${y}`) && <span aria-hidden className="absolute h-1.5 w-1.5 rounded-full bg-black/70" />}
+                </>
+              )}
               {c !== 0 && (
                 <motion.span
                   initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring}
-                  className={cx('rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.35)]', c === 1 ? 'bg-[radial-gradient(circle_at_35%_30%,#555,#111)]' : 'bg-[radial-gradient(circle_at_35%_30%,#fff,#ddd)]')}
+                  className={cx('relative rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.35)]', c === 1 ? 'bg-[radial-gradient(circle_at_35%_30%,#555,#111)]' : 'bg-[radial-gradient(circle_at_35%_30%,#fff,#ddd)]')}
                   style={{ width: cell * 0.8, height: cell * 0.8 }}
                 />
               )}
-              {last && <span className="absolute h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />}
+              {last && <span className="absolute z-[1] h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />}
               {can && c === 0 && (
-                <span className={cx('rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-60', seat === 0 ? 'bg-neutral-900' : 'bg-white', legal.has(i) && 'opacity-30')}
+                <span className={cx('relative rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-60', seat === 0 ? 'bg-neutral-900' : 'bg-white', legal.has(i) && 'opacity-30')}
                   style={{ width: cell * (legal.has(i) ? 0.3 : 0.7), height: cell * (legal.has(i) ? 0.3 : 0.7) }} />
               )}
             </button>

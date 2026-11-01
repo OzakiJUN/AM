@@ -81,6 +81,7 @@ type Limits struct {
 type Retention struct {
 	EvidenceDays    int `toml:"evidence_days"`
 	LoginRecordDays int `toml:"login_record_days"`
+	GamesDays       int `toml:"games_days"`
 }
 
 type Media struct {
@@ -261,6 +262,9 @@ func (c *Config) validate() error {
 	}
 	if c.Retention.EvidenceDays < 1 || c.Retention.LoginRecordDays < 1 {
 		return errors.New("retention days must be >= 1")
+	}
+	if c.Retention.GamesDays < 1 {
+		return errors.New("retention.games_days must be >= 1")
 	}
 	if c.Media.BlockDistance < 0 || c.Media.BlockDistance > 64 {
 		return errors.New("media.block_distance must be 0-64")

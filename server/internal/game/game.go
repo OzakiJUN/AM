@@ -18,12 +18,10 @@ import (
 
 var ErrGameLimit = apperr.New(http.StatusForbidden, "game_limit", "this conversation already has the most games allowed")
 
-// Ended games stay listed this long (so everyone sees the result), then the
-// list leaves them out; the janitor deletes them after KeepEnded.
-const (
-	ShowEnded = 6 * time.Hour
-	KeepEnded = 30 * 24 * time.Hour
-)
+// Ended games stay in the live list this long (so everyone sees the
+// result); after that they are in the game history (History) until the
+// janitor deletes them (retention.games_days).
+const ShowEnded = 6 * time.Hour
 
 type Service struct {
 	st   *store.Store
@@ -132,6 +130,87 @@ func (s *Service) Open(ctx context.Context, me *store.User, convID int64, kind s
 		if n >= s.max {
 			return ErrGameLimit
 		}
+		return q.CreateGame(ctx, g)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.broadcast(ctx, g, st)
+	return view(g, st, me.ID), nil
+}
+
+// History: a conversation's finished games, newest first, before `before` (ms; 0 = now).
+func (s *Service) History(ctx context.Context, me *store.User, convID, before int64) (*amv1.ListGamesResponse, error) {
+	if err := member(ctx, s.st.Queries, convID, me.ID); err != nil {
+		return nil, err
+	}
+	if before <= 0 {
+		before = time.Now().UnixMilli() + 1
+	}
+	list, err := s.st.EndedGames(ctx, convID, before, 30)
+	if err != nil {
+		return nil, err
+	}
+	out := &amv1.ListGamesResponse{}
+	for _, g := range list {
+		if st, err := load(g); err == nil {
+			out.Games = append(out.Games, view(g, st, me.ID))
+		}
+	}
+	return out, nil
+}
+
+// Rematch: a player of a finished game opens the same game again with the
+// same players already seated (two-player games swap colours). Players
+// who left the conversation are not seated again.
+func (s *Service) Rematch(ctx context.Context, me *store.User, id int64) (*amv1.Game, error) {
+	var g *store.Game
+	var st *State
+	err := s.st.InTx(ctx, func(q *store.Queries) error {
+		old, err := q.GetGame(ctx, id)
+		if errors.Is(err, store.ErrNotFound) {
+			return apperr.ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if err := member(ctx, q, old.ConvID, me.ID); err != nil {
+			return err
+		}
+		prev, err := load(old)
+		if err != nil {
+			return err
+		}
+		if prev.Status != Ended {
+			return ErrGameState
+		}
+		if prev.Seat(me.ID) < 0 {
+			return apperr.ErrNoPermission
+		}
+		n, err := q.CountActiveGames(ctx, old.ConvID)
+		if err != nil {
+			return err
+		}
+		if n >= s.max {
+			return ErrGameLimit
+		}
+		ids := make([]int64, 0, len(prev.Players))
+		for _, p := range prev.Players {
+			ids = append(ids, p.ID)
+		}
+		if len(ids) == 2 {
+			ids[0], ids[1] = ids[1], ids[0]
+		}
+		st, _ = NewState(old.Kind, me.ID, prev.AutoApprove)
+		st.Players = nil
+		for _, u := range ids {
+			if member(ctx, q, old.ConvID, u) == nil {
+				st.Players = append(st.Players, Player{ID: u})
+			}
+		}
+		now := time.Now().UnixMilli()
+		b, _ := json.Marshal(st)
+		g = &store.Game{ID: s.ids.Next(), ConvID: old.ConvID, Kind: old.Kind, HostID: me.ID, Status: st.Status, State: string(b), CreatedAt: now, UpdatedAt: now}
 		return q.CreateGame(ctx, g)
 	})
 	if err != nil {

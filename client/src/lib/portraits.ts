@@ -87,6 +87,7 @@ export function moodKey(word: string): (typeof MOODS)[number] | undefined {
   return MOOD_ALIAS[w];
 }
 
+const BARE = /[\[【]\s*([^\]】\s]{1,12})\s*[\]】]/g;
 const TAG = /[\[【(（]\s*(?:mood|心情|情绪|表情)\s*[:：=]\s*([^\]】)）\s]{1,16})\s*[\]】)）]/gi;
 
 /**
@@ -97,9 +98,18 @@ const TAG = /[\[【(（]\s*(?:mood|心情|情绪|表情)\s*[:：=]\s*([^\]】)�
 export function splitMoodTag(text: string): { mood: Mood; text: string } {
   let mood: Mood | undefined;
   let found = false;
-  const rest = text.replace(TAG, (_all, word: string) => {
+  let rest = text.replace(TAG, (_all, word: string) => {
     found = true;
     mood ??= moodKey(word);
+    return ' ';
+  });
+  // Models also drop the "mood:" and write just "[laugh]" / "【开心】": taken
+  // only when the brackets hold nothing but a mood name or synonym.
+  rest = rest.replace(BARE, (all, word: string) => {
+    const m = moodKey(word);
+    if (!m) return all;
+    found = true;
+    mood ??= m;
     return ' ';
   });
   if (!found) return { mood: 'neutral', text };

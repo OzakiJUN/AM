@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strconv"
 
 	"google.golang.org/protobuf/proto"
 
@@ -16,6 +17,12 @@ func (a *API) listGames(w http.ResponseWriter, r *http.Request, _ *store.Session
 	id, ok := pathID(r, "id")
 	if !ok {
 		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	if r.URL.Query().Get("ended") == "1" {
+		before, _ := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+		out, err := a.games.History(r.Context(), me, id, before)
+		a.reply(w, out, err)
 		return
 	}
 	out, err := a.games.List(r.Context(), me, id)
@@ -89,7 +96,7 @@ func (a *API) actGame(w http.ResponseWriter, r *http.Request, _ *store.Session, 
 	a.reply(w, out, err)
 }
 
-// gameStep handles join / start / leave / end (no body).
+// gameStep handles join / start / leave / end / rematch (no body).
 func (a *API) gameStep(step string) authedHandler {
 	return func(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 		id, ok := pathID(r, "id")
@@ -108,6 +115,8 @@ func (a *API) gameStep(step string) authedHandler {
 			out, err = a.games.Leave(r.Context(), me, id)
 		case "end":
 			out, err = a.games.End(r.Context(), me, id)
+		case "rematch":
+			out, err = a.games.Rematch(r.Context(), me, id)
 		}
 		a.reply(w, out, err)
 	}

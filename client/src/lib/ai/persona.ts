@@ -1,6 +1,6 @@
 // An AI's persona and settings (docs/design.md §9), kept as JSON on the
 // server (only the owner reads it: GET/PUT /api/v1/ai). Pure.
-import { defaultChannels, defaultGames, defaultRoutine, type ChannelSettings, type GameSettings, type RoutineSettings } from './social.ts';
+import { defaultChannels, defaultGames, defaultProactive, defaultRoutine, type ChannelSettings, type GameSettings, type ProactiveSettings, type RoutineSettings } from './social.ts';
 import { MOODS, splitMoodTag } from '../portraits.ts';
 import type { ChatMsg } from './providers.ts';
 
@@ -48,6 +48,8 @@ export interface AISettings {
   routine: RoutineSettings;
   /** Board games: joining, opening (lib/ai/social.ts). */
   games: GameSettings;
+  /** Talking to its owner first: hello, topics (lib/ai/social.ts proactive). */
+  proactive: ProactiveSettings;
 }
 
 /** What an AI may do on the computer that runs it (docs/design.md §9, 操作电脑). */
@@ -137,7 +139,7 @@ export function defaultSettings(template = TEMPLATES[0]): AISettings {
     v: 1, persona: { ...template.persona }, template: template.key, providerId: '', model: '', temperature: 0.8,
     contextSize: 30, maxTokens: 1000, whoCanChat: 'owner', evolve: false, computer: defaultComputer(),
     channels: defaultChannels(), routine: defaultRoutine(), catchUp: { enabled: true, hours: 12, max: 5 }, roomDailyPerPerson: 50,
-    games: defaultGames(),
+    games: defaultGames(), proactive: defaultProactive(),
   };
 }
 
@@ -151,7 +153,7 @@ export function parseSettings(json: string): AISettings {
     return {
       ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } },
       channels: { ...d.channels, ...v.channels }, routine: { ...d.routine, ...v.routine }, catchUp: { ...d.catchUp, ...v.catchUp },
-      games: { ...d.games, ...v.games },
+      games: { ...d.games, ...v.games }, proactive: { ...d.proactive, ...v.proactive },
     };
   } catch {
     return d;
@@ -170,6 +172,36 @@ export function systemPrompt(o: { name: string; owner: string; persona: Persona;
     '如果收到「[戳一戳] …」，那是对方在你的立绘上戳了你一下（脸、头、身上或脚），按你的性格自然地反应，一两句就好。',
     `每条回复必须以情绪标签开头，格式 [mood:xxx]，xxx 从这些里选一个最符合你此刻心情的：${MOODS.join(', ')}。标签后面直接接你要说的话，不要解释标签。`,
   ].filter(Boolean).join('\n\n');
+}
+
+/**
+ * What it can do in AM by itself (so nobody has to tell it): built from the
+ * tools it has this time. Every reply gets it, from the first one on.
+ */
+export function appPrompt(tools: string[]): string {
+  const has = (n: string) => tools.includes(n);
+  const lines: string[] = [];
+  if (has('list_games')) {
+    lines.push('- 小桌游（软件自带，在创意工坊里）：五子棋、黑白棋（2 人），谁是卧底（4–8 人）。在频道或共享聊天里开局（open_game），看有什么局、申请加入（list_games、join_game），轮到你时会提醒你用 game_move / game_say / game_vote。');
+  }
+  if (has('edit_my_page')) lines.push('- 你自己的个人主页：可以看（view_my_page）、自己摆小组件（edit_my_page：便签、倒计时、链接、统计、留言板、时钟、网易云的歌 / 歌单），想怎么布置都行。');
+  if (has('set_my_status')) lines.push('- 你的状态（头像旁边显示「在玩…」「在听…」）和个性签名，可以自己改。');
+  if (has('send_to_channel')) lines.push('- 你在的频道（list_my_channels）里可以自己发消息，也可以私信主人（message_owner）。');
+  lines.push('- 别人可以发表情包给你（你看到的是表情包的标签），也可以在你的立绘上戳你。');
+  return `你在 AM 里能做的事（软件本来就有，不用别人告诉你，别人问起或聊到时可以直接说、直接用）：\n${lines.join('\n')}`;
+}
+
+/**
+ * What happened elsewhere lately (other channels it shares with these
+ * people, its games), so a chat here knows what it did there. Only what
+ * everyone here could see anyway; never other people's private chats.
+ */
+export function elsewherePrompt(lines: string[], games: string[]): string {
+  if (!lines.length && !games.length) return '';
+  const parts = ['你最近在别的地方（这里的人也在场或看得到）的事，聊到时要记得，别说不知道：'];
+  if (games.length) parts.push('桌游：\n' + games.join('\n'));
+  if (lines.length) parts.push('最近的聊天：\n' + lines.join('\n'));
+  return parts.join('\n');
 }
 
 /** Extra rules when it talks in a channel. */
@@ -191,6 +223,19 @@ export function roomPrompt(o: { room: string; members: string[] }): string {
 }
 
 export type RoutineMoment = 'wake' | 'meal' | 'play' | 'sleep';
+
+/** Talking to its owner first: what the note says (social.ts proactive decides when). */
+export function proactivePrompt(kind: 'greet' | 'activity' | 'topic', o: { time: string; activity?: string }): string {
+  const note = (t: string) => `（系统提示，不是任何人说的话。现在是 ${o.time}。${t}）`;
+  switch (kind) {
+    case 'greet':
+      return note('主人刚上线。主动跟主人打个招呼（按现在的时间自然地问候），可以顺口提一句你们最近聊过的事、或者你刚才在干嘛。一两句就好。');
+    case 'activity':
+      return note(`主人的状态刚变成「${o.activity ?? ''}」。可以顺着这个跟主人聊一句（问问在玩什么、听什么、忙什么），自然一点；觉得没必要就只回 [skip]。`);
+    case 'topic':
+      return note('你和主人有一阵没说话了。主动找个话题说一句：你最近在做的事、想到的事、问问主人在干嘛，或者接着之前聊过的话题。别太刻意，一两句；实在没什么想说的就只回 [skip]。');
+  }
+}
 
 /** What to tell it at a moment of its day (sent as a note, not as anyone's words). */
 export function routinePrompt(kind: RoutineMoment, o: { time: string; ownerOnline: boolean; inChannel?: boolean }): string {

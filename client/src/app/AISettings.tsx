@@ -383,6 +383,26 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </span>
         </div>
       </Field>
+      <Field label="主动找你聊" hint="你上线时它会打个招呼（几个小时最多一次）；你改了状态它可能问一句；你们好一阵没说话它会自己找话题。它睡觉时不打扰">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+            <span className="flex-1 text-[0.9rem]">你上线时打招呼</span>
+            <Toggle label="上线时打招呼" checked={draft.proactive.greet} onChange={(greet) => set({ proactive: { ...draft.proactive, greet } })} />
+          </div>
+          <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+            <span className="flex-1 text-[0.9rem]">自己找话题</span>
+            <Toggle label="自己找话题" checked={draft.proactive.topics} onChange={(topics) => set({ proactive: { ...draft.proactive, topics } })} />
+          </div>
+          {draft.proactive.topics && (
+            <span className="flex items-center gap-1.5 px-1 text-[0.85rem] text-ink-soft dark:text-white/55">
+              没说话
+              <Input type="number" min={0.5} max={48} step={0.5} value={draft.proactive.quietHours} className="h-8 w-20" aria-label="多久没说话就找话题（小时）"
+                onChange={(e) => set({ proactive: { ...draft.proactive, quietHours: Math.max(0.5, Math.min(48, Number(e.target.value) || 3)) } })} />
+              小时后找你聊
+            </span>
+          )}
+        </div>
+      </Field>
       <Field label="桌游" hint="有人在它在的频道、共享聊天里开局时，它会自己申请加入（你开的局它基本都来）；休息时间没人开局，它会自己开一局喊大家">
         <div className="space-y-2">
           <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">

@@ -2,6 +2,7 @@
 // for the whole app, so starting a song anywhere stops the one before.
 // Songs are files uploaded to the server (no outside music service).
 import { create } from 'zustand';
+import { inTauri } from './platform';
 import { session } from './store';
 
 export interface Track {
@@ -53,12 +54,13 @@ export async function play(track: Track, queue: Track[] = [track]) {
   const a = el();
   usePlayer.setState({ track, queue, loading: true, time: 0, duration: 0, error: undefined });
   try {
-    const url = track.neteaseId ? neteaseUrl(track.neteaseId) : await session(track.serverId)?.t.mediaUrl(`/api/v1/media/${track.mediaId}`);
+    const url = track.neteaseId ? await neteaseSrc(track.neteaseId) : await session(track.serverId)?.t.mediaUrl(`/api/v1/media/${track.mediaId}`);
     if (!url || usePlayer.getState().track?.key !== track.key) return; // another song was picked meanwhile
     a.src = url;
     await a.play();
   } catch {
-    usePlayer.setState({ loading: false, playing: false, error: '播放失败' });
+    // The audio element's error event already said why (keep that).
+    usePlayer.setState((s) => ({ loading: false, playing: false, error: s.error ?? '播放失败' }));
   }
 }
 
@@ -104,6 +106,17 @@ export async function prev() {
 export function stopPlayer() {
   audio?.pause();
   usePlayer.setState({ track: undefined, queue: [], playing: false, time: 0, duration: 0 });
+}
+
+/**
+ * Where the player loads a NetEase song: in the desktop app through Rust
+ * (src-tauri/src/music.rs: NetEase's headers, its redirect to the CDN,
+ * cached for seeking); in browser dev mode straight from NetEase.
+ */
+async function neteaseSrc(id: string): Promise<string> {
+  if (!inTauri) return neteaseUrl(id);
+  const { convertFileSrc } = await import('@tauri-apps/api/core');
+  return convertFileSrc(id, 'ammusic');
 }
 
 /** NetEase's own link for playing a song outside its app (free songs only). */

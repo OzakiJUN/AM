@@ -198,3 +198,37 @@ export function wantsToJoin(o: {
   if (o.random >= p) return null;
   return 4000 + 11000 * o.random2;
 }
+
+/** Talking to its owner by itself (docs/design.md §9 主动聊天). */
+export interface ProactiveSettings {
+  /** Says hello when the owner comes online (at most once every few hours). */
+  greet: boolean;
+  /** Starts a topic when the chat with the owner has been quiet, or the owner's status changed. */
+  topics: boolean;
+  /** Quiet this many hours before it starts a topic. */
+  quietHours: number;
+}
+
+export const defaultProactive = (): ProactiveSettings => ({ greet: true, topics: true, quietHours: 3 });
+
+const HOUR = 60 * MIN;
+
+/**
+ * Whether to say something to its owner now (called every 30 s). `wasOnline`
+ * = the owner was online at the last check (false right after the AI
+ * starts, so opening the app counts as coming online). Times are ms (0 = never).
+ */
+export function proactive(o: {
+  s: ProactiveSettings; now: number; asleep: boolean; ownerOnline: boolean; wasOnline: boolean;
+  lastGreet: number; lastChat: number; lastTopic: number; activityChanged: boolean; random: number;
+}): 'greet' | 'activity' | 'topic' | null {
+  if (o.asleep || !o.ownerOnline) return null;
+  // Just came online, and not greeted lately (and they weren't just talking).
+  if (o.s.greet && !o.wasOnline && o.now - o.lastGreet > 4 * HOUR && o.now - o.lastChat > 30 * MIN) return 'greet';
+  if (!o.s.topics) return null;
+  if (o.activityChanged && o.now - o.lastTopic > HOUR && o.now - o.lastChat > 10 * MIN && o.random < 0.5) return 'activity';
+  const quiet = Math.max(0.5, o.s.quietHours) * HOUR;
+  // Spread over a few minutes once it has been quiet long enough (a check every 30 s).
+  if (o.now - o.lastChat > quiet && o.now - o.lastTopic > quiet && o.random < 0.1) return 'topic';
+  return null;
+}

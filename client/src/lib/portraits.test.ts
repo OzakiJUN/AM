@@ -26,4 +26,9 @@ assert.deepEqual(containedRect(200, 400, 512, 512), { x: 0, y: 0, w: 200, h: 200
 assert.deepEqual(ownPack({ neutral: 'n', happy: 'h', dance: 'd', sad: '' }), { neutral: 'n', happy: 'h' });
 assert.equal(ownPack({ happy: 'h' }), null);
 assert.equal(ownPack({}), null);
+// Bare tags (no "mood:"): only a mood name or synonym in the brackets.
+assert.deepEqual(splitMoodTag('[laugh] 啊，那局我记混了'), { mood: 'laugh', text: '啊，那局我记混了' });
+assert.deepEqual(splitMoodTag('好呀【开心】'), { mood: 'happy', text: '好呀' });
+assert.deepEqual(splitMoodTag('[戳一戳] 摸了摸头'), { mood: 'neutral', text: '[戳一戳] 摸了摸头' });
+assert.deepEqual(splitMoodTag('[mood:shy] 才不是 [happy]'), { mood: 'shy', text: '才不是' });
 console.log('portraits: all ok');

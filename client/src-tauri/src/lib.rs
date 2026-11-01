@@ -5,6 +5,7 @@ mod agent;
 mod ai_http;
 mod browser;
 mod mcp;
+mod music;
 mod net;
 mod secrets;
 mod uia;
@@ -379,6 +380,14 @@ pub fn run() {
                         .body(err.0.into_bytes()),
                 };
                 responder.respond(resp.unwrap_or_else(|_| Response::new(Vec::new())));
+            });
+        })
+        // NetEase songs for the music widgets: ammusic://localhost/<song id> (music.rs).
+        .register_asynchronous_uri_scheme_protocol("ammusic", |_ctx, request, responder| {
+            let path = request.uri().path().to_string();
+            let range = request.headers().get("range").and_then(|v| v.to_str().ok()).map(str::to_string);
+            tauri::async_runtime::spawn(async move {
+                responder.respond(music::serve(&path, range).await);
             });
         })
         .invoke_handler(tauri::generate_handler![

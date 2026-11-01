@@ -507,9 +507,20 @@ export class Session {
     return this.gameCall('POST', `/api/v1/conversations/${convId}/games`, { schema: api.OpenGameRequestSchema, value: { kind, autoApprove } });
   }
 
-  /** join / start / leave / end */
-  gameStep(id: string, step: 'join' | 'start' | 'leave' | 'end') {
+  /** join / start / leave / end, or rematch (a new game with the same players). */
+  gameStep(id: string, step: 'join' | 'start' | 'leave' | 'end' | 'rematch') {
     return this.gameCall('POST', `/api/v1/games/${id}/${step}`);
+  }
+
+  /** 对局记录: finished games of a conversation ending before `before` (ms; 0 = now), newest first. */
+  async gameHistory(convId: string, before = 0): Promise<Game[]> {
+    const r = await this.call('GET', `/api/v1/conversations/${convId}/games?ended=1&before=${before}`, api.ListGamesResponseSchema);
+    return r.games.map(parseGame);
+  }
+
+  /** Shows a game from the history (keeps it in the view so its window can open). */
+  showGame(g: Game) {
+    this.putGame(g);
   }
 
   decideGame(id: string, userId: string, approve: boolean) {

@@ -41,7 +41,7 @@ export function WidgetView({ w, ctx }: { w: WidgetModel; ctx: WidgetCtx }) {
     case 'stats': return <StatsWidget ctx={ctx} items={strs(c.items)} wide={w.w >= 3} />;
     case 'guestbook': return <Guestbook ctx={ctx} widgetId={w.id} title={str(c.title) || '留言板'} />;
     case 'song': return (
-      <SongWidget serverId={ctx.v.id} keyBase={`${ctx.target}:${w.id}`} coverId={str(c.cover_id)} editing={ctx.editing} tall={w.h >= 3}
+      <SongWidget serverId={ctx.v.id} keyBase={`${ctx.target}:${w.id}`} coverId={str(c.cover_id)} editing={ctx.editing} blur={c.blur === true}
         song={{ title: str(c.title), artist: str(c.artist), audioId: str(c.audio_id), neteaseId: str(c.netease_id) }} />
     );
     case 'playlist': return <PlaylistWidget serverId={ctx.v.id} keyBase={`${ctx.target}:${w.id}`} title={str(c.title)} coverId={str(c.cover_id)} songs={songsOf(c.songs)} editing={ctx.editing} />;

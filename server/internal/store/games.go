@@ -71,6 +71,25 @@ func (q *Queries) ListGames(ctx context.Context, convID, endedSince int64) ([]*G
 	return out, rows.Err()
 }
 
+// EndedGames returns a conversation's finished games that ended before `before`, newest first.
+func (q *Queries) EndedGames(ctx context.Context, convID, before int64, limit int) ([]*Game, error) {
+	rows, err := q.query(ctx, `SELECT `+gameCols+` FROM games WHERE conv_id=? AND status='ended' AND updated_at<?
+		ORDER BY updated_at DESC, id DESC LIMIT ?`, convID, before, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*Game
+	for rows.Next() {
+		g, err := scanGame(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
 // CountActiveGames counts a conversation's games that have not ended.
 func (q *Queries) CountActiveGames(ctx context.Context, convID int64) (int, error) {
 	var n int

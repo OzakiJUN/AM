@@ -718,6 +718,17 @@ const pages = [];
   await B.waitForSelector('[aria-label="这里的游戏"] >> text=五子棋');
   await A.click('div[role="dialog"] button:has-text("认输")');
   await A.waitForSelector('[data-testid="game-status"]:has-text("小鱼（白）赢了")');
+  // 再来一局: both seated again (小鱼 black now); closing it; the channel's game history.
+  await A.click('div[role="dialog"] button:has-text("再来一局")');
+  await A.waitForSelector('[data-testid="game-status"]:has-text("等人加入（2/2")');
+  await A.click('div[role="dialog"] button:has-text("不玩了，关掉")');
+  await A.waitForSelector('[data-testid="game-status"]:has-text("这局被关掉了")');
+  await A.click('div[role="dialog"] button:has-text("关闭")');
+  await A.click('header button[aria-label="开一局游戏"]');
+  await A.click('button[role="menuitem"]:has-text("对局记录")');
+  await A.waitForSelector('[data-testid="game-history"] >> text=小鱼（白）赢了');
+  await wait(400);
+  await shot(A, '32b-game-history');
   await A.keyboard.press('Escape');
   // The workshop: built-in games, opening one from there.
   await A.click('button[aria-label="创意工坊"]');

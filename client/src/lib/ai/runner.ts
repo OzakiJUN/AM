@@ -19,14 +19,16 @@ import { watchBalances } from './balance';
 import { argsOf, categoryOf, computerPrompt, describeCall, hasComputerTools, levelFor, toolsFor } from './agent';
 import { appendLog, askOwner, setActivity, stopped } from './agentState';
 import {
-  EVOLVE_EVERY_MS, EVOLVE_MIN_MESSAGES, adoptPersona, channelPrompt, evolvePrompt, parseEvolved, parseSettings, previewText, roomPrompt, routinePrompt,
+  EVOLVE_EVERY_MS, EVOLVE_MIN_MESSAGES, adoptPersona, appPrompt, channelPrompt, elsewherePrompt, evolvePrompt, proactivePrompt, parseEvolved, parseSettings, previewText, roomPrompt, routinePrompt,
   systemPrompt, toChat,
   type AISettings, type RoutineMoment,
 } from './persona';
-import { addressed, dayPlan, decide, dueEvents, isAsleep, isSkip, splitStatusTag, wantsToJoin, type Said } from './social';
+import { addressed, dayPlan, decide, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
+import { activityText } from '../presence';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
 import { firstFree, placements } from '../widgets';
+import { describePage, editPage, type PageEdit } from './page';
 import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, type Game, type GameKind } from '../games';
 
 interface AIState {
@@ -69,6 +71,11 @@ interface Run {
   routine?: ReturnType<typeof setInterval>;
   /** Clear the routine status (eating, playing) after this time; 0 = keep. */
   statusUntil: number;
+  /** The owner as seen at the last check (talking first: social.ts proactive). */
+  ownerOnline: boolean;
+  ownerActivity: string;
+  /** Looked whether its page is still empty (once per start). */
+  pageChecked: boolean;
 }
 
 const runs = new Map<string, Run>();
@@ -141,7 +148,7 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   const record: ServerRecord = { id: `ai:${serverId}:${ai.user.id}`, endpoint: rec.endpoint, name: rec.name, token, userId: ai.user.id };
   const run: Run = {
     serverId, ai, settings, s: null as unknown as Session, busy: new Set(), again: new Set(), greeted: false,
-    pending: new Map(), sends: new Map(), statusUntil: 0,
+    pending: new Map(), sends: new Map(), statusUntil: 0, ownerOnline: false, ownerActivity: '', pageChecked: false,
   };
   run.s = new Session(
     record,
@@ -268,6 +275,40 @@ async function useTool(run: Run, key: string, c: ToolCall, ctx: ToolCtx, speaker
   }
 }
 
+/**
+ * Lately elsewhere (last 12 hours): lines said in other channels / rooms by
+ * the people of this chat or by the AI, and its games, but only from places
+ * where everyone here is a member (DMs with others never leak in).
+ */
+function elsewhere(run: Run, conv: Conversation): string {
+  const s = run.s;
+  const me = run.ai.user.id;
+  const since = Date.now() - 12 * 60 * MIN;
+  const here = conv.kind === 'group' ? conv.members.map((m) => m.userId).filter((u) => u !== me) : conv.peerId ? [conv.peerId] : [];
+  const shared = (c?: Conversation) => !!c && c.kind === 'group' && !c.left && here.every((u) => c.members.some((m) => m.userId === u));
+  const lines: { time: number; line: string }[] = [];
+  for (const c of Object.values(s.view.convs)) {
+    if (c.id === conv.id || !shared(c)) continue;
+    for (const m of (s.view.messages[c.id] ?? []).slice(-40)) {
+      if (m.time < since || m.pending || m.failed || (m.senderId !== me && !here.includes(m.senderId))) continue;
+      const text = textOf(m);
+      if (text !== null) lines.push({ time: m.time, line: `「${c.name}」${m.senderId === me ? '你' : s.nameOf(m.senderId)}：${text.slice(0, 120)}` });
+    }
+  }
+  lines.sort((a, b) => a.time - b.time);
+  const nameOf = (u: string) => s.nameOf(u);
+  const games = Object.values(s.view.games)
+    .filter((g) => seatOf(g, me) >= 0 && (g.status !== 'ended' || g.updatedAt > since) && (g.convId === conv.id || shared(s.view.convs[g.convId])))
+    .sort((a, b) => a.updatedAt - b.updatedAt)
+    .slice(-5)
+    .map((g) => {
+      const others = g.players.filter((p) => p.userId !== me).map((p) => nameOf(p.userId)).join('、') || '大家';
+      const st = g.status === 'ended' ? `结束了，${resultText(g, nameOf)}` : g.status === 'waiting' ? '还在等人' : g.waitingOn.includes(me) ? '正在下，轮到你' : '正在下';
+      return `在「${s.view.convs[g.convId]?.name ?? ''}」和 ${others} 玩${GAME_INFO[g.kind].name}（${new Date(g.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}）：${st}`;
+    });
+  return elsewherePrompt(lines.slice(-20).map((x) => x.line), games);
+}
+
 function textOf(m: Message): string | null {
   const b = m.body;
   switch (b.kind) {
@@ -292,6 +333,8 @@ interface ReplyOpts {
   must?: boolean;
   /** Quote this message (catch-up answers). */
   replyTo?: string;
+  /** Only act through tools: nothing is shown typing, nothing is posted (game turns). */
+  silent?: boolean;
 }
 
 /** Ids of channel members written as "@name" in the text. */
@@ -365,6 +408,10 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       system += '\n\n' + (room ? roomPrompt({ room: conv.name, members: names }) : channelPrompt({ channel: conv.name, members: names }));
       if (o.must && !room) system += '\n这次有人在叫你，请回应。';
     }
+    // What AM lets it do, and what it did elsewhere with these people (one memory across chats).
+    system += '\n\n' + appPrompt(tools.map((x) => x.name));
+    const away = elsewhere(run, conv);
+    if (away) system += '\n\n' + away;
     if (hasComputerTools(tools)) system += '\n\n' + computerPrompt(comp, speaker);
     if (mcp.errors.length) system += '\n\n这些 MCP 工具服务没启动成功（需要时告诉对方）：\n' + mcp.errors.join('\n');
     const ctx: ToolCtx = { computer: comp, scale: 1, mcp: mcp.map, owner: agentKey, self: selfApi(run) };
@@ -374,9 +421,10 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
         const req = buildRequest(p, { model: st.model, temperature: st.temperature, maxTokens: st.maxTokens, messages: turn, system, tools });
         const reader = streamReader(p.kind);
         let text = '';
-        patch('streams', streamKey, '');
+        if (!o.silent) patch('streams', streamKey, '');
         const status = await aiRequest(req.url, req.headers, req.body, (chunk) => {
           text += reader.feed(chunk);
+          if (o.silent) return;
           // "[skip]" must never flash up as if it were going to say something.
           const shown = previewText(splitStatusTag(text).text);
           patch('streams', streamKey, /^\s*\[?\s*s(k(ip?)?)?$/i.test(shown) ? '' : shown);
@@ -401,7 +449,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     } finally {
       setActivity(agentKey, null);
     }
-    if (isSkip(final)) return; // decided to stay quiet
+    if (isSkip(final) || o.silent) return; // decided to stay quiet / only acts
     const tagged = splitStatusTag(final);
     if (tagged.status) await showStatus(run, tagged.status, o.moment).catch(() => {});
     const { mood, text } = splitMoodTag(tagged.text);
@@ -510,12 +558,70 @@ function selfApi(run: Run): SelfApi {
       return { text: r.ok ? r.text : `没做成：${r.text}`, images: r.images.length ? r.images : undefined };
     },
     game: (tool, a) => gameTool(run, tool, a),
+    page: (tool, a) => pageTool(run, tool, a),
     async messageOwner(text) {
       const owner = run.ai.user.ownerId;
       if (!owner) throw new Error('没有主人');
       await s.sendText(await s.openDM(owner), text);
     },
   };
+}
+
+// ---------- its own profile page (lib/ai/page.ts) ----------
+
+/** A new AI's page is empty: it arranges it once by itself (tools only, says nothing). */
+async function furnishPage(run: Run) {
+  const flag = `am-ai-page:${k(run.serverId, run.ai.user.id)}`;
+  try {
+    if (localStorage.getItem(flag)) return;
+  } catch {
+    return;
+  }
+  const page = await run.s.getProfile(run.ai.user.id);
+  try {
+    localStorage.setItem(flag, '1');
+  } catch {
+    /* ignore */
+  }
+  if (page.layout.widgets.length) return;
+  const owner = run.ai.user.ownerId;
+  if (!owner) return;
+  await reply(run, await run.s.openDM(owner), {
+    silent: true,
+    note: '（系统提示，不是任何人说的话：你的个人主页还是空的。先用 view_my_page 看看，再用 edit_my_page 按你自己的性格布置一下：自我介绍、喜欢的东西、留言板之类，几个小组件就好。布置完只回 [skip]。）',
+  });
+}
+
+async function pageTool(run: Run, tool: string, a: Record<string, unknown>): Promise<string> {
+  const s = run.s;
+  const id = run.ai.user.id;
+  const cur = (await s.getProfile(id)).layout;
+  if (tool === 'view_my_page') return describePage(cur);
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() && !Number.isNaN(Number(v)) ? Number(v) : undefined);
+  let config: Record<string, unknown> = {};
+  if (typeof a.config_json === 'string' && a.config_json.trim()) {
+    try {
+      config = JSON.parse(a.config_json) as Record<string, unknown>;
+    } catch {
+      return 'config_json 不是合法的 JSON';
+    }
+  }
+  // Songs: read the NetEase link (title, artist, cover copied to the server).
+  if (typeof config.netease_link === 'string' && config.netease_link.trim()) {
+    const r = await s.resolveMusic(config.netease_link);
+    config = r.kind === 'song'
+      ? { ...config, netease_id: r.neteaseId, audio_id: '', title: r.title, artist: r.artist, cover_id: r.coverId }
+      : { ...config, title: (config.title as string) || r.title, cover_id: r.coverId, songs: r.tracks.map((x) => ({ title: x.title, artist: x.artist, netease_id: x.neteaseId, audio_id: '' })) };
+  }
+  const bgKind = typeof a.background_kind === 'string' ? a.background_kind : undefined;
+  const next = editPage(cur, {
+    action: String(a.action ?? '') as PageEdit['action'], id: typeof a.id === 'string' ? a.id : undefined, kind: typeof a.kind === 'string' ? a.kind : undefined,
+    w: num(a.w), h: num(a.h), page: num(a.page), x: num(a.x), y: num(a.y), config,
+    background: bgKind !== undefined ? { kind: bgKind as 'color' | 'gradient' | '', value: String(a.background_value ?? '') } : undefined,
+  }, () => `ai-${Math.random().toString(36).slice(2, 10)}`);
+  if (typeof next === 'string') return next;
+  await s.saveProfile(id, next, true);
+  return '改好了，现在是这样：\n' + describePage(next);
 }
 
 // ---------- board games (docs/design.md §13 小游戏) ----------
@@ -561,6 +667,19 @@ function onGame(run: Run, g: Game) {
     }
     return;
   }
+  // Over: one remark about the game where it was played (once).
+  if (g.status === 'ended' && seat >= 0 && g.state.result !== 'closed' && !gameSeen.has(`${key}|over`) && Date.now() - g.updatedAt < 10 * MIN) {
+    gameSeen.add(`${key}|over`);
+    const result = resultText(g, (u) => run.s.nameOf(u));
+    const won = g.kind === 'undercover'
+      ? (g.state.winner === 1) !== !!g.players[seat]?.spy
+      : g.state.winner === seat + 1;
+    setTimeout(() => void reply(run, g.convId, {
+      note: `（系统提示：刚才那局${GAME_INFO[g.kind].name}结束了：${result}。你${g.state.winner === -1 ? '和对方打平' : won ? '赢了' : '输了'}。用一两句话说说这局（感想、夸对手、不服气、约下一局都行），像真人一样。）`,
+      moment: 'play',
+    }), 2000 + 3000 * Math.random());
+    return;
+  }
   if (g.status === 'playing' && g.waitingOn.includes(me) && !gameTimers.has(key) && !gameBusy.has(key)) {
     gameTimers.set(key, setTimeout(() => {
       gameTimers.delete(key);
@@ -578,8 +697,8 @@ async function gameTurn(run: Run, id: string) {
   gameBusy.add(key);
   try {
     const note = `（系统提示：你在这里玩一局桌游，现在轮到你。）\n${gameText(g, me, (u) => run.s.nameOf(u))}\n`
-      + '现在就用工具行动，不用先问别人。行动完想在这里说句话（比如逗逗对手）就简短说一句，不想说就只回 [skip]。';
-    await reply(run, g.convId, { note }).catch(() => {});
+      + '现在就用工具行动，不用先问别人。下棋时不要在聊天里说话（这局结束后你会有机会说），行动完只回 [skip]。';
+    await reply(run, g.convId, { note, silent: true }).catch(() => {});
     const now = run.s.view.games[id];
     if (now && now.status === 'playing' && now.waitingOn.includes(me) && now.updatedAt === g.updatedAt) await fallbackMove(run, now);
   } finally {
@@ -805,6 +924,7 @@ function saveDone(key: string, day: string, done: Set<string>) {
 
 async function tickRoutine(run: Run) {
   if (run.s.view.status !== 'online') return;
+  await tickProactive(run).catch(() => {});
   if (run.statusUntil && Date.now() > run.statusUntil) {
     run.statusUntil = 0;
     await run.s.setPresence(false, undefined, true).catch(() => {});
@@ -819,6 +939,54 @@ async function tickRoutine(run: Run) {
   done.add(e.key);
   saveDone(key, day, done);
   await routineMoment(run, e.kind).catch((err) => patch('errors', key, errorText(err)));
+}
+
+// ---------- talking to its owner first (social.ts proactive) ----------
+
+const talkKey = (run: Run) => `am-ai-talk:${k(run.serverId, run.ai.user.id)}`;
+
+function talkTimes(run: Run): { greet: number; topic: number } {
+  try {
+    return { greet: 0, topic: 0, ...(JSON.parse(localStorage.getItem(talkKey(run)) ?? '{}') as object) };
+  } catch {
+    return { greet: 0, topic: 0 };
+  }
+}
+
+/** Every 30 s: hello when the owner comes online, a word when their status changes, a topic after a quiet spell. */
+async function tickProactive(run: Run) {
+  const s = run.s;
+  const owner = run.ai.user.ownerId;
+  if (!owner) return;
+  if (!run.pageChecked && run.settings.providerId && run.settings.model) {
+    run.pageChecked = true;
+    await furnishPage(run).catch(() => {});
+  }
+  const p = s.view.presence[owner];
+  const online = !!p;
+  const activity = online ? activityText(p.activity) : '';
+  const wasOnline = run.ownerOnline;
+  const activityChanged = wasOnline && online && !!activity && activity !== run.ownerActivity;
+  run.ownerOnline = online;
+  run.ownerActivity = activity;
+  const dm = Object.values(s.view.convs).find((c) => c.kind === 'dm' && c.peerId === owner);
+  const lastChat = Math.max(dm?.lastTime ?? 0, ...(dm ? (s.view.messages[dm.id] ?? []).map((m) => m.time) : [0]));
+  const times = talkTimes(run);
+  const now = Date.now();
+  const what = proactive({
+    s: run.settings.proactive, now, asleep: isAsleep(run.settings.routine, minuteOfDay()), ownerOnline: online, wasOnline,
+    lastGreet: times.greet, lastChat, lastTopic: times.topic, activityChanged, random: Math.random(),
+  });
+  if (!what) return;
+  try {
+    localStorage.setItem(talkKey(run), JSON.stringify(what === 'greet' ? { ...times, greet: now, topic: now } : { ...times, topic: now }));
+  } catch {
+    /* fine: may talk again a bit early */
+  }
+  const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  // Right after starting, the chat history is still loading: wait a moment.
+  if (what === 'greet') await new Promise((r) => setTimeout(r, 8000));
+  await reply(run, dm?.id ?? (await s.openDM(owner)), { note: proactivePrompt(what, { time, activity }) });
 }
 
 async function routineMoment(run: Run, kind: RoutineMoment) {

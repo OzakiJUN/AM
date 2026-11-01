@@ -81,6 +81,8 @@ max_games_per_conv = 3
 evidence_days = 180
 # How long login records (time, IP, device) are kept. At least 180 days.
 login_record_days = 180
+# How long finished board games stay in a channel's game history (对局记录).
+games_days = 180
 
 [media]
 # Images whose fingerprint is within this distance of a blocked image are
