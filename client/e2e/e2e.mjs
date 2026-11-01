@@ -2,6 +2,8 @@
 // See client/README.md ("端到端测试") for how to run it.
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { createHash, createPrivateKey, sign as edSign } from 'node:crypto';
+import { zipSync } from 'fflate';
 import { chromium } from 'playwright';
 
 const BASE = process.env.AM_E2E_URL ?? 'http://127.0.0.1:4173';
@@ -19,7 +21,48 @@ const MOCK_PORT = Number(process.env.AM_E2E_MOCK_PORT ?? 8460);
 let seenTools = [];
 const GAME_MOVES = ['I9', 'G9', 'I7', 'G7'];
 let gameMove = 0;
+// A local creative workshop: a signed index (test key = seed 7×32, build the
+// client with AM_DEV_WORKSHOP=http://127.0.0.1:<mock port>/workshop and
+// AM_DEV_WORKSHOP_KEY=6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=) and packages.
+let workshop = null;
+function workshopFiles() {
+  if (workshop) return workshop;
+  const key = createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.alloc(32, 7)]), format: 'der', type: 'pkcs8' });
+  const j = (o) => Buffer.from(JSON.stringify(o));
+  const img = readFileSync(IMAGE);
+  const img2 = readFileSync(`${OUT}/e2e-01-register.png`);
+  const man = (type, id, name, extra = {}) => j({ format: 1, type, id, name, version: '1.0.0', author: 'OzakiJUN', description: `测试用的${name}`, ...extra });
+  const zips = {
+    'theme.zip': zipSync({ 'manifest.json': man('theme', 'test.sakura', '樱花主题', { theme: { mode: 'dark', accent: '#3a8ddf', background: 'bg.png', bgDim: 0.4 } }), 'bg.png': img }),
+    'stickers.zip': zipSync({ 'manifest.json': man('stickers', 'test.cats', '猫猫表情'), 'a.png': img, 'b.png': img2, 'tags.json': j({ 'a.png': ['猫猫', '工坊'] }) }),
+    'persona.zip': zipSync({ 'manifest.json': man('persona', 'test.neko', '猫娘'), 'persona.json': j({ intro: '工坊里的猫娘', system: '你是一只猫娘，句尾加喵。', examples: '', greeting: '喵～' }) }),
+  };
+  const sha = (b) => createHash('sha256').update(b).digest('hex');
+  const item = (id, type, name, file, extra = {}) => ({
+    id, type, name, author: 'OzakiJUN', repo: 'OzakiJUN/am-test', version: '1.0.0', url: `http://127.0.0.1:${MOCK_PORT}/workshop/${file}`,
+    sha256: sha(zips[file]), size: zips[file].length, summary: `测试用的${name}`, ...extra,
+  });
+  const items = [
+    item('test.sakura', 'theme', '樱花主题', 'theme.zip'),
+    item('test.cats', 'stickers', '猫猫表情', 'stickers.zip'),
+    item('test.neko', 'persona', '猫娘', 'persona.zip'),
+    // Registered with another SHA-256: the download must be refused.
+    item('test.broken', 'theme', '坏掉的包', 'theme.zip', { sha256: '0'.repeat(64) }),
+    item('test.gone', 'theme', '下架的主题', 'theme.zip', { disabled: '测试下架' }),
+  ];
+  const index = j({ format: 1, generated_at: Date.now(), max_package_mb: 20, items });
+  workshop = { 'index.json': index, 'index.sig': Buffer.from(edSign(null, index, key).toString('base64')), ...zips };
+  // A package to install from a file (not in the index).
+  writeFileSync(`${OUT}/sideload.zip`, zipSync({ 'manifest.json': man('theme', 'me.local', '本地主题', { theme: { accent: '#1fae93' } }) }));
+  return workshop;
+}
+
 const mock = createServer((req, res) => {
+  if (req.method === 'GET' && req.url.startsWith('/workshop/')) {
+    const f = workshopFiles()[req.url.slice('/workshop/'.length)];
+    res.writeHead(f ? 200 : 404, { 'Access-Control-Allow-Origin': '*' });
+    return res.end(f ?? '');
+  }
   // Also a fake NetEase for the music widgets (the test server's media.netease_api points here).
   if (req.method === 'GET' && req.url.startsWith('/api/song/detail/')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -794,6 +837,44 @@ const pages = [];
   await A.click('div[role="dialog"] button:has-text("删除")');
   await A.waitForSelector('text=已删除');
   await A.waitForSelector('aside button:has-text("小鱼")', { state: 'detached' });
+
+  // Creative workshop (local signed test index): install, a changed file is refused, a taken-down work isn't listed,
+  // apply a theme, import a sticker pack, a persona shows up as a template, install from a file with a warning.
+  await A.click('button[aria-label="创意工坊"]');
+  await A.waitForSelector('button[aria-label="樱花主题"]');
+  if (await A.locator('button[aria-label="下架的主题"]').count()) throw new Error('taken-down work listed');
+  await shot(A, '31-workshop');
+  for (const name of ['樱花主题', '猫猫表情', '猫娘']) {
+    await A.click(`button[aria-label="${name}"]`);
+    await A.click('div[role="dialog"] button:has-text("安装")');
+    await A.waitForSelector(`text=装好了：${name}`);
+    await A.keyboard.press('Escape');
+  }
+  await A.click('button[aria-label="坏掉的包"]');
+  await A.click('div[role="dialog"] button:has-text("安装")');
+  await A.waitForSelector('text=和工坊登记的不一样');
+  await A.keyboard.press('Escape');
+  await A.click('button[role="radio"]:has-text("已安装")');
+  await A.click('button[aria-label="樱花主题"]');
+  await A.click('div[role="dialog"] button:has-text("套用")');
+  await A.waitForSelector('text=主题换好了');
+  await A.keyboard.press('Escape');
+  await A.click('button[aria-label="猫猫表情"]');
+  await A.click('div[role="dialog"] button:has-text("导入到我的表情")');
+  await A.waitForSelector('text=导入了 2 个表情');
+  await A.keyboard.press('Escape');
+  await A.setInputFiles('input[type="file"][accept=".zip,application/zip"]', `${OUT}/sideload.zip`);
+  await A.waitForSelector('text=安装没审核过的作品？');
+  await A.click('button:has-text("仍然安装")');
+  await A.waitForSelector('text=装好了：本地主题');
+  await A.waitForSelector('button[aria-label="本地主题"] >> text=未审核');
+  await wait(400);
+  await shot(A, '32-workshop-installed');
+  // The persona is a starting template for a new AI.
+  await A.click('button[aria-label="AI"]');
+  await A.locator('button[aria-label="新建 AI"], button:has-text("新建 AI")').first().click();
+  await A.waitForSelector('div[role="dialog"] button:has-text("猫娘")');
+  await A.keyboard.press('Escape');
 
   if (JOIN2) {
     // A's stickers were copied to the second server in the background (both, with their tags and the private one stays private).

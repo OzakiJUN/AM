@@ -23,7 +23,13 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   clearScreen: false,
-  define: { __APP_VERSION__: JSON.stringify(process.env.AM_VERSION ?? pkg.version), __AM_DEV_SERVER2__: JSON.stringify(devServer2) },
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.AM_VERSION ?? pkg.version),
+    __AM_DEV_SERVER2__: JSON.stringify(devServer2),
+    // Browser mode only (e2e): a local workshop index and its test key instead of GitHub's.
+    __AM_DEV_WORKSHOP__: JSON.stringify(process.env.AM_DEV_WORKSHOP ?? ''),
+    __AM_DEV_WORKSHOP_KEY__: JSON.stringify(process.env.AM_DEV_WORKSHOP_KEY ?? ''),
+  },
   server: {
     port: 1420,
     strictPort: true,

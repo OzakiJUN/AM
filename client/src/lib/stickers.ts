@@ -47,6 +47,22 @@ export async function importStickers(serverId: string, files: File[], priv: bool
   return n;
 }
 
+/** Imports pictures with their tags (a workshop sticker pack) one by one. Returns how many were added. */
+export async function importStickerFiles(serverId: string, list: { file: File; tags: string[] }[], onProgress?: (done: number) => void): Promise<number> {
+  const s = session(serverId)!;
+  let n = 0;
+  try {
+    for (const { file, tags } of list) {
+      const info = await s.upload(file);
+      upsert(serverId, await s.addSticker(info.id.toString(), tags));
+      onProgress?.(++n);
+    }
+  } finally {
+    if (n) kickStickerSync();
+  }
+  return n;
+}
+
 /** A picture from a chat (channel or DM) into my collection, shared like any other (server default). */
 export async function addFromChat(serverId: string, mediaId: string) {
   const st = await session(serverId)!.addSticker(mediaId);

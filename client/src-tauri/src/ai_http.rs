@@ -51,6 +51,28 @@ pub async fn get(url: String, headers: Vec<(String, String)>) -> Result<(u16, St
     Ok((status, String::from_utf8_lossy(&body[..body.len().min(1 << 20)]).into_owned()))
 }
 
+/// GET a whole file (workshop index and packages, docs/design.md §13): https
+/// only, follows redirects (GitHub release downloads), at most `max` bytes.
+/// Errors on a status other than 200.
+pub async fn get_bytes(url: String, max: u64) -> Result<Vec<u8>, String> {
+    let ok = reqwest::Url::parse(&url).map(|u| u.scheme() == "https").unwrap_or(false);
+    if !ok {
+        return Err("只能下载 https 地址".into());
+    }
+    let mut resp = client()?.get(&url).send().await.map_err(|e| format!("连不上：{e}"))?;
+    if resp.status().as_u16() != 200 {
+        return Err(format!("下载失败（HTTP {}）", resp.status().as_u16()));
+    }
+    let mut out: Vec<u8> = Vec::new();
+    while let Some(chunk) = resp.chunk().await.map_err(|e| format!("下载中断：{e}"))? {
+        if (out.len() + chunk.len()) as u64 > max {
+            return Err(format!("文件太大了（最多 {} MB）", max >> 20));
+        }
+        out.extend_from_slice(&chunk);
+    }
+    Ok(out)
+}
+
 pub async fn post(url: String, headers: Vec<(String, String)>, body: String, on: Channel<StreamEvent>) -> Result<u16, String> {
     if !allowed(&url) {
         return Err("只能用 https 地址（本机的模型可以用 http://localhost）".into());
