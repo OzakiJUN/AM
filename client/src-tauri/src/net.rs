@@ -232,11 +232,16 @@ impl Net {
     }
 
     /// Uploads a file (multipart field "file"), returns the MediaInfo reply.
-    pub async fn upload(&self, id: &str, name: &str, data: Vec<u8>) -> Result<Reply, NetError> {
+    pub async fn upload(&self, id: &str, name: &str, data: Vec<u8>, sticker_sync: bool) -> Result<Reply, NetError> {
         let c = self.get(id)?;
         let part = reqwest::multipart::Part::bytes(data).file_name(name.to_string());
         let form = reqwest::multipart::Form::new().part("file", part);
-        let mut req = c.http.post(format!("{}/api/v1/media", c.ep.base_url())).multipart(form);
+        let path = if sticker_sync { "/api/v1/media?purpose=sticker-sync" } else { "/api/v1/media" };
+        let mut req = c.http.post(format!("{}{path}", c.ep.base_url())).multipart(form);
+        if sticker_sync {
+            // A low shared cap can keep a large transfer open for minutes.
+            req = req.timeout(std::time::Duration::from_secs(24 * 3600));
+        }
         if let Some(t) = &c.token {
             req = req.bearer_auth(t);
         }

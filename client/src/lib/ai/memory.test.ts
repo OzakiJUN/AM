@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { MAX_EVENTS, applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory } from './memory.ts';
+import { MAX_EVENTS, recentAcrossChats, applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory } from './memory.ts';
 
 const people = [{ id: '1', name: '股肉', owner: true }, { id: '2', name: '小克' }];
 let m = emptyMemory();
@@ -34,4 +34,8 @@ assert.deepEqual(parseMemory('{oops'), emptyMemory());
 
 // Plugins it hasn't learnt yet.
 assert.deepEqual(newPlugins({ ...emptyMemory(), plugins: ['game:gomoku'] }, [{ id: 'game:gomoku' }, { id: 'game:reversi' }]), ['game:reversi']);
+const busy = Array.from({ length: 80 }, (_, time) => ({ time: time + 2, line: String(time) }));
+assert.deepEqual(recentAcrossChats([busy, [{ time: 1, line: '下一局我执黑' }]], 3), ['下一局我执黑', '78', '79']);
+assert.deepEqual(parseMemory('{"v":1,"events":[]}').cursors, {});
+assert.deepEqual(parseMemory('{"cursors":{"1":12,"2":-1}}').cursors, { 1: 12 });
 console.log('ai memory ok');

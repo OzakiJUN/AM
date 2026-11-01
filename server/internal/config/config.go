@@ -87,6 +87,7 @@ type Retention struct {
 
 // Stickers configures the shared sticker library (docs/design.md §11).
 type Stickers struct {
+	SyncKBps       int  `toml:"sync_kbps"`
 	Library        bool `toml:"library"`
 	DefaultPublic  bool `toml:"default_public"`
 	DedupeDistance int  `toml:"dedupe_distance"`
@@ -273,6 +274,9 @@ func (c *Config) validate() error {
 	}
 	if c.Retention.GamesDays < 1 {
 		return errors.New("retention.games_days must be >= 1")
+	}
+	if c.Stickers.SyncKBps < 0 || c.Stickers.SyncKBps > 1048576 {
+		return errors.New("stickers.sync_kbps must be 0-1048576")
 	}
 	if c.Stickers.DedupeDistance < 0 || c.Stickers.DedupeDistance > 64 {
 		return errors.New("stickers.dedupe_distance must be 0-64")

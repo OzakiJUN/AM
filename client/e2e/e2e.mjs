@@ -734,16 +734,16 @@ const pages = [];
     return !!img && !img.src.includes('/assets/');
   }, null, { timeout: 10000 });
 
-  // Shared room: everyone in it talks to the AI, which answers each time.
+  // Shared room: the AI listens; called by name, it answers.
   await A.click('button[aria-label="AI 设置"]');
   await A.click('div[role="dialog"] button[role="radio"]:has-text("频道与作息")');
   await A.click('div[role="dialog"] button:has-text("开一个共享聊天")');
   await A.waitForSelector('aside button:has-text("小鱼和大家")');
   await A.keyboard.press('Escape');
   await A.waitForSelector('header h2:has-text("小鱼和大家")');
-  await A.fill('textarea[aria-label="消息"]', '大家好呀');
+  await A.fill('textarea[aria-label="消息"]', '小鱼，大家好呀');
   await A.press('textarea[aria-label="消息"]', 'Enter');
-  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：Weiqi：大家好呀")', { timeout: 15000 });
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("喵～收到：Weiqi：小鱼，大家好呀")', { timeout: 15000 });
   await wait(400);
   await shot(A, '29c-ai-room');
 
@@ -907,7 +907,8 @@ const pages = [];
     await A.click('aside button:has-text("大厅")');
     await A.click('button[aria-label="表情包"]');
     await A.click('button[role="radio"]:has-text("我的")');
-    await A.waitForSelector('button[aria-label="发表情 开心、狗头"]', { timeout: 30000 });
+    // Tags travel with it (小克 may have added 「doge」 by now).
+    await A.waitForSelector('button[aria-label^="发表情 开心、狗头"]', { timeout: 30000 });
     await A.waitForFunction(() => document.querySelectorAll('button[aria-label^="发表情 "]').length === 2, null, { timeout: 30000 });
     await shot(A, '30-stickers-synced');
   }

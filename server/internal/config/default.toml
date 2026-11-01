@@ -95,6 +95,8 @@ netease = true
 netease_api = "https://music.163.com"
 
 [stickers]
+# Combined background sticker upload bandwidth for this server (KiB/s, 0 = unlimited).
+sync_kbps = 64
 # The shared sticker library: stickers people add to their collection are
 # shared with everyone on this server (one copy per picture, earliest
 # uploader shown); everyone can add tags. Turned off = only personal

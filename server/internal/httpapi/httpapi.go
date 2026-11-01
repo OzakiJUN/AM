@@ -49,13 +49,14 @@ type API struct {
 	games     *game.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
+	syncRate  *uploadPacer
 	maxUpload int64
 }
 
 func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service, ps *presence.Service,
-	prof *profile.Service, sk *sticker.Service, mu *music.Service, gs *game.Service, loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
+	prof *profile.Service, sk *sticker.Service, mu *music.Service, gs *game.Service, loginPerMinute, maxUploadMB, syncKBps int, log *slog.Logger) *API {
 	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, profile: prof, stickers: sk, music: mu, games: gs, log: log,
-		limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
+		syncRate: newUploadPacer(syncKBps), limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
 }
 
 // Register adds the API routes to mux.

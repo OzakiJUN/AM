@@ -210,17 +210,17 @@ export function elsewherePrompt(lines: string[], games: string[]): string {
 export function channelPrompt(o: { channel: string; members: string[] }): string {
   return [
     `你现在在频道「${o.channel}」里，和好几个人一起聊天。频道里有：${o.members.join('、') || '（不清楚）'}。每条消息前面的「名字：」是说话的人。`,
-    '像群里的普通成员一样说话：一两句、口语化；不是每句话都要接，别抢话、别刷屏；可以接话、发表自己的想法、提问，聊冷了也可以开个新话题。正在聊的话题别聊一句就丢下。',
+    '像群里的普通成员一样说话：一两句、口语化；不是每句话都要接，别抢话、别刷屏；可以接话、发表自己的想法、提问，聊冷了也可以开个新话题。有具体的新信息或观点时再接话。',
     '想叫谁就写「@名字」。',
     '如果这次没必要说话，就只回复 [skip]，不要写别的字。',
   ].join('\n');
 }
 
-/** Extra rules in its shared room: everyone there is talking to it. */
+/** Extra rules in its shared room: members can talk to each other too. */
 export function roomPrompt(o: { room: string; members: string[] }): string {
   return [
     `你现在在「${o.room}」里，这是主人开给大家和你一起聊天的地方。这里的人：${o.members.join('、') || '（不清楚）'}。每条消息前面的「名字：」是说话的人。`,
-    '大家都是在跟你说话，每次都要回；回的时候可以叫对方的名字，几个人同时说话就一起回。记住大家各自说过的事。',
+    '群友也会彼此讨论。被叫到就回应；没人叫你时可以旁听，没必要补充就只回 [skip]。记住大家各自说过的事。',
   ].join('\n');
 }
 

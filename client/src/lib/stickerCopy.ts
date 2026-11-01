@@ -44,12 +44,6 @@ export function planCopies(lists: Record<string, CopySticker[]>, done: Set<strin
   return out;
 }
 
-/** How long to wait after moving `bytes` so the average stays at `kbps` KB/s (0 = no limit). */
-export function throttleMs(bytes: number, kbps: number): number {
-  if (kbps <= 0) return 0;
-  return Math.round((bytes / (kbps * 1024)) * 1000);
-}
-
 /** Errors that will not go away by trying again (the target refuses): stop for that target. */
 export function isFinal(code: string): boolean {
   return /^(sticker_limit|blocked_media|not_image|bad_image|too_large|sticker_library_off|no_permission)$/.test(code);

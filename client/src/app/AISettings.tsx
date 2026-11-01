@@ -370,7 +370,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           ))}
         </div>
       </Field>
-      <Field label="共享聊天" hint="开一个只属于它的聊天，把想一起聊的人拉进去：大家说什么它都回，聊天记录大家都看得到。用的是你的模型 key">
+      <Field label="共享聊天" hint="开一个只属于它的聊天，把想一起聊的人拉进去：大家能互相讨论，也能点名让它回答，聊天记录群里都看得到。用的是你的模型 key">
         <ShareRequests serverId={serverId} aiId={aiId} />
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="soft" onClick={async () => {
@@ -385,6 +385,11 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
             条（0 = 不限，你自己不限）
           </span>
         </div>
+      </Field>
+      <Field label="自己找事做" hint="清醒、空闲时自己想想接下来做什么，可以换状态或布置主页。每次会调用模型，不发聊天消息。">
+        <select value={draft.proactive.thoughtMinutes} onChange={(e) => set({ proactive: { ...draft.proactive, thoughtMinutes: Number(e.target.value) } })}>
+          {[0, 10, 20, 60].map((n) => <option key={n} value={n}>{n ? `每 ${n} 分钟` : '关闭'}</option>)}
+        </select>
       </Field>
       <Field label="主动找你聊" hint="你上线时它会打个招呼（几个小时最多一次）；你改了状态它可能问一句；你们好一阵没说话它会自己找话题。它睡觉时不打扰">
         <div className="space-y-2">
@@ -425,13 +430,13 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </div>
         </div>
       </Field>
-      <Field label="在频道里">
+      <Field label="在频道和共享群里">
         <Segmented id="ai-ch-mode" value={ch.mode} onChange={(mode) => setCh({ mode })} options={[
           { value: 'active', label: '会自己接话' }, { value: 'mention', label: '只在被 @ 或叫名字时说话' },
         ]} />
       </Field>
       {ch.mode === 'active' && (
-        <Field label="话多少" hint="越往右越爱插话；它在聊的话题会接着聊，不会说一句就走">
+        <Field label="话多少" hint="越往右，越常考虑主动加入讨论；没有新内容时会保持安静。">
           <div className="flex items-center gap-3">
             <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">安静</span>
             <Slider label="话多少" value={ch.chattiness} min={0} max={1} step={0.05} onChange={(chattiness) => setCh({ chattiness })} />

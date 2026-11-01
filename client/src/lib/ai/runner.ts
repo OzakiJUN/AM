@@ -23,13 +23,13 @@ import {
   systemPrompt, toChat,
   type AISettings, type RoutineMoment,
 } from './persona';
-import { addressed, dayPlan, decide, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
+import { addressed, dayPlan, decide, discussionText, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
 import { activityText } from '../presence';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
 import { firstFree, placements } from '../widgets';
 import { describePage, editPage, type PageEdit } from './page';
-import { applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory, type Who } from './memory';
+import { applyRemember, recentAcrossChats, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory, type Who } from './memory';
 import { CATEGORY_NAME, useWorkshop } from '../workshop';
 import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, trailMove, type Game, type GameKind, type TrailQ } from '../games';
 
@@ -82,8 +82,9 @@ interface Run {
   memory: Memory;
   memoryAt: number;
   memoryLoaded: boolean;
-  /** Per conversation: last message seq it has taken into memory, when, and the pending timer. */
-  remembered: Map<string, { seq: number; at: number }>;
+  /** Serialize writes to the single server-side memory document. */
+  memoryQueue: Promise<void>;
+  lastThought: number;
   rememberTimers: Map<string, ReturnType<typeof setTimeout>>;
 }
 
@@ -158,17 +159,21 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   const run: Run = {
     serverId, ai, settings, s: null as unknown as Session, busy: new Set(), again: new Set(), greeted: false,
     pending: new Map(), sends: new Map(), statusUntil: 0, ownerOnline: false, ownerActivity: '', pageChecked: false,
-    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, remembered: new Map(), rememberTimers: new Map(),
+    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, memoryQueue: Promise.resolve(), lastThought: Date.now(), rememberTimers: new Map(),
   };
   run.s = new Session(
     record,
     (v) => {
       patch('running', key, v.status === 'online');
+      if (v.status !== 'online') run.greeted = false;
       if (v.status === 'online' && !run.greeted) {
         run.greeted = true;
         void greet(run);
         // Its memory, then the plugins it hasn't learnt yet.
-        void loadMemory(run).then(() => syncPlugins(run)).catch(() => {});
+        void queueMemory(run, () => syncPlugins(run));
+        for (const c of Object.values(v.convs)) {
+          if (!c.left && c.lastSeq > (run.memory.cursors[c.id] ?? 0)) scheduleRemember(run, c.id);
+        }
         // Messages are still loading right after connecting: look a moment later.
         setTimeout(() => void catchUp(run).catch(() => {}), 4000);
         // Games that went on while it was away (its turn, games to join).
@@ -187,6 +192,10 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
     },
     (convId, m) => onMessage(run, convId, m),
   );
+  run.s.memoryCursors = async () => {
+    if (!run.memoryLoaded) await loadMemory(run);
+    return run.memory.cursors;
+  };
   run.s.onGame = (g) => onGame(run, g);
   runs.set(key, run);
   patch('running', key, false);
@@ -224,12 +233,8 @@ function onMessage(run: Run, convId: string, m: Message) {
   if (!conv) return;
   scheduleRemember(run, convId);
   // The session stores the new message right after telling us: look a tick later.
-  if (conv.kind === 'group' && conv.aiId === run.ai.user.id) {
-    if (roomAllowed(run, convId, m.senderId)) setTimeout(() => void reply(run, convId), 0);
-    return;
-  }
   if (conv.kind === 'group') {
-    setTimeout(() => considerChannel(run, convId), 0);
+    setTimeout(() => considerChannel(run, convId, m), 0);
     return;
   }
   if (run.settings.whoCanChat === 'owner' && m.senderId !== run.ai.user.ownerId) return;
@@ -301,16 +306,17 @@ function elsewhere(run: Run, conv: Conversation): string {
   const since = Date.now() - 12 * 60 * MIN;
   const nameOf = (u: string) => s.nameOf(u);
   const place = (c: Conversation) => (c.kind === 'group' ? `「${c.name}」` : `和 ${nameOf(c.peerId ?? '')} 私聊`);
-  const lines: { time: number; line: string }[] = [];
+  const chats: { time: number; line: string }[][] = [];
   for (const c of Object.values(s.view.convs)) {
     if (c.id === conv.id || c.left) continue;
+    const lines: { time: number; line: string }[] = [];
     for (const m of (s.view.messages[c.id] ?? []).slice(-30)) {
       if (m.time < since || m.pending || m.failed) continue;
       const text = textOf(m);
       if (text !== null) lines.push({ time: m.time, line: `${place(c)} ${m.senderId === me ? '你' : nameOf(m.senderId)}：${text.slice(0, 120)}` });
     }
+    chats.push(lines);
   }
-  lines.sort((a, b) => a.time - b.time);
   const games = Object.values(s.view.games)
     .filter((g) => seatOf(g, me) >= 0 && (g.status !== 'ended' || g.updatedAt > since))
     .sort((a, b) => a.updatedAt - b.updatedAt)
@@ -320,7 +326,7 @@ function elsewhere(run: Run, conv: Conversation): string {
       const st = g.status === 'ended' ? `结束了，${resultText(g, nameOf)}` : g.status === 'waiting' ? '还在等人' : g.waitingOn.includes(me) ? '正在下，轮到你' : '正在下';
       return `在「${s.view.convs[g.convId]?.name ?? ''}」和 ${others} 玩${GAME_INFO[g.kind].name}（${new Date(g.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}）：${st}`;
     });
-  return elsewherePrompt(lines.slice(-25).map((x) => x.line), games);
+  return elsewherePrompt(recentAcrossChats(chats, 48), games);
 }
 
 /** The people of a conversation as its memory sees them (account id first). */
@@ -375,6 +381,9 @@ interface ReplyOpts {
   replyTo?: string;
   /** Only act through tools: nothing is shown typing, nothing is posted (game turns). */
   silent?: boolean;
+  idle?: boolean;
+  /** The group message this turn was scheduled for. */
+  trigger?: Message;
 }
 
 /** Ids of channel members written as "@name" in the text. */
@@ -398,15 +407,20 @@ async function showStatus(run: Run, status: string, moment?: RoutineMoment) {
 async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
   const s = run.s;
   const conv = s.view.convs[convId];
-  if (!conv) return;
+  if (!conv || conv.left || runs.get(k(run.serverId, run.ai.user.id)) !== run) return;
+  const casual = !!o.trigger && !o.must;
+  const stale = () => casual && (run.s.view.convs[convId]?.lastSeq !== o.trigger!.seq || run.s.view.status !== 'online');
+  if (stale()) return;
   const group = conv.kind === 'group';
   if (run.busy.has(convId)) {
     // Answer again with the newer messages afterwards (channels decide again; notes wait their turn).
-    if (o.note) setTimeout(() => void reply(run, convId, o), 3000);
-    else if (group) setTimeout(() => considerChannel(run, convId), 3000);
+    if (o.idle || casual) return;
+    if (o.note || o.trigger) setTimeout(() => void reply(run, convId, o), 3000);
+    else if (group) return;
     else run.again.add(convId);
     return;
   }
+  if (o.trigger && conv.aiId === run.ai.user.id && !roomAllowed(run, convId, o.trigger.senderId)) return;
   run.busy.add(convId);
   const streamKey = k(run.serverId, convId);
   const errKey = k(run.serverId, run.ai.user.id);
@@ -431,14 +445,15 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     }
     if (!turn.length) return;
     const ownerName = session(run.serverId)?.view.me?.name ?? '主人';
-    const speakerId = o.note ? run.ai.user.ownerId ?? '' : [...msgs].reverse().find((x) => x.senderId !== run.ai.user.id)?.senderId ?? '';
+    const speakerId = o.trigger?.senderId ?? (o.note ? run.ai.user.ownerId ?? '' : [...msgs].reverse().find((x) => x.senderId !== run.ai.user.id)?.senderId ?? '');
     const speaker = { name: s.nameOf(speakerId), isOwner: speakerId === run.ai.user.ownerId };
     const comp = st.computer;
     const agentKey = errKey;
     // The computer: never for routine notes; in channels for the owner, or anyone when the owner allows everyone.
-    const computer = !o.note && (speaker.isOwner || st.whoCanChat === 'everyone' || !group);
+    const computer = !casual && !o.note && (speaker.isOwner || st.whoCanChat === 'everyone' || !group);
     const mcp = computer ? await loadMcpTools(comp, agentKey) : { defs: [], map: new Map(), errors: [] };
-    const tools = toolsFor(comp, mcp.defs, computer);
+    const available = toolsFor(comp, mcp.defs, computer);
+    const tools = casual ? [] : o.idle ? available.filter((t) => ['view_my_page', 'edit_my_page'].includes(t.name) && levelFor(comp, t.name) === 'allow') : available;
     // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
     const room = group && conv.aiId === run.ai.user.id;
@@ -446,7 +461,9 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       const members = conv.members.map((m) => s.view.users[m.userId]).filter((u): u is User => !!u && u.id !== run.ai.user.id && !u.gone);
       const names = members.map((u) => (u.type === 'human' ? u.name : `${u.name}（AI）`));
       system += '\n\n' + (room ? roomPrompt({ room: conv.name, members: names }) : channelPrompt({ channel: conv.name, members: names }));
-      if (o.must && !room) system += '\n这次有人在叫你，请回应。';
+      if (o.must) system += '\n这次有人在叫你，请回应。';
+      if (o.trigger && o.must) system += '\n请回答这条点名你的消息：' + s.nameOf(o.trigger.senderId) + '：' + textOf(o.trigger);
+      if (casual) system += '\n这次没有人点名你。只有能解答尚未解决的问题、补充具体的新信息或观点、纠正有影响的错误时才发言。如果别人已经答了，或者你只是附和、复述、寒暄，就只输出 [skip]。';
     }
     // What AM lets it do (tools + installed plugins), who is talking, and its one memory.
     system += '\n\n' + appPrompt(tools.map((x) => x.name), pluginsFor(run));
@@ -464,16 +481,17 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
         const req = buildRequest(p, { model: st.model, temperature: st.temperature, maxTokens: st.maxTokens, messages: turn, system, tools });
         const reader = streamReader(p.kind);
         let text = '';
-        if (!o.silent) patch('streams', streamKey, '');
+        if (!o.silent && !casual) patch('streams', streamKey, '');
         const status = await aiRequest(req.url, req.headers, req.body, (chunk) => {
           text += reader.feed(chunk);
-          if (o.silent) return;
+          if (o.silent || casual) return;
           // "[skip]" must never flash up as if it were going to say something.
           const shown = previewText(splitStatusTag(text).text);
           patch('streams', streamKey, /^\s*\[?\s*s(k(ip?)?)?$/i.test(shown) ? '' : shown);
         });
         if (status >= 400) throw new Error(`模型服务返回 ${status}：${errorOf(reader.raw()) || '没有说明'}`);
         const calls = reader.toolCalls();
+        if (casual && calls.length) return;
         if (!calls.length) {
           final = text;
           break;
@@ -483,7 +501,11 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
           break;
         }
         turn.push({ role: 'assistant', content: text, toolCalls: calls });
-        for (const c of calls) turn.push(await useTool(run, agentKey, c, ctx, speaker.name, step + 1));
+        for (const c of calls) {
+          if (!tools.some((t) => t.name === c.name)) {
+            turn.push({ role: 'tool', name: c.name, callId: c.id, content: '这次不能使用这个工具。' });
+          } else turn.push(await useTool(run, agentKey, c, ctx, speaker.name, step + 1));
+        }
         if (stopped(agentKey)) {
           final = '[mood:speechless] 好，我停下了。';
           break;
@@ -492,14 +514,24 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     } finally {
       setActivity(agentKey, null);
     }
-    if (isSkip(final) || o.silent) return; // decided to stay quiet / only acts
+    if (o.idle) {
+      if (runs.get(errKey) !== run || stopped(errKey)) return;
+      const status = splitStatusTag(final).status;
+      if (status) {
+        await showStatus(run, status);
+        run.statusUntil = Date.now() + 10 * MIN;
+      }
+      return;
+    }
+    if (stale() || isSkip(final) || o.silent) return; // decided to stay quiet / only acts
     const tagged = splitStatusTag(final);
-    if (tagged.status) await showStatus(run, tagged.status, o.moment).catch(() => {});
+    if (!casual && tagged.status) await showStatus(run, tagged.status, o.moment).catch(() => {});
     const { mood, text } = splitMoodTag(tagged.text);
     if (!text.trim() || isSkip(text)) {
       if (group || o.note) return;
       throw new Error('模型没有回复内容');
     }
+    if (casual && (!discussionText(text) || msgs.some((m) => textOf(m)?.trim() === text.trim()))) return;
     await s.sendText(convId, text.trim(), mood, group ? mentionsIn(run, conv, text) : undefined, o.replyTo);
     run.sends.set(convId, [...(run.sends.get(convId) ?? []).filter((t) => Date.now() - t < 60 * MIN), Date.now()]);
     patch('errors', errKey, undefined);
@@ -514,14 +546,16 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
 
 // ---------- channels: when to join in (lib/ai/social.ts decides) ----------
 
-function considerChannel(run: Run, convId: string) {
+function considerChannel(run: Run, convId: string, trigger: Message) {
   const s = run.s;
   const me = run.ai.user.id;
-  const msgs = (s.view.messages[convId] ?? []).filter((x) => !x.pending && !x.failed && textOf(x) !== null).slice(-12);
+  const msgs = (s.view.messages[convId] ?? []).filter((x) => !x.pending && !x.failed && x.seq <= trigger.seq && textOf(x) !== null).slice(-Math.max(12, run.settings.channels.maxAIChain));
+  if (msgs.at(-1)?.id !== trigger.id) return;
   const recent: Said[] = msgs.map((x) => ({
     senderId: x.senderId,
     time: x.time,
     ai: (s.view.users[x.senderId]?.type ?? 'human') !== 'human',
+    discussion: x.body.kind === 'text' && !x.body.mentions?.length && discussionText(x.body.text),
     toMe: x.senderId !== me && x.body.kind === 'text' && addressed(x.body.text, x.body.mentions, me, run.ai.user.name),
   }));
   const d = decide({
@@ -529,6 +563,7 @@ function considerChannel(run: Run, convId: string) {
     asleep: isAsleep(run.settings.routine, minuteOfDay()), random: Math.random(), random2: Math.random(),
   });
   const cur = run.pending.get(convId);
+  if (cur?.must && d.act !== 'reply') return;
   if (d.act === 'no') {
     // A newer message that does not need it cancels a casual turn, never an answer it owes.
     if (cur && !cur.must) {
@@ -538,12 +573,12 @@ function considerChannel(run: Run, convId: string) {
     return;
   }
   if (cur) clearTimeout(cur.timer);
-  const must = d.act === 'reply' || !!cur?.must;
+  const must = d.act === 'reply';
   run.pending.set(convId, {
     must,
     timer: setTimeout(() => {
       run.pending.delete(convId);
-      void reply(run, convId, { must });
+      void reply(run, convId, { must, trigger });
     }, d.delay),
   });
 }
@@ -932,9 +967,9 @@ async function catchUp(run: Run) {
     const lastMine = msgs.map((m) => m.senderId).lastIndexOf(me);
     const after = msgs.slice(lastMine + 1).filter((m) => m.time >= since && m.senderId !== me);
     if (!after.length) continue;
-    const group = conv.kind === 'group' && conv.aiId !== me; // its own room counts like a DM
+    const group = conv.kind === 'group';
     const asked = group
-      ? after.filter((m) => m.body.kind === 'text' && addressed(m.body.text, m.body.mentions, me, run.ai.user.name)).at(-1)
+      ? after.filter((m) => s.view.users[m.senderId]?.type === 'human' && m.body.kind === 'text' && addressed(m.body.text, m.body.mentions, me, run.ai.user.name)).at(-1)
       : run.settings.whoCanChat === 'owner' && after.at(-1)!.senderId !== run.ai.user.ownerId ? undefined : after.at(-1);
     if (asked) todo.push({ convId: conv.id, msg: asked, group, when: asked.time });
   }
@@ -943,6 +978,7 @@ async function catchUp(run: Run) {
     const ago = Math.max(1, Math.round((Date.now() - t.when) / 60_000));
     await reply(run, t.convId, {
       must: true,
+      trigger: t.group ? t.msg : undefined,
       replyTo: t.group ? t.msg.id : undefined,
       note: `（系统提示，不是任何人说的话：你刚才不在线。${s.nameOf(t.msg.senderId)} 在 ${ago} 分钟前${t.group ? '叫过你' : '给你发了消息'}，现在回复，开头简单说明这是你离线时的消息。）`,
     });
@@ -981,12 +1017,23 @@ async function tickRoutine(run: Run) {
     await run.s.setPresence(false, undefined, true).catch(() => {});
   }
   const r = run.settings.routine;
-  if (!r.enabled) return void maybeEvolve(run);
+  const idle = async () => {
+    const interval = run.settings.proactive.thoughtMinutes;
+    if (interval > 0 && Date.now() >= run.lastThought + interval * MIN && !isAsleep(r, minuteOfDay())
+      && !run.busy.size && !run.statusUntil && run.settings.providerId && run.settings.model && run.ai.user.ownerId) {
+      run.lastThought = Date.now();
+      const id = await run.s.openDM(run.ai.user.ownerId);
+      if (runs.get(k(run.serverId, run.ai.user.id)) === run && !run.busy.size && run.s.view.status === 'online') await reply(run, id, { silent: true, idle: true,
+        note: '（独处时间。结合你的性格和最近的记忆，自己挑件小事做。可以看看或布置自己的主页，也可以用 [status:在做的事] 更新自己的公开状态。不要透露私聊内容。不想做什么就只回 [skip]。）' });
+    }
+    await maybeEvolve(run);
+  };
+  if (!r.enabled) return idle().catch(() => {});
   const key = k(run.serverId, run.ai.user.id);
   const day = dayKey();
   const done = doneToday(key, day);
   const e = dueEvents(dayPlan(day, r, run.ai.user.id), minuteOfDay(), done)[0];
-  if (!e) return void maybeEvolve(run);
+  if (!e) return idle().catch(() => {});
   done.add(e.key);
   saveDone(key, day, done);
   await routineMoment(run, e.kind).catch((err) => patch('errors', key, errorText(err)));
@@ -1006,26 +1053,40 @@ async function loadMemory(run: Run) {
 
 /** Saves it as the AI account's own client state (only the device running it writes). */
 async function saveMemory(run: Run, m: Memory) {
-  run.memory = trimMemory(m);
-  const data = new TextEncoder().encode(JSON.stringify(run.memory));
+  const next = trimMemory(m);
+  const data = new TextEncoder().encode(JSON.stringify(next));
   try {
     run.memoryAt = await run.s.putClientState(data, run.memoryAt);
   } catch (e) {
     if (!(e instanceof ApiError) || e.code !== 'state_conflict') throw e;
-    // Saved elsewhere meanwhile (an earlier device): ours is the newer one.
-    run.memoryAt = (await run.s.clientState()).updatedAt;
-    run.memoryAt = await run.s.putClientState(data, run.memoryAt);
+    await loadMemory(run);
+    throw e;
   }
+  run.memory = next;
 }
 
-/** A chat went quiet for a few minutes: take what happened into memory (at most every 15 min per chat). */
-function scheduleRemember(run: Run, convId: string) {
-  clearTimeout(run.rememberTimers.get(convId));
-  const last = run.remembered.get(convId)?.at ?? 0;
-  const wait = Math.max(REMEMBER_AFTER, last + REMEMBER_EVERY - Date.now());
+/** Serialize summaries and workshop updates so two chats cannot overwrite each other. */
+function queueMemory(run: Run, work: () => Promise<void>) {
+  run.memoryQueue = run.memoryQueue.then(async () => {
+    if (runs.get(k(run.serverId, run.ai.user.id)) === run) await work();
+  }).catch(() => {});
+  return run.memoryQueue;
+}
+
+function scheduleRemember(run: Run, convId: string, wait = REMEMBER_AFTER) {
+  if (run.rememberTimers.has(convId)) return;
   run.rememberTimers.set(convId, setTimeout(() => {
-    run.rememberTimers.delete(convId);
-    void rememberNow(run, convId).catch(() => {});
+    void queueMemory(run, async () => {
+      try {
+        await rememberNow(run, convId);
+      } finally {
+        run.rememberTimers.delete(convId);
+        const conv = run.s.view.convs[convId];
+        if (runs.get(k(run.serverId, run.ai.user.id)) === run && conv && !conv.left && conv.lastSeq > (run.memory.cursors[convId] ?? 0)) {
+          scheduleRemember(run, convId, REMEMBER_EVERY);
+        }
+      }
+    });
   }, wait));
 }
 
@@ -1033,12 +1094,15 @@ async function rememberNow(run: Run, convId: string) {
   const s = run.s;
   const conv = s.view.convs[convId];
   const st = run.settings;
-  if (!conv || !run.memoryLoaded || !st.providerId || !st.model) return;
+  if (!conv || conv.left || run.s.view.status !== 'online' || !run.memoryLoaded || !st.providerId || !st.model) return;
   const me = run.ai.user.id;
-  const from = run.remembered.get(convId)?.seq ?? 0;
-  const msgs = (s.view.messages[convId] ?? []).filter((m) => !m.pending && !m.failed && m.seq > from && textOf(m) !== null).slice(-40);
-  if (msgs.filter((m) => m.senderId !== me).length < 2) return;
-  run.remembered.set(convId, { seq: msgs.at(-1)!.seq, at: Date.now() });
+  const from = run.memory.cursors[convId] ?? 0;
+  const pending = (s.view.messages[convId] ?? []).filter((m) => !m.pending && !m.failed && m.seq > from && textOf(m) !== null);
+  const msgs = pending.slice(0, 40);
+  const seq = pending.length > msgs.length ? msgs.at(-1)!.seq : conv.lastSeq;
+  if (seq <= from) return;
+  const advance = (memory: Memory) => saveMemory(run, { ...memory, cursors: { ...memory.cursors, [convId]: seq } });
+  if (!msgs.length) return advance(run.memory);
   const lines = msgs.map((m) => `${m.senderId === me ? '你' : s.nameOf(m.senderId)}（${m.senderId === me ? '你自己' : m.senderId}）：${textOf(m)!.slice(0, 200)}`);
   const people = presentIn(run, conv);
   const providers = useProviders.getState().loaded ? useProviders.getState().list : (await loadProviders()).list;
@@ -1053,7 +1117,7 @@ async function rememberNow(run: Run, convId: string) {
   const status = await aiRequest(req.url, req.headers, req.body, (chunk) => (text += reader.feed(chunk)));
   if (status >= 400) return;
   const next = applyRemember(run.memory, text, people, Date.now());
-  if (next !== run.memory) await saveMemory(run, next);
+  if (next !== run.memory) await advance(next);
 }
 
 // ---------- plugins: what is installed from the workshop (lib/workshop.ts) ----------
@@ -1190,7 +1254,7 @@ export function startAI() {
   watch();
   // Something new installed from the workshop: every AI running here learns it.
   useWorkshop.subscribe(() => {
-    for (const run of runs.values()) void syncPlugins(run).catch(() => {});
+    for (const run of runs.values()) void queueMemory(run, () => syncPlugins(run));
   });
   void loadProviders();
   // New services start with the default reminder threshold (5).

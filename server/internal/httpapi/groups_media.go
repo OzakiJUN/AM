@@ -339,6 +339,9 @@ func (a *API) adminDelete(w http.ResponseWriter, r *http.Request, _ *store.Sessi
 func (a *API) upload(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 	// Allow some room for multipart framing on top of the file itself.
 	r.Body = http.MaxBytesReader(w, r.Body, a.maxUpload+(1<<20))
+	if r.URL.Query().Get("purpose") == "sticker-sync" && a.syncRate != nil {
+		r.Body = &pacedBody{ReadCloser: r.Body, ctx: r.Context(), rate: a.syncRate}
+	}
 	mr, err := r.MultipartReader()
 	if err != nil {
 		a.fail(w, apperr.ErrBadRequest)
