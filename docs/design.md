@@ -492,7 +492,7 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
 - 能发布的作品：主题（`theme`）、AI 形象包（`portrait`）、人格（`persona`）、表情包（`stickers`）。只有图片和文字，不运行程序。小游戏 / 组件 / 插件（程序类）以后再开，manifest 里先留了 `permissions`（现在必须为空）。
 - 索引仓库 [OzakiJUN/am-workshop](https://github.com/OzakiJUN/am-workshop)：每个作品一个 `items/<id>.json`（类型、名字、作者、作者仓库、版本、Release 里 zip 的地址、SHA-256、大小、一行介绍、预览图）；`workshop.json` 是管理员名单和单个包的大小上限（默认 20 MB）。作品包格式在那边的 FORMAT.md，发布步骤在 PUBLISHING.md，`templates/` 是四种类型的模板。
 - 上架：作者提 PR 加自己的 `items/` 文件。`check.yml` 用 main 分支上的检查工具（PR 改不了怎么检查）：格式、只能改自己的作品（`author` = 提交的人，管理员除外）、不是管理员只能改 `items/`、不能自己写 `disabled`；把 Release 里的包下载下来核对大小和 SHA-256，按类型检查包里的内容。结果在检查的 Summary 页。Weiqi（管理员）看过后合并。程序类作品以后再加 AI 审核。
-- 发布：合并到 main 后 `publish.yml` 把所有作品汇总成 `index.json`（带生成时间、包大小上限），用 Ed25519 私钥签名成 `index.sig`，强推到 `index` 分支。私钥只在 GitHub Secret `WORKSHOP_SIGNING_KEY` 里（Weiqi 在自己电脑上用 `workshop_keygen.bat` = `am-server workshop-keygen` 生成，不经过聊天）；公钥写在客户端 `lib/workshopIndex.ts` 的 `WORKSHOP_PUBLIC_KEY`，没写之前工坊页面提示「还在准备」，只能从文件安装。
+- 发布：合并到 main 后 `publish.yml` 把所有作品汇总成 `index.json`（带生成时间、包大小上限），用 Ed25519 私钥签名成 `index.sig`，强推到 `index` 分支。私钥只在 GitHub Secret `WORKSHOP_SIGNING_KEY` 里（Weiqi 在自己电脑上用 `workshop_keygen.bat` = `am-server workshop-keygen` 生成，不经过聊天）；公钥写在客户端 `lib/workshopIndex.ts` 的 `WORKSHOP_PUBLIC_KEY`（2026-11-01 已设好；公钥为空时工坊页面提示「还在准备」，只能从文件安装）。
 - 客户端：
   - 「发现」从 `raw.githubusercontent.com/OzakiJUN/am-workshop/index/` 拉 `index.json` 和 `index.sig`，先验签名，再看生成时间不能比上次见过的旧（防止有人拿旧列表把下架的作品弄回来），存一份离线也能看。桌面版下载全走 Rust（`web_get_bytes`，正常校验证书的 HTTPS，跟随 GitHub 的跳转，限大小）。
   - 安装：下载 zip → 核对 SHA-256（对不上拒绝，提示可能被人改过）→ 按 FORMAT.md 的规则再检查一遍（`lib/workshopPackage.ts`，和工坊那边的 Go 检查是同一套规则）→ 文件存在 IndexedDB（`lib/workshopStore.ts`），装了什么记在本机。有新版本显示「有更新」。
