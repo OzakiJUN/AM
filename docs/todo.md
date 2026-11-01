@@ -14,6 +14,17 @@
 10. **AI 第 2 批收尾**（design.md 第 9 节「操作电脑」）：2a、2b 已完成，等 Weiqi 在 Windows 上整批测试（界面自动化、自己的浏览器、MCP 只有桌面版能用）。用真的 DeepSeek key 测一遍工具调用（云端开发环境要先放开 api.deepseek.com）。游戏只接有 AI 接口的（Minecraft、环世界的 MCP 模板，已做），截图 + 虚拟手柄不做了（Weiqi 定的）。
 11. **以后做 AI 直播 / 语音时参考**：dsh-game-bridge（DeepSeek Harness 的游戏插件：DXcam 截屏 + RapidOCR，虚拟 Xbox 手柄 ViGEmBus + SendInput；F12 一键收回控制、游戏窗口不在前台就不动、反作弊游戏直接拒绝、默认只演练不真按、操作留记录——第 2 批的「让鼠标」和急停照这个思路），ZerolanLiveRobot（B 站弹幕 + 看屏幕 + mineflayer 操作 Minecraft）、DeepSeek Harness（DeepSeek 开源的 agent 框架，插件式，开发者预览版）、AI-XiaoPi（弹幕 → 模型 → TTS 的直播助手）、digital-human-livestream（LiveTalking 二次开发：B 站弹幕 → DeepSeek → EdgeTTS → wav2lip / MuseTalk 数字人，要 CUDA 显卡）。以后做 AI 直播 / 语音时再细看。
 
+## 这周要做（Weiqi 2026-11-01 定的顺序，计划已提给他，等他确认后再动代码）
+
+1. **共享表情包库**（design.md 第 11 节；自动识别以后再做）：全站库（同一张图只存一份，内容几乎一样的也算一张，显示最早上传的人），「我的表情」变成从库里收藏，标签大家一起补，表情面板加「大家的」可以搜和收藏，管理员能隐藏 / 删除（走证据区）。
+   - **等 Weiqi 定**：进公共库的规则。提议：谁加进自己的收藏就默认进公共库，单张可以选「不公开」；私聊里发的普通图片不会自动进库。
+2. **Bot 移植**：Weiqi 以前的几个插件直接内置进 am-server（服务器自带的 bot，不用装 Python，管理面板开关，key 放 config.toml）。**等 Weiqi 把插件打包传过来**，并说明每个是干嘛的。OneBot v11 兼容层这周不做。
+3. **创意工坊**（design.md 第 13 节）：先打通数据类内容（主题、AI 形象包、人格、整套表情包）：从 GitHub 索引仓库拉列表、下载、校验 SHA-256、验签、安装（侧载要提醒）；写作品模板和发布说明；新装的东西 AI 自动学会（`lib/workshop.ts` 的 `useWorkshop` + `syncPlugins` 已经接好）。程序类（小游戏 / 组件 / 插件的沙盒和权限清单）这周只开头。
+   - **等 Weiqi**：在 GitHub 建空仓库 `OzakiJUN/am-workshop` 当索引；签名密钥用脚本在他自己电脑上生成，私钥放 GitHub Secrets，不经过聊天。
+4. 自动更新（上面第 9 条）：问过 Weiqi 这周排不排，还没回。
+
+顺序：表情包库 → 工坊 → bot（插件到了再做）。
+
 ## Weiqi 第三批测试反馈（2026-11-01）
 
 8 条 + 追加的 3 条（再来一局、关闭对局、对局记录）都做完了（见 CHANGELOG「第三批测试反馈」），第 8 条（更新）是回答 + 升级说明，自动更新见上面第 9 条。等 Weiqi 找人一起测。
