@@ -680,6 +680,16 @@ const pages = [];
   }
   await shot(B, '27i-museum');
   await B.keyboard.press('Escape');
+  // The server's built-in bot: B DMs 小助手 from the member list (it lives on the AI page) and sends a command.
+  await B.click('button[aria-label="私信"]');
+  await B.click('button[aria-label="服务器成员"]');
+  await B.click('button[aria-label="私信 小助手"]');
+  await B.waitForSelector('text=服务器自带');
+  await B.fill('textarea[aria-label="消息"]', '/关注列表');
+  await B.press('textarea[aria-label="消息"]', 'Enter');
+  await B.waitForSelector('section div.whitespace-pre-wrap:has-text("这里还没关注任何关键词")', { timeout: 15000 });
+  await shot(B, '27j-helper-bot');
+  await B.click('button[aria-label="频道"]');
 
   // Channels and its day: put it into 「AM 内测」; its routine goes off for the test.
   await A.click('button[aria-label="AI 设置"]');

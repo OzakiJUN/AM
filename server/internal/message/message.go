@@ -52,7 +52,13 @@ type Service struct {
 	limits    config.Limits
 	retention config.Retention
 	now       func() time.Time
+	sent      []func(sender *store.User, ev *amv1.Event)
 }
+
+// OnSent adds a function called with every message a user sent (after it
+// was pushed; set during startup only). It must not block: the built-in bot
+// answers commands from here.
+func (s *Service) OnSent(f func(sender *store.User, ev *amv1.Event)) { s.sent = append(s.sent, f) }
 
 func New(st *store.Store, ids *idgen.Generator, p push.Pusher, ms *media.Service, limits config.Limits, retention config.Retention) *Service {
 	return &Service{st: st, ids: ids, push: p, media: ms, limits: limits, retention: retention, now: time.Now}
@@ -199,7 +205,13 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 	}
 
 	s.FanOut(ctx, row, nil, connID)
-	return ToProto(row, me.ID)
+	ev, err := ToProto(row, me.ID)
+	if err == nil {
+		for _, f := range s.sent {
+			f(me, ev)
+		}
+	}
+	return ev, err
 }
 
 // checkDMBlock fails with ErrBlocked when either side of a DM blocked the other.

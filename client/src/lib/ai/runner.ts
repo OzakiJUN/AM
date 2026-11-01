@@ -375,6 +375,8 @@ function onMessage(run: Run, convId: string, m: Message) {
   if (drawCommand(run, convId, m)) return;
   // A plugin command: the plugin answers, not the model.
   if (m.body.kind === 'text' && isPluginCommand(m.body.text, run.plugins.starts, run.plugins.commands)) return;
+  // A command for the server's built-in bot (/资讯 …): the bot answers.
+  if (m.body.kind === 'text' && isPluginCommand(m.body.text, ['/', '／'], run.s.view.commands)) return;
   // The session stores the new message right after telling us: look a tick later.
   if (conv.kind === 'group') {
     setTimeout(() => considerChannel(run, convId, m), 0);

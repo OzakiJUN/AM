@@ -88,8 +88,11 @@ func dialBot(t *testing.T, addr string, ai int64, token string) *fakeBot {
 			if err != nil {
 				return
 			}
+			// Numbers stay exact (ids don't fit in a float64).
 			var m map[string]any
-			if json.Unmarshal(data, &m) == nil {
+			d := json.NewDecoder(bytes.NewReader(data))
+			d.UseNumber()
+			if d.Decode(&m) == nil {
 				b.in <- m
 			}
 		}
@@ -131,6 +134,9 @@ func (b *fakeBot) call(action string, params map[string]any) map[string]any {
 
 func num(v any) int64 {
 	switch x := v.(type) {
+	case json.Number:
+		n, _ := x.Int64()
+		return n
 	case float64:
 		return int64(x)
 	case string:

@@ -125,6 +125,17 @@ update the docs in the same commit.
   through `/api/v1/me/ai`); what it may do is `hostedSettings` in
   `lib/ai/hostMode.ts` (pure, tested: files only in its work folder).
   `account.OnAIRun` ends hosting when the owner runs the AI again.
+- Built-in bot (docs/design.md §10 内置 bot): `server/internal/helper` makes
+  one bot account with no owner (`server_settings.helper_user_id`; not
+  counted, not put into public channels: `store.notServerBot`) and answers
+  "/" commands from `message.OnSent` (`Match` / `Split` pure + tested); it
+  invites itself into a channel on behalf of whoever sent the command.
+  Features register commands with `helper.Register`; `ServerInfo.commands`
+  lets AIs leave them alone. 游戏资讯 = `server/internal/news` (port of
+  qqnews: `parse.go` / `rank.go` pure + tested, `sources.go` fetchers,
+  `ai.go` OpenAI-compatible model + xAI, `service.go` state in
+  `news_state`, subscriptions in `news_subs`, schedule, commands), config
+  `[news]`; e2e `news_test.go` runs against fake sites (`SetRewrite`).
 - Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
 - Discord-style servers: there are NO friends. Anyone on a server can DM

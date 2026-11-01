@@ -89,9 +89,11 @@ func (q *Queries) GetUsers(ctx context.Context, ids []int64) (map[int64]*User, e
 	return out, rows.Err()
 }
 
+// CountUsers counts accounts; the server's own built-in bot (a bot with no
+// owner) doesn't count.
 func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 	var n int64
-	err := q.queryRow(ctx, `SELECT count(*) FROM users`).Scan(&n)
+	err := q.queryRow(ctx, `SELECT count(*) FROM users WHERE `+notServerBot).Scan(&n)
 	return n, err
 }
 
@@ -153,10 +155,10 @@ func escapeLike(s string) string {
 // ListUsersAdmin lists accounts for the admin panel, newest first. search
 // matches username or display name (case-insensitive substring).
 func (q *Queries) ListUsersAdmin(ctx context.Context, search string, limit, offset int) ([]*AdminUser, int64, error) {
-	where := ""
+	where := ` WHERE ` + notServerBot
 	var args []any
 	if search != "" {
-		where = ` WHERE lower(username) LIKE ? ESCAPE '\' OR lower(display_name) LIKE ? ESCAPE '\'`
+		where += ` AND (lower(username) LIKE ? ESCAPE '\' OR lower(display_name) LIKE ? ESCAPE '\')`
 		pat := "%" + escapeLike(toLower(search)) + "%"
 		args = append(args, pat, pat)
 	}
@@ -218,3 +220,6 @@ func toLower(s string) string {
 	}
 	return string(b)
 }
+
+// notServerBot leaves out the server's built-in bot (account type 2 = bot, no owner).
+const notServerBot = `(account_type <> 2 OR owner_id IS NOT NULL)`

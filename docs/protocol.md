@@ -58,7 +58,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | — | `{"ok":true}`（无需登录） |
-| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（能不能给 AI 上传插件）、`hosting`（能不能把 AI 托管到服务器）（无需登录） |
+| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（能不能给 AI 上传插件）、`hosting`（能不能把 AI 托管到服务器）、`commands`（内置 bot 的指令名和别名，不带 `/`；AI 不接这些话）、`helper_id`（内置 bot 的账号）（无需登录） |
 | GET | `/api/v1/server/icon` | — | 服务器图标 PNG（无需登录；没设置时 `media_not_found`）。`ServerInfo.icon` 带 `?v=` 版本号，换图标地址就变 |
 | GET | `/api/v1/server/profile` | — | `ServerProfile`：服务器主页（名字、简介、图标、成员数、在线人数、谁能改布局、成员能否改小组件内容）。由站点管理员在管理面板里设置 |
 | POST | `/api/v1/register` | `RegisterRequest` | `SessionResponse`（无需登录） |

@@ -1244,6 +1244,27 @@ const SETTINGS = [
   { title: '图片黑名单', items: [
     { k: 'media.block_distance', label: '相似度容差', help: '0–64，越小越严格。6 能拦住改过尺寸或重新压缩的同一张图。', type: 'int', min: 0, max: 64 },
   ] },
+  { title: '内置 bot 和游戏资讯', items: [
+    { k: 'helper.name', label: 'bot 的名字', help: '服务器自带的 bot，大家在频道里或私聊它发 / 开头的指令', type: 'text', max: 32 },
+    { k: 'news.enabled', label: '游戏资讯', help: '发「/关注游戏 名字|别名」关注游戏或厂商：每小时看 Steam、B站、新闻、Reddit、YouTube、微博、贴吧、NGA，大事立刻推，每晚发汇总', type: 'bool' },
+    { k: 'news.ai_url', label: '模型地址', help: '用来把消息归成事件、打分、翻译。任何 OpenAI 兼容接口，比如 https://api.deepseek.com/v1。不填就不归类，只有 Steam 消息会立刻推', type: 'text', placeholder: 'https://api.deepseek.com/v1' },
+    { k: 'news.ai_model', label: '模型名', type: 'text', placeholder: 'deepseek-chat' },
+    { k: 'news.ai_key', label: '模型 key', type: 'secret' },
+    { k: 'news.proxy', label: '代理', help: '访问 Google、Reddit、YouTube、Steam 用，比如 http://127.0.0.1:7890。不填 = 直连', type: 'text' },
+    { k: 'news.steam_community_proxy', label: 'Steam 社区代理', help: '读厂商的 Steam 群组公告用。不填 = 和上面一样；开了加速器（Watt Toolkit）填 direct', type: 'text' },
+    { k: 'news.daily_time', label: '每晚汇总时间', help: '按这台电脑的时间，比如 21:00', type: 'text', max: 5 },
+    { k: 'news.steam_push', label: 'Steam 新消息立刻推送', help: '关掉就只放进每晚汇总', type: 'bool' },
+    { k: 'news.max_per_conv', label: '每个频道 / 私聊最多关注几个', help: '0 表示不限', type: 'int', min: 0 },
+    { k: 'news.x_weekly', label: '每周 X（推特）周报', help: '用 xAI 搜 X 上一周的讨论，按帖子收费，每个关键词约 0.3 美元', type: 'bool' },
+    { k: 'news.weekly_day', label: '周报哪天发', type: 'select', options: [['sun', '周日'], ['mon', '周一'], ['tue', '周二'], ['wed', '周三'], ['thu', '周四'], ['fri', '周五'], ['sat', '周六']] },
+    { k: 'news.weekly_time', label: '周报几点发', type: 'text', max: 5 },
+    { k: 'news.xai_key', label: 'xAI key', type: 'secret' },
+    { k: 'news.xai_model', label: 'xAI 模型', type: 'text' },
+    { k: 'news.weekly_anyone', label: '谁都能用 /周报 手动查', help: '关掉时只有站点管理员能手动查（每次都要花钱）', type: 'bool' },
+    { k: 'news.weibo_cookie', label: '微博 cookie', help: '建议填：登录 m.weibo.cn 后从浏览器复制 Cookie', type: 'secret' },
+    { k: 'news.tieba_cookie', label: '贴吧 cookie', help: '建议填', type: 'secret' },
+    { k: 'news.nga_cookie', label: 'NGA cookie', help: 'NGA 必须登录才能搜（要有 ngaPassportUid 和 ngaPassportCid）', type: 'secret' },
+  ] },
   { title: '管理面板', items: [
     { k: 'admin.open_browser', label: '启动时打开管理面板', type: 'bool' },
     { k: 'admin.window', label: '用独立窗口打开', help: 'Windows 上在单独的窗口里打开面板，不用浏览器。关掉窗口服务器照样运行。', type: 'bool' },
@@ -1332,7 +1353,7 @@ async function renderSettings(root, page) {
         const v = values[it.k];
         if (it.type === 'bool') ctl = el('label', { class: 'check' }, el('input', { type: 'checkbox', checked: v }), el('span', {}, '开启'));
         else if (it.type === 'select') ctl = el('select', {}, it.options.map(([val, txt]) => el('option', { value: val, selected: val === v }, txt)));
-        else ctl = el('input', { type: it.type === 'int' ? 'number' : 'text', value: v, placeholder: it.placeholder, min: it.min, max: it.type === 'int' ? it.max : null, maxlength: it.type === 'text' ? it.max : null, step: it.type === 'int' ? 1 : null });
+        else ctl = el('input', { type: it.type === 'int' ? 'number' : it.type === 'secret' ? 'password' : 'text', autocomplete: it.type === 'secret' ? 'off' : null, value: v, placeholder: it.placeholder, min: it.min, max: it.type === 'int' ? it.max : null, maxlength: it.type === 'text' ? it.max : null, step: it.type === 'int' ? 1 : null });
         const input = ctl.tagName === 'LABEL' ? ctl.querySelector('input') : ctl;
         inputs[it.k] = { it, input, orig: v };
         const warn = it.warnBelow ? el('div', { class: 'warn-text', hidden: true }, '低于 ' + it.warnBelow + ' 天不符合法规要求') : null;
