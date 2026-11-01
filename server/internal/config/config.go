@@ -12,7 +12,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
 )
@@ -32,6 +35,8 @@ type Config struct {
 	Plugins   Plugins   `toml:"plugins"`
 	Hosting   Hosting   `toml:"hosting"`
 	Museum    Museum    `toml:"museum"`
+	Helper    Helper    `toml:"helper"`
+	News      News      `toml:"news"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
@@ -123,6 +128,43 @@ type Museum struct {
 	Enabled     bool `toml:"enabled"`
 	MinMembers  int  `toml:"min_members"`
 	VoteMinutes int  `toml:"vote_minutes"`
+}
+
+// Helper is the server's built-in bot (docs/design.md §10 内置 bot).
+type Helper struct {
+	Name string `toml:"name"`
+}
+
+// News configures 游戏资讯 (docs/design.md §10 内置 bot).
+type News struct {
+	Enabled        bool     `toml:"enabled"`
+	AIURL          string   `toml:"ai_url"`
+	AIKey          string   `toml:"ai_key"`
+	AIModel        string   `toml:"ai_model"`
+	AIProxy        string   `toml:"ai_proxy"`
+	Proxy          string   `toml:"proxy"`
+	CommunityProxy string   `toml:"steam_community_proxy"`
+	CheckMinutes   int      `toml:"check_minutes"`
+	DailyTime      string   `toml:"daily_time"`
+	XWeekly        bool     `toml:"x_weekly"`
+	WeeklyDay      string   `toml:"weekly_day"`
+	WeeklyTime     string   `toml:"weekly_time"`
+	WeeklyAnyone   bool     `toml:"weekly_anyone"`
+	XAIKey         string   `toml:"xai_key"`
+	XAIModel       string   `toml:"xai_model"`
+	XAIProxy       string   `toml:"xai_proxy"`
+	Sources        []string `toml:"sources"`
+	PerSource      int      `toml:"per_source"`
+	DigestTop      int      `toml:"digest_top"`
+	SteamTop       int      `toml:"steam_top"`
+	SteamPush      bool     `toml:"steam_push"`
+	SteamCC        string   `toml:"steam_cc"`
+	MaxPerConv     int      `toml:"max_per_conv"`
+	WeiboCookie    string   `toml:"weibo_cookie"`
+	TiebaCookie    string   `toml:"tieba_cookie"`
+	NGACookie      string   `toml:"nga_cookie"`
+	BiliCookie     string   `toml:"bili_cookie"`
+	SteamCookie    string   `toml:"steam_cookie"`
 }
 
 type Media struct {
@@ -322,6 +364,12 @@ func (c *Config) validate() error {
 	if c.Museum.MinMembers < 0 || c.Museum.VoteMinutes < 1 {
 		return errors.New("museum: min_members >= 0, vote_minutes >= 1")
 	}
+	if n := utf8.RuneCountInString(strings.TrimSpace(c.Helper.Name)); n < 1 || n > 32 {
+		return errors.New("helper.name must be 1-32 characters")
+	}
+	if err := c.News.check(); err != nil {
+		return err
+	}
 	if c.Hosting.MaxPerUser < 0 {
 		return errors.New("hosting.max_per_user must be >= 0")
 	}
@@ -344,6 +392,43 @@ func (c *Config) validate() error {
 	}
 	if c.Log.MaxSizeMB < 1 {
 		return errors.New("log.max_size_mb must be >= 1")
+	}
+	return nil
+}
+
+var newsSources = []string{"bili", "news", "bing", "reddit", "youtube", "steam", "weibo", "tieba", "nga"}
+
+func (n *News) check() error {
+	hm := func(key, v string) error {
+		p := strings.Split(strings.ReplaceAll(v, "：", ":"), ":")
+		if len(p) == 2 {
+			h, e1 := strconv.Atoi(p[0])
+			m, e2 := strconv.Atoi(p[1])
+			if e1 == nil && e2 == nil && h >= 0 && h < 24 && m >= 0 && m < 60 {
+				return nil
+			}
+		}
+		return fmt.Errorf("news.%s must be HH:MM, like 21:00", key)
+	}
+	if err := hm("daily_time", n.DailyTime); err != nil {
+		return err
+	}
+	if err := hm("weekly_time", n.WeeklyTime); err != nil {
+		return err
+	}
+	if !slices.Contains([]string{"sun", "mon", "tue", "wed", "thu", "fri", "sat"}, strings.ToLower(n.WeeklyDay)) {
+		return errors.New("news.weekly_day must be sun, mon, tue, wed, thu, fri or sat")
+	}
+	for _, s := range n.Sources {
+		if !slices.Contains(newsSources, s) {
+			return fmt.Errorf("news.sources: unknown source %q (known: %s)", s, strings.Join(newsSources, ", "))
+		}
+	}
+	if n.CheckMinutes < 15 || n.PerSource < 3 || n.DigestTop < 3 || n.SteamTop < 1 || n.MaxPerConv < 0 {
+		return errors.New("news: check_minutes >= 15, per_source >= 3, digest_top >= 3, steam_top >= 1, max_per_conv >= 0")
+	}
+	if u := n.AIURL; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		return errors.New("news.ai_url must start with http:// or https://")
 	}
 	return nil
 }

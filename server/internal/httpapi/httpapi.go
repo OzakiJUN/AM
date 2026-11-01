@@ -21,6 +21,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/game"
+	"github.com/OzakiJUN/am/server/internal/helper"
 	"github.com/OzakiJUN/am/server/internal/hosting"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
@@ -53,6 +54,7 @@ type API struct {
 	plugins   *plugin.Service
 	hosting   *hosting.Service
 	museum    *museum.Service
+	helper    *helper.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	syncRate  *uploadPacer
@@ -120,6 +122,10 @@ func (a *API) Register(mux *http.ServeMux) {
 		info := a.acct.ServerInfo()
 		info.Plugins = a.plugins != nil && a.plugins.Enabled()
 		info.Hosting = a.hosting != nil && a.hosting.Enabled()
+		if a.helper != nil {
+			info.Commands = a.helper.Names()
+			info.HelperId = a.helper.Bot().ID
+		}
 		a.ok(w, info)
 	})
 	mux.HandleFunc("GET /api/v1/server/icon", a.serverIcon)

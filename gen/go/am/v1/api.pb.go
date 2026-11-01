@@ -888,7 +888,12 @@ type ServerInfo struct {
 	// AI plugins (NoneBot) can be uploaded on this server (plugins.enabled).
 	Plugins bool `protobuf:"varint,6,opt,name=plugins,proto3" json:"plugins,omitempty"`
 	// AIs can be hosted on this server (hosting.enabled, max_per_user > 0).
-	Hosting       bool `protobuf:"varint,7,opt,name=hosting,proto3" json:"hosting,omitempty"`
+	Hosting bool `protobuf:"varint,7,opt,name=hosting,proto3" json:"hosting,omitempty"`
+	// Commands of the server's built-in bot (names and aliases, without the
+	// leading "/"); AIs leave messages starting with these alone.
+	Commands []string `protobuf:"bytes,8,rep,name=commands,proto3" json:"commands,omitempty"`
+	// The built-in bot's account (0 = none).
+	HelperId      int64 `protobuf:"varint,9,opt,name=helper_id,json=helperId,proto3" json:"helper_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -970,6 +975,20 @@ func (x *ServerInfo) GetHosting() bool {
 		return x.Hosting
 	}
 	return false
+}
+
+func (x *ServerInfo) GetCommands() []string {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
+func (x *ServerInfo) GetHelperId() int64 {
+	if x != nil {
+		return x.HelperId
+	}
+	return 0
 }
 
 // GET /api/v1/server/profile: the server's profile page. Set up by the site
@@ -5317,7 +5336,7 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fused_by_name\x18\x04 \x01(\tR\n" +
 	"usedByName\x12\x1b\n" +
 	"\tjoin_code\x18\x05 \x01(\tR\bjoinCode\x12\x19\n" +
-	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\xc6\x01\n" +
+	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\xff\x01\n" +
 	"\n" +
 	"ServerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
@@ -5327,7 +5346,9 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\vinstance_id\x18\x05 \x01(\tR\n" +
 	"instanceId\x12\x18\n" +
 	"\aplugins\x18\x06 \x01(\bR\aplugins\x12\x18\n" +
-	"\ahosting\x18\a \x01(\bR\ahosting\"\x95\x02\n" +
+	"\ahosting\x18\a \x01(\bR\ahosting\x12\x1a\n" +
+	"\bcommands\x18\b \x03(\tR\bcommands\x12\x1b\n" +
+	"\thelper_id\x18\t \x01(\x03R\bhelperId\"\x95\x02\n" +
 	"\rServerProfile\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +

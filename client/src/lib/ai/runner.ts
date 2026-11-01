@@ -340,6 +340,18 @@ const drawCounts = new Map<string, { day: string; n: number }>();
  * (only the owner, or everyone within a daily count). In a channel where
  * someone else's AI is @-mentioned, it's not for this one.
  */
+/**
+ * A command something else answers (a plugin, the server's bot; with
+ * `draw`, a drawing command too): not a chat turn.
+ */
+function isCommand(run: Run, m: Message, draw = false): boolean {
+  if (m.body.kind !== 'text') return false;
+  const t = m.body.text;
+  return (draw && !!parseCommand(t, run.plugins.starts.length ? run.plugins.starts : ['/']))
+    || isPluginCommand(t, run.plugins.starts, run.plugins.commands)
+    || isPluginCommand(t, ['/', '／'], run.s.view.commands);
+}
+
 function drawCommand(run: Run, convId: string, m: Message): boolean {
   if (m.body.kind !== 'text') return false;
   const cmd = parseCommand(m.body.text, run.plugins.starts.length ? run.plugins.starts : ['/']);
@@ -373,8 +385,8 @@ function onMessage(run: Run, convId: string, m: Message) {
   scheduleRemember(run, convId);
   // A drawing command (/nai …): drawn right away, not a chat turn.
   if (drawCommand(run, convId, m)) return;
-  // A plugin command: the plugin answers, not the model.
-  if (m.body.kind === 'text' && isPluginCommand(m.body.text, run.plugins.starts, run.plugins.commands)) return;
+  // A plugin command, or one for the server's built-in bot (/资讯 …): they answer, not the model.
+  if (isCommand(run, m)) return;
   // The session stores the new message right after telling us: look a tick later.
   if (conv.kind === 'group') {
     setTimeout(() => considerChannel(run, convId, m), 0);
@@ -1149,7 +1161,8 @@ async function catchUp(run: Run) {
     const msgs = (s.view.messages[conv.id] ?? []).filter((m) => !m.pending && !m.failed && textOf(m) !== null);
     // Only what came after its last word there.
     const lastMine = msgs.map((m) => m.senderId).lastIndexOf(me);
-    const after = msgs.slice(lastMine + 1).filter((m) => m.time >= since && m.senderId !== me);
+    // Commands were for something else (drawing, plugins, the server's bot), not a chat with it.
+    const after = msgs.slice(lastMine + 1).filter((m) => m.time >= since && m.senderId !== me && !isCommand(run, m, true));
     if (!after.length) continue;
     const group = conv.kind === 'group';
     const asked = group

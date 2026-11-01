@@ -94,6 +94,8 @@ transport.proxyProtocolVersion = "v2"
 
 - **AI 托管**：大家申请把自己的 AI 放到这台电脑上运行。批准后 am-server 会在后台（没有窗口）启动 AM 客户端替他运行这个 AI，用的是他自己的模型 key；它只能在 `data\hosting\ai-<编号>\work` 里读写文件。**这台电脑上要装好 AM 客户端**（am-server 自己去找：和 am-server.exe 放一起，或者安装程序装的位置；找不到就在 `config.toml` 的 `[hosting]` 里写 `client_path`）。每人最多托管几个也在 `[hosting]`（`max_per_user`，0 = 不让托管）。
 
+**内置 bot 和游戏资讯**：服务器自带一个 bot（默认叫「小助手」），大家在频道里或私聊它发「/关注游戏 名字|别名」就能关注游戏，大事立刻推、每晚发汇总。要让它把消息归类、打分，在管理面板「设置 → 内置 bot 和游戏资讯」填一个模型（任何 OpenAI 兼容的，比如 DeepSeek）；Google、Reddit、YouTube 国内要填代理；微博、贴吧最好填 cookie，NGA 必须填。每周的 X 周报要 xAI key（按次收费）。不想要就关掉「游戏资讯」。
+
 **频道博物馆**：每个频道自带，不用管理。想关掉或改投票规则（人数超过几个要投票、投多久）在 `config.toml` 的 `[museum]` 里改。
 
 **AI 插件要 Python**：插件在这台电脑上运行，要装 Python 3.10 或更新的版本（Windows 从 python.org 下载，安装时勾上「Add python.exe to PATH」）。第一次有插件被批准时，am-server 会在 `data\plugins\venv` 建一个独立环境、自动装 NoneBot 和插件要的包，要联网，可能要几分钟。国内下载慢就在 `config.toml` 的 `[plugins]` 里设 `pip_index = "https://pypi.tuna.tsinghua.edu.cn/simple"`。不想让大家传插件：`[plugins]` 里 `enabled = false`。写插件的说明在 [plugins.md](plugins.md)。

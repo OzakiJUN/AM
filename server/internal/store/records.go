@@ -71,7 +71,7 @@ type Stats struct {
 func (q *Queries) Stats(ctx context.Context, groupKind, dmKind int16) (*Stats, error) {
 	s := &Stats{}
 	err := q.queryRow(ctx, `SELECT
-		(SELECT count(*) FROM users),
+		(SELECT count(*) FROM users WHERE `+notServerBot+`),
 		(SELECT count(*) FROM users WHERE banned),
 		(SELECT count(*) FROM conversations WHERE kind=? AND NOT dissolved),
 		(SELECT count(*) FROM conversations WHERE kind=?),

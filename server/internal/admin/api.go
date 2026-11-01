@@ -492,7 +492,13 @@ var settingKinds = map[string]string{
 	"media.block_distance": "int",
 	"stickers.library":     "bool", "stickers.default_public": "bool", "stickers.dedupe_distance": "int", "limits.max_stickers": "int",
 	"admin.open_browser": "bool", "admin.tray": "bool", "admin.listen": "string", "admin.window": "bool",
-	"log.level": "string",
+	"log.level":    "string",
+	"helper.name":  "string",
+	"news.enabled": "bool", "news.ai_url": "string", "news.ai_key": "string", "news.ai_model": "string",
+	"news.proxy": "string", "news.steam_community_proxy": "string", "news.daily_time": "string",
+	"news.x_weekly": "bool", "news.weekly_day": "string", "news.weekly_time": "string", "news.weekly_anyone": "bool",
+	"news.xai_key": "string", "news.xai_model": "string", "news.steam_push": "bool", "news.max_per_conv": "int",
+	"news.weibo_cookie": "string", "news.tieba_cookie": "string", "news.nga_cookie": "string",
 }
 
 func settingValues(c *config.Config) map[string]any {
@@ -512,6 +518,13 @@ func settingValues(c *config.Config) map[string]any {
 		"admin.open_browser": c.Admin.OpenBrowser, "admin.tray": c.Admin.Tray, "admin.listen": c.Admin.Listen,
 		"admin.window": c.Admin.Window,
 		"log.level":    c.Log.Level,
+		"helper.name":  c.Helper.Name,
+		"news.enabled": c.News.Enabled, "news.ai_url": c.News.AIURL, "news.ai_key": c.News.AIKey, "news.ai_model": c.News.AIModel,
+		"news.proxy": c.News.Proxy, "news.steam_community_proxy": c.News.CommunityProxy, "news.daily_time": c.News.DailyTime,
+		"news.x_weekly": c.News.XWeekly, "news.weekly_day": c.News.WeeklyDay, "news.weekly_time": c.News.WeeklyTime,
+		"news.weekly_anyone": c.News.WeeklyAnyone, "news.xai_key": c.News.XAIKey, "news.xai_model": c.News.XAIModel,
+		"news.steam_push": c.News.SteamPush, "news.max_per_conv": c.News.MaxPerConv,
+		"news.weibo_cookie": c.News.WeiboCookie, "news.tieba_cookie": c.News.TiebaCookie, "news.nga_cookie": c.News.NGACookie,
 	}
 }
 

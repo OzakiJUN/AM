@@ -159,6 +159,73 @@ min_members = 5
 # How long a vote lasts (minutes).
 vote_minutes = 30
 
+[helper]
+# The server's built-in bot: answers "/" commands in channels and in DMs
+# with it (游戏资讯 now; more built-in features later). Type "/" + a command,
+# e.g. /关注游戏 dota2|刀塔. In a private channel someone has to be allowed to
+# add members for it to come in.
+name = "小助手"
+
+[news]
+# 游戏资讯 (docs/design.md §10 内置 bot): follow games / companies with
+# "/关注游戏 名字|别名" in a channel or in a DM with the bot. Every hour it
+# reads Steam, B站, news, Reddit, YouTube, 微博, 贴吧, NGA; big news is
+# posted at once, a digest every evening, an X (Twitter) report every week.
+enabled = true
+# The model that groups posts into events and scores them: any
+# OpenAI-compatible API (DeepSeek: https://api.deepseek.com/v1,
+# deepseek-chat). Empty = no model: every post is its own event and only
+# Steam news is posted at once.
+ai_url = ""
+ai_key = ""
+ai_model = ""
+# Proxy for the model ("" = direct).
+ai_proxy = ""
+# Proxy for overseas sites (Google, Reddit, YouTube, Steam), e.g.
+# "http://127.0.0.1:7890". Empty = direct.
+proxy = ""
+# steamcommunity.com (company group posts): "" = like proxy, "direct" (with
+# an accelerator like Watt Toolkit), "system" (the HTTPS_PROXY environment
+# variable), or a proxy URL.
+steam_community_proxy = ""
+# How often to look (minutes, at least 15).
+check_minutes = 60
+# The evening digest (this computer's time).
+daily_time = "21:00"
+# The weekly X report through xAI (billed per post read, about $0.3 per
+# keyword). Needs xai_key.
+x_weekly = true
+weekly_day = "sun"
+weekly_time = "20:00"
+# Everyone may ask for an X report with /周报 (false = site admins only).
+weekly_anyone = false
+xai_key = ""
+xai_model = "grok-4.7"
+# Proxy for xAI ("" = like proxy).
+xai_proxy = ""
+# Which sources to read.
+sources = ["bili", "news", "bing", "reddit", "youtube", "steam", "weibo", "tieba", "nga"]
+# Posts kept per source and keyword each round.
+per_source = 12
+# Events in the evening digest per keyword.
+digest_top = 8
+# Steam posts listed at the top of /资讯.
+steam_top = 5
+# Post new Steam news at once (false = only in the evening digest).
+steam_push = true
+# Steam store region for searches ("US" also finds adult-only games).
+steam_cc = "US"
+# Keywords one channel / DM may follow (0 = no limit).
+max_per_conv = 10
+# Cookies make some sites work better: 微博 and 贴吧 (recommended), NGA
+# (required), B站 and Steam (optional). Copy the Cookie header from the
+# browser while logged in. They are secrets: keep this file private.
+weibo_cookie = ""
+tieba_cookie = ""
+nga_cookie = ""
+bili_cookie = ""
+steam_cookie = ""
+
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so
 # only this computer can open it. On a headless Linux server, reach it through

@@ -13,6 +13,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/game"
 	"github.com/OzakiJUN/am/server/internal/gateway"
+	"github.com/OzakiJUN/am/server/internal/helper"
 	"github.com/OzakiJUN/am/server/internal/hosting"
 	"github.com/OzakiJUN/am/server/internal/httpapi"
 	"github.com/OzakiJUN/am/server/internal/idgen"
@@ -21,6 +22,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/museum"
 	"github.com/OzakiJUN/am/server/internal/music"
+	"github.com/OzakiJUN/am/server/internal/news"
 	"github.com/OzakiJUN/am/server/internal/plugin"
 	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/profile"
@@ -42,7 +44,10 @@ type App struct {
 	// Hosting: AIs run on this server (nil when hosting.enabled = false).
 	Hosting *hosting.Service
 	// Museum: channel museums (votes are settled in the background).
-	Museum  *museum.Service
+	Museum *museum.Service
+	// Helper: the built-in bot; News: 游戏资讯 (it posts as the bot).
+	Helper  *helper.Service
+	News    *news.Service
 	Janitor *janitor.Janitor
 	Handler http.Handler
 }
@@ -121,6 +126,28 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	mus := museum.New(museum.Config{Enabled: cfg.Museum.Enabled, MinMembers: cfg.Museum.MinMembers, VoteMinutes: cfg.Museum.VoteMinutes}, st, ids, ms, log)
 	go mus.Run()
 
+	bot, err := helper.New(ctx, st, ids, ms, cs, cfg.Helper.Name, cfg.Limits.MaxTextLength, log)
+	if err != nil {
+		mus.Close()
+		if hosted != nil {
+			hosted.Close()
+		}
+		if plugins != nil {
+			plugins.Host().Close()
+		}
+		st.Close()
+		return nil, err
+	}
+	nc := cfg.News
+	nw := news.New(news.Config{Enabled: nc.Enabled, AIURL: nc.AIURL, AIKey: nc.AIKey, AIModel: nc.AIModel, AIProxy: nc.AIProxy,
+		Proxy: nc.Proxy, CommunityProxy: nc.CommunityProxy, CheckMinutes: nc.CheckMinutes, DailyTime: nc.DailyTime,
+		WeeklyDay: nc.WeeklyDay, WeeklyTime: nc.WeeklyTime, XWeekly: nc.XWeekly, XAIKey: nc.XAIKey, XAIModel: nc.XAIModel,
+		XAIProxy: nc.XAIProxy, WeeklyAnyone: nc.WeeklyAnyone, Sources: nc.Sources, PerSource: nc.PerSource,
+		DigestTop: nc.DigestTop, SteamTop: nc.SteamTop, SteamPush: nc.SteamPush, SteamCC: nc.SteamCC, MaxPerConv: nc.MaxPerConv,
+		Cookies: map[string]string{"weibo": nc.WeiboCookie, "tieba": nc.TiebaCookie, "nga": nc.NGACookie, "bili": nc.BiliCookie, "steam": nc.SteamCookie},
+	}, st, bot, log)
+	go nw.Run()
+
 	mux := http.NewServeMux()
 	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,
 		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
@@ -131,6 +158,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		api.SetHosting(hosted)
 	}
 	api.SetMuseum(mus)
+	api.SetHelper(bot)
 	api.Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
 
@@ -144,12 +172,15 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Plugins:  plugins,
 		Hosting:  hosted,
 		Museum:   mus,
+		Helper:   bot,
+		News:     nw,
 		Janitor:  janitor.New(st, md, cfg.Retention, log),
 		Handler:  mux,
 	}, nil
 }
 
 func (a *App) Close() {
+	a.News.Close()
 	a.Museum.Close()
 	if a.Hosting != nil {
 		a.Hosting.Close()

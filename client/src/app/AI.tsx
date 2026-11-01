@@ -80,7 +80,7 @@ function AIList({ v }: { v: SessionView }) {
                   </div>
                   <div className="mt-0.5 flex items-center gap-2">
                     <span className="truncate text-[0.82rem] text-ink-soft dark:text-white/50">
-                      {conv.kind === 'group' ? `共享聊天 · ${conv.members.length} 人` : peer.ownerId === v.me?.id ? '我的' : `主人：${peer.ownerName || '未知'}`}
+                      {conv.kind === 'group' ? `共享聊天 · ${conv.members.length} 人` : peer.ownerId === v.me?.id ? '我的' : !peer.ownerId ? '服务器自带' : `主人：${peer.ownerName || '未知'}`}
                     </span>
                     {conv.kind !== 'group' && reqCount(peer.id) > 0 && (
                       <span className="shrink-0 rounded-full bg-amber-400/90 px-1.5 text-[0.7rem] leading-5 font-medium text-white" title="有人申请和它聊天，去 AI 设置 → 社交里处理">

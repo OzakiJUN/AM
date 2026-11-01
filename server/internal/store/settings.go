@@ -27,9 +27,10 @@ func (q *Queries) SetServerSetting(ctx context.Context, key, value string) error
 	return err
 }
 
-// CountActiveUsers counts accounts that are not banned and have not left.
+// CountActiveUsers counts accounts that are not banned and have not left
+// (the server's built-in bot doesn't count).
 func (q *Queries) CountActiveUsers(ctx context.Context) (int64, error) {
 	var n int64
-	err := q.queryRow(ctx, `SELECT count(*) FROM users WHERE NOT banned AND left_at IS NULL`).Scan(&n)
+	err := q.queryRow(ctx, `SELECT count(*) FROM users WHERE NOT banned AND left_at IS NULL AND `+notServerBot).Scan(&n)
 	return n, err
 }

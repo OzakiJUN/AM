@@ -75,6 +75,9 @@ export interface SessionView {
   plugins: boolean;
   /** AIs can be hosted on this server. */
   hosting: boolean;
+  /** The built-in bot's commands (without "/"), and its account. */
+  commands: string[];
+  helperId: string;
   /** Who is online, as I see them (user id -> presence). Empty while disconnected. */
   presence: Record<string, Presence>;
   /** Server icon (media path), '' when none. */
@@ -536,7 +539,7 @@ export class Session {
     this.t = createTransport(record.id, record.endpoint);
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
-      users: {}, convs: {}, messages: {}, replyTargets: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false,
+      users: {}, convs: {}, messages: {}, replyTargets: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false, commands: [], helperId: '',
       presence: {},
       icon: '',
       games: {},
@@ -932,7 +935,7 @@ export class Session {
         this.record = { ...this.record, name: i.name };
         this.onRecord(this.record);
       }
-      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon, plugins: i.plugins, hosting: i.hosting });
+      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon, plugins: i.plugins, hosting: i.hosting, commands: i.commands, helperId: i.helperId ? s(i.helperId) : '' });
     }).catch(() => {});
     await this.connect();
   }

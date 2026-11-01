@@ -138,6 +138,11 @@ message ServerInfo {
   bool plugins = 6;
   // AIs can be hosted on this server (hosting.enabled, max_per_user > 0).
   bool hosting = 7;
+  // Commands of the server's built-in bot (names and aliases, without the
+  // leading "/"); AIs leave messages starting with these alone.
+  repeated string commands = 8;
+  // The built-in bot's account (0 = none).
+  int64 helper_id = 9;
 }
 
 // Who may rearrange the widgets on the server profile.

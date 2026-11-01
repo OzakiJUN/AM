@@ -54,7 +54,7 @@ func (q *Queries) PublicChannelIDs(ctx context.Context) ([]int64, error) {
 
 // ActiveUserIDs returns every account that is not banned.
 func (q *Queries) ActiveUserIDs(ctx context.Context) ([]int64, error) {
-	rows, err := q.query(ctx, `SELECT id FROM users WHERE NOT banned ORDER BY id`)
+	rows, err := q.query(ctx, `SELECT id FROM users WHERE NOT banned AND `+notServerBot+` ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
