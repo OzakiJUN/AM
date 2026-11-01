@@ -43,12 +43,18 @@ message TextMsg {
   // Event this message replies to. 0 = not a reply.
   int64 reply_to = 2;
   repeated int64 mentions = 3;
+  // Mood of an AI reply (emotion key from docs/design.md §9, e.g. "happy"),
+  // shown by the AI portrait. Only kept on messages from ai / bot accounts.
+  string mood = 4;
 }
 
 message ImageMsg {
   int64 media_id = 1;
   int32 width = 2;
   int32 height = 3;
+  // Sent from the sticker panel: the sticker's tags (at most 10, 20 characters
+  // each). AIs read these instead of looking at the picture.
+  repeated string sticker_tags = 4;
 }
 
 message FileMsg {

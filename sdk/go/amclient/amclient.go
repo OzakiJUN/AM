@@ -140,6 +140,12 @@ func (c *Client) ServerInfo(ctx context.Context) (*amv1.ServerInfo, error) {
 	return out, c.call(ctx, http.MethodGet, "/api/v1/server", nil, out)
 }
 
+// ServerProfile returns the server's profile page.
+func (c *Client) ServerProfile(ctx context.Context) (*amv1.ServerProfile, error) {
+	out := &amv1.ServerProfile{}
+	return out, c.call(ctx, http.MethodGet, "/api/v1/server/profile", nil, out)
+}
+
 func (c *Client) CreateInvite(ctx context.Context) (*amv1.Invite, error) {
 	out := &amv1.Invite{}
 	return out, c.call(ctx, http.MethodPost, "/api/v1/invites", nil, out)
@@ -188,7 +194,8 @@ func (c *Client) Connect(ctx context.Context) (*Conn, error) {
 	conn.Pushes = conn.pushes
 	go conn.readLoop()
 
-	resp, err := conn.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_Auth{Auth: &amv1.AuthRequest{Token: c.Token}}})
+	addr := strings.TrimPrefix(strings.TrimPrefix(c.BaseURL, "https://"), "http://")
+	resp, err := conn.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_Auth{Auth: &amv1.AuthRequest{Token: c.Token, Address: addr}}})
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -296,6 +303,11 @@ func (c *Conn) send(ctx context.Context, req *amv1.SendRequest) (*amv1.Event, er
 // SendText sends a text message.
 func (c *Conn) SendText(ctx context.Context, convID int64, text string) (*amv1.Event, error) {
 	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Text{Text: &amv1.TextMsg{Text: text}}})
+}
+
+// SendMood sends a text message with an AI mood (kept only for ai / bot accounts).
+func (c *Conn) SendMood(ctx context.Context, convID int64, text, mood string) (*amv1.Event, error) {
+	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Text{Text: &amv1.TextMsg{Text: text, Mood: mood}}})
 }
 
 // SendTextWithID sends a text message with a fixed client_msg_id (to test resends).

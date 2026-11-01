@@ -21,6 +21,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/desktop"
 	"github.com/OzakiJUN/am/server/internal/media"
+	"github.com/OzakiJUN/am/server/internal/profile"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -264,7 +265,7 @@ func (h *handler) listUsers(w http.ResponseWriter, r *http.Request) {
 			"type": accountTypes[u.AccountType], "owner_id": id64(u.OwnerID),
 			"is_site_admin": u.IsSiteAdmin, "banned": u.Banned, "ban_reason": u.BanReason, "banned_at": u.BannedAt,
 			"created_at": u.CreatedAt, "last_seen": u.LastSeen, "sessions": u.Sessions, "online": online[u.ID],
-			"avatar_media_id": id64(u.AvatarMediaID),
+			"avatar_media_id": id64(u.AvatarMediaID), "left_at": u.LeftAt,
 		})
 	}
 	writeJSON(w, map[string]any{"users": out, "total": total, "page_size": limit})
@@ -280,7 +281,7 @@ func (h *handler) userAction(w http.ResponseWriter, r *http.Request, fn func(ctx
 		writeErr(w, http.StatusBadRequest, "bad_request", "bad user id")
 		return
 	}
-	res, err := fn(r.Context(), &appRef{a.Account, a.Store}, id)
+	res, err := fn(r.Context(), &appRef{a.Account, a.Store, a.Profile}, id)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -292,8 +293,9 @@ func (h *handler) userAction(w http.ResponseWriter, r *http.Request, fn func(ctx
 }
 
 type appRef struct {
-	acct *account.Service
-	st   *store.Store
+	acct    *account.Service
+	st      *store.Store
+	profile *profile.Service
 }
 
 func (h *handler) banUser(w http.ResponseWriter, r *http.Request) {
@@ -335,6 +337,13 @@ func (h *handler) resetPassword(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		return map[string]string{"password": pw}, nil
+	})
+}
+
+// clearProfile empties a user's profile page (content that breaks the rules).
+func (h *handler) clearProfile(w http.ResponseWriter, r *http.Request) {
+	h.userAction(w, r, func(ctx context.Context, a *appRef, id int64) (any, error) {
+		return map[string]bool{"ok": true}, a.profile.Clear(ctx, account.PanelActor, id)
 	})
 }
 
@@ -403,7 +412,7 @@ func (h *handler) media(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request", "bad media id")
 		return
 	}
-	f, err := a.Media.OpenAny(r.Context(), id, r.URL.Query().Get("thumb") == "1")
+	f, err := a.Media.OpenForPanel(r.Context(), id, int16(amv1.ConvKind_CONV_KIND_GROUP), r.URL.Query().Get("thumb") == "1")
 	if errors.Is(err, media.ErrMediaMissing) {
 		writeErr(w, http.StatusNotFound, "media_not_found", "文件不存在或已被清理")
 		return
@@ -468,8 +477,8 @@ var settingKinds = map[string]string{
 	"server.proxy_protocol": "bool",
 	"invites.per_user":      "int", "invites.admin_unlimited": "bool", "invites.download_url": "string",
 	"limits.max_text_length": "int", "limits.max_group_members": "int", "limits.max_upload_mb": "int",
-	"limits.login_attempts_per_minute": "int",
-	"retention.evidence_days":          "int", "retention.login_record_days": "int",
+	"limits.login_attempts_per_minute": "int", "limits.max_devices": "int", "limits.pair_code_minutes": "int", "limits.max_ai_per_user": "int",
+	"retention.evidence_days": "int", "retention.login_record_days": "int",
 	"media.block_distance": "int",
 	"admin.open_browser":   "bool", "admin.tray": "bool", "admin.listen": "string", "admin.window": "bool",
 	"log.level": "string",
@@ -483,6 +492,8 @@ func settingValues(c *config.Config) map[string]any {
 		"invites.download_url":   c.Invites.DownloadURL,
 		"limits.max_text_length": c.Limits.MaxTextLength, "limits.max_group_members": c.Limits.MaxGroupMembers,
 		"limits.max_upload_mb": c.Limits.MaxUploadMB, "limits.login_attempts_per_minute": c.Limits.LoginAttemptsPerMinute,
+		"limits.max_devices": c.Limits.MaxDevices, "limits.pair_code_minutes": c.Limits.PairCodeMinutes,
+		"limits.max_ai_per_user":  c.Limits.MaxAIPerUser,
 		"retention.evidence_days": c.Retention.EvidenceDays, "retention.login_record_days": c.Retention.LoginRecordDays,
 		"media.block_distance": c.Media.BlockDistance,
 		"admin.open_browser":   c.Admin.OpenBrowser, "admin.tray": c.Admin.Tray, "admin.listen": c.Admin.Listen,

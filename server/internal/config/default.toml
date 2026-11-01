@@ -60,6 +60,20 @@ login_attempts_per_minute = 10
 max_group_members = 500
 # Largest upload (image or file) in MB.
 max_upload_mb = 50
+# Most devices one account may be logged in on at the same time (phones and
+# computers alike; bot / AI accounts do not count). When full, logging in on
+# another device or making a pairing code is refused until one logs out.
+# 0 = no limit.
+max_devices = 3
+# How long a "add a new device" pairing code works, in minutes.
+pair_code_minutes = 5
+# How many AI accounts one person may create (they run on the owner's device).
+max_ai_per_user = 5
+# How many stickers one person may keep in their collection.
+max_stickers = 1000
+# How many board games (五子棋, 黑白棋, 谁是卧底) may be open or running at
+# once in one channel or shared AI room. 0 = games are turned off.
+max_games_per_conv = 3
 
 [retention]
 # How long admin-deleted content is kept in the evidence store before it is
@@ -67,11 +81,18 @@ max_upload_mb = 50
 evidence_days = 180
 # How long login records (time, IP, device) are kept. At least 180 days.
 login_record_days = 180
+# How long finished board games stay in a channel's game history (对局记录).
+games_days = 180
 
 [media]
 # Images whose fingerprint is within this distance of a blocked image are
 # rejected (0-64; lower = stricter match). 6 catches re-saved / resized copies.
 block_distance = 6
+# Music widgets may take NetEase Cloud Music links: the server reads the
+# song / playlist (title, artist, cover) from this address. Playing still
+# streams from NetEase on the listener's device, only after they press play.
+netease = true
+netease_api = "https://music.163.com"
 
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so

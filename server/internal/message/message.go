@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -20,6 +21,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/idgen"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/push"
+	"github.com/OzakiJUN/am/server/internal/sticker"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -98,14 +100,14 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 		if utf8.RuneCountInString(text) > s.limits.MaxTextLength {
 			return nil, apperr.ErrTooLong
 		}
-		body.Body = &amv1.Event_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: b.Text.GetReplyTo(), Mentions: b.Text.GetMentions()}}
+		body.Body = &amv1.Event_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: b.Text.GetReplyTo(), Mentions: b.Text.GetMentions(), Mood: aiMood(me, b.Text.GetMood())}}
 		kind = KindText
 	case *amv1.SendRequest_Image:
 		m, err := s.media.OwnUpload(ctx, me.ID, b.Image.GetMediaId(), true)
 		if err != nil {
 			return nil, err
 		}
-		body.Body = &amv1.Event_Image{Image: &amv1.ImageMsg{MediaId: m.ID, Width: int32(m.Width), Height: int32(m.Height)}}
+		body.Body = &amv1.Event_Image{Image: &amv1.ImageMsg{MediaId: m.ID, Width: int32(m.Width), Height: int32(m.Height), StickerTags: sticker.CleanTags(b.Image.GetStickerTags())}}
 		kind, mediaID = KindImage, m.ID
 	case *amv1.SendRequest_File:
 		m, err := s.media.OwnUpload(ctx, me.ID, b.File.GetMediaId(), false)
@@ -459,4 +461,15 @@ func ToProto(r *store.Event, viewer int64) (*amv1.Event, error) {
 		ev.ClientMsgId = r.ClientMsgID
 	}
 	return ev, nil
+}
+
+var moodRe = regexp.MustCompile(`^[a-z_]{1,16}$`)
+
+// aiMood keeps the mood of an AI / bot message (shown by its portrait);
+// people's messages never carry one.
+func aiMood(me *store.User, mood string) string {
+	if me.AccountType == int16(amv1.AccountType_ACCOUNT_TYPE_HUMAN) || !moodRe.MatchString(mood) {
+		return ""
+	}
+	return mood
 }

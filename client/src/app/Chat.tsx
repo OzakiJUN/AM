@@ -1,19 +1,28 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, Ban, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Paperclip, PanelRight, RotateCw,
-  SendHorizontal, Settings2, Smile, Sparkles, Strikethrough, Trash2, Upload, UserPlus,
+  AlertCircle, Ban, Bot, Copy, Download, FileText, Hash, ImagePlus, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
+  SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
-import { current, useApp, useOpenConv, type ConvPage } from '@/lib/store';
+import { usePrefs } from '@/lib/prefs';
+import { activityText } from '@/lib/presence';
+import { closeConv, current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
 import { systemText, type SessionView } from '@/lib/session';
-import type { Conversation, MemberRole, Message } from '@/lib/types';
+import type { Conversation, MemberRole, Message, User } from '@/lib/types';
+import { applyMention, matchPeople, mentionParts, mentionQuery, mentionedIds } from '@/lib/mentions';
 import { copyText } from '@/lib/platform';
 import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
+import { StickerManager, StickerPanel } from './Stickers';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { toggleBlock } from './People';
-import { PortraitBand, PortraitCorner } from './Portrait';
+import { GameBar, GameButton } from './Games';
+import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait, usePortraitPack } from './Portrait';
+import { AISettingsDialog, askDeleteAI } from './AISettings';
+import { useAI } from '@/lib/ai/runner';
+import { voiceInput } from '@/lib/voice';
+import { MOODS, pokeText, type Mood } from '@/lib/portraits';
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
@@ -29,10 +38,20 @@ const EMPTY = {
  */
 export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const convId = useOpenConv(page, v.id);
-  const showMembers = useApp((s) => s.showMembers);
+  const membersFolded = usePrefs((p) => p.membersFolded);
+  const setPrefs = usePrefs((p) => p.set);
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [aiOpen, setAIOpen] = useState(false);
+  const [poked, setPoked] = useState(0);
+  const [pokedMood, setPokedMood] = useState<Mood | undefined>();
+  const lastPoke = useRef(0);
+  const pokeDown = useRef<[number, number] | null>(null);
   const conv = convId ? v.convs[convId] : undefined;
+  const streaming = useAI((s) => (convId ? s.streams[`${v.id}|${convId}`] : undefined));
+  const aiError = useAI((s) => (conv?.peerId ? s.errors[`${v.id}|${conv.peerId}`] : undefined));
+  // The AI's own portrait pack (default pack when it has none).
+  const pack = usePortraitPack(v.id, page === 'ai' && conv ? v.users[conv.peerId ?? conv.aiId ?? ''] : undefined);
   if (!conv) {
     const { Icon, title, text } = EMPTY[page];
     return (
@@ -42,9 +61,29 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
     );
   }
   const group = conv.kind === 'group';
-  const peer = conv.peerId ? v.users[conv.peerId] : undefined;
+  // The DM peer, or the AI of a shared AI room.
+  const peer = conv.peerId ? v.users[conv.peerId] : conv.aiId ? v.users[conv.aiId] : undefined;
   const blocked = !!peer && v.blocked.includes(peer.id);
   const ai = page === 'ai';
+  const peerPresence = peer ? v.presence[peer.id] : undefined;
+  const myAI = ai && !!peer && peer.ownerId === v.me?.id;
+  const mood = pokedMood ?? aiMood(v, conv.id, peer?.id, streaming);
+  // Poking the portrait: a click on the figure (not on the empty space around it) sends "[戳一戳] …".
+  const poke = (e: React.MouseEvent) => {
+    if (!ai || !peer || !peerPresence || conv.left || blocked) return;
+    const down = pokeDown.current;
+    if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return; // a drag (selecting text)
+    const part = hitPortrait(e.currentTarget as HTMLElement, e.clientX, e.clientY);
+    if (!part) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (Date.now() - lastPoke.current < 2500) return;
+    lastPoke.current = Date.now();
+    setPoked((n) => n + 1);
+    setPokedMood('surprised');
+    setTimeout(() => setPokedMood(undefined), 1600);
+    current().sendText(conv.id, pokeText(part, peer.name)).catch(toastError);
+  };
   return (
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
@@ -56,36 +95,59 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
               <IdentityChip user={peer} />
             </div>
             <div className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">
-              {group ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人` : peer ? `@${peer.username}` : ''}
+              {group
+                ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人`
+                : peer ? `@${peer.username} · ${peerPresence ? activityText(peerPresence.activity) || '在线' : '离线'}` : ''}
               {conv.left && ' · 你已不在这个频道里'}
               {blocked && ' · 已屏蔽'}
             </div>
           </div>
           {group && !conv.left && (
             <>
+              <GameButton v={v} conv={conv} />
               <IconButton label="邀请成员" onClick={() => setInviteOpen(true)}><UserPlus size={19} /></IconButton>
+              {!conv.aiId && v.me?.type === 'human' && <IconButton label="添加 bot" onClick={(e) => addBotMenu(e, v, conv)}><Bot size={19} /></IconButton>}
               <IconButton label="频道设置" onClick={() => setGroupOpen(true)}><Settings2 size={19} /></IconButton>
-              <IconButton label="成员列表" active={showMembers} onClick={() => useApp.setState({ showMembers: !showMembers })}><PanelRight size={19} /></IconButton>
+              <IconButton label={membersFolded ? '展开成员列表' : '收起成员列表'} active={!membersFolded} onClick={() => setPrefs({ membersFolded: !membersFolded })}><PanelRight size={19} /></IconButton>
             </>
           )}
-          {!group && peer && (
+          {!group && peer && !myAI && (
             <IconButton label={blocked ? '取消屏蔽' : '屏蔽'} active={blocked} onClick={() => toggleBlock(peer, blocked)}><Ban size={18} /></IconButton>
           )}
-          {ai && peer && <PortraitCorner user={peer} />}
+          {myAI && !group && <IconButton label="删除 AI" onClick={() => askDeleteAI(v.id, peer.id, () => closeConv('ai', v.id))}><Trash2 size={18} /></IconButton>}
+          {myAI && <IconButton label="AI 设置" onClick={() => setAIOpen(true)}><Settings2 size={19} /></IconButton>}
+          {ai && peer && <PortraitPosButton />}
+          {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} pack={pack} />}
         </header>
-        {ai && peer && <PortraitBand user={peer} />}
-        <MessageList key={conv.id} v={v} conv={conv} fadeTop={ai} />
+        {group && <GameBar v={v} conv={conv} />}
+        <div
+          className="relative flex min-h-0 flex-1 flex-col"
+          onPointerDownCapture={ai ? (e) => { pokeDown.current = [e.clientX, e.clientY]; } : undefined}
+          onClickCapture={ai ? poke : undefined}
+          onMouseMove={ai && peer ? (e) => { e.currentTarget.style.cursor = hitPortrait(e.currentTarget, e.clientX, e.clientY) ? 'pointer' : ''; } : undefined}
+        >
+          <MessageList key={conv.id} v={v} conv={conv} streaming={streaming} fromBottom={ai} />
+          {ai && peer && <PortraitOverlay user={peer} online={!!peerPresence} mood={mood} pack={pack} poked={poked} />}
+        </div>
+        {myAI && aiError && (
+          <div className="mx-4 mb-1 flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-[0.82rem] text-rose-700 dark:bg-rose-400/10 dark:text-rose-200" role="alert">
+            <AlertCircle size={15} className="shrink-0" />
+            <span className="min-w-0 flex-1">它没能回复：{aiError}</span>
+            <button onClick={() => setAIOpen(true)} className="shrink-0 underline">打开设置</button>
+          </div>
+        )}
         <Composer v={v} conv={conv} blocked={blocked} />
+        {myAI && peer && <AISettingsDialog open={aiOpen} onClose={() => setAIOpen(false)} aiId={peer.id} />}
       </section>
       <AnimatePresence initial={false}>
-        {group && showMembers && !conv.left && (
+        {group && !conv.left && (
           <motion.div
             key="members"
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 250 }}
-            exit={{ opacity: 0, width: 0 }}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
             transition={spring}
-            className="flex shrink-0 overflow-hidden"
+            className="flex shrink-0"
           >
             <MemberPanel v={v} conv={conv} onInvite={() => setInviteOpen(true)} />
           </motion.div>
@@ -99,8 +161,25 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
 
 // ---------- messages ----------
 
-/** fadeTop: soften the top edge (under the AI portrait) so messages fade out instead of being cut. */
-function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation; fadeTop?: boolean }) {
+/** The AI's mood for its portrait: `typing` while it writes, else its last reply's mood. */
+function aiMood(v: SessionView, convId: string, aiId: string | undefined, streaming: string | undefined): Mood | undefined {
+  if (!aiId) return undefined;
+  if (streaming !== undefined) return 'typing';
+  const list = v.messages[convId] ?? [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (m.senderId !== aiId) continue;
+    const mood = m.body.kind === 'text' ? m.body.mood : undefined;
+    return mood && (MOODS as readonly string[]).includes(mood) ? (mood as Mood) : 'neutral';
+  }
+  return undefined;
+}
+
+/**
+ * fromBottom (AI chats): a short conversation sits at the bottom and grows
+ * upwards, so the portrait at the top never hides the newest messages.
+ */
+function MessageList({ v, conv, streaming, fromBottom }: { v: SessionView; conv: Conversation; streaming?: string; fromBottom?: boolean }) {
   const list = v.messages[conv.id] ?? [];
   const ref = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -119,7 +198,7 @@ function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation;
     } else if (atBottom.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [list]);
+  }, [list, streaming]);
 
   // Read up to the newest message while the conversation is on screen.
   useEffect(() => {
@@ -152,7 +231,8 @@ function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation;
     items.push(<MessageItem key={m.id} v={v} conv={conv} msg={m} grouped={grouped} animate={m.time > mountedAt.current} onView={setViewer} />);
   }
   return (
-    <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fadeTop && '[mask-image:linear-gradient(to_bottom,transparent,black_28px)]')}>
+    <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fromBottom && 'flex flex-col')}>
+      {fromBottom && <div className="flex-1" aria-hidden />}
       {v.hasOlder[conv.id] && <div className="flex justify-center py-2 text-ink-soft"><Spinner size={16} /></div>}
       {conv.notice && (
         <div className="mx-auto mb-3 flex max-w-xl items-start gap-2 rounded-2xl bg-amber-50/80 px-4 py-2.5 text-[0.85rem] text-amber-800 shadow-[var(--shadow-card)] dark:bg-amber-400/10 dark:text-amber-200">
@@ -160,8 +240,9 @@ function MessageList({ v, conv, fadeTop }: { v: SessionView; conv: Conversation;
           <span className="whitespace-pre-wrap">频道公告：{conv.notice}</span>
         </div>
       )}
-      {!list.length && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
+      {!list.length && streaming === undefined && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
       {items}
+      {streaming !== undefined && conv.peerId && <StreamingReply v={v} aiId={conv.peerId} text={streaming} />}
       <ImageViewer mediaId={viewer} onClose={() => setViewer(null)} />
     </div>
   );
@@ -230,7 +311,13 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
 
   return (
     <motion.div {...enter} className={cx('group flex gap-3', grouped ? 'pt-1' : 'pt-3', mine && 'flex-row-reverse')} onContextMenu={menu}>
-      <div className="w-[38px] shrink-0">{!grouped && <UserAvatar user={sender} size={38} animated />}</div>
+      <div className="w-[38px] shrink-0">
+        {!grouped && (
+          <button onClick={() => openProfile(msg.senderId)} className="press rounded-full" aria-label={`${sender?.name ?? '对方'}的主页`} title="看主页">
+            <UserAvatar user={sender} size={38} animated />
+          </button>
+        )}
+      </div>
       <div className={cx('flex max-w-[68%] min-w-0 flex-col', mine ? 'items-end' : 'items-start')}>
         {!mine && !grouped && (
           <div className="mb-1 flex items-center gap-1.5 text-[0.8rem]">
@@ -256,9 +343,34 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
   );
 });
 
+/** The AI's reply while it is being written (only on the device that runs it). */
+function StreamingReply({ v, aiId, text }: { v: SessionView; aiId: string; text: string }) {
+  const ai = v.users[aiId];
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="flex gap-3 pt-3" aria-live="polite">
+      <div className="w-[38px] shrink-0"><UserAvatar user={ai} size={38} /></div>
+      <div className="flex max-w-[68%] min-w-0 flex-col items-start">
+        <div className="mb-1 text-[0.8rem] text-ink-soft dark:text-white/60">{ai?.name ?? 'AI'} 正在输入…</div>
+        <div className="card rounded-2xl rounded-tl-md bg-white/95 px-3.5 py-2 whitespace-pre-wrap break-words dark:bg-white/[0.07]">
+          {text || <span className="inline-flex gap-1 py-1">{[0, 1, 2].map((i) => <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-ink-soft/60" animate={{ y: [0, -3, 0] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }} />)}</span>}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id: string) => void }) {
   const b = msg.body;
   const thumb = useMediaUrl(b.kind === 'image' ? mediaPath(b.mediaId, true) : undefined);
+  if (b.kind === 'image' && b.stickerTags) {
+    // A sticker: small, no frame, its tags as the tooltip.
+    const ratio = b.w && b.h ? b.w / b.h : 1;
+    return (
+      <button onClick={() => onView(b.mediaId)} className={cx('press block', msg.struck && 'opacity-60 grayscale')} style={{ width: Math.min(150, 150 * ratio), aspectRatio: String(ratio) }} aria-label={`表情：${b.stickerTags.join('、')}`} title={b.stickerTags.join('、')}>
+        {thumb && <img src={thumb} alt={b.stickerTags.join('、')} className="h-full w-full object-contain" draggable={false} />}
+      </button>
+    );
+  }
   if (b.kind === 'image') {
     const ratio = b.w && b.h ? b.w / b.h : 4 / 3;
     const w = Math.min(320, ratio >= 1 ? 320 : 240 * ratio);
@@ -292,6 +404,7 @@ function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id:
     );
   }
   if (b.kind !== 'text') return null;
+  const names = (id: string) => current().nameOf(id);
   return (
     <div
       className={cx(
@@ -301,7 +414,11 @@ function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id:
         msg.pending && 'opacity-70',
       )}
     >
-      {b.text}
+      {b.mentions?.length
+        ? mentionParts(b.text, b.mentions.map((id) => names(id))).map((p, i) => (p.mention
+          ? <span key={i} className={cx('rounded px-0.5 font-medium', mine ? 'bg-white/25' : 'bg-accent-100 text-accent-700 dark:bg-accent/25 dark:text-accent-100')}>{p.text}</span>
+          : <span key={i}>{p.text}</span>))
+        : b.text}
     </div>
   );
 }
@@ -350,7 +467,15 @@ const EMOJI = '😀😂🤣😊😍🥰😘😎🤔😅😭😡🥺😴🤯👍�
 
 function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; blocked: boolean }) {
   const [text, setText] = useState('');
+  // @-mentions (channels): who was picked from the list, and the list being shown.
+  const picked = useRef(new Map<string, string>());
+  const [at, setAt] = useState<{ start: number; query: string; index: number } | null>(null);
+  const people = at && conv.kind === 'group'
+    ? matchPeople(conv.members.map((m) => v.users[m.userId]).filter((u): u is User => !!u && u.id !== v.me?.id && !u.gone), at.query)
+    : [];
   const [emoji, setEmoji] = useState(false);
+  const [stickers, setStickers] = useState(false);
+  const [manage, setManage] = useState(false);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -362,8 +487,27 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
   const submit = () => {
     const t = text.trim();
     if (!t || disabled) return;
-    current().sendText(conv.id, t).catch(toastError);
+    current().sendText(conv.id, t, undefined, mentionedIds(t, picked.current)).catch(toastError);
     setText('');
+    picked.current.clear();
+    setAt(null);
+  };
+  const onText = (value: string, caret: number) => {
+    setText(value);
+    const q = conv.kind === 'group' ? mentionQuery(value, caret) : null;
+    setAt(q ? { ...q, index: 0 } : null);
+  };
+  const pick = (u: User) => {
+    const ta = taRef.current;
+    if (!at || !ta) return;
+    const r = applyMention(text, at.start, ta.selectionStart, u.name);
+    picked.current.set(u.id, u.name);
+    setText(r.text);
+    setAt(null);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(r.caret, r.caret);
+    });
   };
   const sendFiles = async (files: File[]) => {
     if (disabled || !files.length) return;
@@ -440,10 +584,63 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
       </AnimatePresence>
       <div className={cx('rounded-2xl border border-black/5 bg-white/95 p-2 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-300 focus-within:border-accent-300 focus-within:shadow-[var(--shadow-lift)] dark:border-white/10 dark:bg-white/5', disabled && 'opacity-70')}>
         <div className="relative flex items-center gap-0.5 px-1">
-          <IconButton label="表情" active={emoji} onClick={() => setEmoji(!emoji)} disabled={disabled}><Smile size={19} /></IconButton>
+          <IconButton label="表情" active={emoji} onClick={() => { setEmoji(!emoji); setStickers(false); }} disabled={disabled}><Smile size={19} /></IconButton>
+          <IconButton label="表情包" active={stickers} onClick={() => { setStickers(!stickers); setEmoji(false); }} disabled={disabled}><Sticker size={19} /></IconButton>
           <IconButton label="发送图片" onClick={() => imgRef.current?.click()} disabled={disabled}><ImagePlus size={19} /></IconButton>
           <IconButton label="发送文件" onClick={() => fileRef.current?.click()} disabled={disabled}><Paperclip size={19} /></IconButton>
+          {/* Voice input: the slot only (lib/voice.ts); the wrapper keeps the tooltip on the disabled button. */}
+          <span title={voiceInput.available ? '语音输入' : '语音输入以后上线'} className="inline-flex">
+            <IconButton label="语音输入" disabled={disabled || !voiceInput.available} className="disabled:opacity-40"><Mic size={19} /></IconButton>
+          </span>
           {busy && <span className="ml-2 flex items-center gap-1.5 text-[0.8rem] text-ink-soft"><Spinner size={13} /> 上传中…</span>}
+          <AnimatePresence>
+            {stickers && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.98, transition: { duration: 0.12 } }}
+                transition={spring}
+                style={{ transformOrigin: 'bottom left' }}
+                className="glass-strong absolute bottom-full left-0 z-20 mb-2 rounded-2xl p-1.5 shadow-xl"
+              >
+                <StickerPanel
+                  serverId={v.id}
+                  onSend={(s) => { current().sendSticker(conv.id, s).catch(toastError); setStickers(false); }}
+                  onManage={() => { setStickers(false); setManage(true); }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <StickerManager serverId={v.id} open={manage} onClose={() => setManage(false)} />
+          <AnimatePresence>
+            {at && people.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, transition: { duration: 0.12 } }}
+                transition={spring}
+                style={{ transformOrigin: 'bottom left' }}
+                role="listbox"
+                aria-label="提到谁"
+                className="glass-strong absolute bottom-full left-0 z-20 mb-2 w-64 rounded-2xl p-1.5 shadow-xl"
+              >
+                {people.map((u, i) => (
+                  <button
+                    key={u.id}
+                    role="option"
+                    aria-selected={i === at.index}
+                    onMouseDown={(e) => { e.preventDefault(); pick(u); }}
+                    onMouseEnter={() => setAt({ ...at, index: i })}
+                    className={cx('flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left', i === at.index ? 'bg-accent-100 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/5')}
+                  >
+                    <UserAvatar user={u} size={26} />
+                    <span className="min-w-0 flex-1 truncate">{u.name}</span>
+                    <IdentityChip user={u} short />
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
           <AnimatePresence>
             {emoji && (
               <motion.div
@@ -474,8 +671,26 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
           <textarea
             ref={taRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => onText(e.target.value, e.target.selectionStart)}
             onKeyDown={(e) => {
+              if (at && people.length && !e.nativeEvent.isComposing) {
+                const n = people.length;
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setAt({ ...at, index: (at.index + (e.key === 'ArrowDown' ? 1 : n - 1)) % n });
+                  return;
+                }
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                  e.preventDefault();
+                  pick(people[Math.min(at.index, n - 1)]);
+                  return;
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setAt(null);
+                  return;
+                }
+              }
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 submit();
@@ -490,7 +705,7 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
                 sendFiles(files);
               }
             }}
-            onFocus={() => setEmoji(false)}
+            onFocus={() => { setEmoji(false); setStickers(false); }}
             disabled={disabled}
             rows={1}
             placeholder={placeholder}
@@ -513,4 +728,22 @@ function Composer({ v, conv, blocked }: { v: SessionView; conv: Conversation; bl
       <input ref={fileRef} type="file" multiple hidden onChange={(e) => { sendFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
     </div>
   );
+}
+
+/** "添加 bot": my own AIs that are not in this channel yet (private channels may need approval). */
+function addBotMenu(e: React.MouseEvent, v: SessionView, conv: Conversation) {
+  const mine = (useAI.getState().byServer[v.id] ?? []).map((a) => a.user).filter((u) => !u.gone);
+  const out = mine.filter((u) => !conv.members.some((m) => m.userId === u.id));
+  if (!mine.length) return toast('你还没有自己的 AI，去 AI 页新建一个');
+  if (!out.length) return toast('你的 AI 都在这个频道里了');
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  openMenu({ clientX: r.left, clientY: r.bottom + 6 }, out.map((u) => ({
+    label: `拉 ${u.name} 进来`,
+    icon: <Bot size={15} />,
+    key: `addbot:${conv.id}:${u.id}`,
+    onClick: async () => {
+      const res = await current().inviteMembers(conv.id, [u.id]);
+      toast(res.requested.length ? '已经申请了，等频道管理员同意' : `${u.name} 进频道了`);
+    },
+  })));
 }

@@ -15,7 +15,27 @@ export interface User {
   /** Media path of the avatar (may be a GIF) and of its static first frame. */
   avatar?: string;
   avatarStatic?: string;
-  online?: boolean;
+  /** Personal signature (profile page). */
+  bio: string;
+  /** Left the server, banned, or (bot / AI) deleted by its owner. */
+  gone?: boolean;
+  /** Bot / AI: when its own portrait pack last changed (absent = default pack). */
+  portraitsAt?: number;
+}
+
+export type ActivityKind = 'listening' | 'playing' | 'tuning_ai' | 'working' | 'custom';
+
+/** What someone says they are doing ("正在听歌：晴天"). */
+export interface Activity {
+  kind: ActivityKind;
+  text: string;
+}
+
+/** Online state as this user sees it. Only online people have an entry. */
+export interface Presence {
+  /** Online but invisible: only set for yourself and your own bot / AI accounts. */
+  invisible?: boolean;
+  activity?: Activity;
 }
 
 export interface Member {
@@ -36,10 +56,16 @@ export interface Conversation {
   joinApproval: boolean;
   /** Channel (group) open to everyone on the server. */
   public: boolean;
+  /** Shared AI room: the AI it belongs to (listed on the AI page). */
+  aiId?: string;
   lastSeq: number;
   readSeq: number;
   myRole: MemberRole;
   mutedUntil: number;
+  /** My pin (0 = not pinned; larger = higher). Shared by my devices. */
+  pinnedOrder: number;
+  /** My do-not-disturb end in ms (0 = off, -1 = until turned off). */
+  dndUntil: number;
   lastText: string;
   lastTime: number;
   /** Set when you left / were removed; the history stays readable. */
@@ -62,8 +88,8 @@ export type SysEvent =
   | { t: 'role'; op: string; target: string; role: MemberRole };
 
 export type MessageBody =
-  | { kind: 'text'; text: string; replyTo?: string }
-  | { kind: 'image'; mediaId: string; w: number; h: number }
+  | { kind: 'text'; text: string; replyTo?: string; mood?: string; mentions?: string[] }
+  | { kind: 'image'; mediaId: string; w: number; h: number; /** Sent from the sticker panel. */ stickerTags?: string[] }
   | { kind: 'file'; mediaId: string; name: string; size: number }
   | { kind: 'deleted'; byId: string; reason: string }
   | { kind: 'system'; sys: SysEvent };

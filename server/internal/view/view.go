@@ -25,6 +25,9 @@ func User(u *store.User, owners map[int64]*store.User) *amv1.User {
 		Avatar:      u.Avatar,
 		AccountType: amv1.AccountType(u.AccountType),
 		OwnerId:     u.OwnerID,
+		Bio:         u.Bio,
+		Gone:        u.Gone(),
+		PortraitsAt: u.PortraitsAt,
 	}
 	if u.AvatarMediaID != 0 {
 		out.Avatar = MediaURL(u.AvatarMediaID)
@@ -65,6 +68,7 @@ func Conversation(c *store.ConvWithSelf, members []*amv1.User, roles []amv1.Memb
 		Notice:       c.Notice,
 		JoinApproval: c.JoinApproval,
 		Public:       c.Public,
+		AiId:         c.AIID,
 	}
 }
 

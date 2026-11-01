@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/common.proto.
  */
 export const file_am_v1_common: GenFile = /*@__PURE__*/
-  fileDesc("ChJhbS92MS9jb21tb24ucHJvdG8SBWFtLnYxIrkBCgRVc2VyEgoKAmlkGAEgASgDEhAKCHVzZXJuYW1lGAIgASgJEhQKDGRpc3BsYXlfbmFtZRgDIAEoCRIOCgZhdmF0YXIYBCABKAkSKAoMYWNjb3VudF90eXBlGAUgASgOMhIuYW0udjEuQWNjb3VudFR5cGUSEAoIb3duZXJfaWQYBiABKAMSGgoSb3duZXJfZGlzcGxheV9uYW1lGAcgASgJEhUKDWF2YXRhcl9zdGF0aWMYCCABKAkimwIKDENvbnZlcnNhdGlvbhIKCgJpZBgBIAEoAxIdCgRraW5kGAIgASgOMg8uYW0udjEuQ29udktpbmQSDAoEbmFtZRgDIAEoCRIOCgZhdmF0YXIYBCABKAkSEAoIb3duZXJfaWQYBSABKAMSEAoIbGFzdF9zZXEYBiABKAMSHAoHbWVtYmVycxgHIAMoCzILLmFtLnYxLlVzZXISIAoEc2VsZhgIIAEoCzISLmFtLnYxLk1lbWJlclN0YXRlEg4KBm5vdGljZRgJIAEoCRIVCg1qb2luX2FwcHJvdmFsGAogASgIEicKDG1lbWJlcl9yb2xlcxgLIAMoDjIRLmFtLnYxLk1lbWJlclJvbGUSDgoGcHVibGljGAwgASgIIn4KC01lbWJlclN0YXRlEh8KBHJvbGUYASABKA4yES5hbS52MS5NZW1iZXJSb2xlEhAKCHJlYWRfc2VxGAIgASgDEhQKDHBpbm5lZF9vcmRlchgDIAEoAxIRCglkbmRfdW50aWwYBCABKAMSEwoLbXV0ZWRfdW50aWwYBSABKAMiJgoFRXJyb3ISDAoEY29kZRgBIAEoCRIPCgdtZXNzYWdlGAIgASgJKm4KC0FjY291bnRUeXBlEhwKGEFDQ09VTlRfVFlQRV9VTlNQRUNJRklFRBAAEhYKEkFDQ09VTlRfVFlQRV9IVU1BThABEhQKEEFDQ09VTlRfVFlQRV9CT1QQAhITCg9BQ0NPVU5UX1RZUEVfQUkQAypMCghDb252S2luZBIZChVDT05WX0tJTkRfVU5TUEVDSUZJRUQQABIQCgxDT05WX0tJTkRfRE0QARITCg9DT05WX0tJTkRfR1JPVVAQAipvCgpNZW1iZXJSb2xlEhsKF01FTUJFUl9ST0xFX1VOU1BFQ0lGSUVEEAASFgoSTUVNQkVSX1JPTEVfTUVNQkVSEAESFQoRTUVNQkVSX1JPTEVfQURNSU4QAhIVChFNRU1CRVJfUk9MRV9PV05FUhADQipaKGdpdGh1Yi5jb20vT3pha2lKVU4vYW0vZ2VuL2dvL2FtL3YxO2FtdjFiBnByb3RvMw");
+  fileDesc("ChJhbS92MS9jb21tb24ucHJvdG8SBWFtLnYxIuoBCgRVc2VyEgoKAmlkGAEgASgDEhAKCHVzZXJuYW1lGAIgASgJEhQKDGRpc3BsYXlfbmFtZRgDIAEoCRIOCgZhdmF0YXIYBCABKAkSKAoMYWNjb3VudF90eXBlGAUgASgOMhIuYW0udjEuQWNjb3VudFR5cGUSEAoIb3duZXJfaWQYBiABKAMSGgoSb3duZXJfZGlzcGxheV9uYW1lGAcgASgJEhUKDWF2YXRhcl9zdGF0aWMYCCABKAkSCwoDYmlvGAkgASgJEgwKBGdvbmUYCiABKAgSFAoMcG9ydHJhaXRzX2F0GAsgASgDIjsKCEFjdGl2aXR5EiEKBGtpbmQYASABKA4yEy5hbS52MS5BY3Rpdml0eUtpbmQSDAoEdGV4dBgCIAEoCSJhCghQcmVzZW5jZRIPCgd1c2VyX2lkGAEgASgDEg4KBm9ubGluZRgCIAEoCBIRCglpbnZpc2libGUYAyABKAgSIQoIYWN0aXZpdHkYBCABKAsyDy5hbS52MS5BY3Rpdml0eSKqAgoMQ29udmVyc2F0aW9uEgoKAmlkGAEgASgDEh0KBGtpbmQYAiABKA4yDy5hbS52MS5Db252S2luZBIMCgRuYW1lGAMgASgJEg4KBmF2YXRhchgEIAEoCRIQCghvd25lcl9pZBgFIAEoAxIQCghsYXN0X3NlcRgGIAEoAxIcCgdtZW1iZXJzGAcgAygLMgsuYW0udjEuVXNlchIgCgRzZWxmGAggASgLMhIuYW0udjEuTWVtYmVyU3RhdGUSDgoGbm90aWNlGAkgASgJEhUKDWpvaW5fYXBwcm92YWwYCiABKAgSJwoMbWVtYmVyX3JvbGVzGAsgAygOMhEuYW0udjEuTWVtYmVyUm9sZRIOCgZwdWJsaWMYDCABKAgSDQoFYWlfaWQYDSABKAMifgoLTWVtYmVyU3RhdGUSHwoEcm9sZRgBIAEoDjIRLmFtLnYxLk1lbWJlclJvbGUSEAoIcmVhZF9zZXEYAiABKAMSFAoMcGlubmVkX29yZGVyGAMgASgDEhEKCWRuZF91bnRpbBgEIAEoAxITCgttdXRlZF91bnRpbBgFIAEoAyImCgVFcnJvchIMCgRjb2RlGAEgASgJEg8KB21lc3NhZ2UYAiABKAki8AEKBEdhbWUSCgoCaWQYASABKAMSDwoHY29udl9pZBgCIAEoAxIMCgRraW5kGAMgASgJEg8KB2hvc3RfaWQYBCABKAMSDgoGc3RhdHVzGAUgASgJEiIKB3BsYXllcnMYBiADKAsyES5hbS52MS5HYW1lUGxheWVyEhIKCmFwcGxpY2FudHMYByADKAMSFAoMYXV0b19hcHByb3ZlGAggASgIEhIKCndhaXRpbmdfb24YCSADKAMSEgoKc3RhdGVfanNvbhgKIAEoCRISCgpjcmVhdGVkX2F0GAsgASgDEhIKCnVwZGF0ZWRfYXQYDCABKAMiRQoKR2FtZVBsYXllchIPCgd1c2VyX2lkGAEgASgDEgsKA291dBgCIAEoCBILCgNzcHkYAyABKAgSDAoEd29yZBgEIAEoCSpuCgtBY2NvdW50VHlwZRIcChhBQ0NPVU5UX1RZUEVfVU5TUEVDSUZJRUQQABIWChJBQ0NPVU5UX1RZUEVfSFVNQU4QARIUChBBQ0NPVU5UX1RZUEVfQk9UEAISEwoPQUNDT1VOVF9UWVBFX0FJEAMqtwEKDEFjdGl2aXR5S2luZBIdChlBQ1RJVklUWV9LSU5EX1VOU1BFQ0lGSUVEEAASGwoXQUNUSVZJVFlfS0lORF9MSVNURU5JTkcQARIZChVBQ1RJVklUWV9LSU5EX1BMQVlJTkcQAhIbChdBQ1RJVklUWV9LSU5EX1RVTklOR19BSRADEhkKFUFDVElWSVRZX0tJTkRfV09SS0lORxAEEhgKFEFDVElWSVRZX0tJTkRfQ1VTVE9NEAUqTAoIQ29udktpbmQSGQoVQ09OVl9LSU5EX1VOU1BFQ0lGSUVEEAASEAoMQ09OVl9LSU5EX0RNEAESEwoPQ09OVl9LSU5EX0dST1VQEAIqbwoKTWVtYmVyUm9sZRIbChdNRU1CRVJfUk9MRV9VTlNQRUNJRklFRBAAEhYKEk1FTUJFUl9ST0xFX01FTUJFUhABEhUKEU1FTUJFUl9ST0xFX0FETUlOEAISFQoRTUVNQkVSX1JPTEVfT1dORVIQA0IqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM");
 
 /**
  * Public profile of an account.
@@ -65,6 +65,29 @@ export type User = Message<"am.v1.User"> & {
    * @generated from field: string avatar_static = 8;
    */
   avatarStatic: string;
+
+  /**
+   * Personal signature shown on the profile page (at most 100 characters).
+   *
+   * @generated from field: string bio = 9;
+   */
+  bio: string;
+
+  /**
+   * The account is gone: left the server, banned, or (bot / ai) deleted by
+   * its owner. Old messages still show it; lists hide deleted bots / AIs.
+   *
+   * @generated from field: bool gone = 10;
+   */
+  gone: boolean;
+
+  /**
+   * Bot / ai: when its own portrait pack last changed (0 = it uses the
+   * default pack). Clients fetch GET /api/v1/users/{id}/portraits when it moves.
+   *
+   * @generated from field: int64 portraits_at = 11;
+   */
+  portraitsAt: bigint;
 };
 
 /**
@@ -73,6 +96,72 @@ export type User = Message<"am.v1.User"> & {
  */
 export const UserSchema: GenMessage<User> = /*@__PURE__*/
   messageDesc(file_am_v1_common, 0);
+
+/**
+ * @generated from message am.v1.Activity
+ */
+export type Activity = Message<"am.v1.Activity"> & {
+  /**
+   * @generated from field: am.v1.ActivityKind kind = 1;
+   */
+  kind: ActivityKind;
+
+  /**
+   * Optional detail (song, game ...), at most 32 characters. Required for CUSTOM.
+   *
+   * @generated from field: string text = 2;
+   */
+  text: string;
+};
+
+/**
+ * Describes the message am.v1.Activity.
+ * Use `create(ActivitySchema)` to create a new message.
+ */
+export const ActivitySchema: GenMessage<Activity> = /*@__PURE__*/
+  messageDesc(file_am_v1_common, 1);
+
+/**
+ * Online state of one user as seen by the receiver.
+ *
+ * @generated from message am.v1.Presence
+ */
+export type Presence = Message<"am.v1.Presence"> & {
+  /**
+   * @generated from field: int64 user_id = 1;
+   */
+  userId: bigint;
+
+  /**
+   * At least one device connected. An invisible user is reported offline to
+   * everyone except themselves and the bot / ai accounts they own.
+   *
+   * @generated from field: bool online = 2;
+   */
+  online: boolean;
+
+  /**
+   * Set only for the user themselves and their own bot / ai accounts: the
+   * user is online but invisible to everyone else.
+   *
+   * @generated from field: bool invisible = 3;
+   */
+  invisible: boolean;
+
+  /**
+   * Only while online.
+   *
+   * @generated from field: am.v1.Activity activity = 4;
+   */
+  activity?: Activity | undefined;
+};
+
+/**
+ * Describes the message am.v1.Presence.
+ * Use `create(PresenceSchema)` to create a new message.
+ */
+export const PresenceSchema: GenMessage<Presence> = /*@__PURE__*/
+  messageDesc(file_am_v1_common, 2);
 
 /**
  * A conversation (DM or group) as seen by the current user.
@@ -154,6 +243,14 @@ export type Conversation = Message<"am.v1.Conversation"> & {
    * @generated from field: bool public = 12;
    */
   public: boolean;
+
+  /**
+   * Shared AI room: the AI (bot / ai account) this private group belongs to.
+   * Clients list it on the AI page; the AI answers everyone in it. 0 = none.
+   *
+   * @generated from field: int64 ai_id = 13;
+   */
+  aiId: bigint;
 };
 
 /**
@@ -161,7 +258,7 @@ export type Conversation = Message<"am.v1.Conversation"> & {
  * Use `create(ConversationSchema)` to create a new message.
  */
 export const ConversationSchema: GenMessage<Conversation> = /*@__PURE__*/
-  messageDesc(file_am_v1_common, 1);
+  messageDesc(file_am_v1_common, 3);
 
 /**
  * Per-user settings and state inside one conversation.
@@ -189,7 +286,7 @@ export type MemberState = Message<"am.v1.MemberState"> & {
   pinnedOrder: bigint;
 
   /**
-   * Do-not-disturb until this unix time in ms. 0 = off.
+   * Do-not-disturb until this unix time in ms. 0 = off, -1 = until turned off.
    *
    * @generated from field: int64 dnd_until = 4;
    */
@@ -208,7 +305,7 @@ export type MemberState = Message<"am.v1.MemberState"> & {
  * Use `create(MemberStateSchema)` to create a new message.
  */
 export const MemberStateSchema: GenMessage<MemberState> = /*@__PURE__*/
-  messageDesc(file_am_v1_common, 2);
+  messageDesc(file_am_v1_common, 4);
 
 /**
  * Standard error body, used both by HTTP responses and WebSocket frames.
@@ -236,7 +333,127 @@ export type Error = Message<"am.v1.Error"> & {
  * Use `create(ErrorSchema)` to create a new message.
  */
 export const ErrorSchema: GenMessage<Error> = /*@__PURE__*/
-  messageDesc(file_am_v1_common, 3);
+  messageDesc(file_am_v1_common, 5);
+
+/**
+ * A board game in a channel or shared AI room, as one person sees it.
+ *
+ * @generated from message am.v1.Game
+ */
+export type Game = Message<"am.v1.Game"> & {
+  /**
+   * @generated from field: int64 id = 1;
+   */
+  id: bigint;
+
+  /**
+   * @generated from field: int64 conv_id = 2;
+   */
+  convId: bigint;
+
+  /**
+   * gomoku | reversi | undercover
+   *
+   * @generated from field: string kind = 3;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: int64 host_id = 4;
+   */
+  hostId: bigint;
+
+  /**
+   * waiting | playing | ended
+   *
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * @generated from field: repeated am.v1.GamePlayer players = 6;
+   */
+  players: GamePlayer[];
+
+  /**
+   * People / AIs asking to join (the host decides unless auto_approve).
+   *
+   * @generated from field: repeated int64 applicants = 7;
+   */
+  applicants: bigint[];
+
+  /**
+   * @generated from field: bool auto_approve = 8;
+   */
+  autoApprove: boolean;
+
+  /**
+   * Everyone who has to act now (one player, or all who have not voted yet).
+   *
+   * @generated from field: repeated int64 waiting_on = 9;
+   */
+  waitingOn: bigint[];
+
+  /**
+   * Kind-specific state (board, turn, last move, said, votes ...), see docs/protocol.md.
+   *
+   * @generated from field: string state_json = 10;
+   */
+  stateJson: string;
+
+  /**
+   * @generated from field: int64 created_at = 11;
+   */
+  createdAt: bigint;
+
+  /**
+   * @generated from field: int64 updated_at = 12;
+   */
+  updatedAt: bigint;
+};
+
+/**
+ * Describes the message am.v1.Game.
+ * Use `create(GameSchema)` to create a new message.
+ */
+export const GameSchema: GenMessage<Game> = /*@__PURE__*/
+  messageDesc(file_am_v1_common, 6);
+
+/**
+ * @generated from message am.v1.GamePlayer
+ */
+export type GamePlayer = Message<"am.v1.GamePlayer"> & {
+  /**
+   * @generated from field: int64 user_id = 1;
+   */
+  userId: bigint;
+
+  /**
+   * @generated from field: bool out = 2;
+   */
+  out: boolean;
+
+  /**
+   * 谁是卧底: true once this player is out (or the game is over) and was undercover.
+   *
+   * @generated from field: bool spy = 3;
+   */
+  spy: boolean;
+
+  /**
+   * 谁是卧底: the word, only my own (everyone's at the end).
+   *
+   * @generated from field: string word = 4;
+   */
+  word: string;
+};
+
+/**
+ * Describes the message am.v1.GamePlayer.
+ * Use `create(GamePlayerSchema)` to create a new message.
+ */
+export const GamePlayerSchema: GenMessage<GamePlayer> = /*@__PURE__*/
+  messageDesc(file_am_v1_common, 7);
 
 /**
  * Account type is fixed by the server when the account is created.
@@ -273,6 +490,62 @@ export const AccountTypeSchema: GenEnum<AccountType> = /*@__PURE__*/
   enumDesc(file_am_v1_common, 0);
 
 /**
+ * What a user says they are doing. Chosen by the user; shown next to their
+ * name while they are online.
+ *
+ * @generated from enum am.v1.ActivityKind
+ */
+export enum ActivityKind {
+  /**
+   * Nothing.
+   *
+   * @generated from enum value: ACTIVITY_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Listening to music; text = the song.
+   *
+   * @generated from enum value: ACTIVITY_KIND_LISTENING = 1;
+   */
+  LISTENING = 1,
+
+  /**
+   * Playing a game; text = the game.
+   *
+   * @generated from enum value: ACTIVITY_KIND_PLAYING = 2;
+   */
+  PLAYING = 2,
+
+  /**
+   * Tuning / debugging an AI.
+   *
+   * @generated from enum value: ACTIVITY_KIND_TUNING_AI = 3;
+   */
+  TUNING_AI = 3,
+
+  /**
+   * Studying or working (busy).
+   *
+   * @generated from enum value: ACTIVITY_KIND_WORKING = 4;
+   */
+  WORKING = 4,
+
+  /**
+   * Free text only.
+   *
+   * @generated from enum value: ACTIVITY_KIND_CUSTOM = 5;
+   */
+  CUSTOM = 5,
+}
+
+/**
+ * Describes the enum am.v1.ActivityKind.
+ */
+export const ActivityKindSchema: GenEnum<ActivityKind> = /*@__PURE__*/
+  enumDesc(file_am_v1_common, 1);
+
+/**
  * @generated from enum am.v1.ConvKind
  */
 export enum ConvKind {
@@ -296,7 +569,7 @@ export enum ConvKind {
  * Describes the enum am.v1.ConvKind.
  */
 export const ConvKindSchema: GenEnum<ConvKind> = /*@__PURE__*/
-  enumDesc(file_am_v1_common, 1);
+  enumDesc(file_am_v1_common, 2);
 
 /**
  * @generated from enum am.v1.MemberRole
@@ -327,5 +600,5 @@ export enum MemberRole {
  * Describes the enum am.v1.MemberRole.
  */
 export const MemberRoleSchema: GenEnum<MemberRole> = /*@__PURE__*/
-  enumDesc(file_am_v1_common, 2);
+  enumDesc(file_am_v1_common, 3);
 

@@ -71,15 +71,23 @@ type Limits struct {
 	LoginAttemptsPerMinute int `toml:"login_attempts_per_minute"`
 	MaxGroupMembers        int `toml:"max_group_members"`
 	MaxUploadMB            int `toml:"max_upload_mb"`
+	MaxDevices             int `toml:"max_devices"`
+	PairCodeMinutes        int `toml:"pair_code_minutes"`
+	MaxAIPerUser           int `toml:"max_ai_per_user"`
+	MaxStickers            int `toml:"max_stickers"`
+	MaxGamesPerConv        int `toml:"max_games_per_conv"`
 }
 
 type Retention struct {
 	EvidenceDays    int `toml:"evidence_days"`
 	LoginRecordDays int `toml:"login_record_days"`
+	GamesDays       int `toml:"games_days"`
 }
 
 type Media struct {
-	BlockDistance int `toml:"block_distance"`
+	BlockDistance int    `toml:"block_distance"`
+	Netease       bool   `toml:"netease"`
+	NeteaseAPI    string `toml:"netease_api"`
 }
 
 type Admin struct {
@@ -237,11 +245,26 @@ func (c *Config) validate() error {
 	if c.Limits.MaxTextLength < 1 {
 		return errors.New("limits.max_text_length must be >= 1")
 	}
+	if c.Limits.MaxStickers < 0 {
+		return errors.New("limits.max_stickers must be >= 0")
+	}
+	if c.Limits.MaxGamesPerConv < 0 {
+		return errors.New("limits.max_games_per_conv must be >= 0")
+	}
+	if c.Limits.MaxAIPerUser < 0 {
+		return errors.New("limits.max_ai_per_user must be >= 0")
+	}
+	if c.Limits.MaxDevices < 0 || c.Limits.PairCodeMinutes < 1 {
+		return errors.New("limits.max_devices must be >= 0 and limits.pair_code_minutes >= 1")
+	}
 	if c.Limits.LoginAttemptsPerMinute < 0 {
 		return errors.New("limits.login_attempts_per_minute must be >= 0")
 	}
 	if c.Retention.EvidenceDays < 1 || c.Retention.LoginRecordDays < 1 {
 		return errors.New("retention days must be >= 1")
+	}
+	if c.Retention.GamesDays < 1 {
+		return errors.New("retention.games_days must be >= 1")
 	}
 	if c.Media.BlockDistance < 0 || c.Media.BlockDistance > 64 {
 		return errors.New("media.block_distance must be 0-64")

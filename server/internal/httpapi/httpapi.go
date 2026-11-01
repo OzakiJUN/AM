@@ -20,8 +20,13 @@ import (
 	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/conv"
+	"github.com/OzakiJUN/am/server/internal/game"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/music"
+	"github.com/OzakiJUN/am/server/internal/presence"
+	"github.com/OzakiJUN/am/server/internal/profile"
+	"github.com/OzakiJUN/am/server/internal/sticker"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
@@ -37,14 +42,19 @@ type API struct {
 	conv      *conv.Service
 	msg       *message.Service
 	media     *media.Service
+	presence  *presence.Service
+	profile   *profile.Service
+	stickers  *sticker.Service
+	music     *music.Service
+	games     *game.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	maxUpload int64
 }
 
-func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service,
-	loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
-	return &API{acct: acct, conv: cs, msg: ms, media: md, log: log,
+func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media.Service, ps *presence.Service,
+	prof *profile.Service, sk *sticker.Service, mu *music.Service, gs *game.Service, loginPerMinute, maxUploadMB int, log *slog.Logger) *API {
+	return &API{acct: acct, conv: cs, msg: ms, media: md, presence: ps, profile: prof, stickers: sk, music: mu, games: gs, log: log,
 		limiter: newIPLimiter(loginPerMinute), maxUpload: int64(maxUploadMB) << 20}
 }
 
@@ -59,7 +69,43 @@ func (a *API) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/v1/sessions", a.authed(a.listSessions))
 	mux.HandleFunc("DELETE /api/v1/sessions/{id}", a.authed(a.revokeSession))
+	mux.HandleFunc("POST /api/v1/logout", a.authed(a.logout))
+	mux.HandleFunc("GET /api/v1/ai", a.authed(a.listAI))
+	mux.HandleFunc("POST /api/v1/ai", a.authed(a.createAI))
+	mux.HandleFunc("PATCH /api/v1/ai/{id}", a.authed(a.updateAI))
+	mux.HandleFunc("PUT /api/v1/ai/{id}/settings", a.authed(a.putAISettings))
+	mux.HandleFunc("POST /api/v1/ai/{id}/run", a.authed(a.runAI))
+	mux.HandleFunc("DELETE /api/v1/ai/{id}", a.authed(a.deleteAI))
+	mux.HandleFunc("DELETE /api/v1/ai/{id}/channels/{conv}", a.authed(a.aiLeaveChannel))
+	mux.HandleFunc("POST /api/v1/ai/{id}/room", a.authed(a.createAIRoom))
+	mux.HandleFunc("GET /api/v1/users/{id}/portraits", a.authed(a.getPortraits))
+	mux.HandleFunc("PUT /api/v1/ai/{id}/portraits", a.authed(a.putPortraits))
+	mux.HandleFunc("POST /api/v1/ai/{id}/share-request", a.authed(a.requestShare))
+	mux.HandleFunc("GET /api/v1/ai/{id}/share-requests", a.authed(a.listShareRequests))
+	mux.HandleFunc("POST /api/v1/ai/{id}/share-requests/{user}", a.authed(a.decideShareRequest))
+	mux.HandleFunc("POST /api/v1/music/resolve", a.authed(a.resolveMusic))
+	mux.HandleFunc("GET /api/v1/stickers", a.authed(a.listStickers))
+	mux.HandleFunc("GET /api/v1/conversations/{id}/games", a.authed(a.listGames))
+	mux.HandleFunc("POST /api/v1/conversations/{id}/games", a.authed(a.openGame))
+	mux.HandleFunc("GET /api/v1/games/{id}", a.authed(a.getGame))
+	mux.HandleFunc("PATCH /api/v1/games/{id}", a.authed(a.setGame))
+	mux.HandleFunc("POST /api/v1/games/{id}/applicants/{user}", a.authed(a.decideGame))
+	mux.HandleFunc("POST /api/v1/games/{id}/act", a.authed(a.actGame))
+	mux.HandleFunc("POST /api/v1/games/{id}/join", a.authed(a.gameStep("join")))
+	mux.HandleFunc("POST /api/v1/games/{id}/start", a.authed(a.gameStep("start")))
+	mux.HandleFunc("POST /api/v1/games/{id}/leave", a.authed(a.gameStep("leave")))
+	mux.HandleFunc("POST /api/v1/games/{id}/end", a.authed(a.gameStep("end")))
+	mux.HandleFunc("POST /api/v1/games/{id}/rematch", a.authed(a.gameStep("rematch")))
+	mux.HandleFunc("POST /api/v1/stickers", a.authed(a.addSticker))
+	mux.HandleFunc("PATCH /api/v1/stickers/{id}", a.authed(a.updateSticker))
+	mux.HandleFunc("DELETE /api/v1/stickers/{id}", a.authed(a.deleteSticker))
+	mux.HandleFunc("POST /api/v1/pair", a.authed(a.createPair))
+	mux.HandleFunc("POST /api/v1/pair/redeem", a.limited(a.redeemPair))
+	mux.HandleFunc("GET /api/v1/me/client-state", a.authed(a.getClientState))
+	mux.HandleFunc("PUT /api/v1/me/client-state", a.authed(a.putClientState))
 	mux.HandleFunc("GET /api/v1/server", func(w http.ResponseWriter, r *http.Request) { a.ok(w, a.acct.ServerInfo()) })
+	mux.HandleFunc("GET /api/v1/server/icon", a.serverIcon)
+	mux.HandleFunc("GET /api/v1/server/profile", a.authed(a.serverProfile))
 	mux.HandleFunc("GET /api/v1/invites", a.authed(a.listInvites))
 	mux.HandleFunc("POST /api/v1/invites", a.authed(a.createInvite))
 	mux.HandleFunc("POST /api/v1/dm", a.authed(a.openDM))
@@ -71,10 +117,14 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/channels/{id}/join", a.authed(a.joinChannel))
 
 	mux.HandleFunc("GET /api/v1/conversations/{id}", a.authed(a.getConversation))
+	mux.HandleFunc("PUT /api/v1/conversations/{id}/pin", a.authed(a.setPinned))
+	mux.HandleFunc("PUT /api/v1/conversations/{id}/dnd", a.authed(a.setDnd))
 	mux.HandleFunc("GET /api/v1/users/{id}", a.authed(a.getUser))
 
 	mux.HandleFunc("PATCH /api/v1/me", a.authed(a.updateProfile))
 	mux.HandleFunc("GET /api/v1/me/logins", a.authed(a.listLogins))
+	mux.HandleFunc("PUT /api/v1/me/presence", a.authed(a.setPresence))
+	mux.HandleFunc("POST /api/v1/me/leave", a.authed(a.leaveServer))
 
 	mux.HandleFunc("POST /api/v1/groups", a.authed(a.createGroup))
 	mux.HandleFunc("PATCH /api/v1/groups/{id}", a.authed(a.updateGroup))
@@ -90,6 +140,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/groups/{id}/requests/{uid}/reject", a.authed(a.decideJoin(false)))
 
 	mux.HandleFunc("POST /api/v1/events/{id}/delete", a.authed(a.adminDelete))
+	a.registerProfiles(mux)
 
 	mux.HandleFunc("POST /api/v1/media", a.authed(a.upload))
 	mux.HandleFunc("GET /api/v1/media/{id}", a.authed(a.download(false)))

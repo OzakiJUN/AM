@@ -65,4 +65,18 @@ var (
 
 	ErrReasonRequired = New(http.StatusBadRequest, "reason_required", "a reason is required")
 	ErrNoPassword     = New(http.StatusBadRequest, "no_password", "this account does not use a password")
+
+	ErrBioTooLong      = New(http.StatusBadRequest, "bio_too_long", "signature must be at most 100 characters")
+	ErrInvalidActivity = New(http.StatusBadRequest, "invalid_activity", "unknown activity, or its text is too long / missing")
+	ErrLeftServer      = New(http.StatusForbidden, "left_server", "you left this server; a new invite code is needed to come back")
+	ErrInvalidWidget   = New(http.StatusBadRequest, "invalid_widget", "a widget has an unknown kind, a bad size or place, or bad settings")
+	ErrAILimit         = New(http.StatusForbidden, "ai_limit", "you already have the most AI accounts allowed")
+	ErrStickerLimit    = New(http.StatusForbidden, "sticker_limit", "your sticker collection is full")
+	ErrMusicLink       = New(http.StatusBadRequest, "music_link_invalid", "not a NetEase song or playlist link")
+	ErrMusicUnavail    = New(http.StatusBadGateway, "music_unavailable", "could not read that from NetEase")
+	ErrTooManyDevices  = New(http.StatusForbidden, "too_many_devices", "this account is logged in on the most devices allowed; log out on one first")
+	ErrInvalidPairCode = New(http.StatusBadRequest, "invalid_pair_code", "the pairing code is wrong, already used or expired")
+	ErrStateConflict   = New(http.StatusConflict, "state_conflict", "another device saved in the meantime; load and merge first")
+	ErrTooLargeData    = New(http.StatusRequestEntityTooLarge, "too_large", "data is too large")
+	ErrLayoutConflict  = New(http.StatusConflict, "layout_conflict", "someone else saved this profile in the meantime; reload and try again")
 )

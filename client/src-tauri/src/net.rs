@@ -130,6 +130,20 @@ fn tls_config(ep: &Endpoint) -> Result<Option<Arc<ClientConfig>>, NetError> {
     Ok(Some(Arc::new(cfg)))
 }
 
+/// Client for public HTTPS services (AI model providers): normal CA checks,
+/// no overall timeout (answers stream for a long time), only a read timeout.
+pub(crate) fn public_client() -> Result<reqwest::Client, NetError> {
+    let ep = Endpoint { address: String::new(), plain: false, pin: None };
+    let cfg = tls_config(&ep)?.expect("TLS config for a non-plain endpoint");
+    reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .read_timeout(std::time::Duration::from_secs(180))
+        .user_agent(concat!("AM-client/", env!("CARGO_PKG_VERSION")))
+        .tls_backend_preconfigured((*cfg).clone())
+        .build()
+        .map_err(err)
+}
+
 fn http_client(ep: &Endpoint) -> Result<reqwest::Client, NetError> {
     let mut b = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(10))
@@ -233,7 +247,8 @@ impl Net {
     /// Fetches a media path (/api/v1/media/...) with the session token.
     pub async fn fetch(&self, id: &str, path: &str) -> Result<(u16, String, Vec<u8>), NetError> {
         let c = self.get(id)?;
-        if !path.starts_with("/api/v1/media/") {
+        // Media files and the server icon only (the token is attached).
+        if !path.starts_with("/api/v1/media/") && !path.starts_with("/api/v1/server/icon") {
             return Err(NetError("bad media path".into()));
         }
         let mut req = c.http.get(format!("{}{}", c.ep.base_url(), path));

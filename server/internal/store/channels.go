@@ -26,7 +26,7 @@ func (q *Queries) ListPublicChannels(ctx context.Context, viewer int64) ([]*Chan
 		ch := &Channel{}
 		c := &ch.Conversation
 		if err := rows.Scan(&c.ID, &c.Kind, &c.Name, &c.Avatar, &c.AvatarMedia, &c.Notice, &c.OwnerID, &c.LastSeq,
-			&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt, &ch.MemberCount, &ch.Joined); err != nil {
+			&c.JoinApproval, &c.Dissolved, &c.Public, &c.CreatedAt, &c.AIID, &ch.MemberCount, &ch.Joined); err != nil {
 			return nil, err
 		}
 		out = append(out, ch)

@@ -27,6 +27,9 @@ message LoginRequest {
   string username = 1;
   string password = 2;
   string device_name = 3;
+  // Only for accounts that left the server: an unused invite code lets them
+  // back in (used up like a registration). Ignored for everyone else.
+  string invite_code = 4;
 }
 
 // Response of register and login.
@@ -38,6 +41,53 @@ message SessionResponse {
 // GET /api/v1/sessions
 message ListSessionsResponse {
   repeated DeviceSession sessions = 1;
+  // Most devices a human account may be logged in on (limits.max_devices);
+  // 0 = no limit.
+  int32 max_devices = 2;
+}
+
+// POST /api/v1/logout logs out the device making the request (empty body).
+
+// POST /api/v1/pair: a one-time ticket that logs in a new device of mine
+// (docs/design.md §7, 多设备). Refused with too_many_devices when the
+// account is already on limits.max_devices devices. A new ticket replaces
+// the previous unused one.
+message CreatePairTicketRequest {
+  // Encrypted data for the new device, at most 32 KiB; kept with the ticket
+  // and handed over when it is redeemed. Opaque to the server.
+  bytes bundle = 1;
+}
+
+message PairTicket {
+  string ticket = 1;
+  int64 expires_at = 2;
+}
+
+// POST /api/v1/pair/redeem (no token): uses up the ticket and logs the new
+// device in. invalid_pair_code when it is wrong, used or expired.
+message RedeemPairTicketRequest {
+  string ticket = 1;
+  string device_name = 2;
+}
+
+message PairRedeemResponse {
+  string token = 1;
+  User me = 2;
+  bytes bundle = 3;
+}
+
+// GET /api/v1/me/client-state: data shared by my devices (the list of my
+// servers), encrypted by the client. Empty data and updated_at 0 = none yet.
+message ClientState {
+  bytes data = 1;
+  int64 updated_at = 2;
+}
+
+// PUT /api/v1/me/client-state (replies ClientState). At most 32 KiB.
+// state_conflict when another device saved since base_updated_at.
+message PutClientStateRequest {
+  bytes data = 1;
+  int64 base_updated_at = 2;
 }
 
 message DeviceSession {
@@ -79,6 +129,36 @@ message ServerInfo {
   string version = 2;
   // Client download page; QR codes point here.
   string download_url = 3;
+  // Server icon ("/api/v1/server/icon?v=..."), "" when none is set. Public.
+  string icon = 4;
+  // Random id of the running server process: lets the server (and clients)
+  // check that a new address really reaches this same server.
+  string instance_id = 5;
+}
+
+// Who may rearrange the widgets on the server profile.
+enum ProfileEditors {
+  PROFILE_EDITORS_UNSPECIFIED = 0;
+  // Site admins only (default).
+  PROFILE_EDITORS_ADMINS = 1;
+  PROFILE_EDITORS_EVERYONE = 2;
+}
+
+// GET /api/v1/server/profile: the server's profile page. Set up by the site
+// admin in the admin panel.
+message ServerProfile {
+  string name = 1;
+  string description = 2;
+  // Same as ServerInfo.icon.
+  string icon = 3;
+  // Accounts that are not banned and have not left.
+  int32 member_count = 4;
+  // Online and not invisible.
+  int32 online_count = 5;
+  ProfileEditors layout_editors = 6;
+  // Members may change what is inside widgets (never their kind or place).
+  // When on, each widget can also get its own rule (widgets: later batch).
+  bool widget_content_editable = 7;
 }
 
 // ---- friends (removed) ----
@@ -137,6 +217,18 @@ message UpdateProfileRequest {
   optional string display_name = 1;
   // Media id of an uploaded image (GIF allowed). 0 removes the avatar.
   optional int64 avatar_media_id = 2;
+  // Personal signature, at most 100 characters. Empty clears it.
+  optional string bio = 3;
+}
+
+// PUT /api/v1/me/presence -> Presence (as the user themselves sees it).
+// Saved on the server, so it stays after reconnecting or restarting.
+message SetPresenceRequest {
+  // Appear offline to everyone except yourself and your own bot / ai
+  // accounts (so your AI knows you are around and may give it away).
+  bool invisible = 1;
+  // Empty / UNSPECIFIED clears the activity.
+  Activity activity = 2;
 }
 
 // GET /api/v1/me/logins
@@ -218,6 +310,19 @@ message TransferGroupRequest {
 
 // DELETE /api/v1/groups/{id}   -> Empty   (owner only; dissolves the group)
 
+// PUT /api/v1/conversations/{id}/pin -> Conversation. Pins a channel or DM
+// to the top of my list (my own setting, shared by my devices).
+message SetPinnedRequest {
+  bool pinned = 1;
+}
+
+// PUT /api/v1/conversations/{id}/dnd -> Conversation. Do not disturb: no
+// notifications, unread shown grey. until: unix ms, 0 = off, -1 = until
+// turned off.
+message SetDndRequest {
+  int64 until = 1;
+}
+
 // POST /api/v1/groups/{id}/mute   -> Empty
 message MuteMemberRequest {
   int64 user_id = 1;
@@ -267,3 +372,163 @@ message MediaInfo {
 }
 
 message Empty {}
+
+// ---- AI / bot accounts (docs/design.md §9, §10) ----
+// Only the owner (a human account) may use these. The AI runs on one device
+// of its owner, which logs in as the AI with POST /api/v1/ai/{id}/run.
+
+// GET /api/v1/ai
+message ListAIResponse {
+  repeated AIAccount ais = 1;
+}
+
+message AIAccount {
+  User user = 1;
+  // The owner's settings for it (persona, model, runner device, ...), JSON
+  // kept as it is by the server; only the owner can read it.
+  string settings = 2;
+  int64 settings_updated_at = 3;
+  // People waiting for me to let them talk with it (share requests).
+  int32 share_requests = 4;
+}
+
+// POST /api/v1/ai -> AIAccount
+message CreateAIRequest {
+  string display_name = 1;
+}
+
+// PATCH /api/v1/ai/{id} takes UpdateProfileRequest (name, avatar, bio) -> User.
+
+// PUT /api/v1/ai/{id}/settings -> AIAccount. At most 64 KiB of JSON.
+// state_conflict when saved elsewhere since base_updated_at.
+message PutAISettingsRequest {
+  string settings = 1;
+  int64 base_updated_at = 2;
+}
+
+// POST /api/v1/ai/{id}/run -> SessionResponse: logs this device in as the
+// AI (it becomes the device that runs it); the AI's other sessions end.
+message RunAIRequest {
+  string device_name = 1;
+}
+
+// DELETE /api/v1/ai/{id} -> Empty: the AI leaves the server for good.
+
+// POST /api/v1/ai/{id}/room -> Conversation: a shared room with my AI, a
+// private group owned by me with the AI and the people listed; I add or
+// remove people later like in any channel.
+message CreateAIRoomRequest {
+  string name = 1;
+  repeated int64 member_ids = 2;
+}
+
+// ---- stickers (docs/design.md §11) ----
+
+// One sticker in my collection: one of my own uploaded images plus tags.
+message Sticker {
+  int64 id = 1;
+  int64 media_id = 2;
+  // At most 10 tags, 20 characters each (trimmed, no duplicates).
+  repeated string tags = 3;
+  int64 created_at = 4;
+}
+
+// GET /api/v1/stickers -> ListStickersResponse: mine, newest first.
+message ListStickersResponse {
+  repeated Sticker stickers = 1;
+}
+
+// POST /api/v1/stickers -> Sticker. The image must be my own upload; adding
+// the same image again returns the sticker already there. At most
+// limits.max_stickers per person (sticker_limit).
+message AddStickerRequest {
+  int64 media_id = 1;
+  repeated string tags = 2;
+}
+
+// PATCH /api/v1/stickers/{id} -> Sticker (replaces the tags).
+// DELETE /api/v1/stickers/{id} -> Empty.
+message UpdateStickerRequest {
+  repeated string tags = 1;
+}
+
+// ---- music links (docs/design.md §7, music widgets) ----
+
+// POST /api/v1/music/resolve -> ResolveMusicResponse. Reads a NetEase Cloud
+// Music song or playlist link (also the short 163cn.tv ones): title,
+// artist, tracks, and the cover, which is copied into my uploads
+// (cover_media_id) so visitors load it from this server.
+// music_link_invalid / music_unavailable.
+message ResolveMusicRequest {
+  string url = 1;
+}
+
+message MusicTrack {
+  string netease_id = 1;
+  string title = 2;
+  string artist = 3;
+}
+
+message ResolveMusicResponse {
+  // "song" or "playlist".
+  string kind = 1;
+  string netease_id = 2;
+  string title = 3;
+  // Song: its artists; playlist: who made it.
+  string artist = 4;
+  int64 cover_media_id = 5;
+  // Playlist: the first 50 tracks. Song: just that one.
+  repeated MusicTrack tracks = 6;
+}
+
+// ---- an AI's own portrait pack (docs/design.md §9 AI 形象) ----
+
+// GET /api/v1/users/{id}/portraits -> PortraitPack (anyone);
+// PUT /api/v1/ai/{id}/portraits takes PortraitPack (its owner): mood -> media id
+// of an image the owner uploaded. Moods are lower-case keys (≤16 characters),
+// at most 24. An empty map goes back to the default pack.
+message PortraitPack {
+  map<string, int64> media_ids = 1;
+}
+
+// ---- asking to talk with someone's AI (共享聊天) ----
+
+// POST /api/v1/ai/{id}/share-request -> Empty: I ask its owner (a push tells
+// them). GET /api/v1/ai/{id}/share-requests -> ShareRequests (owner).
+// POST /api/v1/ai/{id}/share-requests/{user} takes DecideShareRequest ->
+// Conversation (approved: its shared room, made if needed) or Empty.
+message ShareRequests {
+  repeated User users = 1;
+}
+
+message DecideShareRequest {
+  bool approve = 1;
+}
+
+// ---- board games (docs/design.md §13 小游戏) ----
+
+message OpenGameRequest {
+  string kind = 1;
+  bool auto_approve = 2;
+}
+
+message ListGamesResponse {
+  repeated Game games = 1;
+}
+
+message GameActRequest {
+  // move (x, y) | say (text) | vote (target seat) | resign
+  string action = 1;
+  int32 x = 2;
+  int32 y = 3;
+  string text = 4;
+  int32 target = 5;
+}
+
+message SetGameRequest {
+  bool auto_approve = 1;
+}
+
+message DecideGameRequest {
+  bool approve = 1;
+}

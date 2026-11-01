@@ -1,11 +1,14 @@
-import { useRef, useState, type ReactNode } from 'react';
-import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Shield, Sun, Trash2, Type } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Shield, Sun, Trash2, Type, X } from 'lucide-react';
 import { motion } from 'motion/react';
-import { ACCENTS, imageFileToDataURL, useTheme } from '@/lib/theme';
+import { ACCENTS, GLASS_DEFAULTS, GLASS_STYLES, imageFileToDataURL, useTheme } from '@/lib/theme';
 import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/store';
 import { usePrefs } from '@/lib/prefs';
-import { openUrl } from '@/lib/platform';
-import { Button, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
+import { inTauri, openUrl } from '@/lib/platform';
+import { CATEGORY_LABEL, REMOTE_CATEGORIES } from '@/lib/ai/agent';
+import type { Level, ToolCategory } from '@/lib/ai/persona';
+import { newAllow, useRemote, type RemoteAllow } from '@/lib/ai/remote';
+import { Button, ColorButton, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
 import { ServerAvatar, UserAvatar } from './media';
 
 type Tab = 'appearance' | 'servers' | 'privacy' | 'notify' | 'about';
@@ -16,7 +19,7 @@ export function SettingsPage() {
     { id: 'appearance', label: '外观', Icon: Palette },
     { id: 'servers', label: '服务器', Icon: Server },
     { id: 'privacy', label: '隐私', Icon: Shield },
-    { id: 'notify', label: '通知', Icon: Bell },
+    { id: 'notify', label: '通知与窗口', Icon: Bell },
     { id: 'about', label: '关于', Icon: Info },
   ];
   return (
@@ -65,7 +68,6 @@ function Row({ title, desc, children }: { title: string; desc?: string; children
 function Appearance() {
   const t = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
-  const colorRef = useRef<HTMLInputElement>(null);
   const custom = !ACCENTS.some((a) => a.color === t.accent);
   return (
     <div className="max-w-3xl">
@@ -100,19 +102,19 @@ function Appearance() {
                 {t.accent === a.color && <Check size={16} className="text-white" />}
               </button>
             ))}
-            <button
-              onClick={() => colorRef.current?.click()}
-              aria-label="自定义颜色"
-              title="自定义颜色"
+            <ColorButton
+              label="自定义颜色"
+              value={t.accent}
+              onChange={(accent) => t.set({ accent })}
+              presets={ACCENTS.map((a) => a.color)}
               className={cx(
-                'flex h-9 w-9 items-center justify-center rounded-full ring-offset-2 ring-offset-white dark:ring-offset-[#1e1b36]',
+                'press flex h-9 w-9 items-center justify-center rounded-full ring-offset-2 ring-offset-white dark:ring-offset-[#1e1b36]',
                 custom && 'ring-2 ring-[var(--accent)]',
               )}
               style={{ background: 'conic-gradient(#f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f472b6, #f87171)' }}
             >
               {custom && <Check size={16} className="text-white drop-shadow" />}
-            </button>
-            <input ref={colorRef} type="color" value={t.accent} onChange={(e) => t.set({ accent: e.target.value })} className="sr-only" />
+            </ColorButton>
           </div>
         </Row>
 
@@ -158,6 +160,27 @@ function Appearance() {
               <span className="w-10 text-right text-[0.85rem] text-ink-soft tabular-nums dark:text-white/50">{Math.round(t.bgDim * 100)}%</span>
             </Row>
           </>
+        )}
+
+        <Row title="面板样式" desc="聊天窗口、列表这些面板叠在背景上的样子">
+          <Segmented id="glass-style" value={t.glassStyle ?? 'frosted'} onChange={(glassStyle) => t.set({ glassStyle })} options={GLASS_STYLES} />
+        </Row>
+        {(t.glassStyle ?? 'frosted') !== 'solid' && (
+          <>
+            <Row title="面板透明度" desc="调低能看到更多背景，调高字更清楚">
+              <div className="w-56"><Slider label="面板透明度" value={Math.round((1 - (t.glassOpacity ?? 0.74)) * 100)} min={0} max={80} step={2} onChange={(x) => t.set({ glassOpacity: 1 - x / 100 })} /></div>
+              <span className="w-10 text-right text-[0.85rem] text-ink-soft tabular-nums dark:text-white/50">{Math.round((1 - (t.glassOpacity ?? 0.74)) * 100)}%</span>
+            </Row>
+            <Row title="面板模糊" desc="面板后面的背景模糊多少">
+              <div className="w-56"><Slider label="面板模糊" value={t.glassBlur ?? 22} min={0} max={40} step={1} onChange={(glassBlur) => t.set({ glassBlur })} /></div>
+              <span className="w-10 text-right text-[0.85rem] text-ink-soft tabular-nums dark:text-white/50">{t.glassBlur ?? 22}</span>
+            </Row>
+          </>
+        )}
+        {(t.glassStyle !== GLASS_DEFAULTS.glassStyle || t.glassOpacity !== GLASS_DEFAULTS.glassOpacity || t.glassBlur !== GLASS_DEFAULTS.glassBlur) && (
+          <div className="flex justify-end pt-2">
+            <Button size="sm" variant="ghost" onClick={() => t.set(GLASS_DEFAULTS)}><RotateCcw size={15} /> 面板恢复默认</Button>
+          </div>
         )}
 
         <PortraitRow />
@@ -217,6 +240,119 @@ function Privacy() {
         })}
         {!v?.blocked.length && <Empty icon={<Shield size={26} />} title="没有屏蔽任何人" text="在成员列表或私信顶部可以屏蔽别人。" />}
       </div>
+      <RemoteAIs />
+    </div>
+  );
+}
+
+/** 别人的 AI 操作这台电脑: off unless turned on here, per AI (docs/design.md §9). */
+function RemoteAIs() {
+  const v = useCurrent();
+  const allow = useRemote((s) => s.allow);
+  const setAllow = useRemote((s) => s.set);
+  const [open, setOpen] = useState<string | null>(null);
+  // AIs I never shared a chat with are not known yet: read the member directory.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      let after = '';
+      for (let i = 0; i < 10 && alive; i++) {
+        const r = await current().listUsers('', after).catch(() => null);
+        if (!r?.nextAfter) break;
+        after = r.nextAfter;
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [v?.id]);
+  if (!v) return null;
+  const ais = Object.values(v.users).filter((u) => (u.type === 'ai' || u.type === 'bot') && u.ownerId !== v.me?.id && !u.gone);
+  const turnOn = async (key: string, name: string) => {
+    const ok = await ask({
+      title: `让「${name}」操作这台电脑？`,
+      text: '它会通过服务器请这台电脑做事（看文件、运行命令、截图、点鼠标……），你在下面一项项决定允许、问你还是不行。默认每样都先问你。只影响这台电脑。',
+      ok: '打开', danger: true,
+    });
+    if (ok === null) return;
+    setAllow(key, newAllow(name));
+    setOpen(key);
+  };
+  return (
+    <div className="mt-10">
+      <h3 className="text-[1.15rem] font-semibold">别人的 AI 操作这台电脑</h3>
+      <p className="mt-1 text-[0.88rem] text-ink-soft dark:text-white/55">默认谁都不行。打开后，那个 AI（用它主人的模型）可以请这台电脑做你允许的事；它做的每一步都会显示在屏幕上方，按 F12 或点「停止」马上停。</p>
+      <div className="mt-4 space-y-2">
+        {!ais.length && <p className="text-[0.88rem] text-ink-soft dark:text-white/50">这个服务器上还没有别人的 AI。</p>}
+        {ais.map((u) => {
+          const key = `${v.id}|${u.id}`;
+          const a = allow[key];
+          return (
+            <div key={u.id} className="card rounded-2xl bg-white/95 p-3 dark:bg-white/[0.06]">
+              <div className="flex items-center gap-3">
+                <UserAvatar user={u} size={40} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5"><span className="truncate font-medium">{u.name}</span><IdentityChip user={u} short /></div>
+                  <div className="text-[0.82rem] text-ink-soft dark:text-white/50">{a ? '可以操作这台电脑（按下面的设置）' : '不能操作这台电脑'}</div>
+                </div>
+                {a && <Button size="sm" variant="ghost" onClick={() => setOpen(open === key ? null : key)}>{open === key ? '收起' : '权限'}</Button>}
+                <Toggle label={`让 ${u.name} 操作这台电脑`} checked={!!a} onChange={(on) => (on ? turnOn(key, u.name) : setAllow(key, null))} />
+              </div>
+              {a && open === key && <RemoteLevels allow={a} onChange={(x) => setAllow(key, x)} />}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RemoteLevels({ allow, onChange }: { allow: RemoteAllow; onChange: (a: RemoteAllow) => void }) {
+  const setLevel = async (cat: ToolCategory, level: Level) => {
+    // Raising always warns (Weiqi: the top level may be silent, but never without a warning).
+    const rank = { deny: 0, ask: 1, allow: 2 } as const;
+    if (rank[level] > rank[allow.levels[cat] ?? 'deny']) {
+      const ok = await ask({
+        title: level === 'allow' ? `让「${allow.name}」${CATEGORY_LABEL[cat].name}不用问你？` : `让「${allow.name}」可以${CATEGORY_LABEL[cat].name}？`,
+        text: `${CATEGORY_LABEL[cat].hint}。这是别人的 AI，它听它主人和别人的话。${level === 'allow' ? '选「允许」后它做这类事不会再问你，只会在屏幕上方显示。' : ''}`,
+        ok: '确定', danger: level === 'allow' || !!CATEGORY_LABEL[cat].risky,
+      });
+      if (ok === null) return;
+    }
+    onChange({ ...allow, levels: { ...allow.levels, [cat]: level } });
+  };
+  return (
+    <div className="mt-3 space-y-1.5 border-t border-black/5 pt-3 dark:border-white/5">
+      <div className="flex flex-wrap items-center gap-2 text-[0.82rem]">
+        <span className="text-ink-soft dark:text-white/55">它能用的文件夹：</span>
+        {allow.workDirs.map((d) => (
+          <span key={d} className="flex items-center gap-1 rounded-lg bg-black/[0.04] px-2 py-0.5 font-mono dark:bg-white/10">
+            {d}<button onClick={() => onChange({ ...allow, workDirs: allow.workDirs.filter((x) => x !== d) })} aria-label={`移除 ${d}`}><X size={12} /></button>
+          </span>
+        ))}
+        <Button size="sm" variant="soft" onClick={async () => {
+          let dir: string | null = null;
+          if (inTauri) {
+            const { open: pick } = await import('@tauri-apps/plugin-dialog');
+            const r = await pick({ directory: true, multiple: false, title: '选一个让它用的文件夹' });
+            dir = typeof r === 'string' ? r : null;
+          } else {
+            dir = await ask({ title: '添加文件夹', ok: '添加', input: { label: '文件夹路径', placeholder: 'D:\\共享', required: true } });
+          }
+          if (dir && !allow.workDirs.includes(dir)) onChange({ ...allow, workDirs: [...allow.workDirs, dir] });
+        }}><Plus size={14} /> 加文件夹</Button>
+      </div>
+      {REMOTE_CATEGORIES.map((cat) => (
+        <div key={cat} role="group" aria-label={`远程 ${CATEGORY_LABEL[cat].name}`} className="flex flex-wrap items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+          <div className="min-w-0 flex-1">
+            <div className="text-[0.9rem] font-medium">{CATEGORY_LABEL[cat].name}</div>
+            <div className="text-[0.75rem] text-ink-soft dark:text-white/45">{CATEGORY_LABEL[cat].hint}</div>
+          </div>
+          <Segmented id={`remote-${cat}`} value={allow.levels[cat] ?? 'deny'} onChange={(l) => void setLevel(cat, l)} options={[
+            { value: 'allow', label: '允许' }, { value: 'ask', label: '问我' }, { value: 'deny', label: '不行' },
+          ]} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -234,7 +370,7 @@ function Servers() {
           const v = sessions[s.id];
           return (
             <div key={s.id} className="card flex items-center gap-3 rounded-2xl bg-white/95 p-3 dark:bg-white/[0.06]">
-              <ServerAvatar name={v?.name ?? s.name} size={42} />
+              <ServerAvatar name={v?.name ?? s.name} icon={v?.icon} serverId={s.id} size={42} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{v?.name ?? s.name} {s.id === currentId && <span className="ml-1 text-[0.78rem] text-accent">当前</span>}</div>
                 <div className="text-[0.82rem] text-ink-soft dark:text-white/50">
@@ -261,12 +397,21 @@ function Servers() {
 
 function Notify() {
   const [on, setOn] = useState(() => localStorage.getItem('am-notify') !== 'off');
+  const closeToTray = usePrefs((p) => p.closeToTray);
+  const setPrefs = usePrefs((p) => p.set);
   return (
     <div className="max-w-3xl">
-      <h2 className="text-[1.4rem] font-semibold">通知</h2>
+      <h2 className="text-[1.4rem] font-semibold">通知与窗口</h2>
       <Row title="桌面通知" desc="窗口不在前台、或者在看别的会话时，新消息弹系统通知">
         <Toggle label="桌面通知" checked={on} onChange={(v) => { setOn(v); localStorage.setItem('am-notify', v ? 'on' : 'off'); }} />
       </Row>
+      {inTauri && (
+        <Row title="点窗口的关闭按钮时" desc="收到托盘：AM 继续在后台收消息，在这台设备上运行的 AI 也保持在线；右下角托盘图标点一下打开，右键可以退出">
+          <Segmented id="close-to-tray" value={closeToTray ? 'tray' : 'quit'} onChange={(x) => setPrefs({ closeToTray: x === 'tray' })} options={[
+            { value: 'tray', label: '收到托盘' }, { value: 'quit', label: '直接退出' },
+          ]} />
+        </Row>
+      )}
     </div>
   );
 }

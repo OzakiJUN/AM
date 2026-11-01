@@ -28,6 +28,50 @@ message User {
   // Static (first-frame) version of the avatar. Lists and chats show this;
   // only the profile page plays the animated `avatar`.
   string avatar_static = 8;
+  // Personal signature shown on the profile page (at most 100 characters).
+  string bio = 9;
+  // The account is gone: left the server, banned, or (bot / ai) deleted by
+  // its owner. Old messages still show it; lists hide deleted bots / AIs.
+  bool gone = 10;
+  // Bot / ai: when its own portrait pack last changed (0 = it uses the
+  // default pack). Clients fetch GET /api/v1/users/{id}/portraits when it moves.
+  int64 portraits_at = 11;
+}
+
+// What a user says they are doing. Chosen by the user; shown next to their
+// name while they are online.
+enum ActivityKind {
+  // Nothing.
+  ACTIVITY_KIND_UNSPECIFIED = 0;
+  // Listening to music; text = the song.
+  ACTIVITY_KIND_LISTENING = 1;
+  // Playing a game; text = the game.
+  ACTIVITY_KIND_PLAYING = 2;
+  // Tuning / debugging an AI.
+  ACTIVITY_KIND_TUNING_AI = 3;
+  // Studying or working (busy).
+  ACTIVITY_KIND_WORKING = 4;
+  // Free text only.
+  ACTIVITY_KIND_CUSTOM = 5;
+}
+
+message Activity {
+  ActivityKind kind = 1;
+  // Optional detail (song, game ...), at most 32 characters. Required for CUSTOM.
+  string text = 2;
+}
+
+// Online state of one user as seen by the receiver.
+message Presence {
+  int64 user_id = 1;
+  // At least one device connected. An invisible user is reported offline to
+  // everyone except themselves and the bot / ai accounts they own.
+  bool online = 2;
+  // Set only for the user themselves and their own bot / ai accounts: the
+  // user is online but invisible to everyone else.
+  bool invisible = 3;
+  // Only while online.
+  Activity activity = 4;
 }
 
 enum ConvKind {
@@ -65,6 +109,9 @@ message Conversation {
   // Group: public channel. Every member of the server can see and join it,
   // and new accounts join it automatically. False = private (invite only).
   bool public = 12;
+  // Shared AI room: the AI (bot / ai account) this private group belongs to.
+  // Clients list it on the AI page; the AI answers everyone in it. 0 = none.
+  int64 ai_id = 13;
 }
 
 // Per-user settings and state inside one conversation.
@@ -74,7 +121,7 @@ message MemberState {
   int64 read_seq = 2;
   // 0 = not pinned; larger number = higher in the list.
   int64 pinned_order = 3;
-  // Do-not-disturb until this unix time in ms. 0 = off.
+  // Do-not-disturb until this unix time in ms. 0 = off, -1 = until turned off.
   int64 dnd_until = 4;
   // Muted by an admin until this unix time in ms. 0 = not muted.
   int64 muted_until = 5;
@@ -86,4 +133,36 @@ message Error {
   string code = 1;
   // Human-readable message (English) for logs and debugging.
   string message = 2;
+}
+
+// ---- board games (docs/design.md §13 小游戏) ----
+
+// A board game in a channel or shared AI room, as one person sees it.
+message Game {
+  int64 id = 1;
+  int64 conv_id = 2;
+  // gomoku | reversi | undercover
+  string kind = 3;
+  int64 host_id = 4;
+  // waiting | playing | ended
+  string status = 5;
+  repeated GamePlayer players = 6;
+  // People / AIs asking to join (the host decides unless auto_approve).
+  repeated int64 applicants = 7;
+  bool auto_approve = 8;
+  // Everyone who has to act now (one player, or all who have not voted yet).
+  repeated int64 waiting_on = 9;
+  // Kind-specific state (board, turn, last move, said, votes ...), see docs/protocol.md.
+  string state_json = 10;
+  int64 created_at = 11;
+  int64 updated_at = 12;
+}
+
+message GamePlayer {
+  int64 user_id = 1;
+  bool out = 2;
+  // 谁是卧底: true once this player is out (or the game is over) and was undercover.
+  bool spy = 3;
+  // 谁是卧底: the word, only my own (everyone's at the end).
+  string word = 4;
 }

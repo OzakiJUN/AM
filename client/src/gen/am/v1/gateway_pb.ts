@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Conversation, Error, User } from "./common_pb";
+import type { Conversation, Error, Game, Presence, User } from "./common_pb";
 import { file_am_v1_common } from "./common_pb";
 import type { Event, FileMsg, ImageMsg, StrikeAct, TextMsg } from "./event_pb";
 import { file_am_v1_event } from "./event_pb";
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/gateway.proto.
  */
 export const file_am_v1_gateway: GenFile = /*@__PURE__*/
-  fileDesc("ChNhbS92MS9nYXRld2F5LnByb3RvEgVhbS52MSLaAQoLQ2xpZW50RnJhbWUSDgoGcmVxX2lkGAEgASgEEiIKBGF1dGgYCiABKAsyEi5hbS52MS5BdXRoUmVxdWVzdEgAEiIKBHNlbmQYCyABKAsyEi5hbS52MS5TZW5kUmVxdWVzdEgAEiIKBHN5bmMYDCABKAsyEi5hbS52MS5TeW5jUmVxdWVzdEgAEisKCW1hcmtfcmVhZBgNIAEoCzIWLmFtLnYxLk1hcmtSZWFkUmVxdWVzdEgAEhsKBHBpbmcYDiABKAsyCy5hbS52MS5QaW5nSABCBQoDbXNnIsYDCgtTZXJ2ZXJGcmFtZRIOCgZyZXFfaWQYASABKAQSHQoFZXJyb3IYCiABKAsyDC5hbS52MS5FcnJvckgAEiMKBGF1dGgYCyABKAsyEy5hbS52MS5BdXRoUmVzcG9uc2VIABIjCgRzZW5kGAwgASgLMhMuYW0udjEuU2VuZFJlc3BvbnNlSAASIwoEc3luYxgNIAEoCzITLmFtLnYxLlN5bmNSZXNwb25zZUgAEiwKCW1hcmtfcmVhZBgOIAEoCzIXLmFtLnYxLk1hcmtSZWFkUmVzcG9uc2VIABIbCgRwb25nGA8gASgLMgsuYW0udjEuUG9uZ0gAEiEKBWV2ZW50GB4gASgLMhAuYW0udjEuRXZlbnRQdXNoSAASHwoEY29udhgfIAEoCzIPLmFtLnYxLkNvbnZQdXNoSAASIwoGZnJpZW5kGCAgASgLMhEuYW0udjEuRnJpZW5kUHVzaEgAEi4KDGNvbnZfcmVtb3ZlZBghIAEoCzIWLmFtLnYxLkNvbnZSZW1vdmVkUHVzaEgAEi4KDGpvaW5fcmVxdWVzdBgiIAEoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0UHVzaEgAQgUKA21zZyIcCgtBdXRoUmVxdWVzdBINCgV0b2tlbhgBIAEoCSJqCgxBdXRoUmVzcG9uc2USFwoCbWUYASABKAsyCy5hbS52MS5Vc2VyEioKDWNvbnZlcnNhdGlvbnMYAiADKAsyEy5hbS52MS5Db252ZXJzYXRpb24SFQoNaXNfc2l0ZV9hZG1pbhgDIAEoCCLDAQoLU2VuZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxIVCg1jbGllbnRfbXNnX2lkGAIgASgJEh4KBHRleHQYCiABKAsyDi5hbS52MS5UZXh0TXNnSAASIAoFaW1hZ2UYCyABKAsyDy5hbS52MS5JbWFnZU1zZ0gAEh4KBGZpbGUYDCABKAsyDi5hbS52MS5GaWxlTXNnSAASIgoGc3RyaWtlGBQgASgLMhAuYW0udjEuU3RyaWtlQWN0SABCBgoEYm9keSIrCgxTZW5kUmVzcG9uc2USGwoFZXZlbnQYASABKAsyDC5hbS52MS5FdmVudCJACgtTeW5jUmVxdWVzdBIiCgdjdXJzb3JzGAEgAygLMhEuYW0udjEuU3luY0N1cnNvchINCgVsaW1pdBgCIAEoBSIwCgpTeW5jQ3Vyc29yEg8KB2NvbnZfaWQYASABKAMSEQoJYWZ0ZXJfc2VxGAIgASgDIj4KDFN5bmNSZXNwb25zZRIcCgZldmVudHMYASADKAsyDC5hbS52MS5FdmVudBIQCghoYXNfbW9yZRgCIAMoAyIvCg9NYXJrUmVhZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxILCgNzZXEYAiABKAMiEgoQTWFya1JlYWRSZXNwb25zZSIGCgRQaW5nIgYKBFBvbmciKAoJRXZlbnRQdXNoEhsKBWV2ZW50GAEgASgLMgwuYW0udjEuRXZlbnQiNQoIQ29udlB1c2gSKQoMY29udmVyc2F0aW9uGAEgASgLMhMuYW0udjEuQ29udmVyc2F0aW9uIpkBCgpGcmllbmRQdXNoEiQKBGtpbmQYASABKA4yFi5hbS52MS5GcmllbmRQdXNoLktpbmQSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXIiSgoES2luZBIUChBLSU5EX1VOU1BFQ0lGSUVEEAASGQoVS0lORF9SRVFVRVNUX1JFQ0VJVkVEEAESEQoNS0lORF9BQ0NFUFRFRBACIq0BCg9Db252UmVtb3ZlZFB1c2gSDwoHY29udl9pZBgBIAEoAxItCgZyZWFzb24YAiABKA4yHS5hbS52MS5Db252UmVtb3ZlZFB1c2guUmVhc29uIloKBlJlYXNvbhIWChJSRUFTT05fVU5TUEVDSUZJRUQQABIPCgtSRUFTT05fTEVGVBABEhEKDVJFQVNPTl9LSUNLRUQQAhIUChBSRUFTT05fRElTU09MVkVEEAMiWwoPSm9pblJlcXVlc3RQdXNoEg8KB2NvbnZfaWQYASABKAMSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXISHAoHaW52aXRlchgDIAEoCzILLmFtLnYxLlVzZXJCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common, file_am_v1_event]);
+  fileDesc("ChNhbS92MS9nYXRld2F5LnByb3RvEgVhbS52MSLCAgoLQ2xpZW50RnJhbWUSDgoGcmVxX2lkGAEgASgEEiIKBGF1dGgYCiABKAsyEi5hbS52MS5BdXRoUmVxdWVzdEgAEiIKBHNlbmQYCyABKAsyEi5hbS52MS5TZW5kUmVxdWVzdEgAEiIKBHN5bmMYDCABKAsyEi5hbS52MS5TeW5jUmVxdWVzdEgAEisKCW1hcmtfcmVhZBgNIAEoCzIWLmFtLnYxLk1hcmtSZWFkUmVxdWVzdEgAEhsKBHBpbmcYDiABKAsyCy5hbS52MS5QaW5nSAASLwoLcmVtb3RlX3Rvb2wYDyABKAsyGC5hbS52MS5SZW1vdGVUb29sUmVxdWVzdEgAEjUKEnJlbW90ZV90b29sX3Jlc3VsdBgQIAEoCzIXLmFtLnYxLlJlbW90ZVRvb2xSZXN1bHRIAEIFCgNtc2cipwYKC1NlcnZlckZyYW1lEg4KBnJlcV9pZBgBIAEoBBIdCgVlcnJvchgKIAEoCzIMLmFtLnYxLkVycm9ySAASIwoEYXV0aBgLIAEoCzITLmFtLnYxLkF1dGhSZXNwb25zZUgAEiMKBHNlbmQYDCABKAsyEy5hbS52MS5TZW5kUmVzcG9uc2VIABIjCgRzeW5jGA0gASgLMhMuYW0udjEuU3luY1Jlc3BvbnNlSAASLAoJbWFya19yZWFkGA4gASgLMhcuYW0udjEuTWFya1JlYWRSZXNwb25zZUgAEhsKBHBvbmcYDyABKAsyCy5hbS52MS5Qb25nSAASGQoDYWNrGBAgASgLMgouYW0udjEuQWNrSAASIQoFZXZlbnQYHiABKAsyEC5hbS52MS5FdmVudFB1c2hIABIfCgRjb252GB8gASgLMg8uYW0udjEuQ29udlB1c2hIABIjCgZmcmllbmQYICABKAsyES5hbS52MS5GcmllbmRQdXNoSAASLgoMY29udl9yZW1vdmVkGCEgASgLMhYuYW0udjEuQ29udlJlbW92ZWRQdXNoSAASLgoMam9pbl9yZXF1ZXN0GCIgASgLMhYuYW0udjEuSm9pblJlcXVlc3RQdXNoSAASJwoIcHJlc2VuY2UYIyABKAsyEy5hbS52MS5QcmVzZW5jZVB1c2hIABIuCgxjbGllbnRfc3RhdGUYJCABKAsyFi5hbS52MS5DbGllbnRTdGF0ZVB1c2hIABIuCgxzZXJ2ZXJfbW92ZWQYJSABKAsyFi5hbS52MS5TZXJ2ZXJNb3ZlZFB1c2hIABIsCgtyZW1vdGVfdG9vbBgmIAEoCzIVLmFtLnYxLlJlbW90ZVRvb2xQdXNoSAASOQoScmVtb3RlX3Rvb2xfcmVzdWx0GCcgASgLMhsuYW0udjEuUmVtb3RlVG9vbFJlc3VsdFB1c2hIABI1ChBhaV9zaGFyZV9yZXF1ZXN0GCggASgLMhkuYW0udjEuQUlTaGFyZVJlcXVlc3RQdXNoSAASGwoEZ2FtZRgpIAEoCzILLmFtLnYxLkdhbWVIAEIFCgNtc2ciLQoLQXV0aFJlcXVlc3QSDQoFdG9rZW4YASABKAkSDwoHYWRkcmVzcxgCIAEoCSKmAQoMQXV0aFJlc3BvbnNlEhcKAm1lGAEgASgLMgsuYW0udjEuVXNlchIqCg1jb252ZXJzYXRpb25zGAIgAygLMhMuYW0udjEuQ29udmVyc2F0aW9uEhUKDWlzX3NpdGVfYWRtaW4YAyABKAgSIgoJcHJlc2VuY2VzGAQgAygLMg8uYW0udjEuUHJlc2VuY2USFgoOcHVibGljX2FkZHJlc3MYBSABKAkiwwEKC1NlbmRSZXF1ZXN0Eg8KB2NvbnZfaWQYASABKAMSFQoNY2xpZW50X21zZ19pZBgCIAEoCRIeCgR0ZXh0GAogASgLMg4uYW0udjEuVGV4dE1zZ0gAEiAKBWltYWdlGAsgASgLMg8uYW0udjEuSW1hZ2VNc2dIABIeCgRmaWxlGAwgASgLMg4uYW0udjEuRmlsZU1zZ0gAEiIKBnN0cmlrZRgUIAEoCzIQLmFtLnYxLlN0cmlrZUFjdEgAQgYKBGJvZHkiKwoMU2VuZFJlc3BvbnNlEhsKBWV2ZW50GAEgASgLMgwuYW0udjEuRXZlbnQiQAoLU3luY1JlcXVlc3QSIgoHY3Vyc29ycxgBIAMoCzIRLmFtLnYxLlN5bmNDdXJzb3ISDQoFbGltaXQYAiABKAUiMAoKU3luY0N1cnNvchIPCgdjb252X2lkGAEgASgDEhEKCWFmdGVyX3NlcRgCIAEoAyI+CgxTeW5jUmVzcG9uc2USHAoGZXZlbnRzGAEgAygLMgwuYW0udjEuRXZlbnQSEAoIaGFzX21vcmUYAiADKAMiLwoPTWFya1JlYWRSZXF1ZXN0Eg8KB2NvbnZfaWQYASABKAMSCwoDc2VxGAIgASgDIhIKEE1hcmtSZWFkUmVzcG9uc2UiBgoEUGluZyIGCgRQb25nIigKCUV2ZW50UHVzaBIbCgVldmVudBgBIAEoCzIMLmFtLnYxLkV2ZW50IjUKCENvbnZQdXNoEikKDGNvbnZlcnNhdGlvbhgBIAEoCzITLmFtLnYxLkNvbnZlcnNhdGlvbiKZAQoKRnJpZW5kUHVzaBIkCgRraW5kGAEgASgOMhYuYW0udjEuRnJpZW5kUHVzaC5LaW5kEhkKBHVzZXIYAiABKAsyCy5hbS52MS5Vc2VyIkoKBEtpbmQSFAoQS0lORF9VTlNQRUNJRklFRBAAEhkKFUtJTkRfUkVRVUVTVF9SRUNFSVZFRBABEhEKDUtJTkRfQUNDRVBURUQQAiKtAQoPQ29udlJlbW92ZWRQdXNoEg8KB2NvbnZfaWQYASABKAMSLQoGcmVhc29uGAIgASgOMh0uYW0udjEuQ29udlJlbW92ZWRQdXNoLlJlYXNvbiJaCgZSZWFzb24SFgoSUkVBU09OX1VOU1BFQ0lGSUVEEAASDwoLUkVBU09OX0xFRlQQARIRCg1SRUFTT05fS0lDS0VEEAISFAoQUkVBU09OX0RJU1NPTFZFRBADIlsKD0pvaW5SZXF1ZXN0UHVzaBIPCgdjb252X2lkGAEgASgDEhkKBHVzZXIYAiABKAsyCy5hbS52MS5Vc2VyEhwKB2ludml0ZXIYAyABKAsyCy5hbS52MS5Vc2VyIjEKDFByZXNlbmNlUHVzaBIhCghwcmVzZW5jZRgBIAEoCzIPLmFtLnYxLlByZXNlbmNlIiUKD0NsaWVudFN0YXRlUHVzaBISCgp1cGRhdGVkX2F0GAEgASgDIiIKD1NlcnZlck1vdmVkUHVzaBIPCgdhZGRyZXNzGAEgASgJIgUKA0FjayJcChFSZW1vdGVUb29sUmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJEhIKCnRvX3VzZXJfaWQYAiABKAMSDAoEdG9vbBgDIAEoCRIRCglhcmdzX2pzb24YBCABKAkiYwoOUmVtb3RlVG9vbFB1c2gSEgoKcmVxdWVzdF9pZBgBIAEoCRIcCgdmcm9tX2FpGAIgASgLMgsuYW0udjEuVXNlchIMCgR0b29sGAMgASgJEhEKCWFyZ3NfanNvbhgEIAEoCSJiChBSZW1vdGVUb29sUmVzdWx0EhIKCnJlcXVlc3RfaWQYASABKAkSEAoIdG9fYWlfaWQYAiABKAMSCgoCb2sYAyABKAgSDAoEdGV4dBgEIAEoCRIOCgZpbWFnZXMYBSADKAkiagoUUmVtb3RlVG9vbFJlc3VsdFB1c2gSEgoKcmVxdWVzdF9pZBgBIAEoCRIUCgxmcm9tX3VzZXJfaWQYAiABKAMSCgoCb2sYAyABKAgSDAoEdGV4dBgEIAEoCRIOCgZpbWFnZXMYBSADKAkiPgoSQUlTaGFyZVJlcXVlc3RQdXNoEg0KBWFpX2lkGAEgASgDEhkKBHVzZXIYAiABKAsyCy5hbS52MS5Vc2VyQipaKGdpdGh1Yi5jb20vT3pha2lKVU4vYW0vZ2VuL2dvL2FtL3YxO2FtdjFiBnByb3RvMw", [file_am_v1_common, file_am_v1_event]);
 
 /**
  * @generated from message am.v1.ClientFrame
@@ -58,6 +58,22 @@ export type ClientFrame = Message<"am.v1.ClientFrame"> & {
      */
     value: Ping;
     case: "ping";
+  } | {
+    /**
+     * An AI asks a person's devices to run a computer tool (they decide).
+     *
+     * @generated from field: am.v1.RemoteToolRequest remote_tool = 15;
+     */
+    value: RemoteToolRequest;
+    case: "remoteTool";
+  } | {
+    /**
+     * A person's device answers an AI's remote_tool.
+     *
+     * @generated from field: am.v1.RemoteToolResult remote_tool_result = 16;
+     */
+    value: RemoteToolResult;
+    case: "remoteToolResult";
   } | { case: undefined; value?: undefined };
 };
 
@@ -118,6 +134,14 @@ export type ServerFrame = Message<"am.v1.ServerFrame"> & {
     case: "pong";
   } | {
     /**
+     * Reply to remote_tool / remote_tool_result: the server passed it on.
+     *
+     * @generated from field: am.v1.Ack ack = 16;
+     */
+    value: Ack;
+    case: "ack";
+  } | {
+    /**
      * Pushes (req_id = 0).
      *
      * @generated from field: am.v1.EventPush event = 30;
@@ -150,6 +174,50 @@ export type ServerFrame = Message<"am.v1.ServerFrame"> & {
      */
     value: JoinRequestPush;
     case: "joinRequest";
+  } | {
+    /**
+     * @generated from field: am.v1.PresencePush presence = 35;
+     */
+    value: PresencePush;
+    case: "presence";
+  } | {
+    /**
+     * @generated from field: am.v1.ClientStatePush client_state = 36;
+     */
+    value: ClientStatePush;
+    case: "clientState";
+  } | {
+    /**
+     * @generated from field: am.v1.ServerMovedPush server_moved = 37;
+     */
+    value: ServerMovedPush;
+    case: "serverMoved";
+  } | {
+    /**
+     * @generated from field: am.v1.RemoteToolPush remote_tool = 38;
+     */
+    value: RemoteToolPush;
+    case: "remoteTool";
+  } | {
+    /**
+     * @generated from field: am.v1.RemoteToolResultPush remote_tool_result = 39;
+     */
+    value: RemoteToolResultPush;
+    case: "remoteToolResult";
+  } | {
+    /**
+     * @generated from field: am.v1.AIShareRequestPush ai_share_request = 40;
+     */
+    value: AIShareRequestPush;
+    case: "aiShareRequest";
+  } | {
+    /**
+     * A board game in one of my conversations changed (my own view of it).
+     *
+     * @generated from field: am.v1.Game game = 41;
+     */
+    value: Game;
+    case: "game";
   } | { case: undefined; value?: undefined };
 };
 
@@ -170,6 +238,14 @@ export type AuthRequest = Message<"am.v1.AuthRequest"> & {
    * @generated from field: string token = 1;
    */
   token: string;
+
+  /**
+   * The address (host:port) the client connected to, so the admin panel
+   * can tell how many devices still use an old relay address.
+   *
+   * @generated from field: string address = 2;
+   */
+  address: string;
 };
 
 /**
@@ -202,6 +278,24 @@ export type AuthResponse = Message<"am.v1.AuthResponse"> & {
    * @generated from field: bool is_site_admin = 3;
    */
   isSiteAdmin: boolean;
+
+  /**
+   * Everyone who is online as this user sees it (includes the user
+   * themselves, with `invisible` set if they are). Changes arrive as
+   * `presence` pushes.
+   *
+   * @generated from field: repeated am.v1.Presence presences = 4;
+   */
+  presences: Presence[];
+
+  /**
+   * The server's public address (server.public_address), "" when not set.
+   * A client using another address checks the new one (same certificate)
+   * and switches to it (docs/design.md §3, 更换中转地址).
+   *
+   * @generated from field: string public_address = 5;
+   */
+  publicAddress: string;
 };
 
 /**
@@ -595,4 +689,250 @@ export type JoinRequestPush = Message<"am.v1.JoinRequestPush"> & {
  */
 export const JoinRequestPushSchema: GenMessage<JoinRequestPush> = /*@__PURE__*/
   messageDesc(file_am_v1_gateway, 17);
+
+/**
+ * Someone's online state or activity changed, as the receiver sees it.
+ * Sent to everyone online on the server. online = false means offline (or
+ * invisible, for everyone but the user and their own bot / ai accounts).
+ *
+ * @generated from message am.v1.PresencePush
+ */
+export type PresencePush = Message<"am.v1.PresencePush"> & {
+  /**
+   * @generated from field: am.v1.Presence presence = 1;
+   */
+  presence?: Presence | undefined;
+};
+
+/**
+ * Describes the message am.v1.PresencePush.
+ * Use `create(PresencePushSchema)` to create a new message.
+ */
+export const PresencePushSchema: GenMessage<PresencePush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 18);
+
+/**
+ * One of my devices saved the state my devices share (PUT
+ * /api/v1/me/client-state): load it again. Sent to all my connections.
+ *
+ * @generated from message am.v1.ClientStatePush
+ */
+export type ClientStatePush = Message<"am.v1.ClientStatePush"> & {
+  /**
+   * @generated from field: int64 updated_at = 1;
+   */
+  updatedAt: bigint;
+};
+
+/**
+ * Describes the message am.v1.ClientStatePush.
+ * Use `create(ClientStatePushSchema)` to create a new message.
+ */
+export const ClientStatePushSchema: GenMessage<ClientStatePush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 19);
+
+/**
+ * The server moved to a new public address (the admin changed the relay).
+ * Sent to everyone online; the client connects to the new address with the
+ * same certificate pin and switches only when that works.
+ *
+ * @generated from message am.v1.ServerMovedPush
+ */
+export type ServerMovedPush = Message<"am.v1.ServerMovedPush"> & {
+  /**
+   * @generated from field: string address = 1;
+   */
+  address: string;
+};
+
+/**
+ * Describes the message am.v1.ServerMovedPush.
+ * Use `create(ServerMovedPushSchema)` to create a new message.
+ */
+export const ServerMovedPushSchema: GenMessage<ServerMovedPush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 20);
+
+/**
+ * @generated from message am.v1.Ack
+ */
+export type Ack = Message<"am.v1.Ack"> & {
+};
+
+/**
+ * Describes the message am.v1.Ack.
+ * Use `create(AckSchema)` to create a new message.
+ */
+export const AckSchema: GenMessage<Ack> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 21);
+
+/**
+ * From an AI (bot / ai account) to a person. request_id ≤ 64 characters,
+ * args_json ≤ 16 KiB. Errors: user_not_found, blocked, no_permission,
+ * rate_limited (more than 30 a minute).
+ *
+ * @generated from message am.v1.RemoteToolRequest
+ */
+export type RemoteToolRequest = Message<"am.v1.RemoteToolRequest"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: int64 to_user_id = 2;
+   */
+  toUserId: bigint;
+
+  /**
+   * @generated from field: string tool = 3;
+   */
+  tool: string;
+
+  /**
+   * @generated from field: string args_json = 4;
+   */
+  argsJson: string;
+};
+
+/**
+ * Describes the message am.v1.RemoteToolRequest.
+ * Use `create(RemoteToolRequestSchema)` to create a new message.
+ */
+export const RemoteToolRequestSchema: GenMessage<RemoteToolRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 22);
+
+/**
+ * @generated from message am.v1.RemoteToolPush
+ */
+export type RemoteToolPush = Message<"am.v1.RemoteToolPush"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: am.v1.User from_ai = 2;
+   */
+  fromAi?: User | undefined;
+
+  /**
+   * @generated from field: string tool = 3;
+   */
+  tool: string;
+
+  /**
+   * @generated from field: string args_json = 4;
+   */
+  argsJson: string;
+};
+
+/**
+ * Describes the message am.v1.RemoteToolPush.
+ * Use `create(RemoteToolPushSchema)` to create a new message.
+ */
+export const RemoteToolPushSchema: GenMessage<RemoteToolPush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 23);
+
+/**
+ * From the person's device back to the AI. text ≤ 64 KiB, at most 2 images
+ * (base64), all together under 900 KiB.
+ *
+ * @generated from message am.v1.RemoteToolResult
+ */
+export type RemoteToolResult = Message<"am.v1.RemoteToolResult"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: int64 to_ai_id = 2;
+   */
+  toAiId: bigint;
+
+  /**
+   * @generated from field: bool ok = 3;
+   */
+  ok: boolean;
+
+  /**
+   * @generated from field: string text = 4;
+   */
+  text: string;
+
+  /**
+   * @generated from field: repeated string images = 5;
+   */
+  images: string[];
+};
+
+/**
+ * Describes the message am.v1.RemoteToolResult.
+ * Use `create(RemoteToolResultSchema)` to create a new message.
+ */
+export const RemoteToolResultSchema: GenMessage<RemoteToolResult> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 24);
+
+/**
+ * @generated from message am.v1.RemoteToolResultPush
+ */
+export type RemoteToolResultPush = Message<"am.v1.RemoteToolResultPush"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * Who answered (the AI checks it is the person it asked).
+   *
+   * @generated from field: int64 from_user_id = 2;
+   */
+  fromUserId: bigint;
+
+  /**
+   * @generated from field: bool ok = 3;
+   */
+  ok: boolean;
+
+  /**
+   * @generated from field: string text = 4;
+   */
+  text: string;
+
+  /**
+   * @generated from field: repeated string images = 5;
+   */
+  images: string[];
+};
+
+/**
+ * Describes the message am.v1.RemoteToolResultPush.
+ * Use `create(RemoteToolResultPushSchema)` to create a new message.
+ */
+export const RemoteToolResultPushSchema: GenMessage<RemoteToolResultPush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 25);
+
+/**
+ * To an AI's owner: someone asks to talk with it.
+ *
+ * @generated from message am.v1.AIShareRequestPush
+ */
+export type AIShareRequestPush = Message<"am.v1.AIShareRequestPush"> & {
+  /**
+   * @generated from field: int64 ai_id = 1;
+   */
+  aiId: bigint;
+
+  /**
+   * @generated from field: am.v1.User user = 2;
+   */
+  user?: User | undefined;
+};
+
+/**
+ * Describes the message am.v1.AIShareRequestPush.
+ * Use `create(AIShareRequestPushSchema)` to create a new message.
+ */
+export const AIShareRequestPushSchema: GenMessage<AIShareRequestPush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 26);
 

@@ -1,11 +1,17 @@
 // App state: the list of servers (kept on this device), one Session per
 // server, and UI state. Components read from here; actions go to sessions.
+import { handleRemote } from './ai/remote';
 import { create } from 'zustand';
 import { Session, previewText, type ServerRecord, type SessionView } from './session';
 import { notify } from './platform';
+import { fetchServerInfo } from './transport';
 import type { Conversation, User } from './types';
 
-export type Page = 'channels' | 'dms' | 'ai' | 'me' | 'settings';
+/**
+ * 'account' = 账号设置 (profile editing, invites, devices); 'profile' = my
+ * profile page; 'server' = the current server's profile page.
+ */
+export type Page = 'channels' | 'dms' | 'ai' | 'workshop' | 'account' | 'profile' | 'server' | 'settings';
 /** Pages that list conversations: channels, direct messages, AI chats. */
 export type ConvPage = 'channels' | 'dms' | 'ai';
 
@@ -36,7 +42,8 @@ interface AppState {
   sessions: Record<string, SessionView>;
   /** Open conversation per page and server, keyed by openKey(). */
   openConvs: Record<string, string | null>;
-  showMembers: boolean;
+  /** Whose profile the 'profile' page shows (null = mine). */
+  profileUser: string | null;
   set: (patch: Partial<AppState>) => void;
 }
 
@@ -47,7 +54,7 @@ export const useApp = create<AppState>((set) => ({
   currentId: null,
   sessions: {},
   openConvs: {},
-  showMembers: true,
+  profileUser: null,
   set: (patch) => set(patch),
 }));
 
@@ -80,13 +87,64 @@ function attach(rec: ServerRecord): Session {
       if (focused) return;
       const v = s.view;
       const conv = v.convs[convId];
+      if (conv && (conv.dndUntil === -1 || conv.dndUntil > Date.now())) return; // do not disturb
       const who = s.nameOf(m.senderId);
       notify(conv?.kind === 'group' ? conv.name : who, (conv?.kind === 'group' ? `${who}：` : '') + previewText(m, s.nameOf));
     },
   );
+  s.onMoved = (address) => void moveServer(rec.id, address);
+  s.onRemoteTool = (ask) => void handleRemote(rec.id, s, ask);
+  s.onUnreachable = () => void tryOldAddresses(rec.id);
   live.set(rec.id, s);
   useApp.setState((st) => ({ sessions: { ...st.sessions, [rec.id]: s.view } }));
   return s;
+}
+
+const moving = new Set<string>();
+
+/**
+ * The server is now reached at another address (its relay changed,
+ * docs/design.md §3). Switches only when the new address answers as the
+ * same server: the desktop app checks the pinned certificate; servers
+ * without a pin must report the same instance id. Keeps the login.
+ */
+export async function moveServer(id: string, address: string): Promise<boolean> {
+  const rec = useApp.getState().servers.find((x) => x.id === id);
+  if (!rec || moving.has(id) || rec.endpoint.address === address) return false;
+  moving.add(id);
+  try {
+    const ep = { ...rec.endpoint, address };
+    const r = await fetchServerInfo(ep);
+    if (r.status !== 200) return false;
+    if (!ep.pin) {
+      const cur = await fetchServerInfo(rec.endpoint).catch(() => null);
+      const id1 = cur?.status === 200 ? (JSON.parse(cur.body) as { instanceId?: string }).instanceId : undefined;
+      const id2 = (JSON.parse(r.body) as { instanceId?: string }).instanceId;
+      if (id1 && id1 !== id2) return false;
+    }
+    const old = rec.endpoint.address;
+    const next: ServerRecord = {
+      ...rec, endpoint: ep,
+      oldAddresses: [old, ...(rec.oldAddresses ?? []).filter((a) => a !== old && a !== address)].slice(0, 5),
+    };
+    live.get(id)?.stop();
+    live.delete(id);
+    const list = useApp.getState().servers.map((x) => (x.id === id ? next : x));
+    useApp.setState({ servers: list });
+    saveRecords(list);
+    void attach(next).start();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    moving.delete(id);
+  }
+}
+
+/** The current address stopped working: try the ones the server had before. */
+async function tryOldAddresses(id: string) {
+  const rec = useApp.getState().servers.find((x) => x.id === id);
+  for (const a of rec?.oldAddresses ?? []) if (await moveServer(id, a)) return;
 }
 
 /** Loads saved servers and connects to them. */
@@ -98,12 +156,41 @@ export function boot() {
   for (const rec of servers) attach(rec).start();
 }
 
-/** Adds a server (from a join code) or returns the existing one with the same address. */
+/**
+ * Adds a server (from a join code) or returns the existing one with the same
+ * address. Same address but a different certificate means the server was
+ * reinstalled: the saved record takes the new certificate and drops the old
+ * login (it is gone with the old database). The join screen asks before that.
+ */
 export function addServer(rec: Omit<ServerRecord, 'id'>): Session {
-  const existing = useApp.getState().servers.find((s) => s.endpoint.address === rec.endpoint.address);
-  if (existing) {
-    const s = live.get(existing.id)!;
+  const servers = useApp.getState().servers;
+  // Same certificate at another address: the server moved (new relay). Keep the login.
+  const moved = rec.endpoint.pin ? servers.find((s) => s.endpoint.pin === rec.endpoint.pin && s.endpoint.address !== rec.endpoint.address) : undefined;
+  if (moved) {
+    const next: ServerRecord = {
+      ...moved, endpoint: rec.endpoint,
+      oldAddresses: [moved.endpoint.address, ...(moved.oldAddresses ?? []).filter((a) => a !== rec.endpoint.address)].slice(0, 5),
+    };
+    live.get(moved.id)?.stop();
+    live.delete(moved.id);
+    const list = servers.map((x) => (x.id === moved.id ? next : x));
+    useApp.setState({ servers: list });
+    saveRecords(list);
+    const s = attach(next);
+    void s.start();
     return s;
+  }
+  const existing = servers.find((s) => s.endpoint.address === rec.endpoint.address);
+  if (existing) {
+    const same = existing.endpoint.pin === rec.endpoint.pin && existing.endpoint.plain === rec.endpoint.plain;
+    if (same) return live.get(existing.id)!;
+    live.get(existing.id)?.stop();
+    live.delete(existing.id);
+    const fresh: ServerRecord = { ...existing, endpoint: rec.endpoint, name: rec.name, token: undefined, userId: undefined };
+    const list = servers.map((x) => (x.id === existing.id ? fresh : x));
+    useApp.setState({ servers: list });
+    saveRecords(list);
+    return attach(fresh);
   }
   const full: ServerRecord = { ...rec, id: 's' + Date.now().toString(36) };
   const list = [...useApp.getState().servers, full];
@@ -121,6 +208,17 @@ export function switchServer(id: string) {
   }
 }
 
+/** Leaves the server for good (see Session.leaveServer) and forgets it here. */
+export async function leaveServer(id: string) {
+  await live.get(id)?.leaveServer();
+  // Leaving the last server goes to the join screen: keep `page` as it is,
+  // since changing it in the same render would mount new animated parts
+  // inside the screen that is fading out, and that fade never finishes.
+  const last = useApp.getState().servers.length === 1;
+  removeServer(id);
+  if (!last && useApp.getState().page === 'server') useApp.setState({ page: 'channels' });
+}
+
 /** Forgets a server on this device (logs out first). */
 export function removeServer(id: string) {
   const s = live.get(id);
@@ -136,17 +234,30 @@ export function removeServer(id: string) {
 
 export const openKey = (page: ConvPage, serverId: string) => `${page}:${serverId}`;
 
-/** DMs with bot / AI accounts live on the AI page, not with the other DMs. */
+/** The bot / AI a conversation is with: the DM peer, or the AI of a shared room. */
+export function botOf(c: Conversation, users: Record<string, User>): User | undefined {
+  const id = c.kind === 'dm' ? c.peerId : c.aiId;
+  const u = id ? users[id] : undefined;
+  return u && (u.type === 'bot' || u.type === 'ai') ? u : undefined;
+}
+
+/** A chat with a bot / AI its owner deleted: hidden from the lists. */
+export function isDeletedBotConv(c: Conversation, users: Record<string, User>) {
+  return isBotConv(c, users) && !!botOf(c, users)?.gone;
+}
+
+/** DMs with bot / AI accounts and shared AI rooms live on the AI page. */
 export function isBotConv(c: Conversation, users: Record<string, User>) {
-  if (c.kind !== 'dm' || !c.peerId) return false;
+  if (c.kind === 'group') return !!c.aiId;
+  if (!c.peerId) return false;
   const t = users[c.peerId]?.type;
   return t === 'bot' || t === 'ai';
 }
 
 /** Which page lists a conversation: channels, DMs, or the AI page. */
 export function convPage(c: Conversation, users: Record<string, User>): ConvPage {
-  if (c.kind === 'group') return 'channels';
-  return isBotConv(c, users) ? 'ai' : 'dms';
+  if (isBotConv(c, users)) return 'ai';
+  return c.kind === 'group' ? 'channels' : 'dms';
 }
 
 /** The conversation open on a page of a server. */
@@ -165,6 +276,23 @@ export function openConv(convId: string) {
   if (!id || !v || !c) return;
   const page = convPage(c, v.users);
   useApp.setState({ openConvs: { ...st.openConvs, [openKey(page, id)]: convId }, page });
+}
+
+/** Closes the conversation open on a page (it was deleted). */
+export function closeConv(page: ConvPage, serverId: string) {
+  const { [openKey(page, serverId)]: _, ...rest } = useApp.getState().openConvs;
+  useApp.setState({ openConvs: rest });
+}
+
+/** Shows someone's profile page (null / my id = mine). */
+export function openProfile(userId: string | null) {
+  const me = session()?.view.me?.id;
+  useApp.setState({ page: 'profile', profileUser: userId === me ? null : userId });
+}
+
+/** Presence of a user on the server on screen (undefined = offline). */
+export function usePresence(userId?: string) {
+  return useApp((st) => (st.currentId && userId ? st.sessions[st.currentId]?.presence[userId] : undefined));
 }
 
 /** View of the server on screen. */

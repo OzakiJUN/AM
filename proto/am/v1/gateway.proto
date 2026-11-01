@@ -24,6 +24,10 @@ message ClientFrame {
     SyncRequest sync = 12;
     MarkReadRequest mark_read = 13;
     Ping ping = 14;
+    // An AI asks a person's devices to run a computer tool (they decide).
+    RemoteToolRequest remote_tool = 15;
+    // A person's device answers an AI's remote_tool.
+    RemoteToolResult remote_tool_result = 16;
   }
 }
 
@@ -36,6 +40,8 @@ message ServerFrame {
     SyncResponse sync = 13;
     MarkReadResponse mark_read = 14;
     Pong pong = 15;
+    // Reply to remote_tool / remote_tool_result: the server passed it on.
+    Ack ack = 16;
 
     // Pushes (req_id = 0).
     EventPush event = 30;
@@ -44,12 +50,23 @@ message ServerFrame {
     FriendPush friend = 32;
     ConvRemovedPush conv_removed = 33;
     JoinRequestPush join_request = 34;
+    PresencePush presence = 35;
+    ClientStatePush client_state = 36;
+    ServerMovedPush server_moved = 37;
+    RemoteToolPush remote_tool = 38;
+    RemoteToolResultPush remote_tool_result = 39;
+    AIShareRequestPush ai_share_request = 40;
+    // A board game in one of my conversations changed (my own view of it).
+    Game game = 41;
   }
 }
 
 message AuthRequest {
   // Session token from /api/v1/login or /api/v1/register.
   string token = 1;
+  // The address (host:port) the client connected to, so the admin panel
+  // can tell how many devices still use an old relay address.
+  string address = 2;
 }
 
 message AuthResponse {
@@ -59,6 +76,14 @@ message AuthResponse {
   repeated Conversation conversations = 2;
   // Site admin of this server: may create public channels.
   bool is_site_admin = 3;
+  // Everyone who is online as this user sees it (includes the user
+  // themselves, with `invisible` set if they are). Changes arrive as
+  // `presence` pushes.
+  repeated Presence presences = 4;
+  // The server's public address (server.public_address), "" when not set.
+  // A client using another address checks the new one (same certificate)
+  // and switches to it (docs/design.md §3, 更换中转地址).
+  string public_address = 5;
 }
 
 message SendRequest {
@@ -150,4 +175,72 @@ message JoinRequestPush {
   int64 conv_id = 1;
   User user = 2;
   User inviter = 3;
+}
+
+// Someone's online state or activity changed, as the receiver sees it.
+// Sent to everyone online on the server. online = false means offline (or
+// invisible, for everyone but the user and their own bot / ai accounts).
+message PresencePush {
+  Presence presence = 1;
+}
+
+// One of my devices saved the state my devices share (PUT
+// /api/v1/me/client-state): load it again. Sent to all my connections.
+message ClientStatePush {
+  int64 updated_at = 1;
+}
+
+// The server moved to a new public address (the admin changed the relay).
+// Sent to everyone online; the client connects to the new address with the
+// same certificate pin and switches only when that works.
+message ServerMovedPush {
+  string address = 1;
+}
+
+message Ack {}
+
+// ---- someone else's AI operating my computer (docs/design.md §9) ----
+// The server only relays: it checks who may ask whom, and the person's own
+// device decides with its local settings (off unless turned on for that AI).
+
+// From an AI (bot / ai account) to a person. request_id ≤ 64 characters,
+// args_json ≤ 16 KiB. Errors: user_not_found, blocked, no_permission,
+// rate_limited (more than 30 a minute).
+message RemoteToolRequest {
+  string request_id = 1;
+  int64 to_user_id = 2;
+  string tool = 3;
+  string args_json = 4;
+}
+
+message RemoteToolPush {
+  string request_id = 1;
+  User from_ai = 2;
+  string tool = 3;
+  string args_json = 4;
+}
+
+// From the person's device back to the AI. text ≤ 64 KiB, at most 2 images
+// (base64), all together under 900 KiB.
+message RemoteToolResult {
+  string request_id = 1;
+  int64 to_ai_id = 2;
+  bool ok = 3;
+  string text = 4;
+  repeated string images = 5;
+}
+
+message RemoteToolResultPush {
+  string request_id = 1;
+  // Who answered (the AI checks it is the person it asked).
+  int64 from_user_id = 2;
+  bool ok = 3;
+  string text = 4;
+  repeated string images = 5;
+}
+
+// To an AI's owner: someone asks to talk with it.
+message AIShareRequestPush {
+  int64 ai_id = 1;
+  User user = 2;
 }

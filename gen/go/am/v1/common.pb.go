@@ -75,6 +75,72 @@ func (AccountType) EnumDescriptor() ([]byte, []int) {
 	return file_am_v1_common_proto_rawDescGZIP(), []int{0}
 }
 
+// What a user says they are doing. Chosen by the user; shown next to their
+// name while they are online.
+type ActivityKind int32
+
+const (
+	// Nothing.
+	ActivityKind_ACTIVITY_KIND_UNSPECIFIED ActivityKind = 0
+	// Listening to music; text = the song.
+	ActivityKind_ACTIVITY_KIND_LISTENING ActivityKind = 1
+	// Playing a game; text = the game.
+	ActivityKind_ACTIVITY_KIND_PLAYING ActivityKind = 2
+	// Tuning / debugging an AI.
+	ActivityKind_ACTIVITY_KIND_TUNING_AI ActivityKind = 3
+	// Studying or working (busy).
+	ActivityKind_ACTIVITY_KIND_WORKING ActivityKind = 4
+	// Free text only.
+	ActivityKind_ACTIVITY_KIND_CUSTOM ActivityKind = 5
+)
+
+// Enum value maps for ActivityKind.
+var (
+	ActivityKind_name = map[int32]string{
+		0: "ACTIVITY_KIND_UNSPECIFIED",
+		1: "ACTIVITY_KIND_LISTENING",
+		2: "ACTIVITY_KIND_PLAYING",
+		3: "ACTIVITY_KIND_TUNING_AI",
+		4: "ACTIVITY_KIND_WORKING",
+		5: "ACTIVITY_KIND_CUSTOM",
+	}
+	ActivityKind_value = map[string]int32{
+		"ACTIVITY_KIND_UNSPECIFIED": 0,
+		"ACTIVITY_KIND_LISTENING":   1,
+		"ACTIVITY_KIND_PLAYING":     2,
+		"ACTIVITY_KIND_TUNING_AI":   3,
+		"ACTIVITY_KIND_WORKING":     4,
+		"ACTIVITY_KIND_CUSTOM":      5,
+	}
+)
+
+func (x ActivityKind) Enum() *ActivityKind {
+	p := new(ActivityKind)
+	*p = x
+	return p
+}
+
+func (x ActivityKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ActivityKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_am_v1_common_proto_enumTypes[1].Descriptor()
+}
+
+func (ActivityKind) Type() protoreflect.EnumType {
+	return &file_am_v1_common_proto_enumTypes[1]
+}
+
+func (x ActivityKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ActivityKind.Descriptor instead.
+func (ActivityKind) EnumDescriptor() ([]byte, []int) {
+	return file_am_v1_common_proto_rawDescGZIP(), []int{1}
+}
+
 type ConvKind int32
 
 const (
@@ -108,11 +174,11 @@ func (x ConvKind) String() string {
 }
 
 func (ConvKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_am_v1_common_proto_enumTypes[1].Descriptor()
+	return file_am_v1_common_proto_enumTypes[2].Descriptor()
 }
 
 func (ConvKind) Type() protoreflect.EnumType {
-	return &file_am_v1_common_proto_enumTypes[1]
+	return &file_am_v1_common_proto_enumTypes[2]
 }
 
 func (x ConvKind) Number() protoreflect.EnumNumber {
@@ -121,7 +187,7 @@ func (x ConvKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ConvKind.Descriptor instead.
 func (ConvKind) EnumDescriptor() ([]byte, []int) {
-	return file_am_v1_common_proto_rawDescGZIP(), []int{1}
+	return file_am_v1_common_proto_rawDescGZIP(), []int{2}
 }
 
 type MemberRole int32
@@ -160,11 +226,11 @@ func (x MemberRole) String() string {
 }
 
 func (MemberRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_am_v1_common_proto_enumTypes[2].Descriptor()
+	return file_am_v1_common_proto_enumTypes[3].Descriptor()
 }
 
 func (MemberRole) Type() protoreflect.EnumType {
-	return &file_am_v1_common_proto_enumTypes[2]
+	return &file_am_v1_common_proto_enumTypes[3]
 }
 
 func (x MemberRole) Number() protoreflect.EnumNumber {
@@ -173,7 +239,7 @@ func (x MemberRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MemberRole.Descriptor instead.
 func (MemberRole) EnumDescriptor() ([]byte, []int) {
-	return file_am_v1_common_proto_rawDescGZIP(), []int{2}
+	return file_am_v1_common_proto_rawDescGZIP(), []int{3}
 }
 
 // Public profile of an account.
@@ -191,7 +257,15 @@ type User struct {
 	OwnerDisplayName string `protobuf:"bytes,7,opt,name=owner_display_name,json=ownerDisplayName,proto3" json:"owner_display_name,omitempty"`
 	// Static (first-frame) version of the avatar. Lists and chats show this;
 	// only the profile page plays the animated `avatar`.
-	AvatarStatic  string `protobuf:"bytes,8,opt,name=avatar_static,json=avatarStatic,proto3" json:"avatar_static,omitempty"`
+	AvatarStatic string `protobuf:"bytes,8,opt,name=avatar_static,json=avatarStatic,proto3" json:"avatar_static,omitempty"`
+	// Personal signature shown on the profile page (at most 100 characters).
+	Bio string `protobuf:"bytes,9,opt,name=bio,proto3" json:"bio,omitempty"`
+	// The account is gone: left the server, banned, or (bot / ai) deleted by
+	// its owner. Old messages still show it; lists hide deleted bots / AIs.
+	Gone bool `protobuf:"varint,10,opt,name=gone,proto3" json:"gone,omitempty"`
+	// Bot / ai: when its own portrait pack last changed (0 = it uses the
+	// default pack). Clients fetch GET /api/v1/users/{id}/portraits when it moves.
+	PortraitsAt   int64 `protobuf:"varint,11,opt,name=portraits_at,json=portraitsAt,proto3" json:"portraits_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -282,6 +356,154 @@ func (x *User) GetAvatarStatic() string {
 	return ""
 }
 
+func (x *User) GetBio() string {
+	if x != nil {
+		return x.Bio
+	}
+	return ""
+}
+
+func (x *User) GetGone() bool {
+	if x != nil {
+		return x.Gone
+	}
+	return false
+}
+
+func (x *User) GetPortraitsAt() int64 {
+	if x != nil {
+		return x.PortraitsAt
+	}
+	return 0
+}
+
+type Activity struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Kind  ActivityKind           `protobuf:"varint,1,opt,name=kind,proto3,enum=am.v1.ActivityKind" json:"kind,omitempty"`
+	// Optional detail (song, game ...), at most 32 characters. Required for CUSTOM.
+	Text          string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Activity) Reset() {
+	*x = Activity{}
+	mi := &file_am_v1_common_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Activity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Activity) ProtoMessage() {}
+
+func (x *Activity) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_common_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Activity.ProtoReflect.Descriptor instead.
+func (*Activity) Descriptor() ([]byte, []int) {
+	return file_am_v1_common_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Activity) GetKind() ActivityKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ActivityKind_ACTIVITY_KIND_UNSPECIFIED
+}
+
+func (x *Activity) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+// Online state of one user as seen by the receiver.
+type Presence struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	UserId int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// At least one device connected. An invisible user is reported offline to
+	// everyone except themselves and the bot / ai accounts they own.
+	Online bool `protobuf:"varint,2,opt,name=online,proto3" json:"online,omitempty"`
+	// Set only for the user themselves and their own bot / ai accounts: the
+	// user is online but invisible to everyone else.
+	Invisible bool `protobuf:"varint,3,opt,name=invisible,proto3" json:"invisible,omitempty"`
+	// Only while online.
+	Activity      *Activity `protobuf:"bytes,4,opt,name=activity,proto3" json:"activity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Presence) Reset() {
+	*x = Presence{}
+	mi := &file_am_v1_common_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Presence) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Presence) ProtoMessage() {}
+
+func (x *Presence) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_common_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Presence.ProtoReflect.Descriptor instead.
+func (*Presence) Descriptor() ([]byte, []int) {
+	return file_am_v1_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Presence) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *Presence) GetOnline() bool {
+	if x != nil {
+		return x.Online
+	}
+	return false
+}
+
+func (x *Presence) GetInvisible() bool {
+	if x != nil {
+		return x.Invisible
+	}
+	return false
+}
+
+func (x *Presence) GetActivity() *Activity {
+	if x != nil {
+		return x.Activity
+	}
+	return nil
+}
+
 // A conversation (DM or group) as seen by the current user.
 type Conversation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -304,14 +526,17 @@ type Conversation struct {
 	MemberRoles []MemberRole `protobuf:"varint,11,rep,packed,name=member_roles,json=memberRoles,proto3,enum=am.v1.MemberRole" json:"member_roles,omitempty"`
 	// Group: public channel. Every member of the server can see and join it,
 	// and new accounts join it automatically. False = private (invite only).
-	Public        bool `protobuf:"varint,12,opt,name=public,proto3" json:"public,omitempty"`
+	Public bool `protobuf:"varint,12,opt,name=public,proto3" json:"public,omitempty"`
+	// Shared AI room: the AI (bot / ai account) this private group belongs to.
+	// Clients list it on the AI page; the AI answers everyone in it. 0 = none.
+	AiId          int64 `protobuf:"varint,13,opt,name=ai_id,json=aiId,proto3" json:"ai_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Conversation) Reset() {
 	*x = Conversation{}
-	mi := &file_am_v1_common_proto_msgTypes[1]
+	mi := &file_am_v1_common_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +548,7 @@ func (x *Conversation) String() string {
 func (*Conversation) ProtoMessage() {}
 
 func (x *Conversation) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_common_proto_msgTypes[1]
+	mi := &file_am_v1_common_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -336,7 +561,7 @@ func (x *Conversation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Conversation.ProtoReflect.Descriptor instead.
 func (*Conversation) Descriptor() ([]byte, []int) {
-	return file_am_v1_common_proto_rawDescGZIP(), []int{1}
+	return file_am_v1_common_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Conversation) GetId() int64 {
@@ -423,6 +648,13 @@ func (x *Conversation) GetPublic() bool {
 	return false
 }
 
+func (x *Conversation) GetAiId() int64 {
+	if x != nil {
+		return x.AiId
+	}
+	return 0
+}
+
 // Per-user settings and state inside one conversation.
 type MemberState struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -431,7 +663,7 @@ type MemberState struct {
 	ReadSeq int64 `protobuf:"varint,2,opt,name=read_seq,json=readSeq,proto3" json:"read_seq,omitempty"`
 	// 0 = not pinned; larger number = higher in the list.
 	PinnedOrder int64 `protobuf:"varint,3,opt,name=pinned_order,json=pinnedOrder,proto3" json:"pinned_order,omitempty"`
-	// Do-not-disturb until this unix time in ms. 0 = off.
+	// Do-not-disturb until this unix time in ms. 0 = off, -1 = until turned off.
 	DndUntil int64 `protobuf:"varint,4,opt,name=dnd_until,json=dndUntil,proto3" json:"dnd_until,omitempty"`
 	// Muted by an admin until this unix time in ms. 0 = not muted.
 	MutedUntil    int64 `protobuf:"varint,5,opt,name=muted_until,json=mutedUntil,proto3" json:"muted_until,omitempty"`
@@ -441,7 +673,7 @@ type MemberState struct {
 
 func (x *MemberState) Reset() {
 	*x = MemberState{}
-	mi := &file_am_v1_common_proto_msgTypes[2]
+	mi := &file_am_v1_common_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -453,7 +685,7 @@ func (x *MemberState) String() string {
 func (*MemberState) ProtoMessage() {}
 
 func (x *MemberState) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_common_proto_msgTypes[2]
+	mi := &file_am_v1_common_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -466,7 +698,7 @@ func (x *MemberState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberState.ProtoReflect.Descriptor instead.
 func (*MemberState) Descriptor() ([]byte, []int) {
-	return file_am_v1_common_proto_rawDescGZIP(), []int{2}
+	return file_am_v1_common_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *MemberState) GetRole() MemberRole {
@@ -517,7 +749,7 @@ type Error struct {
 
 func (x *Error) Reset() {
 	*x = Error{}
-	mi := &file_am_v1_common_proto_msgTypes[3]
+	mi := &file_am_v1_common_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -529,7 +761,7 @@ func (x *Error) String() string {
 func (*Error) ProtoMessage() {}
 
 func (x *Error) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_common_proto_msgTypes[3]
+	mi := &file_am_v1_common_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -542,7 +774,7 @@ func (x *Error) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Error.ProtoReflect.Descriptor instead.
 func (*Error) Descriptor() ([]byte, []int) {
-	return file_am_v1_common_proto_rawDescGZIP(), []int{3}
+	return file_am_v1_common_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Error) GetCode() string {
@@ -559,11 +791,219 @@ func (x *Error) GetMessage() string {
 	return ""
 }
 
+// A board game in a channel or shared AI room, as one person sees it.
+type Game struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ConvId int64                  `protobuf:"varint,2,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	// gomoku | reversi | undercover
+	Kind   string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	HostId int64  `protobuf:"varint,4,opt,name=host_id,json=hostId,proto3" json:"host_id,omitempty"`
+	// waiting | playing | ended
+	Status  string        `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Players []*GamePlayer `protobuf:"bytes,6,rep,name=players,proto3" json:"players,omitempty"`
+	// People / AIs asking to join (the host decides unless auto_approve).
+	Applicants  []int64 `protobuf:"varint,7,rep,packed,name=applicants,proto3" json:"applicants,omitempty"`
+	AutoApprove bool    `protobuf:"varint,8,opt,name=auto_approve,json=autoApprove,proto3" json:"auto_approve,omitempty"`
+	// Everyone who has to act now (one player, or all who have not voted yet).
+	WaitingOn []int64 `protobuf:"varint,9,rep,packed,name=waiting_on,json=waitingOn,proto3" json:"waiting_on,omitempty"`
+	// Kind-specific state (board, turn, last move, said, votes ...), see docs/protocol.md.
+	StateJson     string `protobuf:"bytes,10,opt,name=state_json,json=stateJson,proto3" json:"state_json,omitempty"`
+	CreatedAt     int64  `protobuf:"varint,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     int64  `protobuf:"varint,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Game) Reset() {
+	*x = Game{}
+	mi := &file_am_v1_common_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Game) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Game) ProtoMessage() {}
+
+func (x *Game) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_common_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Game.ProtoReflect.Descriptor instead.
+func (*Game) Descriptor() ([]byte, []int) {
+	return file_am_v1_common_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Game) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Game) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *Game) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Game) GetHostId() int64 {
+	if x != nil {
+		return x.HostId
+	}
+	return 0
+}
+
+func (x *Game) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Game) GetPlayers() []*GamePlayer {
+	if x != nil {
+		return x.Players
+	}
+	return nil
+}
+
+func (x *Game) GetApplicants() []int64 {
+	if x != nil {
+		return x.Applicants
+	}
+	return nil
+}
+
+func (x *Game) GetAutoApprove() bool {
+	if x != nil {
+		return x.AutoApprove
+	}
+	return false
+}
+
+func (x *Game) GetWaitingOn() []int64 {
+	if x != nil {
+		return x.WaitingOn
+	}
+	return nil
+}
+
+func (x *Game) GetStateJson() string {
+	if x != nil {
+		return x.StateJson
+	}
+	return ""
+}
+
+func (x *Game) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *Game) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+type GamePlayer struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	UserId int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Out    bool                   `protobuf:"varint,2,opt,name=out,proto3" json:"out,omitempty"`
+	// 谁是卧底: true once this player is out (or the game is over) and was undercover.
+	Spy bool `protobuf:"varint,3,opt,name=spy,proto3" json:"spy,omitempty"`
+	// 谁是卧底: the word, only my own (everyone's at the end).
+	Word          string `protobuf:"bytes,4,opt,name=word,proto3" json:"word,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GamePlayer) Reset() {
+	*x = GamePlayer{}
+	mi := &file_am_v1_common_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GamePlayer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GamePlayer) ProtoMessage() {}
+
+func (x *GamePlayer) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_common_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GamePlayer.ProtoReflect.Descriptor instead.
+func (*GamePlayer) Descriptor() ([]byte, []int) {
+	return file_am_v1_common_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GamePlayer) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *GamePlayer) GetOut() bool {
+	if x != nil {
+		return x.Out
+	}
+	return false
+}
+
+func (x *GamePlayer) GetSpy() bool {
+	if x != nil {
+		return x.Spy
+	}
+	return false
+}
+
+func (x *GamePlayer) GetWord() string {
+	if x != nil {
+		return x.Word
+	}
+	return ""
+}
+
 var File_am_v1_common_proto protoreflect.FileDescriptor
 
 const file_am_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x12am/v1/common.proto\x12\x05am.v1\"\x92\x02\n" +
+	"\x12am/v1/common.proto\x12\x05am.v1\"\xdb\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12!\n" +
@@ -572,7 +1012,19 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\faccount_type\x18\x05 \x01(\x0e2\x12.am.v1.AccountTypeR\vaccountType\x12\x19\n" +
 	"\bowner_id\x18\x06 \x01(\x03R\aownerId\x12,\n" +
 	"\x12owner_display_name\x18\a \x01(\tR\x10ownerDisplayName\x12#\n" +
-	"\ravatar_static\x18\b \x01(\tR\favatarStatic\"\xff\x02\n" +
+	"\ravatar_static\x18\b \x01(\tR\favatarStatic\x12\x10\n" +
+	"\x03bio\x18\t \x01(\tR\x03bio\x12\x12\n" +
+	"\x04gone\x18\n" +
+	" \x01(\bR\x04gone\x12!\n" +
+	"\fportraits_at\x18\v \x01(\x03R\vportraitsAt\"G\n" +
+	"\bActivity\x12'\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x13.am.v1.ActivityKindR\x04kind\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\"\x86\x01\n" +
+	"\bPresence\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x16\n" +
+	"\x06online\x18\x02 \x01(\bR\x06online\x12\x1c\n" +
+	"\tinvisible\x18\x03 \x01(\bR\tinvisible\x12+\n" +
+	"\bactivity\x18\x04 \x01(\v2\x0f.am.v1.ActivityR\bactivity\"\x94\x03\n" +
 	"\fConversation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12#\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x0f.am.v1.ConvKindR\x04kind\x12\x12\n" +
@@ -586,7 +1038,8 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"\rjoin_approval\x18\n" +
 	" \x01(\bR\fjoinApproval\x124\n" +
 	"\fmember_roles\x18\v \x03(\x0e2\x11.am.v1.MemberRoleR\vmemberRoles\x12\x16\n" +
-	"\x06public\x18\f \x01(\bR\x06public\"\xb0\x01\n" +
+	"\x06public\x18\f \x01(\bR\x06public\x12\x13\n" +
+	"\x05ai_id\x18\r \x01(\x03R\x04aiId\"\xb0\x01\n" +
 	"\vMemberState\x12%\n" +
 	"\x04role\x18\x01 \x01(\x0e2\x11.am.v1.MemberRoleR\x04role\x12\x19\n" +
 	"\bread_seq\x18\x02 \x01(\x03R\areadSeq\x12!\n" +
@@ -596,12 +1049,45 @@ const file_am_v1_common_proto_rawDesc = "" +
 	"mutedUntil\"5\n" +
 	"\x05Error\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*n\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xe0\x02\n" +
+	"\x04Game\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
+	"\aconv_id\x18\x02 \x01(\x03R\x06convId\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x17\n" +
+	"\ahost_id\x18\x04 \x01(\x03R\x06hostId\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12+\n" +
+	"\aplayers\x18\x06 \x03(\v2\x11.am.v1.GamePlayerR\aplayers\x12\x1e\n" +
+	"\n" +
+	"applicants\x18\a \x03(\x03R\n" +
+	"applicants\x12!\n" +
+	"\fauto_approve\x18\b \x01(\bR\vautoApprove\x12\x1d\n" +
+	"\n" +
+	"waiting_on\x18\t \x03(\x03R\twaitingOn\x12\x1d\n" +
+	"\n" +
+	"state_json\x18\n" +
+	" \x01(\tR\tstateJson\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\v \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\f \x01(\x03R\tupdatedAt\"]\n" +
+	"\n" +
+	"GamePlayer\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x10\n" +
+	"\x03out\x18\x02 \x01(\bR\x03out\x12\x10\n" +
+	"\x03spy\x18\x03 \x01(\bR\x03spy\x12\x12\n" +
+	"\x04word\x18\x04 \x01(\tR\x04word*n\n" +
 	"\vAccountType\x12\x1c\n" +
 	"\x18ACCOUNT_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12ACCOUNT_TYPE_HUMAN\x10\x01\x12\x14\n" +
 	"\x10ACCOUNT_TYPE_BOT\x10\x02\x12\x13\n" +
-	"\x0fACCOUNT_TYPE_AI\x10\x03*L\n" +
+	"\x0fACCOUNT_TYPE_AI\x10\x03*\xb7\x01\n" +
+	"\fActivityKind\x12\x1d\n" +
+	"\x19ACTIVITY_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17ACTIVITY_KIND_LISTENING\x10\x01\x12\x19\n" +
+	"\x15ACTIVITY_KIND_PLAYING\x10\x02\x12\x1b\n" +
+	"\x17ACTIVITY_KIND_TUNING_AI\x10\x03\x12\x19\n" +
+	"\x15ACTIVITY_KIND_WORKING\x10\x04\x12\x18\n" +
+	"\x14ACTIVITY_KIND_CUSTOM\x10\x05*L\n" +
 	"\bConvKind\x12\x19\n" +
 	"\x15CONV_KIND_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fCONV_KIND_DM\x10\x01\x12\x13\n" +
@@ -625,29 +1111,37 @@ func file_am_v1_common_proto_rawDescGZIP() []byte {
 	return file_am_v1_common_proto_rawDescData
 }
 
-var file_am_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_am_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_am_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_am_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_am_v1_common_proto_goTypes = []any{
 	(AccountType)(0),     // 0: am.v1.AccountType
-	(ConvKind)(0),        // 1: am.v1.ConvKind
-	(MemberRole)(0),      // 2: am.v1.MemberRole
-	(*User)(nil),         // 3: am.v1.User
-	(*Conversation)(nil), // 4: am.v1.Conversation
-	(*MemberState)(nil),  // 5: am.v1.MemberState
-	(*Error)(nil),        // 6: am.v1.Error
+	(ActivityKind)(0),    // 1: am.v1.ActivityKind
+	(ConvKind)(0),        // 2: am.v1.ConvKind
+	(MemberRole)(0),      // 3: am.v1.MemberRole
+	(*User)(nil),         // 4: am.v1.User
+	(*Activity)(nil),     // 5: am.v1.Activity
+	(*Presence)(nil),     // 6: am.v1.Presence
+	(*Conversation)(nil), // 7: am.v1.Conversation
+	(*MemberState)(nil),  // 8: am.v1.MemberState
+	(*Error)(nil),        // 9: am.v1.Error
+	(*Game)(nil),         // 10: am.v1.Game
+	(*GamePlayer)(nil),   // 11: am.v1.GamePlayer
 }
 var file_am_v1_common_proto_depIdxs = []int32{
-	0, // 0: am.v1.User.account_type:type_name -> am.v1.AccountType
-	1, // 1: am.v1.Conversation.kind:type_name -> am.v1.ConvKind
-	3, // 2: am.v1.Conversation.members:type_name -> am.v1.User
-	5, // 3: am.v1.Conversation.self:type_name -> am.v1.MemberState
-	2, // 4: am.v1.Conversation.member_roles:type_name -> am.v1.MemberRole
-	2, // 5: am.v1.MemberState.role:type_name -> am.v1.MemberRole
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	0,  // 0: am.v1.User.account_type:type_name -> am.v1.AccountType
+	1,  // 1: am.v1.Activity.kind:type_name -> am.v1.ActivityKind
+	5,  // 2: am.v1.Presence.activity:type_name -> am.v1.Activity
+	2,  // 3: am.v1.Conversation.kind:type_name -> am.v1.ConvKind
+	4,  // 4: am.v1.Conversation.members:type_name -> am.v1.User
+	8,  // 5: am.v1.Conversation.self:type_name -> am.v1.MemberState
+	3,  // 6: am.v1.Conversation.member_roles:type_name -> am.v1.MemberRole
+	3,  // 7: am.v1.MemberState.role:type_name -> am.v1.MemberRole
+	11, // 8: am.v1.Game.players:type_name -> am.v1.GamePlayer
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_common_proto_init() }
@@ -660,8 +1154,8 @@ func file_am_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_common_proto_rawDesc), len(file_am_v1_common_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   4,
+			NumEnums:      4,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -2,11 +2,21 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { boot } from './lib/store';
+import { startSync } from './lib/sync';
+import { startDevices } from './lib/devices';
+import { startAI } from './lib/ai/runner';
+import { startAgentKeys } from './lib/ai/agentState';
 import { watchTheme } from './lib/theme';
+import { watchClosePref } from './lib/prefs';
 import './styles.css';
 
 watchTheme();
 boot();
+startSync();
+startDevices();
+startAI();
+startAgentKeys();
+watchClosePref();
 // No browser context menu (we show our own); keep it for text fields.
 window.addEventListener('contextmenu', (e) => {
   const t = e.target as HTMLElement;
