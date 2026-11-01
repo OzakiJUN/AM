@@ -246,9 +246,20 @@ update the docs in the same commit.
   `server/internal/game` (`rules.go` pure + tested; `View` hides secret
   words; push `game` per viewer); client `lib/games.ts` (pure, tested: coords,
   board text for AIs, `gomokuMove` fallback), `app/Games.tsx` (header button,
-  game strip, window), `app/Workshop.tsx` (built-in items). AIs join / open /
+  game strip, window), `app/Workshop.tsx`. AIs join / open /
   play through tools in category `games` (`gameTool`, `onGame`, `gameTurn`
   with a fallback move in runner.ts; `wantsToJoin` in social.ts).
+- Creative workshop (docs/design.md §13): the index lives in the GitHub repo
+  OzakiJUN/am-workshop (items/*.json, its own Go checker + Actions; signed
+  `index.json` on its `index` branch, Ed25519, private key only in its
+  Secret `WORKSHOP_SIGNING_KEY`, made by `am-server workshop-keygen` /
+  `workshop_keygen.bat`). Client: `lib/workshopIndex.ts` (signature with
+  `WORKSHOP_PUBLIC_KEY`, versions, mirror; pure + tested),
+  `lib/workshopPackage.ts` (unzip with fflate + the same package rules as
+  am-workshop's `format.go`; pure + tested — change both together),
+  `lib/workshopStore.ts` (IndexedDB), `lib/workshop.ts` (install / update /
+  sideload / apply), downloads through Rust `web_get_bytes`. Only data works
+  for now (theme, portrait, persona, stickers); program works need a sandbox first.
 - NetEase songs in the desktop app play from `ammusic://<id>` served by Rust
   (`src-tauri/src/music.rs`: NetEase headers, follows the CDN redirect,
   in-memory cache, Range); browser dev mode uses the outer url directly.

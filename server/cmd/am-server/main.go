@@ -60,8 +60,10 @@ func main() {
 			runWindow()
 		case "version":
 			fmt.Println(version)
+		case "workshop-keygen":
+			err = workshopKeygen(args)
 		default:
-			err = fmt.Errorf("unknown command %q (use: panel, setup-db, version)", cmd)
+			err = fmt.Errorf("unknown command %q (use: panel, setup-db, version, workshop-keygen)", cmd)
 		}
 		if err != nil {
 			fatal(err)

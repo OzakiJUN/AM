@@ -23,9 +23,11 @@ interface Prefs {
   stickerSync: boolean;
   /** Speed limit for that, KB/s (0 = no limit). */
   stickerSyncKBps: number;
+  /** Workshop downloads through a GitHub mirror ("<mirror>/<url>"), '' = straight from GitHub. */
+  workshopMirror: string;
   /** Desktop: the close button hides the window to the tray (AIs run by this device stay online) instead of quitting. */
   closeToTray: boolean;
-  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'stickerSyncKBps' | 'closeToTray'>>) => void;
+  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'stickerSyncKBps' | 'workshopMirror' | 'closeToTray'>>) => void;
 }
 
 export const usePrefs = create<Prefs>()(
@@ -40,6 +42,7 @@ export const usePrefs = create<Prefs>()(
       syncDelay: 30,
       stickerSync: true,
       stickerSyncKBps: 64,
+      workshopMirror: '',
       closeToTray: true,
       set: (p) => set(p),
     }),
