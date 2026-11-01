@@ -39,7 +39,7 @@ function wireEndpoint(ep: Endpoint) {
 export interface Transport {
   setToken(token: string | null): Promise<void>;
   api(method: string, path: string, body?: string): Promise<Reply>;
-  upload(file: File): Promise<Reply>;
+  upload(file: File, stickerSync?: boolean): Promise<Reply>;
   openSocket(onFrame: (data: Uint8Array) => void, onClose: (reason: string) => void): Promise<Socket>;
   /** URL usable in <img src> for a media path (/api/v1/media/...). */
   mediaUrl(path: string): Promise<string>;
@@ -165,12 +165,12 @@ class TauriTransport implements Transport {
   api(method: string, path: string, body?: string) {
     return this.invoke<Reply>('api', { id: this.id, method, path, body: body ?? null });
   }
-  async upload(file: File) {
+  async upload(file: File, stickerSync = false) {
     await this.ready;
     const { invoke } = await import('@tauri-apps/api/core');
     const data = new Uint8Array(await file.arrayBuffer());
     return invoke<Reply>('upload', data, {
-      headers: { 'x-server': encodeURIComponent(this.id), 'x-filename': encodeURIComponent(file.name || 'file') },
+      headers: { 'x-sticker-sync': String(stickerSync), 'x-server': encodeURIComponent(this.id), 'x-filename': encodeURIComponent(file.name || 'file') },
     });
   }
   async openSocket(onFrame: (d: Uint8Array) => void, onClose: (r: string) => void): Promise<Socket> {
@@ -215,10 +215,10 @@ class BrowserTransport implements Transport {
     const r = await fetch(this.prefix + path, { method, body, headers: this.headers(body ? { 'Content-Type': 'application/json' } : {}) });
     return { status: r.status, body: await r.text() };
   }
-  async upload(file: File) {
+  async upload(file: File, stickerSync = false) {
     const fd = new FormData();
     fd.append('file', file, file.name);
-    const r = await fetch(this.prefix + '/api/v1/media', { method: 'POST', body: fd, headers: this.headers() });
+    const r = await fetch(this.prefix + '/api/v1/media' + (stickerSync ? '?purpose=sticker-sync' : ''), { method: 'POST', body: fd, headers: this.headers() });
     return { status: r.status, body: await r.text() };
   }
   async openSocket(onFrame: (d: Uint8Array) => void, onClose: (r: string) => void): Promise<Socket> {

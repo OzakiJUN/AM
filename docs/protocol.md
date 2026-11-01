@@ -127,7 +127,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/v1/media` | `multipart/form-data`，字段名 `file`，返回 `MediaInfo` |
+| POST | `/api/v1/media` | `multipart/form-data`，字段名 `file`，返回 `MediaInfo`。后台跨服表情上传带 `?purpose=sticker-sync`，接收端对这些请求共享 `stickers.sync_kbps` 带宽额度 |
 | GET | `/api/v1/media/{id}` | 原文件 |
 | GET | `/api/v1/media/{id}/thumb` | 缩略图（长边 320）；GIF 为静态首帧 |
 

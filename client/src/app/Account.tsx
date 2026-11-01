@@ -144,10 +144,6 @@ const DELAYS = [
   { value: '10', label: '10 秒' }, { value: '30', label: '30 秒' }, { value: '120', label: '2 分钟' }, { value: '600', label: '10 分钟' },
 ];
 
-const SPEEDS = [
-  { value: '32', label: '32 KB/s' }, { value: '64', label: '64 KB/s' }, { value: '256', label: '256 KB/s' }, { value: '0', label: '不限' },
-];
-
 /** My stickers copied to my other servers in the background (lib/stickerSync.ts). */
 function StickerSyncRow({ nameOf, servers }: { nameOf: (id: string) => string; servers: number }) {
   const prefs = usePrefs();
@@ -164,10 +160,6 @@ function StickerSyncRow({ nameOf, servers }: { nameOf: (id: string) => string; s
       </div>
       {prefs.stickerSync && (
         <>
-          <div className="flex flex-wrap items-center gap-3 text-[0.85rem]">
-            <span className="text-ink-soft dark:text-white/60">最快多少</span>
-            <Segmented id="sticker-speed" value={String(prefs.stickerSyncKBps)} onChange={(d) => prefs.set({ stickerSyncKBps: Number(d) })} options={SPEEDS} />
-          </div>
           <p className="text-[0.78rem] text-ink-soft dark:text-white/50">
             {servers < 2 ? '加入别的服务器后开始同步' : st.running ? `正在同步表情${st.left ? `，还剩 ${st.left} 个` : '…'}` : st.last ? `表情都同步好了 · ${chatTime(st.last)}` : '会在服务器连上后自动同步'}
           </p>

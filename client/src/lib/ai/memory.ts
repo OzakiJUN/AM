@@ -15,6 +15,7 @@ export interface PersonNote {
 
 export interface Memory {
   v: 1;
+  cursors: Record<string, number>;
   people: Record<string, PersonNote>;
   /** Things that happened, oldest first. */
   events: { at: number; text: string }[];
@@ -29,7 +30,7 @@ export const MAX_PEOPLE = 30;
 /** Leave room under the server's 32 KiB. */
 export const MAX_BYTES = 28_000;
 
-export const emptyMemory = (): Memory => ({ v: 1, people: {}, events: [], plugins: [] });
+export const emptyMemory = (): Memory => ({ v: 1, cursors: {}, people: {}, events: [], plugins: [] });
 
 const clip = (s: string, n: number) => {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -42,6 +43,7 @@ export function parseMemory(text: string): Memory {
     const v = JSON.parse(text) as Partial<Memory>;
     return {
       v: 1,
+      cursors: Object.fromEntries(Object.entries(v.cursors ?? {}).filter(([id, seq]) => /^\d+$/.test(id) && Number.isSafeInteger(seq) && seq >= 0)),
       people: v.people && typeof v.people === 'object' ? v.people : {},
       events: Array.isArray(v.events) ? v.events.filter((e) => e && typeof e.text === 'string') : [],
       plugins: Array.isArray(v.plugins) ? v.plugins.filter((p) => typeof p === 'string') : [],
@@ -59,6 +61,13 @@ export function trimMemory(m: Memory, maxBytes = MAX_BYTES): Memory {
   const size = () => new TextEncoder().encode(JSON.stringify(out)).length;
   while (size() > maxBytes && out.events.length) out.events = out.events.slice(1);
   while (size() > maxBytes && Object.keys(out.people).length) delete out.people[ids()[0]];
+  if (size() > maxBytes) {
+    out.cursors = { ...out.cursors };
+    for (const id of Object.keys(out.cursors)) {
+      delete out.cursors[id];
+      if (size() <= maxBytes) break;
+    }
+  }
   return out;
 }
 
@@ -137,4 +146,16 @@ export function applyRemember(m: Memory, raw: string, people: Who[], now: number
 export function newPlugins(m: Memory, installed: { id: string }[]): string[] {
   const known = new Set(m.plugins);
   return installed.map((x) => x.id).filter((id) => !known.has(id));
+}
+
+/** Take one recent line per chat before giving a busy chat another slot. */
+export function recentAcrossChats(chats: { time: number; line: string }[][], limit: number): string[] {
+  const active = chats.filter((chat) => chat.length).sort((a, b) => b.at(-1)!.time - a.at(-1)!.time);
+  const selected = [];
+  for (let depth = 1; selected.length < limit; depth++) {
+    const layer = active.map((chat) => chat.at(-depth)).filter((line) => line !== undefined);
+    if (!layer.length) break;
+    selected.push(...layer.slice(0, limit - selected.length));
+  }
+  return selected.sort((a, b) => a.time - b.time).map((item) => item.line);
 }

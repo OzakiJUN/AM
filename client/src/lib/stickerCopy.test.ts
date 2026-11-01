@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { copyKey, isFinal, planCopies, throttleMs, type CopySticker } from './stickerCopy.ts';
+import { copyKey, isFinal, planCopies, type CopySticker } from './stickerCopy.ts';
 
 const st = (id: string, sha: string, priv = false): CopySticker => ({ id, mediaId: 'm' + id, sha256: sha, tags: [], private: priv });
 
@@ -18,8 +18,6 @@ assert.deepEqual(plan2.map((t) => `${t.from}->${t.to}:${t.sticker.sha256}`), ['A
 assert.equal(planCopies({ A: [st('a', '')], B: [] }, new Set()).length, 0);
 assert.equal(planCopies({ A: [st('a', 'x')], B: [st('b', 'x')] }, new Set()).length, 0);
 
-assert.equal(throttleMs(64 * 1024, 64), 1000);
-assert.equal(throttleMs(10_000, 0), 0);
 assert.ok(isFinal('sticker_limit') && !isFinal('http_502') && !isFinal('rate_limited'));
 
 console.log('stickerCopy ok');

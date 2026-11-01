@@ -383,6 +383,11 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </span>
         </div>
       </Field>
+      <Field label="自己找事做" hint="清醒、空闲时自己想想接下来做什么，可以换状态或布置主页。每次会调用模型，不发聊天消息。">
+        <select value={draft.proactive.thoughtMinutes} onChange={(e) => set({ proactive: { ...draft.proactive, thoughtMinutes: Number(e.target.value) } })}>
+          {[0, 10, 20, 60].map((n) => <option key={n} value={n}>{n ? `每 ${n} 分钟` : '关闭'}</option>)}
+        </select>
+      </Field>
       <Field label="主动找你聊" hint="你上线时它会打个招呼（几个小时最多一次）；你改了状态它可能问一句；你们好一阵没说话它会自己找话题。它睡觉时不打扰">
         <div className="space-y-2">
           <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">

@@ -21,11 +21,9 @@ interface Prefs {
   syncDelay: number;
   /** Copy my stickers to my other servers in the background (lib/stickerSync.ts). */
   stickerSync: boolean;
-  /** Speed limit for that, KB/s (0 = no limit). */
-  stickerSyncKBps: number;
   /** Desktop: the close button hides the window to the tray (AIs run by this device stay online) instead of quitting. */
   closeToTray: boolean;
-  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'stickerSyncKBps' | 'closeToTray'>>) => void;
+  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'closeToTray'>>) => void;
 }
 
 export const usePrefs = create<Prefs>()(
@@ -39,7 +37,6 @@ export const usePrefs = create<Prefs>()(
       profileSync: true,
       syncDelay: 30,
       stickerSync: true,
-      stickerSyncKBps: 64,
       closeToTray: true,
       set: (p) => set(p),
     }),

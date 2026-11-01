@@ -29,7 +29,7 @@ import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } fro
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
 import { firstFree, placements } from '../widgets';
 import { describePage, editPage, type PageEdit } from './page';
-import { applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory, type Who } from './memory';
+import { applyRemember, recentAcrossChats, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory, type Who } from './memory';
 import { CATEGORY_NAME, useWorkshop } from '../workshop';
 import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, type Game, type GameKind } from '../games';
 
@@ -82,8 +82,9 @@ interface Run {
   memory: Memory;
   memoryAt: number;
   memoryLoaded: boolean;
-  /** Per conversation: last message seq it has taken into memory, when, and the pending timer. */
-  remembered: Map<string, { seq: number; at: number }>;
+  /** Serialize writes to the single server-side memory document. */
+  memoryQueue: Promise<void>;
+  lastThought: number;
   rememberTimers: Map<string, ReturnType<typeof setTimeout>>;
 }
 
@@ -158,17 +159,21 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   const run: Run = {
     serverId, ai, settings, s: null as unknown as Session, busy: new Set(), again: new Set(), greeted: false,
     pending: new Map(), sends: new Map(), statusUntil: 0, ownerOnline: false, ownerActivity: '', pageChecked: false,
-    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, remembered: new Map(), rememberTimers: new Map(),
+    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, memoryQueue: Promise.resolve(), lastThought: Date.now(), rememberTimers: new Map(),
   };
   run.s = new Session(
     record,
     (v) => {
       patch('running', key, v.status === 'online');
+      if (v.status !== 'online') run.greeted = false;
       if (v.status === 'online' && !run.greeted) {
         run.greeted = true;
         void greet(run);
         // Its memory, then the plugins it hasn't learnt yet.
-        void loadMemory(run).then(() => syncPlugins(run)).catch(() => {});
+        void queueMemory(run, () => syncPlugins(run));
+        for (const c of Object.values(v.convs)) {
+          if (!c.left && c.lastSeq > (run.memory.cursors[c.id] ?? 0)) scheduleRemember(run, c.id);
+        }
         // Messages are still loading right after connecting: look a moment later.
         setTimeout(() => void catchUp(run).catch(() => {}), 4000);
         // Games that went on while it was away (its turn, games to join).
@@ -187,6 +192,10 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
     },
     (convId, m) => onMessage(run, convId, m),
   );
+  run.s.memoryCursors = async () => {
+    if (!run.memoryLoaded) await loadMemory(run);
+    return run.memory.cursors;
+  };
   run.s.onGame = (g) => onGame(run, g);
   runs.set(key, run);
   patch('running', key, false);
@@ -301,16 +310,17 @@ function elsewhere(run: Run, conv: Conversation): string {
   const since = Date.now() - 12 * 60 * MIN;
   const nameOf = (u: string) => s.nameOf(u);
   const place = (c: Conversation) => (c.kind === 'group' ? `「${c.name}」` : `和 ${nameOf(c.peerId ?? '')} 私聊`);
-  const lines: { time: number; line: string }[] = [];
+  const chats: { time: number; line: string }[][] = [];
   for (const c of Object.values(s.view.convs)) {
     if (c.id === conv.id || c.left) continue;
+    const lines: { time: number; line: string }[] = [];
     for (const m of (s.view.messages[c.id] ?? []).slice(-30)) {
       if (m.time < since || m.pending || m.failed) continue;
       const text = textOf(m);
       if (text !== null) lines.push({ time: m.time, line: `${place(c)} ${m.senderId === me ? '你' : nameOf(m.senderId)}：${text.slice(0, 120)}` });
     }
+    chats.push(lines);
   }
-  lines.sort((a, b) => a.time - b.time);
   const games = Object.values(s.view.games)
     .filter((g) => seatOf(g, me) >= 0 && (g.status !== 'ended' || g.updatedAt > since))
     .sort((a, b) => a.updatedAt - b.updatedAt)
@@ -320,7 +330,7 @@ function elsewhere(run: Run, conv: Conversation): string {
       const st = g.status === 'ended' ? `结束了，${resultText(g, nameOf)}` : g.status === 'waiting' ? '还在等人' : g.waitingOn.includes(me) ? '正在下，轮到你' : '正在下';
       return `在「${s.view.convs[g.convId]?.name ?? ''}」和 ${others} 玩${GAME_INFO[g.kind].name}（${new Date(g.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}）：${st}`;
     });
-  return elsewherePrompt(lines.slice(-25).map((x) => x.line), games);
+  return elsewherePrompt(recentAcrossChats(chats, 48), games);
 }
 
 /** The people of a conversation as its memory sees them (account id first). */
@@ -375,6 +385,7 @@ interface ReplyOpts {
   replyTo?: string;
   /** Only act through tools: nothing is shown typing, nothing is posted (game turns). */
   silent?: boolean;
+  idle?: boolean;
 }
 
 /** Ids of channel members written as "@name" in the text. */
@@ -402,6 +413,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
   const group = conv.kind === 'group';
   if (run.busy.has(convId)) {
     // Answer again with the newer messages afterwards (channels decide again; notes wait their turn).
+    if (o.idle) return;
     if (o.note) setTimeout(() => void reply(run, convId, o), 3000);
     else if (group) setTimeout(() => considerChannel(run, convId), 3000);
     else run.again.add(convId);
@@ -438,7 +450,8 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     // The computer: never for routine notes; in channels for the owner, or anyone when the owner allows everyone.
     const computer = !o.note && (speaker.isOwner || st.whoCanChat === 'everyone' || !group);
     const mcp = computer ? await loadMcpTools(comp, agentKey) : { defs: [], map: new Map(), errors: [] };
-    const tools = toolsFor(comp, mcp.defs, computer);
+    const available = toolsFor(comp, mcp.defs, computer);
+    const tools = o.idle ? available.filter((t) => ['view_my_page', 'edit_my_page'].includes(t.name) && levelFor(comp, t.name) === 'allow') : available;
     // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
     const room = group && conv.aiId === run.ai.user.id;
@@ -483,7 +496,11 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
           break;
         }
         turn.push({ role: 'assistant', content: text, toolCalls: calls });
-        for (const c of calls) turn.push(await useTool(run, agentKey, c, ctx, speaker.name, step + 1));
+        for (const c of calls) {
+          if (!tools.some((t) => t.name === c.name)) {
+            turn.push({ role: 'tool', name: c.name, callId: c.id, content: '这次不能使用这个工具。' });
+          } else turn.push(await useTool(run, agentKey, c, ctx, speaker.name, step + 1));
+        }
         if (stopped(agentKey)) {
           final = '[mood:speechless] 好，我停下了。';
           break;
@@ -491,6 +508,15 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       }
     } finally {
       setActivity(agentKey, null);
+    }
+    if (o.idle) {
+      if (runs.get(errKey) !== run || stopped(errKey)) return;
+      const status = splitStatusTag(final).status;
+      if (status) {
+        await showStatus(run, status);
+        run.statusUntil = Date.now() + 10 * MIN;
+      }
+      return;
     }
     if (isSkip(final) || o.silent) return; // decided to stay quiet / only acts
     const tagged = splitStatusTag(final);
@@ -973,12 +999,23 @@ async function tickRoutine(run: Run) {
     await run.s.setPresence(false, undefined, true).catch(() => {});
   }
   const r = run.settings.routine;
-  if (!r.enabled) return void maybeEvolve(run);
+  const idle = async () => {
+    const interval = run.settings.proactive.thoughtMinutes;
+    if (interval > 0 && Date.now() >= run.lastThought + interval * MIN && !isAsleep(r, minuteOfDay())
+      && !run.busy.size && !run.statusUntil && run.settings.providerId && run.settings.model && run.ai.user.ownerId) {
+      run.lastThought = Date.now();
+      const id = await run.s.openDM(run.ai.user.ownerId);
+      if (runs.get(k(run.serverId, run.ai.user.id)) === run && !run.busy.size && run.s.view.status === 'online') await reply(run, id, { silent: true, idle: true,
+        note: '（独处时间。结合你的性格和最近的记忆，自己挑件小事做。可以看看或布置自己的主页，也可以用 [status:在做的事] 更新自己的公开状态。不要透露私聊内容。不想做什么就只回 [skip]。）' });
+    }
+    await maybeEvolve(run);
+  };
+  if (!r.enabled) return idle().catch(() => {});
   const key = k(run.serverId, run.ai.user.id);
   const day = dayKey();
   const done = doneToday(key, day);
   const e = dueEvents(dayPlan(day, r, run.ai.user.id), minuteOfDay(), done)[0];
-  if (!e) return void maybeEvolve(run);
+  if (!e) return idle().catch(() => {});
   done.add(e.key);
   saveDone(key, day, done);
   await routineMoment(run, e.kind).catch((err) => patch('errors', key, errorText(err)));
@@ -998,26 +1035,40 @@ async function loadMemory(run: Run) {
 
 /** Saves it as the AI account's own client state (only the device running it writes). */
 async function saveMemory(run: Run, m: Memory) {
-  run.memory = trimMemory(m);
-  const data = new TextEncoder().encode(JSON.stringify(run.memory));
+  const next = trimMemory(m);
+  const data = new TextEncoder().encode(JSON.stringify(next));
   try {
     run.memoryAt = await run.s.putClientState(data, run.memoryAt);
   } catch (e) {
     if (!(e instanceof ApiError) || e.code !== 'state_conflict') throw e;
-    // Saved elsewhere meanwhile (an earlier device): ours is the newer one.
-    run.memoryAt = (await run.s.clientState()).updatedAt;
-    run.memoryAt = await run.s.putClientState(data, run.memoryAt);
+    await loadMemory(run);
+    throw e;
   }
+  run.memory = next;
 }
 
-/** A chat went quiet for a few minutes: take what happened into memory (at most every 15 min per chat). */
-function scheduleRemember(run: Run, convId: string) {
-  clearTimeout(run.rememberTimers.get(convId));
-  const last = run.remembered.get(convId)?.at ?? 0;
-  const wait = Math.max(REMEMBER_AFTER, last + REMEMBER_EVERY - Date.now());
+/** Serialize summaries and workshop updates so two chats cannot overwrite each other. */
+function queueMemory(run: Run, work: () => Promise<void>) {
+  run.memoryQueue = run.memoryQueue.then(async () => {
+    if (runs.get(k(run.serverId, run.ai.user.id)) === run) await work();
+  }).catch(() => {});
+  return run.memoryQueue;
+}
+
+function scheduleRemember(run: Run, convId: string, wait = REMEMBER_AFTER) {
+  if (run.rememberTimers.has(convId)) return;
   run.rememberTimers.set(convId, setTimeout(() => {
-    run.rememberTimers.delete(convId);
-    void rememberNow(run, convId).catch(() => {});
+    void queueMemory(run, async () => {
+      try {
+        await rememberNow(run, convId);
+      } finally {
+        run.rememberTimers.delete(convId);
+        const conv = run.s.view.convs[convId];
+        if (runs.get(k(run.serverId, run.ai.user.id)) === run && conv && !conv.left && conv.lastSeq > (run.memory.cursors[convId] ?? 0)) {
+          scheduleRemember(run, convId, REMEMBER_EVERY);
+        }
+      }
+    });
   }, wait));
 }
 
@@ -1025,12 +1076,15 @@ async function rememberNow(run: Run, convId: string) {
   const s = run.s;
   const conv = s.view.convs[convId];
   const st = run.settings;
-  if (!conv || !run.memoryLoaded || !st.providerId || !st.model) return;
+  if (!conv || conv.left || run.s.view.status !== 'online' || !run.memoryLoaded || !st.providerId || !st.model) return;
   const me = run.ai.user.id;
-  const from = run.remembered.get(convId)?.seq ?? 0;
-  const msgs = (s.view.messages[convId] ?? []).filter((m) => !m.pending && !m.failed && m.seq > from && textOf(m) !== null).slice(-40);
-  if (msgs.filter((m) => m.senderId !== me).length < 2) return;
-  run.remembered.set(convId, { seq: msgs.at(-1)!.seq, at: Date.now() });
+  const from = run.memory.cursors[convId] ?? 0;
+  const pending = (s.view.messages[convId] ?? []).filter((m) => !m.pending && !m.failed && m.seq > from && textOf(m) !== null);
+  const msgs = pending.slice(0, 40);
+  const seq = pending.length > msgs.length ? msgs.at(-1)!.seq : conv.lastSeq;
+  if (seq <= from) return;
+  const advance = (memory: Memory) => saveMemory(run, { ...memory, cursors: { ...memory.cursors, [convId]: seq } });
+  if (!msgs.length) return advance(run.memory);
   const lines = msgs.map((m) => `${m.senderId === me ? '你' : s.nameOf(m.senderId)}（${m.senderId === me ? '你自己' : m.senderId}）：${textOf(m)!.slice(0, 200)}`);
   const people = presentIn(run, conv);
   const providers = useProviders.getState().loaded ? useProviders.getState().list : (await loadProviders()).list;
@@ -1045,7 +1099,7 @@ async function rememberNow(run: Run, convId: string) {
   const status = await aiRequest(req.url, req.headers, req.body, (chunk) => (text += reader.feed(chunk)));
   if (status >= 400) return;
   const next = applyRemember(run.memory, text, people, Date.now());
-  if (next !== run.memory) await saveMemory(run, next);
+  if (next !== run.memory) await advance(next);
 }
 
 // ---------- plugins: what is installed from the workshop (lib/workshop.ts) ----------
@@ -1182,7 +1236,7 @@ export function startAI() {
   watch();
   // Something new installed from the workshop: every AI running here learns it.
   useWorkshop.subscribe(() => {
-    for (const run of runs.values()) void syncPlugins(run).catch(() => {});
+    for (const run of runs.values()) void queueMemory(run, () => syncPlugins(run));
   });
   void loadProviders();
   // New services start with the default reminder threshold (5).

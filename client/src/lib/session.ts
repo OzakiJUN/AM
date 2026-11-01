@@ -510,6 +510,8 @@ export class Session {
   // ---- board games (docs/design.md §13 小游戏) ----
 
   /** Called for every game update (the AI runner watches these). */
+  /** Optional AI memory checkpoints, loaded before fetching missed events. */
+  memoryCursors?: () => Promise<Record<string, number>>;
   onGame?: (g: Game) => void;
 
   private putGame(g: Game) {
@@ -897,11 +899,13 @@ export class Session {
     // Fill gaps: from our newest message, or the last page for new conversations.
     const cursors: { id: string; after: number }[] = [];
     const hasOlder: Record<string, boolean> = { ...this.view.hasOlder };
+    const checkpoints = await this.memoryCursors?.();
     for (const c of Object.values(convs)) {
       const local = this.view.messages[c.id];
       const newest = local?.filter((m) => !m.pending).at(-1)?.seq ?? 0;
       if (newest >= c.lastSeq) continue;
-      const after = newest > 0 ? newest : Math.max(0, c.lastSeq - INITIAL_PAGE);
+      const recent = Math.max(0, c.lastSeq - INITIAL_PAGE);
+      const after = newest > 0 ? newest : Math.min(recent, checkpoints?.[c.id] ?? recent);
       if (!newest) hasOlder[c.id] = after > 0;
       cursors.push({ id: c.id, after });
     }
@@ -921,7 +925,7 @@ export class Session {
       const more = new Set(r.hasMore.map(s));
       cursors = cursors
         .filter((c) => more.has(c.id))
-        .map((c) => ({ id: c.id, after: this.view.messages[c.id]?.filter((m) => !m.pending).at(-1)?.seq ?? c.after }));
+        .map((c) => ({ id: c.id, after: Number(r.events.filter((e) => s(e.convId) === c.id).at(-1)?.seq ?? c.after) }));
     }
   }
 
@@ -1068,8 +1072,8 @@ export class Session {
     this.emit();
   }
 
-  async upload(file: File) {
-    const r = await this.t.upload(file);
+  async upload(file: File, stickerSync = false) {
+    const r = await this.t.upload(file, stickerSync);
     if (r.status >= 400) throw errorFromBody(r.status, r.body);
     return fromJsonString(api.MediaInfoSchema, r.body, { ignoreUnknownFields: true });
   }

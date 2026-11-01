@@ -85,7 +85,7 @@ update the docs in the same commit.
   picture; library pictures can be sent without uploading. Client:
   `lib/stickers.ts`, `lib/stickerTags.ts` (tested), `app/Stickers.tsx`
   (「我的」 / 「大家的」); copying my stickers to my other servers in the
-  background, speed-limited: `lib/stickerSync.ts` + `lib/stickerCopy.ts`
+  background, paced by the receiving server (stickers.sync_kbps): `lib/stickerSync.ts` + `lib/stickerCopy.ts`
   (pure, tested).
 - Server profile settings (description, widget permissions) live in the
   `server_settings` table and are edited in the panel (no restart); the icon
@@ -261,8 +261,7 @@ update the docs in the same commit.
   `retention.games_days`).
 - AI memory (docs/design.md §9 一个记忆): `lib/ai/memory.ts` (pure, tested:
   per-person notes by account id, events, known plugins, 28 KB cap) stored as
-  the AI account's own client state; `rememberNow` (runner) updates it 3 min
-  after a chat goes quiet; every reply gets `whoPrompt` (who is talking,
+  the AI account's own client state; `rememberNow` (runner) updates it in batches with a persisted per-chat cursor; every reply gets `whoPrompt` (who is talking,
   owner / AI, recognise by account), `memoryPrompt`, and `elsewhere` (all
   chats incl. private ones, last 12 h). Installed workshop items live in
   `lib/workshop.ts` (`useWorkshop`); `syncPlugins` teaches them to running AIs.

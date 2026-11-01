@@ -58,7 +58,8 @@ async fn upload(net: State<'_, Net>, request: Request<'_>) -> Res<Reply> {
     };
     let id = header("x-server")?;
     let name = header("x-filename")?;
-    net.upload(&id, &name, data.clone()).await.map_err(e)
+    let sticker_sync = header("x-sticker-sync").as_deref() == Ok("true");
+    net.upload(&id, &name, data.clone(), sticker_sync).await.map_err(e)
 }
 
 /// Downloads a media path into a file chosen by the user.

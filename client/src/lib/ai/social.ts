@@ -207,9 +207,10 @@ export interface ProactiveSettings {
   topics: boolean;
   /** Quiet this many hours before it starts a topic. */
   quietHours: number;
+  thoughtMinutes: number;
 }
 
-export const defaultProactive = (): ProactiveSettings => ({ greet: true, topics: true, quietHours: 3 });
+export const defaultProactive = (): ProactiveSettings => ({ greet: true, topics: true, quietHours: 3, thoughtMinutes: 20 });
 
 const HOUR = 60 * MIN;
 

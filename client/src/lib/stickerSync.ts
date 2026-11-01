@@ -1,6 +1,6 @@
 // Copies my stickers to all my servers in the background (docs/design.md
 // §11, §7 资料同步): a sticker I have on one server is added on every other
-// server I'm on, slowly (prefs.stickerSyncKBps) so it doesn't eat the
+// server I'm on, at the destination server’s sync rate so it doesn't eat the
 // bandwidth of a small relay. Files the other server's shared library
 // already has are collected there instead of uploaded. Deleting a sticker
 // is not copied. What was copied is remembered on this device, so a sticker
@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import { ApiError, errorText } from './errors';
 import { usePrefs } from './prefs';
-import { isFinal, planCopies, throttleMs, type CopySticker, type CopyTask } from './stickerCopy';
+import { isFinal, planCopies, type CopySticker, type CopyTask } from './stickerCopy';
 import type { Session } from './session';
 import { loadStickers } from './stickers';
 import { session, useApp } from './store';
@@ -58,7 +58,6 @@ export function forgetStickerServer(id: string) {
 }
 
 const ready = (s: Session | undefined): s is Session => !!s && s.view.status === 'online' && !!s.view.me;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 /** Starts a round soon (my stickers changed, or a server came online). */
@@ -153,9 +152,8 @@ async function copyOne(task: CopyTask, known: Record<string, string>): Promise<'
       if (st.tags.length) await dst.editLibraryTags(lib, st.tags.slice(0, 20), []).catch(() => {});
     } else {
       const blob = await src.t.mediaBytes(`/api/v1/media/${st.mediaId}`);
-      const info = await dst.upload(new File([blob], `sticker-${st.id}`, { type: blob.type }));
+      const info = await dst.upload(new File([blob], `sticker-${st.id}`, { type: blob.type }), true);
       await dst.addSticker(info.id.toString(), st.tags.slice(0, st.private ? 10 : 20), st.private);
-      await sleep(throttleMs(blob.size, usePrefs.getState().stickerSyncKBps));
     }
     markDone(task.key);
     return 'ok';
