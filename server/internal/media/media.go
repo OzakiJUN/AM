@@ -271,6 +271,18 @@ func (s *Service) OwnUpload(ctx context.Context, userID, mediaID int64, mustBeIm
 	return m, nil
 }
 
+// ReadOwn reads a file the user uploaded (at most max bytes; plugin zips).
+func (s *Service) ReadOwn(ctx context.Context, userID, mediaID, max int64) ([]byte, error) {
+	m, err := s.OwnUpload(ctx, userID, mediaID, false)
+	if err != nil {
+		return nil, err
+	}
+	if m.Size > max {
+		return nil, ErrTooLarge
+	}
+	return os.ReadFile(s.blobPath(m.SHA256))
+}
+
 // StickerImage returns an image a user may send as a sticker although
 // they did not upload it: it is in their collection or in the shared
 // sticker library.

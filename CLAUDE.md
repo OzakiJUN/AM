@@ -104,6 +104,17 @@ update the docs in the same commit.
   The panel can read every channel's history (read-only, `channel_view` in the
   audit log) but never DMs, and serves media only from channels, avatars and
   evidence (`store.PanelCanSeeMedia`).
+- AI plugins (docs/plugins.md, docs/design.md §10): NoneBot2 plugins run on the
+  server, one process per AI (`server/internal/plugin`: `host.go` runs them and
+  serves OneBot v11 forward WebSocket on loopback, `onebot.go` translates,
+  `scan.go` reads settings / commands / requirements from source, `unpack.go`
+  reads zips — the last three pure + tested; `service.go` upload / settings /
+  approval). A plugin runs only after a site admin approved it (panel
+  `admin/plugins.go`); every new version is pending again. New messages reach
+  plugins through `plugin.Tap` (wraps the pusher of `message.Service`).
+  Secret settings never go back to clients. Client: `app/PluginsTab.tsx`,
+  `lib/plugins.ts` (pure, tested); the runner leaves plugin commands alone.
+  Real NoneBot test: `AM_TEST_NONEBOT=1 go test -run TestPluginsRealNoneBot ./server/internal/e2e`.
 - Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
 - Discord-style servers: there are NO friends. Anyone on a server can DM

@@ -265,6 +265,16 @@ dialog {
   border: 1px solid var(--line); border-radius: var(--r-l); padding: 24px; width: min(460px, calc(100vw - 32px));
   background: var(--card); color: var(--ink);
 }
+dialog.wide { width: min(1100px, calc(100vw - 32px)); }
+.tag.good { background: var(--blue-soft); color: var(--green); }
+.meta.bad { color: var(--red); }
+.plugin-files { grid-template-columns: minmax(160px, 240px) 1fr; align-items: start; }
+.plugin-files .file-list { display: grid; gap: 2px; max-height: 65vh; overflow: auto; }
+.plugin-files .file { text-align: left; border: 0; background: none; color: inherit; font: inherit; font-size: 13px; padding: 4px 8px; border-radius: 6px; cursor: pointer; word-break: break-all; }
+.plugin-files .file:hover { background: var(--paper); }
+.plugin-files .file.on { background: var(--blue-soft); color: var(--blue); }
+.plugin-files .code { margin: 0; max-height: 65vh; overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-m); padding: 12px; font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre; tab-size: 4; }
+@media (max-width: 720px) { .plugin-files { grid-template-columns: 1fr; } }
 dialog::backdrop { background: rgba(16, 23, 43, .45); }
 dialog h2 { margin-bottom: 8px; }
 dialog .body { margin: 12px 0 20px; display: grid; gap: 10px; }

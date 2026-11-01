@@ -351,14 +351,15 @@ func (s *Service) addTags(ctx context.Context, q *store.Queries, by, libraryID i
 		keys[t.Key] = true
 	}
 	now := s.now().UnixMilli()
-	for _, t := range cleanTags(tags, MaxSharedTags) {
+	for i, t := range cleanTags(tags, MaxSharedTags) {
 		k := tagKey(t)
 		if !keys[k] && len(keys) >= MaxSharedTags {
 			full = true
 			continue
 		}
 		keys[k] = true
-		if err := q.AddLibraryTag(ctx, store.LibraryTag{LibraryID: libraryID, Key: k, Tag: t, AddedBy: by, AddedAt: now}); err != nil {
+		// One ms apart: tags added together keep the order they were typed in (ties sort by added_at).
+		if err := q.AddLibraryTag(ctx, store.LibraryTag{LibraryID: libraryID, Key: k, Tag: t, AddedBy: by, AddedAt: now + int64(i)}); err != nil {
 			return full, err
 		}
 	}

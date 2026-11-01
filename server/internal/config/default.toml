@@ -111,6 +111,28 @@ default_public = true
 # different words underneath by 36 or more. 10 merges copies safely.
 dedupe_distance = 10
 
+[plugins]
+# NoneBot2 (OneBot v11) plugins of AI accounts (docs/plugins.md): owners
+# upload them in the AI's settings, and they run here on the server as that
+# AI. Plugins are programs with full access to this computer, so each one
+# runs only after a site admin approved it in the panel (插件 page).
+# false = no plugins are uploaded or run.
+enabled = true
+# Python 3.10 or newer for the plugins' own virtual environment
+# (data/plugins/venv). Empty = look for python3 / python / py -3.
+python = ""
+# pip mirror for installing the packages plugins need, e.g.
+# "https://pypi.tuna.tsinghua.edu.cn/simple". Empty = pip's default.
+pip_index = ""
+# What commands start with (NoneBot COMMAND_START). Add "" to allow
+# commands without a prefix ("帮助" as well as "/帮助").
+command_start = ["/"]
+# Largest plugin zip people may upload, and its size unpacked (MB).
+max_zip_mb = 20
+max_unpacked_mb = 100
+# How many plugins one AI may have.
+max_per_ai = 30
+
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so
 # only this computer can open it. On a headless Linux server, reach it through

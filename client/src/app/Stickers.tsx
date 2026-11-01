@@ -119,8 +119,9 @@ export function StickerPanel({ serverId, onSend, onManage }: { serverId: string;
 
 function MineGrid({ serverId, q, onSend, onManage }: { serverId: string; q: string; onSend: (s: Sticker) => void; onManage: () => void }) {
   const list = useStickers((s) => s.byServer[serverId]);
+  // Reload on every open: another of my devices may have copied stickers here (shows the cached list meanwhile).
   useEffect(() => {
-    void loadStickers(serverId).catch(toastError);
+    void loadStickers(serverId, true).catch(toastError);
   }, [serverId]);
   const shown = list ? searchStickers(list, q) : [];
   if (!list) return <div className="flex justify-center py-6 text-ink-soft"><Spinner /></div>;

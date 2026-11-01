@@ -19,6 +19,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/music"
+	"github.com/OzakiJUN/am/server/internal/plugin"
 	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/profile"
 	"github.com/OzakiJUN/am/server/internal/remote"
@@ -34,8 +35,10 @@ type App struct {
 	Profile *profile.Service
 	// Stickers: collections and the shared library (the panel's 表情库 page).
 	Stickers *sticker.Service
-	Janitor  *janitor.Janitor
-	Handler  http.Handler
+	// Plugins: AI plugins (nil when plugins.enabled = false).
+	Plugins *plugin.Service
+	Janitor *janitor.Janitor
+	Handler http.Handler
 }
 
 // New opens the database, applies migrations and builds the HTTP handler.
@@ -68,7 +71,9 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	acct := account.New(st, ids, cfg.Invites, hub, md)
 	acct.SetAILimit(cfg.Limits.MaxAIPerUser)
 	acct.SetDeviceLimits(cfg.Limits.MaxDevices, time.Duration(cfg.Limits.PairCodeMinutes)*time.Minute)
-	ms := message.New(st, ids, hub, md, cfg.Limits, cfg.Retention)
+	// New messages also reach the AIs' plugins (the tap is connected once the host exists).
+	tap := &plugin.Tap{Next: hub}
+	ms := message.New(st, ids, tap, md, cfg.Limits, cfg.Retention)
 	cs := conv.New(st, ids, hub, ms, md, cfg.Limits, cfg.Server.DefaultChannel, log)
 	ps := presence.New(st, hub)
 	acct.OnRegistered(cs.Welcome)
@@ -79,9 +84,27 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		DefaultPublic: cfg.Stickers.DefaultPublic, DedupeDistance: cfg.Stickers.DedupeDistance, EvidenceDays: cfg.Retention.EvidenceDays})
 	sk.LinkWaiting(ctx, log)
 
+	var plugins *plugin.Service
+	if pc := cfg.Plugins; pc.Enabled {
+		host, err := plugin.NewHost(plugin.Config{Enabled: true, Python: pc.Python, PipIndex: pc.PipIndex, CommandStart: pc.CommandStart,
+			Dir: cfg.InDataDir("plugins"), Spawn: !pc.NoSpawn}, st, ms, cs, md, log)
+		if err != nil {
+			st.Close()
+			return nil, err
+		}
+		tap.SetHost(host)
+		plugins = plugin.NewService(st, ids, md, acct, host, plugin.Limits{MaxZip: int64(pc.MaxZipMB) << 20,
+			MaxUnpacked: int64(pc.MaxUnpackedMB) << 20, MaxPerAI: pc.MaxPerAI}, log)
+		host.Sync()
+	}
+
 	mux := http.NewServeMux()
-	httpapi.New(acct, cs, ms, md, ps, prof, sk,
-		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log).Register(mux)
+	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,
+		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
+	if plugins != nil {
+		api.SetPlugins(plugins)
+	}
+	api.Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
 
 	return &App{
@@ -91,9 +114,15 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Media:    md,
 		Profile:  prof,
 		Stickers: sk,
+		Plugins:  plugins,
 		Janitor:  janitor.New(st, md, cfg.Retention, log),
 		Handler:  mux,
 	}, nil
 }
 
-func (a *App) Close() { a.Store.Close() }
+func (a *App) Close() {
+	if a.Plugins != nil {
+		a.Plugins.Host().Close()
+	}
+	a.Store.Close()
+}

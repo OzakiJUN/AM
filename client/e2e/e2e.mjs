@@ -3,7 +3,7 @@
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createHash, createPrivateKey, sign as edSign } from 'node:crypto';
-import { zipSync } from 'fflate';
+import { strToU8, zipSync } from 'fflate';
 import { chromium } from 'playwright';
 
 const BASE = process.env.AM_E2E_URL ?? 'http://127.0.0.1:4173';
@@ -773,6 +773,35 @@ const pages = [];
   await B.click('button[aria-label="AI"]');
   await B.waitForSelector('aside button:has-text("小鱼和大家")');
 
+  // AI plugins: Weiqi (a site admin, so it's approved at once) uploads a NoneBot plugin for 小鱼
+  // and fills in its settings in the generated form; the secret one isn't shown again.
+  writeFileSync(`${OUT}/plugin.zip`, zipSync({ 'hello/__init__.py': strToU8([
+    'from nonebot import get_driver, on_command',
+    'from nonebot.plugin import PluginMetadata',
+    '__plugin_meta__ = PluginMetadata(name="打招呼", description="回一句你好", usage="/hi")',
+    '_cfg = get_driver().config',
+    'TEXT = getattr(_cfg, "hello_text", "你好")',
+    'TIMES = int(getattr(_cfg, "hello_times", 1))',
+    'KEY = getattr(_cfg, "hello_api_key", "")',
+    'hi = on_command("hi")',
+  ].join('\n')) }));
+  await A.click('button[aria-label="AI 设置"]');
+  await A.click('div[role="dialog"] button[role="radio"]:has-text("插件")');
+  await A.setInputFiles('input[type="file"][aria-label="选择插件 zip"]', `${OUT}/plugin.zip`);
+  await A.waitForSelector('text=传好了 1 个插件');
+  await A.waitForSelector('div[role="dialog"] >> text=已批准');
+  await A.fill('input[aria-label="times"]', '2.5');
+  await A.waitForSelector('text=要填整数');
+  await A.fill('input[aria-label="times"]', '3');
+  await A.fill('input[aria-label="text"]', '嗨');
+  await A.fill('input[aria-label="api_key"]', 'sk-test');
+  await A.click('div[role="dialog"] button:has-text("保存设置")');
+  await A.waitForSelector('text=已保存');
+  await A.waitForSelector('input[aria-label="api_key"][placeholder^="已经填过了"]');
+  if ((await A.inputValue('input[aria-label="api_key"]')) !== '') throw new Error('secret shown again');
+  await shot(A, '29f-plugins');
+  await A.keyboard.press('Escape');
+
   // Board games: Weiqi opens 五子棋 in 大厅; 小鱼 asks to join by itself, Weiqi lets it in and
   // starts; 小鱼 answers each move with the game tools; 小克 sees the game in 大厅's strip.
   await A.click('button[aria-label="频道"]');
@@ -905,11 +934,24 @@ const pages = [];
     await A.click('button[aria-label="服务器列表"]');
     await A.click('button[aria-label="切换到 第二服"]');
     await A.click('aside button:has-text("大厅")');
-    await A.click('button[aria-label="表情包"]');
-    await A.click('button[role="radio"]:has-text("我的")');
+    // New stickers wait 2 minutes before they are copied (time to tag them or make them private),
+    // and another of A's devices may do the copying: reopen the panel (it reloads) until both are there.
     // Tags travel with it (小克 may have added 「doge」 by now).
-    await A.waitForSelector('button[aria-label^="发表情 开心、狗头"]', { timeout: 30000 });
-    await A.waitForFunction(() => document.querySelectorAll('button[aria-label^="发表情 "]').length === 2, null, { timeout: 30000 });
+    const synced = async () =>
+      (await A.locator('button[aria-label^="发表情 开心、狗头"]').count()) === 1 && (await A.locator('button[aria-label^="发表情 "]').count()) >= 2;
+    for (let t = Date.now(); ; ) {
+      await A.click('button[aria-label="表情包"]');
+      await A.click('button[role="radio"]:has-text("我的")');
+      await wait(3000);
+      if (await synced()) break;
+      if (Date.now() - t > 300000) throw new Error('stickers not copied to the second server');
+      await A.click('button[aria-label="表情包"]'); // closes the panel
+      await wait(5000);
+    }
+    // The private one stayed private there: only the shared one is in 「大家的」.
+    await A.click('button[role="radio"]:has-text("大家的")');
+    await A.waitForSelector('button[aria-label^="发表情 开心、狗头"]');
+    if ((await A.locator('button[aria-label^="发表情 "]').count()) !== 1) throw new Error('private sticker shared on the second server');
     await shot(A, '30-stickers-synced');
   }
 

@@ -90,6 +90,9 @@ transport.proxyProtocolVersion = "v2"
 - **操作记录**：所有管理操作，不能删除。
 - **运行日志**：出问题时把这里的内容复制给开发者。
 - **设置**：常用设置是表单；数据库、证书等高级设置在"直接编辑 config.toml"里。保存前会检查格式，写错不会保存，上一版存成 `config.toml.bak`。
+- **插件**：大家给自己的 AI 传的 NoneBot 插件。插件是程序，能读写这台电脑上的文件，所以每个插件（包括更新）都要你点「看代码」看过、批准以后才会运行；不放心的就拒绝，写上原因对方能看到。
+
+**AI 插件要 Python**：插件在这台电脑上运行，要装 Python 3.10 或更新的版本（Windows 从 python.org 下载，安装时勾上「Add python.exe to PATH」）。第一次有插件被批准时，am-server 会在 `data\plugins\venv` 建一个独立环境、自动装 NoneBot 和插件要的包，要联网，可能要几分钟。国内下载慢就在 `config.toml` 的 `[plugins]` 里设 `pip_index = "https://pypi.tuna.tsinghua.edu.cn/simple"`。不想让大家传插件：`[plugins]` 里 `enabled = false`。写插件的说明在 [plugins.md](plugins.md)。
 
 ## 7. 升级到新版本
 
