@@ -90,6 +90,45 @@ export function viaMirror(url: string, mirror: string): string {
   return `${m}/${url}`;
 }
 
+/**
+ * Built-in fallbacks for when GitHub can't be reached (mainland China):
+ * GitHub download proxies ("<proxy>/<original url>"). Everything downloaded
+ * is checked (signed index, SHA-256 of packages), so a mirror can only fail,
+ * never change anything.
+ */
+export const BUILTIN_MIRRORS = ['https://ghfast.top', 'https://gh-proxy.com'];
+
+/** jsDelivr serves the index branch's files too (a copy up to ~12 h old). */
+const JSDELIVR = ['https://fastly.jsdelivr.net/gh/OzakiJUN/am-workshop@index', 'https://cdn.jsdelivr.net/gh/OzakiJUN/am-workshop@index'];
+
+/** One way to download a file: route = "direct" or the mirror's base address (to remember what worked). */
+export interface Route {
+  route: string;
+  url: string;
+}
+
+/**
+ * The ways to try a download, in order: the route that worked last time,
+ * my own mirror, GitHub directly, then the built-in mirrors (jsDelivr for
+ * the index).
+ */
+export function downloadRoutes(url: string, myMirror: string, lastGood = ''): Route[] {
+  const out: Route[] = [];
+  const add = (route: string, u: string) => {
+    if (!out.some((r) => r.url === u)) out.push({ route, url: u });
+  };
+  const mine = myMirror.trim().replace(/\/+$/, '');
+  const all: Route[] = [];
+  if (mine && /^https:\/\//.test(mine)) all.push({ route: mine, url: viaMirror(url, mine) });
+  all.push({ route: 'direct', url });
+  if (url.startsWith(RAW + '/')) for (const j of JSDELIVR) all.push({ route: j, url: j + url.slice(RAW.length) });
+  for (const m of BUILTIN_MIRRORS) all.push({ route: m, url: viaMirror(url, m) });
+  const good = all.find((r) => r.route === lastGood);
+  if (good) add(good.route, good.url);
+  for (const r of all) add(r.route, r.url);
+  return out;
+}
+
 /** SHA-256 of bytes, lower-case hex. */
 export async function sha256Hex(data: Uint8Array): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-256', data as Uint8Array<ArrayBuffer>));

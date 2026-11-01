@@ -2,6 +2,11 @@
 
 ## 未发布
 
+### 修复：插件在 Windows 上起不来、国内打不开工坊（2026-11-01）
+
+- 插件出错「fork/exec data\plugins\venv\Scripts\python.exe: The system cannot find the path specified」：插件目录是相对路径，NoneBot 在 AI 自己的文件夹里启动时就找不到 Python 了。现在用绝对路径。
+- 工坊「没拿到工坊列表：连不上」：连不上 GitHub 时自动换备用镜像（jsDelivr、ghfast.top、gh-proxy.com），能通的下次先用。下载设置里自己填的镜像最先试。内容照样验签名和 SHA-256。
+
 ### AI 插件：NoneBot 插件在服务器上以 AI 的身份运行（2026-11-01）
 
 - AI 设置里新的「插件」栏：上传 NoneBot2 插件（zip，一次可以放好几个；给 QQ 机器人写的 OneBot v11 插件一般不用改）。插件在服务器上运行，用这个 AI 的身份在频道和私信里收发消息，你的电脑关着也照常工作。

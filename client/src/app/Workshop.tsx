@@ -17,7 +17,7 @@ import {
   CATEGORY_NAME, applyTheme, install, installFile, installState, previewUrl, refreshIndex, stickerFiles, uninstall, useWorkshop,
   workshopReady, type WorkshopCategory, type WorkshopItem,
 } from '@/lib/workshop';
-import type { IndexItem } from '@/lib/workshopIndex';
+import { BUILTIN_MIRRORS, type IndexItem } from '@/lib/workshopIndex';
 import { openConv, useApp } from '@/lib/store';
 import { Button, Dialog, Input, Segmented, ask, cx, spring, toast } from '@/ui';
 import { startGame } from './Games';
@@ -355,7 +355,7 @@ function MirrorDialog({ open, onClose }: { open: boolean; onClose: () => void })
     <Dialog open={open} onClose={onClose} title="下载设置" width={460}>
       <div className="space-y-3">
         <p className="text-[0.86rem] leading-relaxed text-ink-soft dark:text-white/60">
-          工坊的列表和作品都从 GitHub 下载。国内访问 GitHub 慢或者连不上时，可以填一个 GitHub 下载镜像（加速）地址，下载时用「镜像地址/原地址」。不填就直接连 GitHub。签名和文件校验照样做，镜像改不了内容。
+          工坊的列表和作品都从 GitHub 下载。连不上 GitHub 时会自动换备用镜像（jsDelivr、{BUILTIN_MIRRORS.map((m) => new URL(m).host).join('、')}），用过能通的下次先用。这些都不行的话，在这里填一个你能用的 GitHub 下载镜像（加速）地址，会最先试它，下载时用「镜像地址/原地址」。签名和文件校验照样做，镜像改不了内容。
         </p>
         <Input value={v} onChange={(e) => setV(e.target.value)} placeholder="https://镜像地址" aria-label="下载镜像地址" />
         {!ok && <p className="text-[0.8rem] text-rose-500">要以 https:// 开头</p>}

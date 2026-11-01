@@ -12,7 +12,7 @@ import { MOODS } from './portraits';
 import { usePrefs } from './prefs';
 import { useTheme } from './theme';
 import {
-  INDEX_SIG_URL, INDEX_URL, WORKSHOP_PUBLIC_KEY, compareVersions, newerOrSame, parseIndex, sha256Hex, verifySignature, viaMirror,
+  INDEX_SIG_URL, INDEX_URL, WORKSHOP_PUBLIC_KEY, compareVersions, newerOrSame, parseIndex, sha256Hex, verifySignature, downloadRoutes,
   type IndexItem, type WorkType,
 } from './workshopIndex';
 import { mimeOf, personaOf, portraitsOf, readPackage, stickersOf, type Package } from './workshopPackage';
@@ -151,7 +151,33 @@ async function fetchBytes(url: string, max: number): Promise<Uint8Array> {
   return b;
 }
 
-const mirrored = (url: string) => (devBase ? url : viaMirror(url, usePrefs.getState().workshopMirror));
+/** The download route that worked last (this run): tried first next time. */
+let lastRoute = '';
+
+/**
+ * Tries the ways to download a file (lib/workshopIndex.ts downloadRoutes:
+ * direct, my mirror, built-in mirrors) until `use` accepts one. `use` checks
+ * what came (signature, hash); a route that fails or brings something wrong
+ * is skipped.
+ */
+async function viaRoutes<T>(urls: string[], max: number, use: (data: Uint8Array[]) => Promise<T> | T): Promise<T> {
+  if (devBase) return use(await Promise.all(urls.map((u) => fetchBytes(u, max))));
+  const mine = usePrefs.getState().workshopMirror;
+  const plans = urls.map((u) => downloadRoutes(u, mine, lastRoute));
+  const errors: string[] = [];
+  for (let i = 0; i < plans[0].length; i++) {
+    const route = plans[0][i].route;
+    try {
+      const data = await Promise.all(plans.map((p) => fetchBytes((p.find((r) => r.route === route) ?? p[0]).url, max)));
+      const out = await use(data);
+      lastRoute = route;
+      return out;
+    } catch (e) {
+      errors.push(`${route === 'direct' ? 'GitHub' : new URL(route).host}：${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  throw new Error(`下载不下来（GitHub 和备用镜像都试过了，可以在「下载设置」里填一个能用的镜像）。${errors.join('；')}`);
+}
 
 /** The workshop is set up (a public key is built in), so the index can be trusted. */
 export const workshopReady = () => !!publicKey;
@@ -162,16 +188,15 @@ export const workshopReady = () => !!publicKey;
  */
 export async function refreshIndex(): Promise<CachedIndex> {
   if (!publicKey) throw new Error('工坊还没开通（还没设置签名密钥）');
-  const [data, sig] = await Promise.all([
-    fetchBytes(mirrored(devBase ? `${devBase}/index.json` : INDEX_URL), 8 << 20),
-    fetchBytes(mirrored(devBase ? `${devBase}/index.sig` : INDEX_SIG_URL), 4096),
-  ]);
-  if (!(await verifySignature(data, new TextDecoder().decode(sig), publicKey))) {
-    throw new Error('工坊列表的签名不对，可能被人改过（换个网络或镜像再试）');
-  }
-  const idx = parseIndex(data);
+  const key = publicKey;
   const last = useWorkshop.getState().index;
-  if (last && !newerOrSame(idx, last.generatedAt)) throw new Error('拿到的工坊列表比上次的还旧，没有用它（换个网络或镜像再试）');
+  // Index and signature over the same route (a mirror's copies must match).
+  const idx = await viaRoutes([devBase ? `${devBase}/index.json` : INDEX_URL, devBase ? `${devBase}/index.sig` : INDEX_SIG_URL], 8 << 20, async ([data, sig]) => {
+    if (!(await verifySignature(data, new TextDecoder().decode(sig), key))) throw new Error('列表的签名不对，可能被人改过');
+    const got = parseIndex(data);
+    if (last && !newerOrSame(got, last.generatedAt)) throw new Error('拿到的列表比上次的还旧');
+    return got;
+  });
   const cached: CachedIndex = { generatedAt: idx.generatedAt, maxPackageMB: idx.maxPackageMB, items: idx.items };
   save(INDEX_KEY, cached);
   useWorkshop.setState({ index: cached });
@@ -203,8 +228,10 @@ function remember(p: Package, source: InstalledMeta['source']) {
 export async function install(item: IndexItem): Promise<InstalledMeta> {
   if (item.disabled) throw new Error(`这个作品已经下架了：${item.disabled}`);
   const maxMB = useWorkshop.getState().index?.maxPackageMB ?? 20;
-  const zip = await fetchBytes(mirrored(item.url), maxMB << 20);
-  if ((await sha256Hex(zip)) !== item.sha256) throw new Error('下载到的文件和工坊登记的不一样（可能被人改过），没有安装');
+  const zip = await viaRoutes([item.url], maxMB << 20, async ([z]) => {
+    if ((await sha256Hex(z)) !== item.sha256) throw new Error('下载到的文件和工坊登记的不一样（可能被人改过）');
+    return z;
+  });
   const p = readPackage(zip, maxMB, item);
   await savePackage(item.id, p);
   return remember(p, 'workshop');
@@ -277,7 +304,7 @@ const previews = new Map<string, Promise<string>>();
 export function previewUrl(url: string): Promise<string> {
   let p = previews.get(url);
   if (!p) {
-    p = fetchBytes(mirrored(url), 2 << 20).then((b) => URL.createObjectURL(new Blob([b.slice()], { type: mimeOf(url) })));
+    p = viaRoutes([url], 2 << 20, ([b]) => b).then((b) => URL.createObjectURL(new Blob([b.slice()], { type: mimeOf(url) })));
     p.catch(() => previews.delete(url));
     previews.set(url, p);
   }
