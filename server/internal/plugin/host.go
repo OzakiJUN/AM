@@ -120,6 +120,13 @@ type Host struct {
 
 // NewHost starts the loopback OneBot endpoint (plugins start with Sync).
 func NewHost(cfg Config, st *store.Store, msg *message.Service, cs *conv.Service, md *media.Service, log *slog.Logger) (*Host, error) {
+	// Absolute: NoneBot runs in the AI's folder, and a relative program path
+	// would be looked up from there ("data\plugins\venv\..." not found).
+	dir, err := filepath.Abs(cfg.Dir)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Dir = dir
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err

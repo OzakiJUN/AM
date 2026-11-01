@@ -2,6 +2,9 @@ package plugin
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -167,5 +170,19 @@ func TestMessageEvent(t *testing.T) {
 	}
 	if _, ok := MessageEvent(&amv1.Event{Body: &amv1.Event_Strike{}}, in); ok {
 		t.Fatal("strike is not a message")
+	}
+}
+
+// The plugin folder is made absolute: NoneBot runs in the AI's folder, where
+// a relative "data/plugins/venv/..." would not be found (Windows report).
+func TestHostAbsoluteDir(t *testing.T) {
+	t.Chdir(t.TempDir())
+	h, err := NewHost(Config{Dir: filepath.Join("data", "plugins")}, nil, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	if !filepath.IsAbs(h.env.Python()) || !filepath.IsAbs(h.AIDir(1)) || !filepath.IsAbs(h.PkgDir(1)) {
+		t.Fatalf("relative: %s %s %s", h.env.Python(), h.AIDir(1), h.PkgDir(1))
 	}
 }

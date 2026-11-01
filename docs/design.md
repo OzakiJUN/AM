@@ -435,7 +435,7 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
 
 - **跑在服务器上**：每个有插件的 AI 一个 NoneBot2 进程（`server/internal/plugin`，`host.go`），由 am-server 启动、挂了自动重启（5 秒起，每次 ×3，最多 5 分钟）。Windows 上不弹黑窗口。主人的设备关着插件也照常工作。
 - **OneBot v11 正向 WebSocket**：am-server 在 127.0.0.1 的随机端口上开 `/onebot/{ai}`，每个 AI 每次启动一个随机 token；NoneBot 用 `~websockets` 驱动连上来。连上时发 lifecycle connect，每 30 秒心跳。AI 收到的新消息（频道 = 群，私信 = 私聊；ID 一一对应）按顺序转给插件（每个 AI 一个队列，积压 512 条以上丢弃并记日志），AI 自己发的不转。插件调的接口翻译成 AM 的操作，发消息就是 AI 发的。翻译规则是纯函数（`onebot.go`，有单测）。支持的消息段和接口见 [plugins.md](plugins.md) 第 5 节；管理类接口（踢人、禁言、撤回）不给。
-- **Python 环境**：`data/plugins/venv` 一个虚拟环境，所有 AI 共用（`env.go`）。找 Python 3.10+（`plugins.python` 可指定；Windows 先试 `py -3`），自动装 NoneBot、OneBot 适配器和插件要的包（只装没装过的，可设 `plugins.pip_index` 镜像）。每个 AI 的目录 `data/plugins/ai-<id>/`：每次启动把已批准的插件复制进 `plugins/`，生成 `bot.py` 和 `.env`（驱动、连接、`COMMAND_START`、`NICKNAME` = AI 名、`SUPERUSERS` = 主人、localstore 目录、插件设置）。插件自己存的数据在 `data/`、`cache/`、`config/`，删插件不删。
+- **Python 环境**：`data/plugins/venv` 一个虚拟环境（启动时换成绝对路径：NoneBot 在 AI 自己的目录里运行，相对路径会找不到 python.exe），所有 AI 共用（`env.go`）。找 Python 3.10+（`plugins.python` 可指定；Windows 先试 `py -3`），自动装 NoneBot、OneBot 适配器和插件要的包（只装没装过的，可设 `plugins.pip_index` 镜像）。每个 AI 的目录 `data/plugins/ai-<id>/`：每次启动把已批准的插件复制进 `plugins/`，生成 `bot.py` 和 `.env`（驱动、连接、`COMMAND_START`、`NICKNAME` = AI 名、`SUPERUSERS` = 主人、localstore 目录、插件设置）。插件自己存的数据在 `data/`、`cache/`、`config/`，删插件不删。
 - **上传**：AI 设置 →「插件」→ 上传 zip（一个 zip 可以有好几个插件；带 `__init__.py` 的文件夹或单个 `.py`；`unpack.go`，纯函数有单测：拒绝 `..`、绝对路径、链接，扔掉缓存和 `.env`，名字只能是 Python 包名）。文件存在 `data/plugins/pkgs/<插件 id>/`，表 `ai_plugins`（一个 AI 一个文件夹名一行，状态 pending / approved / rejected、开关、设置 JSON）。同名再传 = 更新，设置留着，重新审核。
 - **管理员审核**：插件是能做任何事的程序，所以每个插件、每次更新都要站点管理员批准才运行（管理面板「插件」页，`admin/plugins.go`：看文件、读代码、批准 / 拒绝写原因，已批准的能停用；侧栏显示待审数）。站点管理员自己传的直接算批准。都记操作记录（`plugin_approve` / `plugin_reject`）。
 - **设置表单**：不跑插件代码，从源码里扫出名字、说明、用法、命令、设置项（`getattr(config, "key", 默认)`、包了一层的 `_c("key", 默认)`、`cfg*()`、pydantic 配置类）和要装的包（`scan.go`，纯函数有单测）；作者可以写 `am_plugin.json` 补标签、说明、类型、分组、范围、选项。客户端按这些生成表单（`app/PluginsTab.tsx`，`lib/plugins.ts` 纯函数有单测），服务器保存时按类型检查（`ApplyConfig`）。名字带 token / secret / password / key 的是密钥：只存服务器，不发回客户端。设置写进 `.env`，改了就重启那个 AI 的进程。
@@ -517,7 +517,8 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
   - 下架的作品不再出现在「发现」里；已经装了的标「已下架」，不能再用（已经套用的主题、导入的表情不会被收回）。
   - 侧载：「已安装 → 从文件安装」选一个 zip，先弹出「安装没审核过的作品？」要确认，装好后标「未审核」。
   - 用：主题「套用」（改的是 设置 → 外观 里那些项，背景图存成 data URL，所以最多 3 MB）；形象包在 AI 设置的立绘里「从工坊选」；人格出现在新建 AI 和「人格」的模板里；表情包「导入到我的表情」（当前服务器，默认公开）。装了的东西 AI 都会学会（`useWorkshop` → `syncPlugins`）。
-  - 「下载设置」里可以填 GitHub 镜像地址（下载时用「镜像/原地址」），签名和 SHA-256 照样核对，镜像改不了内容。
+  - 连不上 GitHub（国内常见）时自动换备用镜像：列表先试 jsDelivr（`fastly` / `cdn.jsdelivr.net/gh/OzakiJUN/am-workshop@index`，可能晚最多约 12 小时），再试 GitHub 下载代理（`BUILTIN_MIRRORS`：ghfast.top、gh-proxy.com，「代理/原地址」）；作品包只能走代理。列表和签名从同一条路下载；签名不对、比上次旧、SHA-256 不对都换下一条。能通的那条记住，下次先用（`downloadRoutes`，`lib/workshopIndex.ts`，纯函数有单测）。
+  - 「下载设置」里还可以填自己的 GitHub 镜像地址（最先试），签名和 SHA-256 照样核对，镜像改不了内容。
   - 代码：`lib/workshop.ts`（安装、套用）、`lib/workshopIndex.ts` 和 `lib/workshopPackage.ts`（纯函数有单测，签名测试里有一组 Go 签的向量）、`app/Workshop.tsx`。浏览器开发 / e2e 可以用 `AM_DEV_WORKSHOP` + `AM_DEV_WORKSHOP_KEY` 换成本地的测试索引（桌面版不认这两个）。
 - 还没做：下载次数排行、程序类作品（沙盒 iframe、权限清单、联网白名单）、服务器帮别人缓存主页组件、对程序类作品的 AI 审核。
 

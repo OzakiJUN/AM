@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { WORKSHOP_PUBLIC_KEY, compareVersions, newerOrSame, parseIndex, sha256Hex, verifySignature, viaMirror } from './workshopIndex.ts';
+import { BUILTIN_MIRRORS, INDEX_URL, WORKSHOP_PUBLIC_KEY, compareVersions, downloadRoutes, newerOrSame, parseIndex, sha256Hex, verifySignature, viaMirror } from './workshopIndex.ts';
 
 const enc = new TextEncoder();
 const index = enc.encode(JSON.stringify({
@@ -50,4 +50,21 @@ assert.equal(viaMirror('https://github.com/a/b', 'https://ghproxy.example/'), 'h
 assert.equal(viaMirror('https://github.com/a/b', 'http://insecure'), 'https://github.com/a/b');
 
 assert.equal(await sha256Hex(enc.encode('abc')), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+// Download routes: my mirror, direct, jsDelivr (index only), the built-in mirrors; what worked last first.
+const rel = 'https://github.com/a/b/releases/download/v1/x.zip';
+assert.deepEqual(downloadRoutes(rel, '').map((r) => r.route), ['direct', ...BUILTIN_MIRRORS]);
+assert.equal(downloadRoutes(rel, '')[1].url, `${BUILTIN_MIRRORS[0]}/${rel}`);
+assert.deepEqual(downloadRoutes(rel, 'https://my.mirror/').map((r) => r.url).slice(0, 2), [`https://my.mirror/${rel}`, rel]);
+assert.equal(downloadRoutes(rel, 'http://insecure')[0].route, 'direct');
+const idxRoutes = downloadRoutes(INDEX_URL, '');
+assert.deepEqual(idxRoutes.map((r) => r.url).slice(0, 3), [
+  INDEX_URL,
+  'https://fastly.jsdelivr.net/gh/OzakiJUN/am-workshop@index/index.json',
+  'https://cdn.jsdelivr.net/gh/OzakiJUN/am-workshop@index/index.json',
+]);
+assert.equal(idxRoutes.length, 5);
+assert.equal(downloadRoutes(rel, '', BUILTIN_MIRRORS[1])[0].route, BUILTIN_MIRRORS[1], 'what worked last goes first');
+assert.equal(downloadRoutes(rel, '', BUILTIN_MIRRORS[1]).length, 3, 'no repeats');
+assert.equal(downloadRoutes(rel, '', 'https://gone.example')[0].route, 'direct', 'an unknown last route is ignored');
+
 console.log('workshop index ok');
