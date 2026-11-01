@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Shield, Sun, Trash2, Type, X } from 'lucide-react';
+import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Shield, Sun, Trash2, Type, Volume2, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ACCENTS, GLASS_DEFAULTS, GLASS_STYLES, imageFileToDataURL, useTheme } from '@/lib/theme';
 import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/store';
@@ -11,12 +11,13 @@ import { newAllow, useRemote, type RemoteAllow } from '@/lib/ai/remote';
 import { Button, ColorButton, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
 import { ServerAvatar, UserAvatar } from './media';
 
-type Tab = 'appearance' | 'servers' | 'privacy' | 'notify' | 'about';
+type Tab = 'appearance' | 'sound' | 'servers' | 'privacy' | 'notify' | 'about';
 
 export function SettingsPage() {
   const [tab, setTab] = useState<Tab>('appearance');
   const tabs: { id: Tab; label: string; Icon: typeof Palette }[] = [
     { id: 'appearance', label: '外观', Icon: Palette },
+    { id: 'sound', label: '声音', Icon: Volume2 },
     { id: 'servers', label: '服务器', Icon: Server },
     { id: 'privacy', label: '隐私', Icon: Shield },
     { id: 'notify', label: '通知与窗口', Icon: Bell },
@@ -43,6 +44,7 @@ export function SettingsPage() {
       <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}>
           {tab === 'appearance' && <Appearance />}
+          {tab === 'sound' && <Sound />}
           {tab === 'servers' && <Servers />}
           {tab === 'privacy' && <Privacy />}
           {tab === 'notify' && <Notify />}
@@ -61,6 +63,20 @@ function Row({ title, desc, children }: { title: string; desc?: string; children
         {desc && <div className="mt-0.5 text-[0.85rem] text-ink-soft dark:text-white/50">{desc}</div>}
       </div>
       <div className="flex items-center gap-3">{children}</div>
+    </div>
+  );
+}
+
+function Sound() {
+  const volume = usePrefs((s) => s.musicVolume);
+  return (
+    <div className="max-w-3xl">
+      <h2 className="text-[1.4rem] font-semibold">声音</h2>
+      <Row title="音乐音量" desc="调整这台设备上「一首歌」和「歌单」小组件的播放音量。">
+        <div className="w-48"><Slider label="音乐音量" min={0} max={100} step={1} value={volume}
+          onChange={(musicVolume) => usePrefs.getState().set({ musicVolume })} /></div>
+        <span className="w-12 text-right text-[0.85rem] tabular-nums">{volume}%</span>
+      </Row>
     </div>
   );
 }

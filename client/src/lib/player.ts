@@ -3,6 +3,7 @@
 // Songs are files uploaded to the server (no outside music service).
 import { create } from 'zustand';
 import { inTauri } from './platform';
+import { usePrefs } from './prefs';
 import { session } from './store';
 
 export interface Track {
@@ -34,6 +35,10 @@ let audio: HTMLAudioElement | null = null;
 function el(): HTMLAudioElement {
   if (audio) return audio;
   audio = new Audio();
+  audio.volume = usePrefs.getState().musicVolume / 100;
+  usePrefs.subscribe((prefs, prev) => {
+    if (prefs.musicVolume !== prev.musicVolume) audio!.volume = prefs.musicVolume / 100;
+  });
   audio.preload = 'auto';
   const set = usePlayer.setState;
   audio.addEventListener('timeupdate', () => set({ time: audio!.currentTime }));
