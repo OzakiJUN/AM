@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -120,25 +121,114 @@ func (s *Service) PutAISettings(ctx context.Context, owner *store.User, id int64
 	if err != nil {
 		return nil, err
 	}
-	if len(req.GetSettings()) > maxAISettings {
+	return s.putAISettings(ctx, ai, req.GetSettings(), req.GetBaseUpdatedAt())
+}
+
+func (s *Service) putAISettings(ctx context.Context, ai *store.User, settings string, base int64) (*AIInfo, error) {
+	if len(settings) > maxAISettings {
 		return nil, apperr.ErrTooLargeData
 	}
-	out := &AIInfo{User: ai, Settings: req.GetSettings()}
-	err = s.st.InTx(ctx, func(q *store.Queries) error {
+	out := &AIInfo{User: ai, Settings: settings}
+	err := s.st.InTx(ctx, func(q *store.Queries) error {
 		_, at, err := q.GetAISettings(ctx, ai.ID)
 		if err != nil {
 			return err
 		}
-		if at != req.GetBaseUpdatedAt() {
+		if at != base {
 			return apperr.ErrStateConflict
 		}
 		out.UpdatedAt = max(s.now().UnixMilli(), at+1)
-		return q.PutAISettings(ctx, ai.ID, req.GetSettings(), out.UpdatedAt)
+		return q.PutAISettings(ctx, ai.ID, settings, out.UpdatedAt)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// MyAI is a bot / AI account's own settings (what runs it on the server
+// reads them with the AI's session: docs/design.md §10 托管).
+func (s *Service) MyAI(ctx context.Context, me *store.User) (*AIInfo, error) {
+	if me.OwnerID == 0 {
+		return nil, apperr.ErrNoPermission
+	}
+	data, at, err := s.st.GetAISettings(ctx, me.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &AIInfo{User: me, Settings: data, UpdatedAt: at}, nil
+}
+
+// PutMyAISettings saves a bot / AI account's own settings (it changes its
+// persona by itself), like PutAISettings.
+func (s *Service) PutMyAISettings(ctx context.Context, me *store.User, req *amv1.PutAISettingsRequest) (*AIInfo, error) {
+	if me.OwnerID == 0 {
+		return nil, apperr.ErrNoPermission
+	}
+	return s.putAISettings(ctx, me, req.GetSettings(), req.GetBaseUpdatedAt())
+}
+
+// SetAIRunner records which device runs an AI (settings.runner), keeping
+// the rest of the settings (the server hosting it, or nobody: id "").
+func (s *Service) SetAIRunner(ctx context.Context, aiID int64, id, name string) error {
+	return s.st.InTx(ctx, func(q *store.Queries) error {
+		data, at, err := q.GetAISettings(ctx, aiID)
+		if err != nil {
+			return err
+		}
+		m := map[string]json.RawMessage{}
+		if data != "" {
+			if err := json.Unmarshal([]byte(data), &m); err != nil {
+				return err
+			}
+		}
+		if id == "" {
+			delete(m, "runner")
+		} else {
+			r, _ := json.Marshal(map[string]string{"id": id, "name": name})
+			m["runner"] = r
+		}
+		b, _ := json.Marshal(m)
+		return q.PutAISettings(ctx, aiID, string(b), max(s.now().UnixMilli(), at+1))
+	})
+}
+
+// HostSession logs the server's own runner in as the AI (hosting): like
+// RunAI without an owner's device; the AI's other sessions end.
+func (s *Service) HostSession(ctx context.Context, aiID int64, device string) (string, error) {
+	ai, err := s.st.GetUser(ctx, aiID)
+	if err != nil {
+		return "", err
+	}
+	if ai.OwnerID == 0 || ai.Gone() {
+		return "", apperr.ErrUserNotFound
+	}
+	var token string
+	var closed []int64
+	err = s.st.InTx(ctx, func(q *store.Queries) error {
+		var err error
+		if closed, err = q.DeleteUserSessions(ctx, ai.ID); err != nil {
+			return err
+		}
+		token, err = s.createSession(ctx, q, ai, device, "host", "127.0.0.1")
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	for _, sid := range closed {
+		s.push.CloseSession(sid)
+	}
+	return token, nil
+}
+
+// EndAISessions logs an AI out everywhere (hosting stopped).
+func (s *Service) EndAISessions(ctx context.Context, aiID int64) error {
+	closed, err := s.st.DeleteUserSessions(ctx, aiID)
+	for _, sid := range closed {
+		s.push.CloseSession(sid)
+	}
+	return err
 }
 
 // RunAI logs the calling device in as the AI: it becomes the one device
@@ -163,6 +253,9 @@ func (s *Service) RunAI(ctx context.Context, owner *store.User, id int64, device
 	}
 	for _, sid := range closed {
 		s.push.CloseSession(sid)
+	}
+	if s.onAIRun != nil {
+		s.onAIRun(ctx, ai.ID)
 	}
 	return token, ai, nil
 }

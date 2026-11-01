@@ -2,7 +2,7 @@
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, Folder, Gamepad2, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Store, Trash2, X } from 'lucide-react';
+import { Cpu, Folder, Server, Gamepad2, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Store, Trash2, X } from 'lucide-react';
 import { CATEGORY_LABEL, GAME_TEMPLATES } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
@@ -818,6 +818,7 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
         </div>
         {!here && <Button variant="primary" onClick={() => runHere(serverId, aiId).then(() => toast('现在由这台设备运行'))}><Cpu size={15} /> 在这台设备上运行</Button>}
       </div>
+      <HostCard serverId={serverId} aiId={aiId} providerId={draft.providerId} />
       <Field label="谁能和它聊">
         <Segmented id="ai-who" value={draft.whoCanChat} onChange={(w) => set({ whoCanChat: w })} options={[
           { value: 'owner', label: '只有我' }, { value: 'everyone', label: '服务器里所有人' },
@@ -837,6 +838,65 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
         <Button variant="primary" onClick={save}>保存</Button>
       </div>
     </>
+  );
+}
+
+/**
+ * 托管到服务器 (docs/design.md §10): ask the site admin to run this AI on the
+ * server (its model key goes along), see where the request is, stop it.
+ */
+function HostCard({ serverId, aiId, providerId }: { serverId: string; aiId: string; providerId: string }) {
+  const s = session(serverId);
+  const h = useAI((st) => st.byServer[serverId]?.find((a) => a.user.id === aiId)?.hosting);
+  const providers = useProviders((st) => st.list);
+  // While it's waiting / starting, keep the state fresh.
+  useEffect(() => {
+    if (!h || h.status === 'rejected' || h.state === 'running') return;
+    const t = setInterval(() => void refreshAIs(serverId).catch(() => {}), 5000);
+    return () => clearInterval(t);
+  }, [serverId, h?.status, h?.state]);
+  if (!s?.view.hosting) return null;
+  const provider = providers.find((p) => p.id === providerId);
+  const request = () => ask({
+    title: '托管到服务器？',
+    text: `服务器管理员同意后，这个 AI 会在服务器上运行，你这台设备关着它也在线。它用的模型 key（${provider?.name ?? '还没选'}）会交给服务器保存。在服务器上它只能在自己的文件夹里读写文件，不能看屏幕、动鼠标键盘、运行命令、开浏览器。`,
+    ok: '发送申请',
+    run: async () => {
+      if (!provider?.key) throw new Error('先在「模型」里选好服务商并填 key');
+      const r = await s.hostAI(aiId, [provider]);
+      await refreshAIs(serverId);
+      toast(r.status === 'approved' ? '已经在服务器上运行了' : '申请发出去了，等管理员同意');
+    },
+  });
+  const stop = () => ask({
+    title: h?.status === 'approved' ? '停止托管？' : '撤回申请？',
+    text: h?.status === 'approved' ? '服务器不再运行它，存在服务器上的 key 也删掉。之后要在一台设备上点「在这台设备上运行」。' : '申请撤回，存在服务器上的 key 删掉。',
+    ok: h?.status === 'approved' ? '停止' : '撤回', danger: true,
+    run: async () => {
+      await s.unhostAI(aiId);
+      await refreshAIs(serverId);
+      toast('好了');
+    },
+  });
+  const STATE: Record<string, string> = { running: '在线', starting: '正在启动', error: '出错了', off: '没在运行' };
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]" data-testid="hosting">
+      <Server size={20} className="shrink-0 text-accent" />
+      <div className="min-w-0 flex-1 text-[0.8rem] text-ink-soft dark:text-white/50">
+        <div className="text-[0.9rem] font-medium text-ink dark:text-white">托管到服务器</div>
+        {!h && '让服务器替你运行它（要管理员同意，每人最多托管一个）。'}
+        {h?.status === 'pending' && '已经申请，等服务器管理员同意。'}
+        {h?.status === 'rejected' && <span className="text-rose-500">管理员没同意{h.rejectReason ? `：${h.rejectReason}` : ''}</span>}
+        {h?.status === 'approved' && (
+          <>
+            <div>服务器上：{STATE[h.state] ?? h.state}{h.error && <span className="text-rose-500">（{h.error}）</span>}</div>
+            {h.workDir && <div className="break-all">它的文件夹：{h.workDir}</div>}
+          </>
+        )}
+      </div>
+      {(!h || h.status === 'rejected') && <Button variant="soft" onClick={request}>{h ? '再申请一次' : '申请托管'}</Button>}
+      {h && h.status !== 'rejected' && <Button variant="ghost" onClick={stop}>{h.status === 'approved' ? '停止托管' : '撤回'}</Button>}
+    </div>
   );
 }
 

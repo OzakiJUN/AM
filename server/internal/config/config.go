@@ -30,6 +30,7 @@ type Config struct {
 	Media     Media     `toml:"media"`
 	Stickers  Stickers  `toml:"stickers"`
 	Plugins   Plugins   `toml:"plugins"`
+	Hosting   Hosting   `toml:"hosting"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
@@ -104,6 +105,15 @@ type Plugins struct {
 	MaxUnpackedMB int      `toml:"max_unpacked_mb"`
 	MaxPerAI      int      `toml:"max_per_ai"`
 	// NoSpawn: run the OneBot endpoint but no NoneBot processes (tests connect themselves).
+	NoSpawn bool `toml:"-"`
+}
+
+// Hosting configures AIs that run on the server (docs/design.md §10 托管).
+type Hosting struct {
+	Enabled    bool   `toml:"enabled"`
+	MaxPerUser int    `toml:"max_per_user"`
+	ClientPath string `toml:"client_path"`
+	// NoSpawn: keep the records but start no clients (tests).
 	NoSpawn bool `toml:"-"`
 }
 
@@ -300,6 +310,9 @@ func (c *Config) validate() error {
 	}
 	if u := c.Plugins.PipIndex; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
 		return errors.New("plugins.pip_index must start with https://")
+	}
+	if c.Hosting.MaxPerUser < 0 {
+		return errors.New("hosting.max_per_user must be >= 0")
 	}
 	if c.Media.BlockDistance < 0 || c.Media.BlockDistance > 64 {
 		return errors.New("media.block_distance must be 0-64")

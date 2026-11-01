@@ -189,6 +189,7 @@ const PAGES = [
   { id: 'evidence', name: '删除记录', render: renderEvidence },
   { id: 'stickers', name: '表情库', render: renderStickers },
   { id: 'plugins', name: '插件', render: renderPlugins },
+  { id: 'hosting', name: 'AI 托管', render: renderHosting },
   { id: 'audit', name: '操作记录', render: renderAudit },
   { id: 'logs', name: '运行日志', render: renderLogs },
   { id: 'settings', name: '设置', render: renderSettings },
@@ -266,6 +267,8 @@ function updateChrome() {
   if (evCount) evCount.textContent = s.stats && s.stats.evidence ? s.stats.evidence : '';
   const plCount = document.querySelector('[data-page=plugins] .count');
   if (plCount) plCount.textContent = s.stats && s.stats.plugins_pending ? s.stats.plugins_pending + ' 待审' : '';
+  const hoCount = document.querySelector('[data-page=hosting] .count');
+  if (hoCount) hoCount.textContent = s.stats && s.stats.hosting_pending ? s.stats.hosting_pending + ' 待审' : '';
   document.title = (s.server_name || 'AM 服务器') + ' - 管理面板';
 }
 
@@ -1039,6 +1042,89 @@ async function renderPlugins(root, page) {
   load();
 }
 
+// ---------- AI hosting ----------
+
+let hostingStatus = 'pending';
+
+// AIs run on this server (docs/design.md §10 托管): approving starts the AM
+// client without a window for that AI on this computer, with the owner's
+// model keys and its own work folder; rejecting an approved one stops it.
+async function renderHosting(root, page) {
+  root.append(stateBanner() || '');
+  const status = el('select', { 'aria-label': '显示哪些', onchange: () => { hostingStatus = status.value; load(); } },
+    [['pending', '待审核'], ['approved', '托管中'], ['rejected', '已拒绝'], ['', '全部']].map(([v, n]) => el('option', { value: v, selected: v === hostingStatus }, n)));
+  const box = el('div');
+  root.append(head('AI 托管', '大家申请把自己的 AI 放到这台电脑上运行（主人的电脑关着它也在线）。批准后 am-server 会在后台启动 AM 客户端（不显示窗口）替他运行，用的是主人自己的模型 key。托管的 AI 只能在它自己的文件夹里读写文件，不能看屏幕、动鼠标键盘、运行命令、开浏览器。这台电脑上要装好 AM 客户端。',
+    el('div', { class: 'sticker-filters' }, status)), box);
+
+  const STATUS = { pending: ['待审核', 'warn'], approved: ['托管中', 'good'], rejected: ['已拒绝', 'bad'] };
+  const STATE = { running: '在线', starting: '启动中', error: '出错了', off: '没在运行' };
+
+  async function load() {
+    let data;
+    try {
+      data = await api('GET', 'hosting?status=' + hostingStatus);
+    } catch (e) { fail(e); return; }
+    if (currentPage !== page) return;
+    if (!data.enabled) {
+      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, 'AI 托管已关闭（config.toml 的 [hosting]：enabled、max_per_user）。')));
+      if (!data.items.length) return;
+    } else if (!data.items.length) {
+      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, hostingStatus === 'pending' ? '没有等待审核的申请。' : '这里还没有。')));
+      return;
+    }
+    box.replaceChildren(...data.items.map(card));
+  }
+
+  function card(x) {
+    const [stText, stClass] = STATUS[x.status] || [x.status, ''];
+    const lines = [
+      el('div', { class: 'row' }, el('strong', {}, x.ai_name || '(已删除的 AI)'), el('span', { class: 'tag ' + stClass }, stText),
+        x.status === 'approved' ? el('span', { class: 'muted' }, STATE[x.state] || x.state) : ''),
+      el('div', { class: 'meta' }, '主人：' + (x.owner_name || '?') + ' · 申请于 ' + fmtTime(x.requested_at)),
+    ];
+    if (x.status === 'approved') lines.push(el('div', { class: 'meta' }, '工作文件夹：' + x.work_dir));
+    if (x.reject_reason) lines.push(el('div', { class: 'meta' }, '原因：' + x.reject_reason));
+    if (x.error) lines.push(el('div', { class: 'meta bad' }, x.error));
+    if (x.log && x.log.length) {
+      const pre = el('pre', { class: 'code', hidden: true }, x.log.join('\n'));
+      lines.push(el('button', { class: 'btn small ghost', type: 'button', onclick: () => { pre.hidden = !pre.hidden; } }, '客户端日志'), pre);
+    }
+    lines.push(el('div', { class: 'row' },
+      x.status !== 'approved' ? el('button', { class: 'btn small primary', type: 'button', onclick: () => decide(x, true) }, '批准') : '',
+      x.status !== 'rejected' ? el('button', { class: 'btn small danger', type: 'button', onclick: () => decide(x, false) }, x.status === 'approved' ? '停止托管' : '拒绝') : ''));
+    return el('article', { class: 'panel' }, lines);
+  }
+
+  async function decide(x, approve) {
+    let reason = '';
+    if (approve) {
+      if (!await confirmDialog({ title: '托管「' + (x.ai_name || 'AI') + '」', text: '批准后会在这台电脑上一直运行它（占一些内存和网络），用 ' + (x.owner_name || '主人') + ' 自己的模型 key。', ok: '批准' })) return;
+    } else {
+      const res = await dialog((close) => {
+        const input = el('input', { type: 'text', maxlength: 200, placeholder: '比如：电脑跑不动了' });
+        const submit = (e) => { e.preventDefault(); close({ reason: input.value.trim() }); };
+        return [el('form', { onsubmit: submit },
+          el('h2', {}, (x.status === 'approved' ? '停止托管「' : '拒绝「') + (x.ai_name || 'AI') + '」'),
+          el('div', { class: 'body' }, el('label', {}, el('div', { class: 'field-label' }, '原因（主人能看到，也记入操作记录）'), input)),
+          el('div', { class: 'foot' },
+            el('button', { class: 'btn', type: 'button', onclick: () => close(null) }, '取消'),
+            el('button', { class: 'btn primary danger-fill', type: 'submit' }, x.status === 'approved' ? '停止' : '拒绝')))];
+      });
+      if (!res) return;
+      reason = res.reason;
+    }
+    try {
+      await api('POST', 'hosting/' + x.ai_id + '/decide', { approve, reason });
+      toast(approve ? '已批准，正在启动' : (x.status === 'approved' ? '已停止' : '已拒绝'));
+      refreshStatus();
+      load();
+    } catch (e) { fail(e); }
+  }
+
+  load();
+}
+
 // ---------- audit ----------
 
 const AUDIT_TEXT = {
@@ -1049,6 +1135,7 @@ const AUDIT_TEXT = {
   server_layout: '修改了服务器主页的小组件', profile_clear: '清空了个人主页：', guestbook_delete: '删除了一条留言',
   sticker_hide: '在表情库里隐藏了一张表情', sticker_unhide: '在表情库里恢复显示了一张表情',
   plugin_approve: '批准了 AI 插件：', plugin_reject: '拒绝 / 停用了 AI 插件：',
+  hosting_approve: '批准了 AI 托管', hosting_reject: '拒绝 / 停止了 AI 托管',
   sticker_delete: '从表情库删除了一张表情', sticker_tag_remove: '删掉了表情库里的一个标签：',
 };
 

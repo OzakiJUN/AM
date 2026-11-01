@@ -158,6 +158,8 @@ func (h *handler) routes() {
 	api("GET /api/plugins", h.listPlugins)
 	api("GET /api/plugins/{id}/files", h.pluginFiles)
 	api("POST /api/plugins/{id}/decide", h.decidePlugin)
+	api("GET /api/hosting", h.listHosting)
+	api("POST /api/hosting/{id}/decide", h.decideHosting)
 	api("GET /api/media/{id}", h.media)
 	api("GET /api/audit", h.listAudit)
 	api("GET /api/logs", h.logs)

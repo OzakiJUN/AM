@@ -212,6 +212,39 @@ fn mcp_stop(prefix: String) {
 
 /// Closing the window: hide it to the tray (default; AIs run by this device
 /// stay online) or quit. Set from the UI's settings at start and on change.
+/// Host mode (docs/design.md §10 托管): am-server starts this client with
+/// `--host <file>` to run one AI without a window. The file (the AI's
+/// login, the owner's model providers, its work folder, a browser data
+/// folder of its own) is read once and deleted.
+static HOST: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+
+fn host_file() -> Option<&'static String> {
+    HOST.get_or_init(|| {
+        let args: Vec<String> = std::env::args().collect();
+        let i = args.iter().position(|a| a == "--host")?;
+        let path = args.get(i + 1)?;
+        let text = std::fs::read_to_string(path).ok()?;
+        let _ = std::fs::remove_file(path);
+        Some(text)
+    })
+    .as_ref()
+}
+
+/// The host file's JSON in host mode, null otherwise (lib/ai/host.ts).
+#[tauri::command]
+fn host_config() -> Option<String> {
+    host_file().cloned()
+}
+
+/// Host mode: the AI's login ended; quit so am-server starts this client
+/// again with a new one. Does nothing outside host mode.
+#[tauri::command]
+fn host_exit(app: tauri::AppHandle) {
+    if host_file().is_some() {
+        app.exit(3);
+    }
+}
+
 static CLOSE_TO_TRAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 #[tauri::command]
@@ -285,8 +318,9 @@ fn tray(app: &tauri::App) -> tauri::Result<()> {
 /// is (games and other programs keep F12 the rest of the time).
 #[tauri::command]
 fn agent_stop_key(app: tauri::AppHandle, on: bool) -> Res<()> {
+    // Host mode: no global F12 (it would be taken from whoever uses this computer).
     #[cfg(desktop)]
-    {
+    if host_file().is_none() {
         use tauri_plugin_global_shortcut::GlobalShortcutExt;
         let gs = app.global_shortcut();
         let r = if on { if gs.is_registered("F12") { Ok(()) } else { gs.register("F12") } } else { gs.unregister("F12") };
@@ -363,12 +397,34 @@ mod tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default();
+    let host = host_file().is_some();
+    let mut builder = tauri::Builder::default().setup(move |app| {
+        // The main window is made here (tauri.conf: create = false): in host
+        // mode hidden, with its own browser data (localStorage) so it never
+        // mixes with a normal AM client on the same computer.
+        let conf = app.config().app.windows.iter().find(|w| w.label == "main").cloned().expect("main window in tauri.conf.json");
+        let mut win = tauri::WebviewWindowBuilder::from_config(app.handle(), &conf)?;
+        if host {
+            let dir = host_file()
+                .and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok())
+                .and_then(|v| v.get("dataDir").and_then(|d| d.as_str()).map(std::path::PathBuf::from));
+            win = win.visible(false).skip_taskbar(true);
+            if let Some(dir) = dir {
+                win = win.data_directory(dir);
+            }
+        }
+        win.build()?;
+        #[cfg(desktop)]
+        if !host {
+            tray(app)?;
+        }
+        Ok(())
+    });
     #[cfg(desktop)]
-    {
+    if !host {
         // A second start just brings the existing window to the front.
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)));
-        builder = builder.setup(|app| Ok(tray(app)?)).on_window_event(|w, ev| {
+        builder = builder.on_window_event(|w, ev| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = ev {
                 if w.label() == "main" && CLOSE_TO_TRAY.load(std::sync::atomic::Ordering::Relaxed) {
                     api.prevent_close();
@@ -429,7 +485,7 @@ pub fn run() {
             server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close
+            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

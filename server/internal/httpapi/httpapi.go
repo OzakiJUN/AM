@@ -21,6 +21,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/conv"
 	"github.com/OzakiJUN/am/server/internal/game"
+	"github.com/OzakiJUN/am/server/internal/hosting"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/music"
@@ -49,6 +50,7 @@ type API struct {
 	music     *music.Service
 	games     *game.Service
 	plugins   *plugin.Service
+	hosting   *hosting.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	syncRate  *uploadPacer
@@ -115,6 +117,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/server", func(w http.ResponseWriter, r *http.Request) {
 		info := a.acct.ServerInfo()
 		info.Plugins = a.plugins != nil && a.plugins.Enabled()
+		info.Hosting = a.hosting != nil && a.hosting.Enabled()
 		a.ok(w, info)
 	})
 	mux.HandleFunc("GET /api/v1/server/icon", a.serverIcon)
@@ -155,6 +158,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/events/{id}/delete", a.authed(a.adminDelete))
 	a.registerProfiles(mux)
 	a.registerPlugins(mux)
+	a.registerHosting(mux)
 
 	mux.HandleFunc("POST /api/v1/media", a.authed(a.upload))
 	mux.HandleFunc("GET /api/v1/media/{id}", a.authed(a.download(false)))

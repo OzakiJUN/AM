@@ -273,6 +273,7 @@ dialog.wide { width: min(1100px, calc(100vw - 32px)); }
 .plugin-files .file { text-align: left; border: 0; background: none; color: inherit; font: inherit; font-size: 13px; padding: 4px 8px; border-radius: 6px; cursor: pointer; word-break: break-all; }
 .plugin-files .file:hover { background: var(--paper); }
 .plugin-files .file.on { background: var(--blue-soft); color: var(--blue); }
+article.panel pre.code { margin: 8px 0 0; max-height: 40vh; overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-m); padding: 10px; font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
 .plugin-files .code { margin: 0; max-height: 65vh; overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-m); padding: 12px; font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre; tab-size: 4; }
 @media (max-width: 720px) { .plugin-files { grid-template-columns: 1fr; } }
 dialog::backdrop { background: rgba(16, 23, 43, .45); }

@@ -17,7 +17,15 @@ func (a *API) aiView(ctx context.Context, in *account.AIInfo) (*amv1.AIAccount, 
 	if err != nil {
 		return nil, err
 	}
-	return &amv1.AIAccount{User: u, Settings: in.Settings, SettingsUpdatedAt: in.UpdatedAt, ShareRequests: int32(in.ShareRequests)}, nil
+	out := &amv1.AIAccount{User: u, Settings: in.Settings, SettingsUpdatedAt: in.UpdatedAt, ShareRequests: int32(in.ShareRequests)}
+	if a.hosting != nil {
+		h, err := a.hosting.Of(ctx, in.User.ID)
+		if err != nil {
+			return nil, err
+		}
+		out.Hosting = a.hostingView(h)
+	}
+	return out, nil
 }
 
 func (a *API) listAI(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {

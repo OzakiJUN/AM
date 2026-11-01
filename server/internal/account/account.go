@@ -41,6 +41,8 @@ type Service struct {
 	onRegistered func(ctx context.Context, u *store.User)
 	// Called after an account left the server (outside the transaction).
 	onLeft func(ctx context.Context, u *store.User)
+	// Called after the owner made one of their devices run an AI (RunAI).
+	onAIRun func(ctx context.Context, aiID int64)
 	// Most devices a human account may be logged in on (0 = no limit), and
 	// how long a pairing ticket works.
 	maxDevices int
@@ -57,6 +59,10 @@ func (s *Service) OnRegistered(fn func(ctx context.Context, u *store.User)) { s.
 // OnLeft sets a hook that runs after an account left the server (conv uses
 // it to take the account out of every channel).
 func (s *Service) OnLeft(fn func(ctx context.Context, u *store.User)) { s.onLeft = fn }
+
+// OnAIRun sets a hook that runs after the owner made a device run an AI
+// (hosting uses it: the owner took the AI back from the server).
+func (s *Service) OnAIRun(fn func(ctx context.Context, aiID int64)) { s.onAIRun = fn }
 
 func New(st *store.Store, ids *idgen.Generator, invites config.Invites, p push.Pusher, md *media.Service) *Service {
 	return &Service{st: st, ids: ids, invites: invites, push: p, media: md, now: time.Now, pairTTL: 5 * time.Minute, instance: randomLower(16)}

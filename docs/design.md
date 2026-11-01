@@ -444,9 +444,18 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
 - **测试**：`server/internal/e2e/plugins_test.go` 用假 NoneBot 走完整流程；`AM_TEST_NONEBOT=1` 时 `plugins_nonebot_test.go` 装真的 NoneBot 跑一个插件（Weiqi 的 7 个插件也在真 NoneBot 里加载过，「/帮助」能回）。
 - **给别人写插件**：技术标准在 [plugins.md](plugins.md)。
 
+**AI 托管到服务器**（2026-11-01，Weiqi：「直接让服务端静默唤起一个客户端」「托管的 AI 单独给分配个文件夹做工作目录」「每人最多托管一个 AI」）
+
+- **申请**：AI 设置 →「运行」→「申请托管」：把这个 AI 用的模型服务商（含 key）发给服务器（`POST /api/v1/ai/{id}/host`），界面写明 key 交给服务器。key 用 `data/hosting/key`（随机 32 字节）AES-GCM 加密存在 `ai_hosting.secrets`。每人最多 `hosting.max_per_user` 个（默认 1，没通过的不算），再申请就是换 key（已批准的保持批准，客户端重启）。站点管理员自己申请直接批准。
+- **管理员**：面板「AI 托管」页（`admin/hosting.go`）：待审数、批准 / 拒绝（写原因，主人能看到）、停止已批准的、看客户端日志；都记操作记录（`hosting_approve` / `hosting_reject`）。
+- **运行**：批准后 `settings.runner` 改成「服务器托管」（`server-host`），主人设备上的运行停下。`server/internal/hosting` 的管理器给每个批准的 AI 起一个 AM 客户端：`AM.exe --host data/hosting/ai-<id>/host.json`（找 `hosting.client_path`，没填就找 am-server 旁边和安装目录），隐藏窗口，挂了自动重启（5 秒起 ×3，最多 5 分钟）。host.json 写 AI 的登录（服务器用 `account.HostSession` 直接签一个 AI 会话，AI 别处的登录都结束）、模型服务商、工作文件夹、单独的浏览器数据目录；客户端读完就删。连接用本机回环地址（`LoopbackAddress(server.listen)`），证书按指纹固定（真证书也是，名字对不上本机地址）。客户端在线 = 状态「在线」。
+- **客户端的 host 模式**：Rust（`lib.rs`）读 `--host` 文件、主窗口隐藏不进任务栏、用自己的 WebView 数据目录（不和同一台电脑上正常的 AM 客户端混）、不占单实例、没有托盘、不注册全局 F12。界面层（`main.tsx` → `lib/ai/host.ts`）不启动其他东西，只跑这一个 AI：设备 id = `server-host`，模型 key 来自文件（不进凭据管理器），设置用 AI 自己的会话读写（`GET /api/v1/me/ai`、`PUT /api/v1/me/ai/settings`），插件命令也用 AI 自己的会话读。
+- **在服务器上能做什么**（`lib/ai/hostMode.ts` `hostedSettings`，纯函数有单测，不存回去）：文件工具只能在 `data/hosting/ai-<id>/work` 里，读写删都允许；看屏幕、鼠标键盘、操作软件、浏览器、命令、打开文件、剪贴板、MCP 一律不行；没人回答「要不要允许」，所以「问我」等于不允许。
+- **结束**：主人在自己设备上点「在这台设备上运行」（`RunAI` 的钩子 `OnAIRun` 删掉托管）、点「停止托管 / 撤回」（`DELETE /api/v1/ai/{id}/host`：停客户端、清 `settings.runner`、AI 的登录全部结束），或者管理员停止。目前只支持 Windows 服务器（要装 AM 客户端）。
+- **测试**：Go e2e `hosting_test.go`（测试自己读 host.json 当客户端）；浏览器 e2e 用一个替身程序当 `client_path`，再用 `#host=` 打开 host 模式的页面（只在浏览器开发模式认）。
+
 **以后**
 
-- **AI 托管到服务器**（Weiqi 2026-11-01 定了方向，下一批）：主人点「托管到服务器」→ 向管理员发申请 → 批准后 am-server 静默起一个客户端（host 模式，没有窗口）替主人运行这个 AI；模型 key 要交给服务器，界面明确提示。
 - 插件进程的资源限制 / 隔离（容器、沙盒），以后可以做成付费；数据库预留配额字段。
 
 ## 11. 表情包（第三阶段；个人表情、批量导入、公共表情库已提前做）
