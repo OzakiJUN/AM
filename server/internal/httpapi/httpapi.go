@@ -24,6 +24,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/hosting"
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
+	"github.com/OzakiJUN/am/server/internal/museum"
 	"github.com/OzakiJUN/am/server/internal/music"
 	"github.com/OzakiJUN/am/server/internal/plugin"
 	"github.com/OzakiJUN/am/server/internal/presence"
@@ -51,6 +52,7 @@ type API struct {
 	games     *game.Service
 	plugins   *plugin.Service
 	hosting   *hosting.Service
+	museum    *museum.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	syncRate  *uploadPacer
@@ -159,6 +161,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	a.registerProfiles(mux)
 	a.registerPlugins(mux)
 	a.registerHosting(mux)
+	a.registerMuseum(mux)
 
 	mux.HandleFunc("POST /api/v1/media", a.authed(a.upload))
 	mux.HandleFunc("GET /api/v1/media/{id}", a.authed(a.download(false)))

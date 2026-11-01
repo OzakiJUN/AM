@@ -293,6 +293,21 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 
 结束的局 `retention.games_days` 天后（默认 180）由 janitor 删除。
 
+### 博物馆（docs/design.md §13 博物馆）
+
+频道（group）才有，只有频道成员能用（否则 `not_member`）；`museum.enabled = false` 时 `museum_off`。
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/conversations/{id}/museum` | — | `MuseumView`：`hall`（8 个，`id = 0` 是空位）、`second`（第二展厅）、`store`（仓库）、`votes`（进行中的投票，`mine` 1 同意 / -1 反对 / 0 没投）、`needs_vote`、`vote_minutes` |
+| POST | `/api/v1/conversations/{id}/museum/hang` | `MuseumHangRequest` | `MuseumResult`：`event_id` = 这个频道里的一条图片消息（新作品，带 `title`、`nsfw`），或 `art_id` = 这个频道仓库里的作品；`slot` 0 = 第一个空位（满了 `museum_full`），1–8 = 插到那里。作品名不能用 `museum_title`；NSFW 作品挂到不允许 NSFW 的频道 `museum_nsfw` |
+| POST | `/api/v1/conversations/{id}/museum/remove` | `MuseumActRequest{art_id}` | `MuseumResult`：撤展进仓库 |
+| POST | `/api/v1/conversations/{id}/museum/swap` | `MuseumActRequest{a, b}` | `MuseumResult`：调换两个位置（1–8） |
+| POST / DELETE | `/api/v1/museum/arts/{id}/like` | — | `MuseumArt`：点赞 / 取消（只能对看得到的作品） |
+| POST | `/api/v1/museum/votes/{id}` | `MuseumVoteRequest{agree}` | `MuseumVote`：投票或改票 |
+
+`MuseumResult.done` 为真表示已经做了（`text` 是结果），否则开始了投票（`vote_id`）。同一件作品同时只能有一个投票（`museum_vote_open`）。`MuseumArt.hidden` = NSFW 作品在不允许 NSFW 的频道里，不给 `media_id`。
+
 ### 发消息
 
 `SendRequest` 必须带 `client_msg_id`（客户端随机生成，≤ 64 字符）。同一个账号重复发送同一个 `client_msg_id`，服务器返回第一次存下的事件。
@@ -300,7 +315,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 - 文字：`text`，可带 `reply_to` 和 `mentions`（文字里「@名字」对应的用户 id；客户端高亮这些名字，AI 被 @ 时会回）。
   - 回复时 `reply_to` 是同会话里的一条文字、图片或文件消息的 event id，服务器校验目标存在、在当前会话且尚未被管理员删除。
   - `GET /api/v1/conversations/{id}/messages/{event}` 返回一条 `Event`，仅当前会话成员可读。客户端用它读取较早的引用，已删原文只返回删除记录，不返回内容。
-- 图片：先上传，再发 `image{media_id}`，宽高由服务器填（也可以直接发我表情里的或公共表情库里的图，不用自己上传）。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。
+- 图片：先上传，再发 `image{media_id}`，宽高由服务器填（也可以直接发我表情里的或公共表情库里的图，不用自己上传）。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。bot / AI 发的图可以带 `made_with`（怎么做的，比如「NovelAI V5」，最多 30 字）和 `nsfw`；人发的图这两项会被去掉。
 - 文件：先上传，再发 `file{media_id, name}`，`name` 为空时用上传时的文件名。
 - 划掉：`strike{target_event_id}`，只能划自己的文字 / 图片 / 文件消息，每条只能划一次。
 
@@ -319,6 +334,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | `sys_member{LEAVE / KICK}` | 退群 / 被踢 |
 | `sys_member{MUTE / UNMUTE}` | 禁言（`until`）/ 解禁 |
 | `sys_member{ROLE_CHANGE}` | 角色变化（`new_role`），转让群主是两条 |
+| `sys_museum` | 博物馆：`kind` = `proposed`（发起投票，`vote_id`、`ends_at`）、`passed` / `failed`（投票结果）、`done`（人少直接生效）；`text` 是做了什么，`media_id` 是那件作品 |
 | `admin_delete` | 管理员删除了某条消息 |
 
 ### 别人的 AI 操作我的电脑（转发）
@@ -389,6 +405,11 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | `game_state` | 409 | 这局现在不在那个阶段（还没开始、已经开始或已经结束、人不够） |
 | `not_your_turn` | 409 | 还没轮到你（或这轮已经投过票） |
 | `game_bad_move` | 400 | 不合规则：位置被占、黑白棋没夹住子、描述里有自己的词或太长、投给自己 / 出局的人 |
+| `museum_off` | 403 | 这个服务器关掉了博物馆（`museum.enabled = false`） |
+| `museum_full` | 409 | 第一展厅满了，选一个位置插进去 |
+| `museum_nsfw` | 403 | 这件作品是 NSFW 的，这个频道不允许 NSFW |
+| `museum_title` | 400 | 作品名不能用 |
+| `museum_vote_open` | 409 | 这件作品还有一个投票没结束 |
 | `music_link_invalid` | 400 | 不是网易云的歌曲 / 歌单链接 |
 | `music_unavailable` | 502 | 没能从网易云读到（链接对不上、网易云没回答，或者服务器关掉了这个功能） |
 | `too_many_devices` | 403 | 这个账号登录的设备已经到 `limits.max_devices` 台，先退出一台（登录、生成登录码、用登录码时） |

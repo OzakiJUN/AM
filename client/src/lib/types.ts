@@ -82,6 +82,8 @@ export type SysEvent =
   | { t: 'avatar'; op: string }
   | { t: 'approval'; op: string; on: boolean }
   | { t: 'nsfw'; op: string; on: boolean }
+  /** The channel museum: kind proposed | passed | failed | done. */
+  | { t: 'museum'; op: string; kind: string; text: string; voteId?: string; mediaId?: string; endsAt?: number }
   | { t: 'dissolved'; op: string }
   | { t: 'join'; op: string; target: string }
   | { t: 'leave'; target: string }
@@ -92,7 +94,7 @@ export type SysEvent =
 
 export type MessageBody =
   | { kind: 'text'; text: string; replyTo?: string; mood?: string; mentions?: string[] }
-  | { kind: 'image'; mediaId: string; w: number; h: number; /** Sent from the sticker panel. */ stickerTags?: string[] }
+  | { kind: 'image'; mediaId: string; w: number; h: number; /** Sent from the sticker panel. */ stickerTags?: string[]; /** AI / bot pictures: how it was made (e.g. NovelAI V5). */ madeWith?: string; nsfw?: boolean }
   | { kind: 'file'; mediaId: string; name: string; size: number }
   | { kind: 'deleted'; byId: string; reason: string }
   | { kind: 'system'; sys: SysEvent };

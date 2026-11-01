@@ -148,6 +148,17 @@ max_per_user = 1
 # and where the installer puts it.
 client_path = ""
 
+[museum]
+# Each channel's picture museum (docs/design.md §13 博物馆): a first hall of
+# 8 places, a second hall with the most liked works of all public channels,
+# a warehouse, likes. Right-click a picture in a channel →「挂到博物馆」.
+enabled = true
+# In channels with more members than this, hanging / taking down / swapping
+# needs a vote: it fails when more vote against than for.
+min_members = 5
+# How long a vote lasts (minutes).
+vote_minutes = 30
+
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so
 # only this computer can open it. On a headless Linux server, reach it through

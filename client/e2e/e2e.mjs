@@ -660,6 +660,26 @@ const pages = [];
   await B.click('section button[aria-label="表情：开心、狗头、doge"]', { button: 'right' });
   await B.click('button[role="menuitem"]:has-text("加到我的表情")');
   await B.waitForSelector('text=加到「我的表情」了');
+  // Museum: B hangs that picture in 大厅's museum (or starts a vote on it), likes it, sees it in the window.
+  await B.click('section button[aria-label="表情：开心、狗头、doge"]', { button: 'right' });
+  await B.click('button[role="menuitem"]:has-text("挂到博物馆")');
+  await B.fill('div[role="dialog"] input[aria-label="作品名"]', '《狗头》');
+  await shot(B, '27h-museum-hang');
+  await B.click('div[role="dialog"] button:has-text("挂上去")');
+  await B.waitForSelector('text=/《狗头》挂在第一展厅 No\\.1|发起了投票/');
+  await B.waitForSelector('section span:has-text("博物馆 ·") button');
+  await B.click('section span:has-text("博物馆 ·") button >> nth=-1');
+  await B.waitForSelector('[data-testid="museum"]');
+  if (await B.locator('[data-testid="museum-vote"]').count()) {
+    await B.waitForSelector('[data-testid="museum-vote"]:has-text("狗头")');
+  } else {
+    await B.click('[data-testid="museum-art"]:has-text("狗头") button[aria-label="点赞"]');
+    await B.waitForSelector('[data-testid="museum-art"]:has-text("狗头") button[aria-label="取消点赞"]:has-text("1")');
+    await B.click('[data-testid="museum-art"]:has-text("狗头")');
+    await B.waitForSelector('[data-testid="museum-piece"] >> text=方式：投稿');
+  }
+  await shot(B, '27i-museum');
+  await B.keyboard.press('Escape');
 
   // Channels and its day: put it into 「AM 内测」; its routine goes off for the test.
   await A.click('button[aria-label="AI 设置"]');

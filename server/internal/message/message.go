@@ -34,6 +34,7 @@ const (
 	KindAdminDelete int16 = 21
 	KindSysMember   int16 = 30
 	KindSysConv     int16 = 31
+	KindSysMuseum   int16 = 32
 )
 
 const maxClientMsgIDLen = 64
@@ -121,7 +122,15 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 		if err != nil {
 			return nil, err
 		}
-		body.Body = &amv1.Event_Image{Image: &amv1.ImageMsg{MediaId: m.ID, Width: int32(m.Width), Height: int32(m.Height), StickerTags: sticker.CleanTags(b.Image.GetStickerTags())}}
+		img := &amv1.ImageMsg{MediaId: m.ID, Width: int32(m.Width), Height: int32(m.Height), StickerTags: sticker.CleanTags(b.Image.GetStickerTags())}
+		// How an AI made it (shown in the museum) and its adult flag: only from ai / bot accounts.
+		if me.AccountType != int16(amv1.AccountType_ACCOUNT_TYPE_HUMAN) {
+			if mw := strings.TrimSpace(b.Image.GetMadeWith()); utf8.RuneCountInString(mw) <= 30 {
+				img.MadeWith = mw
+			}
+			img.Nsfw = b.Image.GetNsfw()
+		}
+		body.Body = &amv1.Event_Image{Image: img}
 		kind, mediaID = KindImage, m.ID
 	case *amv1.SendRequest_File:
 		m, err := s.media.OwnUpload(ctx, me.ID, b.File.GetMediaId(), false)
@@ -252,6 +261,8 @@ func (s *Service) AppendSystem(ctx context.Context, q *store.Queries, convID, op
 		kind = KindSysConv
 	case *amv1.Event_AdminDelete:
 		kind = KindAdminDelete
+	case *amv1.Event_SysMuseum:
+		kind = KindSysMuseum
 	default:
 		return nil, fmt.Errorf("AppendSystem: unsupported body %T", body.GetBody())
 	}

@@ -57,8 +57,10 @@ func (q *Queries) CanAccessMedia(ctx context.Context, mediaID, userID int64) (bo
 		(SELECT count(*) FROM conversations c JOIN conv_members m ON m.conv_id=c.id AND m.user_id=?
 			WHERE c.avatar_media_id=?) +
 		(SELECT count(*) FROM events e JOIN conv_members m ON m.conv_id=e.conv_id AND m.user_id=?
-			WHERE e.media_id=? AND e.redacted_by IS NULL)`,
-		mediaID, userID, mediaID, mediaID, mediaID, userID, mediaID, mediaID, userID, mediaID, userID, mediaID).Scan(&n)
+			WHERE e.media_id=? AND e.redacted_by IS NULL) +
+		(SELECT count(*) FROM museum_arts a JOIN conversations c ON c.id=a.conv_id
+			WHERE a.media_id=? AND (c.is_public=? OR EXISTS (SELECT 1 FROM conv_members m WHERE m.conv_id=a.conv_id AND m.user_id=?)))`,
+		mediaID, userID, mediaID, mediaID, mediaID, userID, mediaID, mediaID, userID, mediaID, userID, mediaID, mediaID, true, userID).Scan(&n)
 	return n > 0, err
 }
 
@@ -74,6 +76,7 @@ func (q *Queries) UnreferencedMedia(ctx context.Context, before int64, limit int
 		AND NOT EXISTS (SELECT 1 FROM sticker_library sl WHERE sl.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM portrait_packs pp WHERE pp.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.avatar_media_id = md.id)
+		AND NOT EXISTS (SELECT 1 FROM museum_arts ma WHERE ma.media_id = md.id)
 		LIMIT ?`, before, limit)
 	if err != nil {
 		return nil, err

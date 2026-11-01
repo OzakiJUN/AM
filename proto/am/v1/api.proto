@@ -712,3 +712,87 @@ message UpdatePluginRequest {
   // back to the default, keys left out stay as they are. "" = no change.
   string config_json = 2;
 }
+
+// ---- the channel museum (docs/design.md §13 博物馆) ----
+
+message MuseumArt {
+  int64 id = 1;
+  int64 media_id = 2;
+  string title = 3;
+  int64 by_user_id = 4;
+  // "投稿", or how an AI made it ("NovelAI V5").
+  string method = 5;
+  bool nsfw = 6;
+  int32 likes = 7;
+  // I liked it.
+  bool liked = 8;
+  // When it last went up (unix ms; 0 = never).
+  int64 hung_at = 9;
+  // First hall position 1–8; 0 = in the warehouse.
+  int32 slot = 10;
+  // The channel whose hall it is in (second hall: where it comes from).
+  int64 conv_id = 11;
+  string conv_name = 12;
+  // NSFW and this channel doesn't allow it: no picture.
+  bool hidden = 13;
+}
+
+message MuseumVote {
+  int64 id = 1;
+  string text = 2;
+  int64 by_user_id = 3;
+  int64 ends_at = 4;
+  int32 yes = 5;
+  int32 no = 6;
+  // My ballot: 1 agree, -1 against, 0 not yet.
+  int32 mine = 7;
+  // The picture, when it's about hanging a new one.
+  int64 media_id = 8;
+}
+
+// GET /api/v1/conversations/{id}/museum -> MuseumView
+message MuseumView {
+  // The first hall: one entry per position (id 0 = empty).
+  repeated MuseumArt hall = 1;
+  // The second hall: the most liked across (public) channels.
+  repeated MuseumArt second = 2;
+  // This channel's warehouse, newest first.
+  repeated MuseumArt store = 3;
+  repeated MuseumVote votes = 4;
+  // Changes need a vote here (more members than museum.min_members).
+  bool needs_vote = 5;
+  int32 vote_minutes = 6;
+}
+
+// POST /api/v1/conversations/{id}/museum/hang -> MuseumResult
+message MuseumHangRequest {
+  // A picture in this channel's chat (new work), or
+  int64 event_id = 1;
+  // a work from this channel's warehouse / hall (moved to `slot`).
+  int64 art_id = 2;
+  string title = 3;
+  // 1–8 = that position (others move back; the last one goes to the
+  // warehouse when the hall is full), 0 = the first empty one.
+  int32 slot = 4;
+  bool nsfw = 5;
+}
+
+// POST /api/v1/conversations/{id}/museum/remove (art_id) and
+// POST /api/v1/conversations/{id}/museum/swap (a, b) -> MuseumResult
+message MuseumActRequest {
+  int64 art_id = 1;
+  int32 a = 2;
+  int32 b = 3;
+}
+
+message MuseumResult {
+  // Done now (no vote needed); otherwise a vote started.
+  bool done = 1;
+  string text = 2;
+  int64 vote_id = 3;
+}
+
+// POST /api/v1/museum/votes/{id} -> MuseumVote
+message MuseumVoteRequest {
+  bool agree = 1;
+}

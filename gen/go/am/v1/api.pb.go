@@ -4663,6 +4663,592 @@ func (x *UpdatePluginRequest) GetConfigJson() string {
 	return ""
 }
 
+type MuseumArt struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	MediaId  int64                  `protobuf:"varint,2,opt,name=media_id,json=mediaId,proto3" json:"media_id,omitempty"`
+	Title    string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	ByUserId int64                  `protobuf:"varint,4,opt,name=by_user_id,json=byUserId,proto3" json:"by_user_id,omitempty"`
+	// "投稿", or how an AI made it ("NovelAI V5").
+	Method string `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"`
+	Nsfw   bool   `protobuf:"varint,6,opt,name=nsfw,proto3" json:"nsfw,omitempty"`
+	Likes  int32  `protobuf:"varint,7,opt,name=likes,proto3" json:"likes,omitempty"`
+	// I liked it.
+	Liked bool `protobuf:"varint,8,opt,name=liked,proto3" json:"liked,omitempty"`
+	// When it last went up (unix ms; 0 = never).
+	HungAt int64 `protobuf:"varint,9,opt,name=hung_at,json=hungAt,proto3" json:"hung_at,omitempty"`
+	// First hall position 1–8; 0 = in the warehouse.
+	Slot int32 `protobuf:"varint,10,opt,name=slot,proto3" json:"slot,omitempty"`
+	// The channel whose hall it is in (second hall: where it comes from).
+	ConvId   int64  `protobuf:"varint,11,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	ConvName string `protobuf:"bytes,12,opt,name=conv_name,json=convName,proto3" json:"conv_name,omitempty"`
+	// NSFW and this channel doesn't allow it: no picture.
+	Hidden        bool `protobuf:"varint,13,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuseumArt) Reset() {
+	*x = MuseumArt{}
+	mi := &file_am_v1_api_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuseumArt) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuseumArt) ProtoMessage() {}
+
+func (x *MuseumArt) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuseumArt.ProtoReflect.Descriptor instead.
+func (*MuseumArt) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *MuseumArt) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *MuseumArt) GetMediaId() int64 {
+	if x != nil {
+		return x.MediaId
+	}
+	return 0
+}
+
+func (x *MuseumArt) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *MuseumArt) GetByUserId() int64 {
+	if x != nil {
+		return x.ByUserId
+	}
+	return 0
+}
+
+func (x *MuseumArt) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *MuseumArt) GetNsfw() bool {
+	if x != nil {
+		return x.Nsfw
+	}
+	return false
+}
+
+func (x *MuseumArt) GetLikes() int32 {
+	if x != nil {
+		return x.Likes
+	}
+	return 0
+}
+
+func (x *MuseumArt) GetLiked() bool {
+	if x != nil {
+		return x.Liked
+	}
+	return false
+}
+
+func (x *MuseumArt) GetHungAt() int64 {
+	if x != nil {
+		return x.HungAt
+	}
+	return 0
+}
+
+func (x *MuseumArt) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *MuseumArt) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *MuseumArt) GetConvName() string {
+	if x != nil {
+		return x.ConvName
+	}
+	return ""
+}
+
+func (x *MuseumArt) GetHidden() bool {
+	if x != nil {
+		return x.Hidden
+	}
+	return false
+}
+
+type MuseumVote struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Text     string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	ByUserId int64                  `protobuf:"varint,3,opt,name=by_user_id,json=byUserId,proto3" json:"by_user_id,omitempty"`
+	EndsAt   int64                  `protobuf:"varint,4,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`
+	Yes      int32                  `protobuf:"varint,5,opt,name=yes,proto3" json:"yes,omitempty"`
+	No       int32                  `protobuf:"varint,6,opt,name=no,proto3" json:"no,omitempty"`
+	// My ballot: 1 agree, -1 against, 0 not yet.
+	Mine int32 `protobuf:"varint,7,opt,name=mine,proto3" json:"mine,omitempty"`
+	// The picture, when it's about hanging a new one.
+	MediaId       int64 `protobuf:"varint,8,opt,name=media_id,json=mediaId,proto3" json:"media_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuseumVote) Reset() {
+	*x = MuseumVote{}
+	mi := &file_am_v1_api_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuseumVote) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuseumVote) ProtoMessage() {}
+
+func (x *MuseumVote) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuseumVote.ProtoReflect.Descriptor instead.
+func (*MuseumVote) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *MuseumVote) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *MuseumVote) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *MuseumVote) GetByUserId() int64 {
+	if x != nil {
+		return x.ByUserId
+	}
+	return 0
+}
+
+func (x *MuseumVote) GetEndsAt() int64 {
+	if x != nil {
+		return x.EndsAt
+	}
+	return 0
+}
+
+func (x *MuseumVote) GetYes() int32 {
+	if x != nil {
+		return x.Yes
+	}
+	return 0
+}
+
+func (x *MuseumVote) GetNo() int32 {
+	if x != nil {
+		return x.No
+	}
+	return 0
+}
+
+func (x *MuseumVote) GetMine() int32 {
+	if x != nil {
+		return x.Mine
+	}
+	return 0
+}
+
+func (x *MuseumVote) GetMediaId() int64 {
+	if x != nil {
+		return x.MediaId
+	}
+	return 0
+}
+
+// GET /api/v1/conversations/{id}/museum -> MuseumView
+type MuseumView struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The first hall: one entry per position (id 0 = empty).
+	Hall []*MuseumArt `protobuf:"bytes,1,rep,name=hall,proto3" json:"hall,omitempty"`
+	// The second hall: the most liked across (public) channels.
+	Second []*MuseumArt `protobuf:"bytes,2,rep,name=second,proto3" json:"second,omitempty"`
+	// This channel's warehouse, newest first.
+	Store []*MuseumArt  `protobuf:"bytes,3,rep,name=store,proto3" json:"store,omitempty"`
+	Votes []*MuseumVote `protobuf:"bytes,4,rep,name=votes,proto3" json:"votes,omitempty"`
+	// Changes need a vote here (more members than museum.min_members).
+	NeedsVote     bool  `protobuf:"varint,5,opt,name=needs_vote,json=needsVote,proto3" json:"needs_vote,omitempty"`
+	VoteMinutes   int32 `protobuf:"varint,6,opt,name=vote_minutes,json=voteMinutes,proto3" json:"vote_minutes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuseumView) Reset() {
+	*x = MuseumView{}
+	mi := &file_am_v1_api_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuseumView) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuseumView) ProtoMessage() {}
+
+func (x *MuseumView) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuseumView.ProtoReflect.Descriptor instead.
+func (*MuseumView) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *MuseumView) GetHall() []*MuseumArt {
+	if x != nil {
+		return x.Hall
+	}
+	return nil
+}
+
+func (x *MuseumView) GetSecond() []*MuseumArt {
+	if x != nil {
+		return x.Second
+	}
+	return nil
+}
+
+func (x *MuseumView) GetStore() []*MuseumArt {
+	if x != nil {
+		return x.Store
+	}
+	return nil
+}
+
+func (x *MuseumView) GetVotes() []*MuseumVote {
+	if x != nil {
+		return x.Votes
+	}
+	return nil
+}
+
+func (x *MuseumView) GetNeedsVote() bool {
+	if x != nil {
+		return x.NeedsVote
+	}
+	return false
+}
+
+func (x *MuseumView) GetVoteMinutes() int32 {
+	if x != nil {
+		return x.VoteMinutes
+	}
+	return 0
+}
+
+// POST /api/v1/conversations/{id}/museum/hang -> MuseumResult
+type MuseumHangRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A picture in this channel's chat (new work), or
+	EventId int64 `protobuf:"varint,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	// a work from this channel's warehouse / hall (moved to `slot`).
+	ArtId int64  `protobuf:"varint,2,opt,name=art_id,json=artId,proto3" json:"art_id,omitempty"`
+	Title string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	// 1–8 = that position (others move back; the last one goes to the
+	// warehouse when the hall is full), 0 = the first empty one.
+	Slot          int32 `protobuf:"varint,4,opt,name=slot,proto3" json:"slot,omitempty"`
+	Nsfw          bool  `protobuf:"varint,5,opt,name=nsfw,proto3" json:"nsfw,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuseumHangRequest) Reset() {
+	*x = MuseumHangRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuseumHangRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuseumHangRequest) ProtoMessage() {}
+
+func (x *MuseumHangRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuseumHangRequest.ProtoReflect.Descriptor instead.
+func (*MuseumHangRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *MuseumHangRequest) GetEventId() int64 {
+	if x != nil {
+		return x.EventId
+	}
+	return 0
+}
+
+func (x *MuseumHangRequest) GetArtId() int64 {
+	if x != nil {
+		return x.ArtId
+	}
+	return 0
+}
+
+func (x *MuseumHangRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *MuseumHangRequest) GetSlot() int32 {
+	if x != nil {
+		return x.Slot
+	}
+	return 0
+}
+
+func (x *MuseumHangRequest) GetNsfw() bool {
+	if x != nil {
+		return x.Nsfw
+	}
+	return false
+}
+
+// POST /api/v1/conversations/{id}/museum/remove (art_id) and
+// POST /api/v1/conversations/{id}/museum/swap (a, b) -> MuseumResult
+type MuseumActRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ArtId         int64                  `protobuf:"varint,1,opt,name=art_id,json=artId,proto3" json:"art_id,omitempty"`
+	A             int32                  `protobuf:"varint,2,opt,name=a,proto3" json:"a,omitempty"`
+	B             int32                  `protobuf:"varint,3,opt,name=b,proto3" json:"b,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuseumActRequest) Reset() {
+	*x = MuseumActRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuseumActRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuseumActRequest) ProtoMessage() {}
+
+func (x *MuseumActRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuseumActRequest.ProtoReflect.Descriptor instead.
+func (*MuseumActRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *MuseumActRequest) GetArtId() int64 {
+	if x != nil {
+		return x.ArtId
+	}
+	return 0
+}
+
+func (x *MuseumActRequest) GetA() int32 {
+	if x != nil {
+		return x.A
+	}
+	return 0
+}
+
+func (x *MuseumActRequest) GetB() int32 {
+	if x != nil {
+		return x.B
+	}
+	return 0
+}
+
+type MuseumResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Done now (no vote needed); otherwise a vote started.
+	Done          bool   `protobuf:"varint,1,opt,name=done,proto3" json:"done,omitempty"`
+	Text          string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	VoteId        int64  `protobuf:"varint,3,opt,name=vote_id,json=voteId,proto3" json:"vote_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuseumResult) Reset() {
+	*x = MuseumResult{}
+	mi := &file_am_v1_api_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuseumResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuseumResult) ProtoMessage() {}
+
+func (x *MuseumResult) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuseumResult.ProtoReflect.Descriptor instead.
+func (*MuseumResult) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *MuseumResult) GetDone() bool {
+	if x != nil {
+		return x.Done
+	}
+	return false
+}
+
+func (x *MuseumResult) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *MuseumResult) GetVoteId() int64 {
+	if x != nil {
+		return x.VoteId
+	}
+	return 0
+}
+
+// POST /api/v1/museum/votes/{id} -> MuseumVote
+type MuseumVoteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Agree         bool                   `protobuf:"varint,1,opt,name=agree,proto3" json:"agree,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuseumVoteRequest) Reset() {
+	*x = MuseumVoteRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuseumVoteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuseumVoteRequest) ProtoMessage() {}
+
+func (x *MuseumVoteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuseumVoteRequest.ProtoReflect.Descriptor instead.
+func (*MuseumVoteRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *MuseumVoteRequest) GetAgree() bool {
+	if x != nil {
+		return x.Agree
+	}
+	return false
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -5021,7 +5607,59 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\vconfig_json\x18\x02 \x01(\tR\n" +
 	"configJsonB\n" +
 	"\n" +
-	"\b_enabled*k\n" +
+	"\b_enabled\"\xbd\x02\n" +
+	"\tMuseumArt\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
+	"\bmedia_id\x18\x02 \x01(\x03R\amediaId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x1c\n" +
+	"\n" +
+	"by_user_id\x18\x04 \x01(\x03R\bbyUserId\x12\x16\n" +
+	"\x06method\x18\x05 \x01(\tR\x06method\x12\x12\n" +
+	"\x04nsfw\x18\x06 \x01(\bR\x04nsfw\x12\x14\n" +
+	"\x05likes\x18\a \x01(\x05R\x05likes\x12\x14\n" +
+	"\x05liked\x18\b \x01(\bR\x05liked\x12\x17\n" +
+	"\ahung_at\x18\t \x01(\x03R\x06hungAt\x12\x12\n" +
+	"\x04slot\x18\n" +
+	" \x01(\x05R\x04slot\x12\x17\n" +
+	"\aconv_id\x18\v \x01(\x03R\x06convId\x12\x1b\n" +
+	"\tconv_name\x18\f \x01(\tR\bconvName\x12\x16\n" +
+	"\x06hidden\x18\r \x01(\bR\x06hidden\"\xb8\x01\n" +
+	"\n" +
+	"MuseumVote\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x1c\n" +
+	"\n" +
+	"by_user_id\x18\x03 \x01(\x03R\bbyUserId\x12\x17\n" +
+	"\aends_at\x18\x04 \x01(\x03R\x06endsAt\x12\x10\n" +
+	"\x03yes\x18\x05 \x01(\x05R\x03yes\x12\x0e\n" +
+	"\x02no\x18\x06 \x01(\x05R\x02no\x12\x12\n" +
+	"\x04mine\x18\a \x01(\x05R\x04mine\x12\x19\n" +
+	"\bmedia_id\x18\b \x01(\x03R\amediaId\"\xef\x01\n" +
+	"\n" +
+	"MuseumView\x12$\n" +
+	"\x04hall\x18\x01 \x03(\v2\x10.am.v1.MuseumArtR\x04hall\x12(\n" +
+	"\x06second\x18\x02 \x03(\v2\x10.am.v1.MuseumArtR\x06second\x12&\n" +
+	"\x05store\x18\x03 \x03(\v2\x10.am.v1.MuseumArtR\x05store\x12'\n" +
+	"\x05votes\x18\x04 \x03(\v2\x11.am.v1.MuseumVoteR\x05votes\x12\x1d\n" +
+	"\n" +
+	"needs_vote\x18\x05 \x01(\bR\tneedsVote\x12!\n" +
+	"\fvote_minutes\x18\x06 \x01(\x05R\vvoteMinutes\"\x83\x01\n" +
+	"\x11MuseumHangRequest\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x15\n" +
+	"\x06art_id\x18\x02 \x01(\x03R\x05artId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x12\n" +
+	"\x04slot\x18\x04 \x01(\x05R\x04slot\x12\x12\n" +
+	"\x04nsfw\x18\x05 \x01(\bR\x04nsfw\"E\n" +
+	"\x10MuseumActRequest\x12\x15\n" +
+	"\x06art_id\x18\x01 \x01(\x03R\x05artId\x12\f\n" +
+	"\x01a\x18\x02 \x01(\x05R\x01a\x12\f\n" +
+	"\x01b\x18\x03 \x01(\x05R\x01b\"O\n" +
+	"\fMuseumResult\x12\x12\n" +
+	"\x04done\x18\x01 \x01(\bR\x04done\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x17\n" +
+	"\avote_id\x18\x03 \x01(\x03R\x06voteId\")\n" +
+	"\x11MuseumVoteRequest\x12\x14\n" +
+	"\x05agree\x18\x01 \x01(\bR\x05agree*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -5040,7 +5678,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -5117,46 +5755,57 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*ListPluginsResponse)(nil),      // 72: am.v1.ListPluginsResponse
 	(*UploadPluginsRequest)(nil),     // 73: am.v1.UploadPluginsRequest
 	(*UpdatePluginRequest)(nil),      // 74: am.v1.UpdatePluginRequest
-	nil,                              // 75: am.v1.LookupStickersResponse.LibraryIdsEntry
-	nil,                              // 76: am.v1.PortraitPack.MediaIdsEntry
-	(*User)(nil),                     // 77: am.v1.User
-	(*Activity)(nil),                 // 78: am.v1.Activity
-	(*Game)(nil),                     // 79: am.v1.Game
+	(*MuseumArt)(nil),                // 75: am.v1.MuseumArt
+	(*MuseumVote)(nil),               // 76: am.v1.MuseumVote
+	(*MuseumView)(nil),               // 77: am.v1.MuseumView
+	(*MuseumHangRequest)(nil),        // 78: am.v1.MuseumHangRequest
+	(*MuseumActRequest)(nil),         // 79: am.v1.MuseumActRequest
+	(*MuseumResult)(nil),             // 80: am.v1.MuseumResult
+	(*MuseumVoteRequest)(nil),        // 81: am.v1.MuseumVoteRequest
+	nil,                              // 82: am.v1.LookupStickersResponse.LibraryIdsEntry
+	nil,                              // 83: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 84: am.v1.User
+	(*Activity)(nil),                 // 85: am.v1.Activity
+	(*Game)(nil),                     // 86: am.v1.Game
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	77, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	84, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	77, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	84, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	77, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	77, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	77, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	77, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	77, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	78, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	84, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	84, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	84, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	84, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	84, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	85, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	77, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	77, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	84, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	84, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	77, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	84, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	43, // 18: am.v1.AIAccount.hosting:type_name -> am.v1.AIHosting
 	49, // 19: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
 	54, // 20: am.v1.ListLibraryResponse.items:type_name -> am.v1.LibrarySticker
-	75, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
+	82, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
 	60, // 22: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	76, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
-	77, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
-	79, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
+	83, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	84, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
+	86, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
 	70, // 26: am.v1.AIPlugin.config_items:type_name -> am.v1.PluginConfigItem
 	71, // 27: am.v1.ListPluginsResponse.plugins:type_name -> am.v1.AIPlugin
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	75, // 28: am.v1.MuseumView.hall:type_name -> am.v1.MuseumArt
+	75, // 29: am.v1.MuseumView.second:type_name -> am.v1.MuseumArt
+	75, // 30: am.v1.MuseumView.store:type_name -> am.v1.MuseumArt
+	76, // 31: am.v1.MuseumView.votes:type_name -> am.v1.MuseumVote
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -5176,7 +5825,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   76,
+			NumMessages:   83,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
