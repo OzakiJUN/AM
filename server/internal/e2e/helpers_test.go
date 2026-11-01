@@ -101,7 +101,13 @@ func wantCode(t *testing.T, err error, code string) {
 // waitPush waits for a push matching pred.
 func waitPush(t *testing.T, c *amclient.Conn, what string, pred func(*amv1.ServerFrame) bool) *amv1.ServerFrame {
 	t.Helper()
-	timeout := time.After(5 * time.Second)
+	return waitPushLong(t, c, what, 5*time.Second, pred)
+}
+
+// waitPushLong is waitPush with a longer wait.
+func waitPushLong(t *testing.T, c *amclient.Conn, what string, wait time.Duration, pred func(*amv1.ServerFrame) bool) *amv1.ServerFrame {
+	t.Helper()
+	timeout := time.After(wait)
 	for {
 		select {
 		case f, ok := <-c.Pushes:

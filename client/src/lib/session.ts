@@ -52,6 +52,8 @@ export interface SessionView {
   blocked: string[];
   joinRequests: Record<string, JoinRequest[]>;
   downloadUrl: string;
+  /** AI plugins (NoneBot) can be uploaded on this server. */
+  plugins: boolean;
   /** Who is online, as I see them (user id -> presence). Empty while disconnected. */
   presence: Record<string, Presence>;
   /** Server icon (media path), '' when none. */
@@ -193,6 +195,73 @@ export interface Sticker {
   /** When it was added to my collection (unix ms). */
   createdAt: number;
 }
+
+/** One setting of a plugin (the form is generated from these). */
+export interface PluginSetting {
+  key: string;
+  label: string;
+  help: string;
+  /** string | int | float | bool | list | path | select | text */
+  type: string;
+  /** The plugin's default (undefined = not known). */
+  default: unknown;
+  options: string[];
+  group: string;
+  secret: boolean;
+  min?: number;
+  max?: number;
+}
+
+/** A plugin of one of my AIs (docs/plugins.md). */
+export interface Plugin {
+  id: string;
+  dir: string;
+  name: string;
+  description: string;
+  usage: string;
+  commands: string[];
+  requires: string[];
+  settings: PluginSetting[];
+  /** Current values (secret ones left out). */
+  values: Record<string, unknown>;
+  /** Secret settings that have a value. */
+  secretsSet: string[];
+  status: 'pending' | 'approved' | 'rejected';
+  rejectReason: string;
+  enabled: boolean;
+  uploadedAt: number;
+}
+
+export interface PluginList {
+  plugins: Plugin[];
+  /** The AI's plugin process: off | preparing | starting | running | error */
+  state: string;
+  error: string;
+  log: string[];
+  /** What commands start with ("" = no prefix needed). */
+  commandStart: string[];
+}
+
+const parseJSON = (s: string): unknown => {
+  if (!s) return undefined;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return undefined;
+  }
+};
+
+const toPlugin = (p: api.AIPlugin): Plugin => ({
+  id: p.id.toString(), dir: p.dir, name: p.name || p.dir, description: p.description, usage: p.usage,
+  commands: p.commands, requires: p.requires,
+  settings: p.configItems.map((c) => ({
+    key: c.key, label: c.label, help: c.help, type: c.type || 'string', default: parseJSON(c.defaultJson),
+    options: c.options, group: c.group, secret: c.secret, min: c.min, max: c.max,
+  })),
+  values: (parseJSON(p.configJson) as Record<string, unknown> | undefined) ?? {},
+  secretsSet: p.secretsSet, status: (p.status || 'pending') as Plugin['status'], rejectReason: p.rejectReason,
+  enabled: p.enabled, uploadedAt: Number(p.uploadedAt),
+});
 
 const toSticker = (x: api.Sticker): Sticker => ({
   id: s(x.id), mediaId: s(x.mediaId), tags: x.tags, myTags: x.myTags, libraryId: x.libraryId ? s(x.libraryId) : '',
@@ -380,7 +449,7 @@ export class Session {
     this.t = createTransport(record.id, record.endpoint);
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
-      users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '',
+      users: {}, convs: {}, messages: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false,
       presence: {},
       icon: '',
       games: {},
@@ -489,6 +558,34 @@ export class Session {
     this.view.users = { ...this.view.users, [u.id]: { ...this.view.users[u.id], ...u } };
     this.emit();
     return u;
+  }
+
+  // ---- my AI's plugins (docs/plugins.md) ----
+
+  async listPlugins(aiId: string): Promise<PluginList> {
+    const r = await this.call('GET', `/api/v1/ai/${aiId}/plugins`, api.ListPluginsResponseSchema);
+    return { plugins: r.plugins.map(toPlugin), state: r.hostState, error: r.hostError, log: r.log, commandStart: r.commandStart };
+  }
+
+  /** Adds the plugins in a zip to my AI (new / changed ones wait for a site admin). */
+  async uploadPlugins(aiId: string, zip: File): Promise<Plugin[]> {
+    const info = await this.upload(zip);
+    const r = await this.call('POST', `/api/v1/ai/${aiId}/plugins`, api.ListPluginsResponseSchema, {
+      schema: api.UploadPluginsRequestSchema, value: { mediaId: info.id },
+    });
+    return r.plugins.map(toPlugin);
+  }
+
+  /** Turns a plugin on / off and patches its settings (key -> value, null = back to the default). */
+  async updatePlugin(aiId: string, id: string, change: { enabled?: boolean; config?: Record<string, unknown> }): Promise<Plugin> {
+    const p = await this.call('PATCH', `/api/v1/ai/${aiId}/plugins/${id}`, api.AIPluginSchema, {
+      schema: api.UpdatePluginRequestSchema, value: { enabled: change.enabled, configJson: change.config ? JSON.stringify(change.config) : '' },
+    });
+    return toPlugin(p);
+  }
+
+  async deletePlugin(aiId: string, id: string) {
+    await this.call('DELETE', `/api/v1/ai/${aiId}/plugins/${id}`, null);
   }
 
   /** Saves settings JSON; base = updatedAt it was edited from (state_conflict otherwise). */
@@ -679,7 +776,7 @@ export class Session {
         this.record = { ...this.record, name: i.name };
         this.onRecord(this.record);
       }
-      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon });
+      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon, plugins: i.plugins });
     }).catch(() => {});
     await this.connect();
   }

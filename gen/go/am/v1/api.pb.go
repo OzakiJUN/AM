@@ -884,7 +884,9 @@ type ServerInfo struct {
 	Icon string `protobuf:"bytes,4,opt,name=icon,proto3" json:"icon,omitempty"`
 	// Random id of the running server process: lets the server (and clients)
 	// check that a new address really reaches this same server.
-	InstanceId    string `protobuf:"bytes,5,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	InstanceId string `protobuf:"bytes,5,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	// AI plugins (NoneBot) can be uploaded on this server (plugins.enabled).
+	Plugins       bool `protobuf:"varint,6,opt,name=plugins,proto3" json:"plugins,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -952,6 +954,13 @@ func (x *ServerInfo) GetInstanceId() string {
 		return x.InstanceId
 	}
 	return ""
+}
+
+func (x *ServerInfo) GetPlugins() bool {
+	if x != nil {
+		return x.Plugins
+	}
+	return false
 }
 
 // GET /api/v1/server/profile: the server's profile page. Set up by the site
@@ -4029,6 +4038,469 @@ func (x *DecideGameRequest) GetApprove() bool {
 	return false
 }
 
+// One setting of a plugin, for the generated settings form.
+type PluginConfigItem struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Key   string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Label string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Help  string                 `protobuf:"bytes,3,opt,name=help,proto3" json:"help,omitempty"`
+	// string | int | float | bool | list | path | select | text
+	Type string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	// The plugin's default as JSON ("" = unknown).
+	DefaultJson string   `protobuf:"bytes,5,opt,name=default_json,json=defaultJson,proto3" json:"default_json,omitempty"`
+	Options     []string `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
+	Group       string   `protobuf:"bytes,7,opt,name=group,proto3" json:"group,omitempty"`
+	// Secret values are never sent back; see AIPlugin.secrets_set.
+	Secret        bool     `protobuf:"varint,8,opt,name=secret,proto3" json:"secret,omitempty"`
+	Min           *float64 `protobuf:"fixed64,9,opt,name=min,proto3,oneof" json:"min,omitempty"`
+	Max           *float64 `protobuf:"fixed64,10,opt,name=max,proto3,oneof" json:"max,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PluginConfigItem) Reset() {
+	*x = PluginConfigItem{}
+	mi := &file_am_v1_api_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PluginConfigItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PluginConfigItem) ProtoMessage() {}
+
+func (x *PluginConfigItem) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PluginConfigItem.ProtoReflect.Descriptor instead.
+func (*PluginConfigItem) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *PluginConfigItem) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *PluginConfigItem) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *PluginConfigItem) GetHelp() string {
+	if x != nil {
+		return x.Help
+	}
+	return ""
+}
+
+func (x *PluginConfigItem) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *PluginConfigItem) GetDefaultJson() string {
+	if x != nil {
+		return x.DefaultJson
+	}
+	return ""
+}
+
+func (x *PluginConfigItem) GetOptions() []string {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+func (x *PluginConfigItem) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *PluginConfigItem) GetSecret() bool {
+	if x != nil {
+		return x.Secret
+	}
+	return false
+}
+
+func (x *PluginConfigItem) GetMin() float64 {
+	if x != nil && x.Min != nil {
+		return *x.Min
+	}
+	return 0
+}
+
+func (x *PluginConfigItem) GetMax() float64 {
+	if x != nil && x.Max != nil {
+		return *x.Max
+	}
+	return 0
+}
+
+type AIPlugin struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	AiId  int64                  `protobuf:"varint,2,opt,name=ai_id,json=aiId,proto3" json:"ai_id,omitempty"`
+	// Package (folder) name.
+	Dir         string   `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
+	Name        string   `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Description string   `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Usage       string   `protobuf:"bytes,6,opt,name=usage,proto3" json:"usage,omitempty"`
+	Commands    []string `protobuf:"bytes,7,rep,name=commands,proto3" json:"commands,omitempty"`
+	// pip packages it needs.
+	Requires    []string            `protobuf:"bytes,8,rep,name=requires,proto3" json:"requires,omitempty"`
+	ConfigItems []*PluginConfigItem `protobuf:"bytes,9,rep,name=config_items,json=configItems,proto3" json:"config_items,omitempty"`
+	// Current settings as a JSON object, secret ones left out.
+	ConfigJson string `protobuf:"bytes,10,opt,name=config_json,json=configJson,proto3" json:"config_json,omitempty"`
+	// Secret settings that have a value.
+	SecretsSet []string `protobuf:"bytes,11,rep,name=secrets_set,json=secretsSet,proto3" json:"secrets_set,omitempty"`
+	// pending | approved | rejected
+	Status        string `protobuf:"bytes,12,opt,name=status,proto3" json:"status,omitempty"`
+	RejectReason  string `protobuf:"bytes,13,opt,name=reject_reason,json=rejectReason,proto3" json:"reject_reason,omitempty"`
+	Enabled       bool   `protobuf:"varint,14,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	UploadedAt    int64  `protobuf:"varint,15,opt,name=uploaded_at,json=uploadedAt,proto3" json:"uploaded_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIPlugin) Reset() {
+	*x = AIPlugin{}
+	mi := &file_am_v1_api_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIPlugin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIPlugin) ProtoMessage() {}
+
+func (x *AIPlugin) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIPlugin.ProtoReflect.Descriptor instead.
+func (*AIPlugin) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *AIPlugin) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *AIPlugin) GetAiId() int64 {
+	if x != nil {
+		return x.AiId
+	}
+	return 0
+}
+
+func (x *AIPlugin) GetDir() string {
+	if x != nil {
+		return x.Dir
+	}
+	return ""
+}
+
+func (x *AIPlugin) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AIPlugin) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AIPlugin) GetUsage() string {
+	if x != nil {
+		return x.Usage
+	}
+	return ""
+}
+
+func (x *AIPlugin) GetCommands() []string {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
+func (x *AIPlugin) GetRequires() []string {
+	if x != nil {
+		return x.Requires
+	}
+	return nil
+}
+
+func (x *AIPlugin) GetConfigItems() []*PluginConfigItem {
+	if x != nil {
+		return x.ConfigItems
+	}
+	return nil
+}
+
+func (x *AIPlugin) GetConfigJson() string {
+	if x != nil {
+		return x.ConfigJson
+	}
+	return ""
+}
+
+func (x *AIPlugin) GetSecretsSet() []string {
+	if x != nil {
+		return x.SecretsSet
+	}
+	return nil
+}
+
+func (x *AIPlugin) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *AIPlugin) GetRejectReason() string {
+	if x != nil {
+		return x.RejectReason
+	}
+	return ""
+}
+
+func (x *AIPlugin) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *AIPlugin) GetUploadedAt() int64 {
+	if x != nil {
+		return x.UploadedAt
+	}
+	return 0
+}
+
+// GET /api/v1/ai/{id}/plugins -> ListPluginsResponse
+type ListPluginsResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Plugins []*AIPlugin            `protobuf:"bytes,1,rep,name=plugins,proto3" json:"plugins,omitempty"`
+	// The AI's plugin process: off | preparing | starting | running | error
+	HostState string `protobuf:"bytes,2,opt,name=host_state,json=hostState,proto3" json:"host_state,omitempty"`
+	HostError string `protobuf:"bytes,3,opt,name=host_error,json=hostError,proto3" json:"host_error,omitempty"`
+	// Its last log lines.
+	Log []string `protobuf:"bytes,4,rep,name=log,proto3" json:"log,omitempty"`
+	// What commands start with (config plugins.command_start), so the AI's own
+	// runner can leave plugin commands to the plugins.
+	CommandStart  []string `protobuf:"bytes,5,rep,name=command_start,json=commandStart,proto3" json:"command_start,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPluginsResponse) Reset() {
+	*x = ListPluginsResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPluginsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPluginsResponse) ProtoMessage() {}
+
+func (x *ListPluginsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPluginsResponse.ProtoReflect.Descriptor instead.
+func (*ListPluginsResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *ListPluginsResponse) GetPlugins() []*AIPlugin {
+	if x != nil {
+		return x.Plugins
+	}
+	return nil
+}
+
+func (x *ListPluginsResponse) GetHostState() string {
+	if x != nil {
+		return x.HostState
+	}
+	return ""
+}
+
+func (x *ListPluginsResponse) GetHostError() string {
+	if x != nil {
+		return x.HostError
+	}
+	return ""
+}
+
+func (x *ListPluginsResponse) GetLog() []string {
+	if x != nil {
+		return x.Log
+	}
+	return nil
+}
+
+func (x *ListPluginsResponse) GetCommandStart() []string {
+	if x != nil {
+		return x.CommandStart
+	}
+	return nil
+}
+
+// POST /api/v1/ai/{id}/plugins -> ListPluginsResponse (the plugins in the zip)
+type UploadPluginsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// An uploaded .zip (POST /api/v1/media).
+	MediaId       int64 `protobuf:"varint,1,opt,name=media_id,json=mediaId,proto3" json:"media_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadPluginsRequest) Reset() {
+	*x = UploadPluginsRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadPluginsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadPluginsRequest) ProtoMessage() {}
+
+func (x *UploadPluginsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadPluginsRequest.ProtoReflect.Descriptor instead.
+func (*UploadPluginsRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *UploadPluginsRequest) GetMediaId() int64 {
+	if x != nil {
+		return x.MediaId
+	}
+	return 0
+}
+
+// PATCH /api/v1/ai/{id}/plugins/{plugin} -> AIPlugin
+type UpdatePluginRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Enabled *bool                  `protobuf:"varint,1,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	// Settings patch, a JSON object: key -> value sets it, key -> null goes
+	// back to the default, keys left out stay as they are. "" = no change.
+	ConfigJson    string `protobuf:"bytes,2,opt,name=config_json,json=configJson,proto3" json:"config_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdatePluginRequest) Reset() {
+	*x = UpdatePluginRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdatePluginRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdatePluginRequest) ProtoMessage() {}
+
+func (x *UpdatePluginRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdatePluginRequest.ProtoReflect.Descriptor instead.
+func (*UpdatePluginRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *UpdatePluginRequest) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+func (x *UpdatePluginRequest) GetConfigJson() string {
+	if x != nil {
+		return x.ConfigJson
+	}
+	return ""
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -4097,7 +4569,7 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fused_by_name\x18\x04 \x01(\tR\n" +
 	"usedByName\x12\x1b\n" +
 	"\tjoin_code\x18\x05 \x01(\tR\bjoinCode\x12\x19\n" +
-	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\x92\x01\n" +
+	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\xac\x01\n" +
 	"\n" +
 	"ServerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
@@ -4105,7 +4577,8 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fdownload_url\x18\x03 \x01(\tR\vdownloadUrl\x12\x12\n" +
 	"\x04icon\x18\x04 \x01(\tR\x04icon\x12\x1f\n" +
 	"\vinstance_id\x18\x05 \x01(\tR\n" +
-	"instanceId\"\x95\x02\n" +
+	"instanceId\x12\x18\n" +
+	"\aplugins\x18\x06 \x01(\bR\aplugins\"\x95\x02\n" +
 	"\rServerProfile\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +
@@ -4323,7 +4796,57 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\x0eSetGameRequest\x12!\n" +
 	"\fauto_approve\x18\x01 \x01(\bR\vautoApprove\"-\n" +
 	"\x11DecideGameRequest\x12\x18\n" +
-	"\aapprove\x18\x01 \x01(\bR\aapprove*k\n" +
+	"\aapprove\x18\x01 \x01(\bR\aapprove\"\x8b\x02\n" +
+	"\x10PluginConfigItem\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x12\n" +
+	"\x04help\x18\x03 \x01(\tR\x04help\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12!\n" +
+	"\fdefault_json\x18\x05 \x01(\tR\vdefaultJson\x12\x18\n" +
+	"\aoptions\x18\x06 \x03(\tR\aoptions\x12\x14\n" +
+	"\x05group\x18\a \x01(\tR\x05group\x12\x16\n" +
+	"\x06secret\x18\b \x01(\bR\x06secret\x12\x15\n" +
+	"\x03min\x18\t \x01(\x01H\x00R\x03min\x88\x01\x01\x12\x15\n" +
+	"\x03max\x18\n" +
+	" \x01(\x01H\x01R\x03max\x88\x01\x01B\x06\n" +
+	"\x04_minB\x06\n" +
+	"\x04_max\"\xbb\x03\n" +
+	"\bAIPlugin\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x13\n" +
+	"\x05ai_id\x18\x02 \x01(\x03R\x04aiId\x12\x10\n" +
+	"\x03dir\x18\x03 \x01(\tR\x03dir\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x14\n" +
+	"\x05usage\x18\x06 \x01(\tR\x05usage\x12\x1a\n" +
+	"\bcommands\x18\a \x03(\tR\bcommands\x12\x1a\n" +
+	"\brequires\x18\b \x03(\tR\brequires\x12:\n" +
+	"\fconfig_items\x18\t \x03(\v2\x17.am.v1.PluginConfigItemR\vconfigItems\x12\x1f\n" +
+	"\vconfig_json\x18\n" +
+	" \x01(\tR\n" +
+	"configJson\x12\x1f\n" +
+	"\vsecrets_set\x18\v \x03(\tR\n" +
+	"secretsSet\x12\x16\n" +
+	"\x06status\x18\f \x01(\tR\x06status\x12#\n" +
+	"\rreject_reason\x18\r \x01(\tR\frejectReason\x12\x18\n" +
+	"\aenabled\x18\x0e \x01(\bR\aenabled\x12\x1f\n" +
+	"\vuploaded_at\x18\x0f \x01(\x03R\n" +
+	"uploadedAt\"\xb5\x01\n" +
+	"\x13ListPluginsResponse\x12)\n" +
+	"\aplugins\x18\x01 \x03(\v2\x0f.am.v1.AIPluginR\aplugins\x12\x1d\n" +
+	"\n" +
+	"host_state\x18\x02 \x01(\tR\thostState\x12\x1d\n" +
+	"\n" +
+	"host_error\x18\x03 \x01(\tR\thostError\x12\x10\n" +
+	"\x03log\x18\x04 \x03(\tR\x03log\x12#\n" +
+	"\rcommand_start\x18\x05 \x03(\tR\fcommandStart\"1\n" +
+	"\x14UploadPluginsRequest\x12\x19\n" +
+	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\"a\n" +
+	"\x13UpdatePluginRequest\x12\x1d\n" +
+	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01\x12\x1f\n" +
+	"\vconfig_json\x18\x02 \x01(\tR\n" +
+	"configJsonB\n" +
+	"\n" +
+	"\b_enabled*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -4342,7 +4865,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -4412,43 +4935,50 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*GameActRequest)(nil),           // 65: am.v1.GameActRequest
 	(*SetGameRequest)(nil),           // 66: am.v1.SetGameRequest
 	(*DecideGameRequest)(nil),        // 67: am.v1.DecideGameRequest
-	nil,                              // 68: am.v1.LookupStickersResponse.LibraryIdsEntry
-	nil,                              // 69: am.v1.PortraitPack.MediaIdsEntry
-	(*User)(nil),                     // 70: am.v1.User
-	(*Activity)(nil),                 // 71: am.v1.Activity
-	(*Game)(nil),                     // 72: am.v1.Game
+	(*PluginConfigItem)(nil),         // 68: am.v1.PluginConfigItem
+	(*AIPlugin)(nil),                 // 69: am.v1.AIPlugin
+	(*ListPluginsResponse)(nil),      // 70: am.v1.ListPluginsResponse
+	(*UploadPluginsRequest)(nil),     // 71: am.v1.UploadPluginsRequest
+	(*UpdatePluginRequest)(nil),      // 72: am.v1.UpdatePluginRequest
+	nil,                              // 73: am.v1.LookupStickersResponse.LibraryIdsEntry
+	nil,                              // 74: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 75: am.v1.User
+	(*Activity)(nil),                 // 76: am.v1.Activity
+	(*Game)(nil),                     // 77: am.v1.Game
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	70, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	75, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	70, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	75, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	70, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	70, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	70, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	70, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	70, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	71, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	75, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	75, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	75, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	75, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	75, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	76, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	70, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	70, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	75, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	75, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	70, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	75, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	47, // 18: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
 	52, // 19: am.v1.ListLibraryResponse.items:type_name -> am.v1.LibrarySticker
-	68, // 20: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
+	73, // 20: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
 	58, // 21: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	69, // 22: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
-	70, // 23: am.v1.ShareRequests.users:type_name -> am.v1.User
-	72, // 24: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	74, // 22: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	75, // 23: am.v1.ShareRequests.users:type_name -> am.v1.User
+	77, // 24: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
+	68, // 25: am.v1.AIPlugin.config_items:type_name -> am.v1.PluginConfigItem
+	69, // 26: am.v1.ListPluginsResponse.plugins:type_name -> am.v1.AIPlugin
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -4460,13 +4990,15 @@ func file_am_v1_api_proto_init() {
 	file_am_v1_api_proto_msgTypes[21].OneofWrappers = []any{}
 	file_am_v1_api_proto_msgTypes[30].OneofWrappers = []any{}
 	file_am_v1_api_proto_msgTypes[48].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[67].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[71].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   69,
+			NumMessages:   74,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

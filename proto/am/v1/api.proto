@@ -134,6 +134,8 @@ message ServerInfo {
   // Random id of the running server process: lets the server (and clients)
   // check that a new address really reaches this same server.
   string instance_id = 5;
+  // AI plugins (NoneBot) can be uploaded on this server (plugins.enabled).
+  bool plugins = 6;
 }
 
 // Who may rearrange the widgets on the server profile.
@@ -614,4 +616,73 @@ message SetGameRequest {
 
 message DecideGameRequest {
   bool approve = 1;
+}
+
+// ---- AI plugins (docs/plugins.md, docs/design.md §10) ----
+
+// One setting of a plugin, for the generated settings form.
+message PluginConfigItem {
+  string key = 1;
+  string label = 2;
+  string help = 3;
+  // string | int | float | bool | list | path | select | text
+  string type = 4;
+  // The plugin's default as JSON ("" = unknown).
+  string default_json = 5;
+  repeated string options = 6;
+  string group = 7;
+  // Secret values are never sent back; see AIPlugin.secrets_set.
+  bool secret = 8;
+  optional double min = 9;
+  optional double max = 10;
+}
+
+message AIPlugin {
+  int64 id = 1;
+  int64 ai_id = 2;
+  // Package (folder) name.
+  string dir = 3;
+  string name = 4;
+  string description = 5;
+  string usage = 6;
+  repeated string commands = 7;
+  // pip packages it needs.
+  repeated string requires = 8;
+  repeated PluginConfigItem config_items = 9;
+  // Current settings as a JSON object, secret ones left out.
+  string config_json = 10;
+  // Secret settings that have a value.
+  repeated string secrets_set = 11;
+  // pending | approved | rejected
+  string status = 12;
+  string reject_reason = 13;
+  bool enabled = 14;
+  int64 uploaded_at = 15;
+}
+
+// GET /api/v1/ai/{id}/plugins -> ListPluginsResponse
+message ListPluginsResponse {
+  repeated AIPlugin plugins = 1;
+  // The AI's plugin process: off | preparing | starting | running | error
+  string host_state = 2;
+  string host_error = 3;
+  // Its last log lines.
+  repeated string log = 4;
+  // What commands start with (config plugins.command_start), so the AI's own
+  // runner can leave plugin commands to the plugins.
+  repeated string command_start = 5;
+}
+
+// POST /api/v1/ai/{id}/plugins -> ListPluginsResponse (the plugins in the zip)
+message UploadPluginsRequest {
+  // An uploaded .zip (POST /api/v1/media).
+  int64 media_id = 1;
+}
+
+// PATCH /api/v1/ai/{id}/plugins/{plugin} -> AIPlugin
+message UpdatePluginRequest {
+  optional bool enabled = 1;
+  // Settings patch, a JSON object: key -> value sets it, key -> null goes
+  // back to the default, keys left out stay as they are. "" = no change.
+  string config_json = 2;
 }

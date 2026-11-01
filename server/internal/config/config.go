@@ -29,6 +29,7 @@ type Config struct {
 	Retention Retention `toml:"retention"`
 	Media     Media     `toml:"media"`
 	Stickers  Stickers  `toml:"stickers"`
+	Plugins   Plugins   `toml:"plugins"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
@@ -91,6 +92,19 @@ type Stickers struct {
 	Library        bool `toml:"library"`
 	DefaultPublic  bool `toml:"default_public"`
 	DedupeDistance int  `toml:"dedupe_distance"`
+}
+
+// Plugins configures NoneBot plugins of AI accounts (docs/plugins.md).
+type Plugins struct {
+	Enabled       bool     `toml:"enabled"`
+	Python        string   `toml:"python"`
+	PipIndex      string   `toml:"pip_index"`
+	CommandStart  []string `toml:"command_start"`
+	MaxZipMB      int      `toml:"max_zip_mb"`
+	MaxUnpackedMB int      `toml:"max_unpacked_mb"`
+	MaxPerAI      int      `toml:"max_per_ai"`
+	// NoSpawn: run the OneBot endpoint but no NoneBot processes (tests connect themselves).
+	NoSpawn bool `toml:"-"`
 }
 
 type Media struct {
@@ -280,6 +294,12 @@ func (c *Config) validate() error {
 	}
 	if c.Stickers.DedupeDistance < 0 || c.Stickers.DedupeDistance > 64 {
 		return errors.New("stickers.dedupe_distance must be 0-64")
+	}
+	if c.Plugins.MaxZipMB < 1 || c.Plugins.MaxUnpackedMB < c.Plugins.MaxZipMB || c.Plugins.MaxPerAI < 1 {
+		return errors.New("plugins: max_zip_mb >= 1, max_unpacked_mb >= max_zip_mb, max_per_ai >= 1")
+	}
+	if u := c.Plugins.PipIndex; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		return errors.New("plugins.pip_index must start with https://")
 	}
 	if c.Media.BlockDistance < 0 || c.Media.BlockDistance > 64 {
 		return errors.New("media.block_distance must be 0-64")

@@ -428,10 +428,26 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
 
 ## 10. Bot（第二阶段）
 
-- 管理放在 AI 那一栏里（Weiqi 定的）：自己的 bot / AI 的主页、资料、在哪些频道、触发规则等都在那里设置，不放到账号设置。bot / AI 是单独的账号，不占主人的设备名额。
-- 两种模式：本机运行 / 托管到服务器。
-- 托管先只做"配置型 bot"（选模型 + key + 提示词 + 触发规则），任意代码托管以后再说（需要容器隔离），并可做成付费；数据库预留配额字段。托管模式下 key 需交给服务器使用，界面明确提示。
-- 原生接口与客户端相同；另有 OneBot v11 兼容层，NoneBot2 插件改连接配置即可搬来。
+- 管理放在 AI 那一栏里（Weiqi 定的）：自己的 bot / AI 的主页、资料、在哪些频道、触发规则、插件等都在那里设置，不放到账号设置。bot / AI 是单独的账号，不占主人的设备名额。
+- 原生接口与客户端相同；另有 OneBot v11 兼容层，NoneBot2 插件不用改就能搬来（下面）。
+
+**插件**（2026-11-01，Weiqi：「bot 移植这次只要上传 onebot 的插件」「包括 ai 的插件之类的，都托管到服务器上」）
+
+- **跑在服务器上**：每个有插件的 AI 一个 NoneBot2 进程（`server/internal/plugin`，`host.go`），由 am-server 启动、挂了自动重启（5 秒起，每次 ×3，最多 5 分钟）。Windows 上不弹黑窗口。主人的设备关着插件也照常工作。
+- **OneBot v11 正向 WebSocket**：am-server 在 127.0.0.1 的随机端口上开 `/onebot/{ai}`，每个 AI 每次启动一个随机 token；NoneBot 用 `~websockets` 驱动连上来。连上时发 lifecycle connect，每 30 秒心跳。AI 收到的新消息（频道 = 群，私信 = 私聊；ID 一一对应）按顺序转给插件（每个 AI 一个队列，积压 512 条以上丢弃并记日志），AI 自己发的不转。插件调的接口翻译成 AM 的操作，发消息就是 AI 发的。翻译规则是纯函数（`onebot.go`，有单测）。支持的消息段和接口见 [plugins.md](plugins.md) 第 5 节；管理类接口（踢人、禁言、撤回）不给。
+- **Python 环境**：`data/plugins/venv` 一个虚拟环境，所有 AI 共用（`env.go`）。找 Python 3.10+（`plugins.python` 可指定；Windows 先试 `py -3`），自动装 NoneBot、OneBot 适配器和插件要的包（只装没装过的，可设 `plugins.pip_index` 镜像）。每个 AI 的目录 `data/plugins/ai-<id>/`：每次启动把已批准的插件复制进 `plugins/`，生成 `bot.py` 和 `.env`（驱动、连接、`COMMAND_START`、`NICKNAME` = AI 名、`SUPERUSERS` = 主人、localstore 目录、插件设置）。插件自己存的数据在 `data/`、`cache/`、`config/`，删插件不删。
+- **上传**：AI 设置 →「插件」→ 上传 zip（一个 zip 可以有好几个插件；带 `__init__.py` 的文件夹或单个 `.py`；`unpack.go`，纯函数有单测：拒绝 `..`、绝对路径、链接，扔掉缓存和 `.env`，名字只能是 Python 包名）。文件存在 `data/plugins/pkgs/<插件 id>/`，表 `ai_plugins`（一个 AI 一个文件夹名一行，状态 pending / approved / rejected、开关、设置 JSON）。同名再传 = 更新，设置留着，重新审核。
+- **管理员审核**：插件是能做任何事的程序，所以每个插件、每次更新都要站点管理员批准才运行（管理面板「插件」页，`admin/plugins.go`：看文件、读代码、批准 / 拒绝写原因，已批准的能停用；侧栏显示待审数）。站点管理员自己传的直接算批准。都记操作记录（`plugin_approve` / `plugin_reject`）。
+- **设置表单**：不跑插件代码，从源码里扫出名字、说明、用法、命令、设置项（`getattr(config, "key", 默认)`、包了一层的 `_c("key", 默认)`、`cfg*()`、pydantic 配置类）和要装的包（`scan.go`，纯函数有单测）；作者可以写 `am_plugin.json` 补标签、说明、类型、分组、范围、选项。客户端按这些生成表单（`app/PluginsTab.tsx`，`lib/plugins.ts` 纯函数有单测），服务器保存时按类型检查（`ApplyConfig`）。名字带 token / secret / password / key 的是密钥：只存服务器，不发回客户端。设置写进 `.env`，改了就重启那个 AI 的进程。
+- **和 AI 本身的关系**：AI 的模型聊天还在主人设备上跑；以插件命令开头的消息（命令前缀 + 插件命令）AI 不回，留给插件（`runner.ts` 用主人的会话读插件命令，10 分钟刷新一次）。
+- **配置**：`config.toml` 的 `[plugins]`：`enabled`（默认开）、`python`、`pip_index`、`command_start`（默认 `["/"]`）、`max_zip_mb`、`max_unpacked_mb`、`max_per_ai`。
+- **测试**：`server/internal/e2e/plugins_test.go` 用假 NoneBot 走完整流程；`AM_TEST_NONEBOT=1` 时 `plugins_nonebot_test.go` 装真的 NoneBot 跑一个插件（Weiqi 的 7 个插件也在真 NoneBot 里加载过，「/帮助」能回）。
+- **给别人写插件**：技术标准在 [plugins.md](plugins.md)。
+
+**以后**
+
+- **AI 托管到服务器**（Weiqi 2026-11-01 定了方向，下一批）：主人点「托管到服务器」→ 向管理员发申请 → 批准后 am-server 静默起一个客户端（host 模式，没有窗口）替主人运行这个 AI；模型 key 要交给服务器，界面明确提示。
+- 插件进程的资源限制 / 隔离（容器、沙盒），以后可以做成付费；数据库预留配额字段。
 
 ## 11. 表情包（第三阶段；个人表情、批量导入、公共表情库已提前做）
 

@@ -125,9 +125,9 @@ const groupCode = (c) => c.replace(/(.{4})(?=.)/g, '$1 ');
 
 // ---------- dialogs ----------
 
-function dialog(build) {
+function dialog(build, cls = '') {
   return new Promise((resolve) => {
-    const d = el('dialog');
+    const d = el('dialog', cls ? { class: cls } : {});
     const close = (v) => { d.close(); d.remove(); resolve(v); };
     d.addEventListener('cancel', (e) => { e.preventDefault(); close(null); });
     d.append(...build(close));
@@ -188,6 +188,7 @@ const PAGES = [
   { id: 'channels', name: '频道记录', render: renderChannels },
   { id: 'evidence', name: '删除记录', render: renderEvidence },
   { id: 'stickers', name: '表情库', render: renderStickers },
+  { id: 'plugins', name: '插件', render: renderPlugins },
   { id: 'audit', name: '操作记录', render: renderAudit },
   { id: 'logs', name: '运行日志', render: renderLogs },
   { id: 'settings', name: '设置', render: renderSettings },
@@ -263,6 +264,8 @@ function updateChrome() {
   if (userCount) userCount.textContent = s.stats ? s.stats.users : '';
   const evCount = document.querySelector('[data-page=evidence] .count');
   if (evCount) evCount.textContent = s.stats && s.stats.evidence ? s.stats.evidence : '';
+  const plCount = document.querySelector('[data-page=plugins] .count');
+  if (plCount) plCount.textContent = s.stats && s.stats.plugins_pending ? s.stats.plugins_pending + ' 待审' : '';
   document.title = (s.server_name || 'AM 服务器') + ' - 管理面板';
 }
 
@@ -925,6 +928,117 @@ async function renderStickers(root, page) {
   load();
 }
 
+// ---------- AI plugins ----------
+
+let pluginStatus = 'pending';
+
+// AI plugins (docs/plugins.md): NoneBot plugins people upload for their AIs.
+// They are programs with full access to this computer, so each upload waits
+// here until an admin has read it. Rejecting an approved one stops it.
+async function renderPlugins(root, page) {
+  root.append(stateBanner() || '');
+  const status = el('select', { 'aria-label': '显示哪些', onchange: () => { pluginStatus = status.value; load(); } },
+    [['pending', '待审核'], ['approved', '已批准'], ['rejected', '已拒绝'], ['', '全部']].map(([v, n]) => el('option', { value: v, selected: v === pluginStatus }, n)));
+  const box = el('div');
+  root.append(head('插件', '大家给自己的 AI 上传的 NoneBot 插件。插件是程序，能读写这台电脑上的文件、联网，所以每个插件（包括更新的版本）都要你先看过代码、批准以后才会运行。站点管理员自己上传的直接算批准。已批准的也可以随时拒绝，插件会马上停下。',
+    el('div', { class: 'sticker-filters' }, status)), box);
+
+  async function load() {
+    let data;
+    try {
+      data = await api('GET', 'plugins?status=' + pluginStatus);
+    } catch (e) { fail(e); return; }
+    if (currentPage !== page) return;
+    if (!data.enabled) {
+      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, '插件功能已关闭（设置 → config.toml 里的 [plugins] enabled）。')));
+      return;
+    }
+    if (!data.items.length) {
+      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, pluginStatus === 'pending' ? '没有等待审核的插件。' : '这里还没有插件。')));
+      return;
+    }
+    box.replaceChildren(...data.items.map(card));
+  }
+
+  const STATUS = { pending: ['待审核', 'warn'], approved: ['已批准', 'good'], rejected: ['已拒绝', 'bad'] };
+  const HOST = { running: '运行中', starting: '启动中', preparing: '安装依赖中', error: '出错了', off: '没在运行' };
+
+  function card(x) {
+    const [stText, stClass] = STATUS[x.status] || [x.status, ''];
+    const lines = [
+      el('div', { class: 'row' }, el('strong', {}, x.name || x.dir), el('span', { class: 'muted' }, x.dir), el('span', { class: 'tag ' + stClass }, stText),
+        x.status === 'approved' ? el('span', { class: 'muted' }, (x.enabled ? HOST[x.host_state] || x.host_state : '主人关掉了')) : ''),
+      el('div', { class: 'meta' }, 'AI：' + (x.ai_name || '(已删除)') + ' · 主人：' + (x.owner_name || '?') + ' · 上传于 ' + fmtTime(x.uploaded_at)),
+    ];
+    if (x.description) lines.push(el('p', {}, x.description));
+    if (x.commands && x.commands.length) lines.push(el('div', { class: 'meta' }, '命令：' + x.commands.join('、')));
+    lines.push(el('div', { class: 'meta' }, '需要安装：' + (x.requires && x.requires.length ? x.requires.join('、') : '无（只用 NoneBot 自带的）') + ' · ' + x.settings + ' 项设置'));
+    if (x.reject_reason) lines.push(el('div', { class: 'meta' }, '拒绝原因：' + x.reject_reason));
+    if (x.host_error) lines.push(el('div', { class: 'meta bad' }, x.host_error));
+    lines.push(el('div', { class: 'row' },
+      el('button', { class: 'btn small ghost', type: 'button', onclick: () => files(x) }, '看代码'),
+      x.status !== 'approved' ? el('button', { class: 'btn small primary', type: 'button', onclick: () => decide(x, true) }, '批准') : '',
+      x.status !== 'rejected' ? el('button', { class: 'btn small danger', type: 'button', onclick: () => decide(x, false) }, x.status === 'approved' ? '停用' : '拒绝') : ''));
+    return el('article', { class: 'panel' }, lines);
+  }
+
+  async function files(x) {
+    let list;
+    try {
+      list = (await api('GET', 'plugins/' + x.id + '/files')).files || [];
+    } catch (e) { fail(e); return; }
+    await dialog((close) => {
+      const code = el('pre', { class: 'code' }, '点左边的文件查看');
+      const show = async (f, btn) => {
+        try {
+          const r = await api('GET', 'plugins/' + x.id + '/files?path=' + encodeURIComponent(f.path));
+          code.textContent = r.binary ? '（二进制文件，' + f.size + ' 字节）' : r.text + (r.cut ? '\n…（太长，只显示前 512 KB）' : '');
+          list.forEach((_, i) => names.children[i] && names.children[i].classList.remove('on'));
+          btn.classList.add('on');
+        } catch (e) { fail(e); }
+      };
+      const names = el('div', { class: 'file-list' }, list.map((f) => {
+        const b = el('button', { type: 'button', class: 'file' }, f.path, el('span', { class: 'muted' }, ' ' + fmtBytes(f.size)));
+        b.addEventListener('click', () => show(f, b));
+        return b;
+      }));
+      const first = list.find((f) => f.path === '__init__.py') || list[0];
+      if (first) setTimeout(() => show(first, names.children[list.indexOf(first)]), 0);
+      return [el('h2', {}, (x.name || x.dir) + ' 的文件'),
+        el('div', { class: 'body plugin-files' }, names, code),
+        el('div', { class: 'foot' }, el('button', { class: 'btn', type: 'button', onclick: () => close(null) }, '关闭'))];
+    }, 'wide');
+  }
+
+  async function decide(x, approve) {
+    let reason = '';
+    if (approve) {
+      if (!await confirmDialog({ title: '批准「' + (x.name || x.dir) + '」', text: '批准后它会在这台电脑上以 ' + (x.ai_name || 'AI') + ' 的身份运行，能读写文件、联网。确定看过代码了吗？', ok: '批准' })) return;
+    } else {
+      const res = await dialog((close) => {
+        const input = el('input', { type: 'text', maxlength: 200, placeholder: '比如：会删文件 / 要的权限太多' });
+        const submit = (e) => { e.preventDefault(); close({ reason: input.value.trim() }); };
+        return [el('form', { onsubmit: submit },
+          el('h2', {}, (x.status === 'approved' ? '停用「' : '拒绝「') + (x.name || x.dir) + '」'),
+          el('div', { class: 'body' }, el('label', {}, el('div', { class: 'field-label' }, '原因（主人能看到，也记入操作记录）'), input)),
+          el('div', { class: 'foot' },
+            el('button', { class: 'btn', type: 'button', onclick: () => close(null) }, '取消'),
+            el('button', { class: 'btn primary danger-fill', type: 'submit' }, x.status === 'approved' ? '停用' : '拒绝')))];
+      });
+      if (!res) return;
+      reason = res.reason;
+    }
+    try {
+      await api('POST', 'plugins/' + x.id + '/decide', { approve, reason });
+      toast(approve ? '已批准，插件马上开始运行' : '已拒绝');
+      refreshStatus();
+      load();
+    } catch (e) { fail(e); }
+  }
+
+  load();
+}
+
 // ---------- audit ----------
 
 const AUDIT_TEXT = {
@@ -934,6 +1048,7 @@ const AUDIT_TEXT = {
   invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录', server_profile: '修改了服务器主页设置',
   server_layout: '修改了服务器主页的小组件', profile_clear: '清空了个人主页：', guestbook_delete: '删除了一条留言',
   sticker_hide: '在表情库里隐藏了一张表情', sticker_unhide: '在表情库里恢复显示了一张表情',
+  plugin_approve: '批准了 AI 插件：', plugin_reject: '拒绝 / 停用了 AI 插件：',
   sticker_delete: '从表情库删除了一张表情', sticker_tag_remove: '删掉了表情库里的一个标签：',
 };
 

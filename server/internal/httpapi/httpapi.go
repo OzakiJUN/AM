@@ -24,6 +24,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/media"
 	"github.com/OzakiJUN/am/server/internal/message"
 	"github.com/OzakiJUN/am/server/internal/music"
+	"github.com/OzakiJUN/am/server/internal/plugin"
 	"github.com/OzakiJUN/am/server/internal/presence"
 	"github.com/OzakiJUN/am/server/internal/profile"
 	"github.com/OzakiJUN/am/server/internal/sticker"
@@ -47,6 +48,7 @@ type API struct {
 	stickers  *sticker.Service
 	music     *music.Service
 	games     *game.Service
+	plugins   *plugin.Service
 	log       *slog.Logger
 	limiter   *ipLimiter
 	syncRate  *uploadPacer
@@ -109,7 +111,11 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/pair/redeem", a.limited(a.redeemPair))
 	mux.HandleFunc("GET /api/v1/me/client-state", a.authed(a.getClientState))
 	mux.HandleFunc("PUT /api/v1/me/client-state", a.authed(a.putClientState))
-	mux.HandleFunc("GET /api/v1/server", func(w http.ResponseWriter, r *http.Request) { a.ok(w, a.acct.ServerInfo()) })
+	mux.HandleFunc("GET /api/v1/server", func(w http.ResponseWriter, r *http.Request) {
+		info := a.acct.ServerInfo()
+		info.Plugins = a.plugins != nil && a.plugins.Enabled()
+		a.ok(w, info)
+	})
 	mux.HandleFunc("GET /api/v1/server/icon", a.serverIcon)
 	mux.HandleFunc("GET /api/v1/server/profile", a.authed(a.serverProfile))
 	mux.HandleFunc("GET /api/v1/invites", a.authed(a.listInvites))
@@ -147,6 +153,7 @@ func (a *API) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /api/v1/events/{id}/delete", a.authed(a.adminDelete))
 	a.registerProfiles(mux)
+	a.registerPlugins(mux)
 
 	mux.HandleFunc("POST /api/v1/media", a.authed(a.upload))
 	mux.HandleFunc("GET /api/v1/media/{id}", a.authed(a.download(false)))

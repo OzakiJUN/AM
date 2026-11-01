@@ -31,6 +31,7 @@ import { firstFree, placements } from '../widgets';
 import { describePage, editPage, type PageEdit } from './page';
 import { applyRemember, recentAcrossChats, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory, type Who } from './memory';
 import { CATEGORY_NAME, useWorkshop } from '../workshop';
+import { isPluginCommand } from '../plugins';
 import { GAME_INFO, gameText, gomokuMove, parseCoord, resultText, seatOf, trailMove, type Game, type GameKind, type TrailQ } from '../games';
 
 interface AIState {
@@ -84,6 +85,8 @@ interface Run {
   memoryLoaded: boolean;
   /** Serialize writes to the single server-side memory document. */
   memoryQueue: Promise<void>;
+  /** Commands of its running plugins (docs/plugins.md): those messages are left to them. */
+  plugins: { starts: string[]; commands: string[]; at: number };
   lastThought: number;
   rememberTimers: Map<string, ReturnType<typeof setTimeout>>;
 }
@@ -159,7 +162,7 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   const run: Run = {
     serverId, ai, settings, s: null as unknown as Session, busy: new Set(), again: new Set(), greeted: false,
     pending: new Map(), sends: new Map(), statusUntil: 0, ownerOnline: false, ownerActivity: '', pageChecked: false,
-    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, memoryQueue: Promise.resolve(), lastThought: Date.now(), rememberTimers: new Map(),
+    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, memoryQueue: Promise.resolve(), plugins: { starts: [], commands: [], at: 0 }, lastThought: Date.now(), rememberTimers: new Map(),
   };
   run.s = new Session(
     record,
@@ -200,6 +203,7 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   runs.set(key, run);
   patch('running', key, false);
   run.routine = setInterval(() => void tickRoutine(run), 30_000);
+  void loadPluginCommands(run);
   await run.s.start();
 }
 
@@ -228,10 +232,31 @@ async function greet(run: Run) {
   }
 }
 
+/** Reads its plugins' commands (with the owner's session: only the owner may list them). */
+async function loadPluginCommands(run: Run) {
+  const owner = session(run.serverId);
+  if (!owner?.view.plugins) return;
+  try {
+    const l = await owner.listPlugins(run.ai.user.id);
+    const on = l.plugins.filter((p) => p.status === 'approved' && p.enabled);
+    run.plugins = { starts: l.commandStart, commands: on.flatMap((p) => p.commands), at: Date.now() };
+  } catch {
+    run.plugins = { ...run.plugins, at: Date.now() };
+  }
+}
+
+/** The owner changed its plugins: read the commands again. */
+export function refreshPluginCommands(serverId: string, aiId: string) {
+  const run = runs.get(k(serverId, aiId));
+  if (run) void loadPluginCommands(run);
+}
+
 function onMessage(run: Run, convId: string, m: Message) {
   const conv = run.s.view.convs[convId];
   if (!conv) return;
   scheduleRemember(run, convId);
+  // A plugin command: the plugin answers, not the model.
+  if (m.body.kind === 'text' && isPluginCommand(m.body.text, run.plugins.starts, run.plugins.commands)) return;
   // The session stores the new message right after telling us: look a tick later.
   if (conv.kind === 'group') {
     setTimeout(() => considerChannel(run, convId, m), 0);
@@ -1011,6 +1036,7 @@ function saveDone(key: string, day: string, done: Set<string>) {
 
 async function tickRoutine(run: Run) {
   if (run.s.view.status !== 'online') return;
+  if (Date.now() - run.plugins.at > 10 * 60_000) void loadPluginCommands(run);
   await tickProactive(run).catch(() => {});
   if (run.statusUntil && Date.now() > run.statusUntil) {
     run.statusUntil = 0;
