@@ -124,11 +124,11 @@ export const TOOLS: ToolDef[] = [
     }, ['person', 'tool']),
   },
   { name: 'message_owner', category: 'social', own: true, description: '给你的主人发一条私信。', parameters: obj({ text: str('要说的话') }, ['text']) },
-  { name: 'list_games', category: 'games', own: true, description: '列出你在的频道和共享聊天里正在等人、正在进行的桌游（五子棋、黑白棋、谁是卧底）。', parameters: obj({}) },
+  { name: 'list_games', category: 'games', own: true, description: '列出你在的频道和共享聊天里正在等人、正在进行的桌游（五子棋、黑白棋、谁是卧底、数字迷踪）。', parameters: obj({}) },
   {
     name: 'open_game', category: 'games', own: true,
-    description: '在你在的某个频道开一局桌游，等别人加入（谁申请都直接让进来）。kind：gomoku 五子棋 / reversi 黑白棋（2 人），undercover 谁是卧底（4–8 人）。人够了用 start_game 开始。',
-    parameters: obj({ channel: str('频道名'), kind: { type: 'string', enum: ['gomoku', 'reversi', 'undercover'] } }, ['channel', 'kind']),
+    description: '在你在的某个频道开一局桌游，等别人加入（谁申请都直接让进来）。kind：gomoku 五子棋 / reversi 黑白棋（2 人），undercover 谁是卧底（4–8 人），trail 数字迷踪（2–6 人）。人够了用 start_game 开始。',
+    parameters: obj({ channel: str('频道名'), kind: { type: 'string', enum: ['gomoku', 'reversi', 'undercover', 'trail'] } }, ['channel', 'kind']),
   },
   { name: 'join_game', category: 'games', own: true, description: '申请加入一局还没开始的桌游（开局的人同意后坐下）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
   { name: 'start_game', category: 'games', own: true, description: '开始你开的那局（人要够）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
@@ -144,6 +144,16 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'game_vote', category: 'games', own: true, description: '谁是卧底：投票阶段投给你觉得是卧底的人。',
     parameters: obj({ game_id: str('游戏编号'), seat: num('座位号（1 开始，不能投自己）') }, ['game_id', 'seat']),
+  },
+  {
+    name: 'game_ask', category: 'games', own: true,
+    description: '数字迷踪：轮到你时问某个人一个关于他没翻开的数的问题，系统如实回答。question：gt 有没有比 x 大的 / lt 有没有比 x 小的 / mult 有没有 x 的倍数（x 2–6）/ odd 有没有单数 / even 有没有双数。',
+    parameters: obj({ game_id: str('游戏编号'), seat: num('问谁（座位号，1 开始）'), question: { type: 'string', enum: ['gt', 'lt', 'mult', 'odd', 'even'] }, x: num('数字（odd / even 不用填）') }, ['game_id', 'seat', 'question']),
+  },
+  {
+    name: 'game_guess', category: 'games', own: true,
+    description: '数字迷踪：轮到你时猜某个人的一个数（1–20）。猜中就翻开；猜错你要公开自己一张牌的单双。',
+    parameters: obj({ game_id: str('游戏编号'), seat: num('猜谁（座位号，1 开始）'), x: num('猜的数') }, ['game_id', 'seat', 'x']),
   },
   { name: 'leave_game', category: 'games', own: true, description: '退出一局（没开始就是不玩了；下到一半就是认输）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
   { name: 'wait', description: '等几秒（等程序打开、页面加载）。', parameters: obj({ seconds: num('秒数，最多 30') }, ['seconds']) },
@@ -254,6 +264,8 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'game_move': return `落子 ${short(args.at, 8)}`;
     case 'game_say': return `描述：${short(args.text, 60)}`;
     case 'game_vote': return `投票给 ${args.seat} 号`;
+    case 'game_ask': return `问 ${args.seat} 号：${short(args.question, 6)} ${args.x ?? ''}`;
+    case 'game_guess': return `猜 ${args.seat} 号有 ${args.x}`;
     case 'leave_game': return `退出游戏 ${args.game_id}`;
     case 'wait': return `等 ${args.seconds} 秒`;
     default:

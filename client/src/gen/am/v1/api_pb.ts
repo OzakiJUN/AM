@@ -1873,6 +1873,7 @@ export const ListGamesResponseSchema: GenMessage<ListGamesResponse> = /*@__PURE_
 export type GameActRequest = Message<"am.v1.GameActRequest"> & {
   /**
    * move (x, y) | say (text) | vote (target seat) | resign
+   * 数字迷踪: ask (target seat, text = gt / lt / mult / odd / even, x) | guess (target seat, x)
    *
    * @generated from field: string action = 1;
    */

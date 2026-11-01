@@ -1,18 +1,19 @@
 // Board games in a channel or shared AI room (docs/design.md §13 小游戏):
 // the 「开一局」 button in the header, the strip of this conversation's
 // games above the messages, and the game window (board, seats, asking to
-// join, 谁是卧底's words / descriptions / votes). The server checks the
+// join, 谁是卧底's words / descriptions / votes, 数字迷踪's cards, questions
+// and guesses). The server checks the
 // rules; lib/games.ts reads its state.
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Crown, Flag, Gamepad2, History, LogOut, Play, RotateCcw, Users, X } from 'lucide-react';
 import { create } from 'zustand';
-import { GAME_INFO, KINDS, coord, countStones, resultText, seatOf, type Game, type GameKind } from '@/lib/games';
+import { GAME_INFO, KINDS, TRAIL_MAX, TRAIL_QUESTIONS, coord, countStones, questionText, resultText, seatOf, stepText, type Game, type GameKind, type TrailQ } from '@/lib/games';
 import { session } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation } from '@/lib/types';
 import { chatTime } from '@/lib/format';
-import { Button, Dialog, IconButton, Input, Spinner, Toggle, cx, openMenu, spring, toast } from '@/ui';
+import { Button, Dialog, IconButton, Input, Segmented, Spinner, Toggle, cx, openMenu, spring, toast } from '@/ui';
 import { UserAvatar } from './media';
 
 /** The game window that is open (one at a time), and finished games I closed (out of the strip). */
@@ -143,7 +144,7 @@ export function GameBar({ v, conv }: { v: SessionView; conv: Conversation }) {
           })}
         </div>
       )}
-      <Dialog open={!!open} onClose={() => useGameWindow.setState({ id: '' })} title={open ? GAME_INFO[open.kind].name : ''} width={open?.kind === 'undercover' ? 620 : 860}>
+      <Dialog open={!!open} onClose={() => useGameWindow.setState({ id: '' })} title={open ? GAME_INFO[open.kind].name : ''} width={open?.kind === 'undercover' || open?.kind === 'trail' ? 640 : 860}>
         {open && <GameWindow v={v} g={open} />}
       </Dialog>
     </>
@@ -158,8 +159,8 @@ function GameWindow({ v, g }: { v: SessionView; g: Game }) {
   const info = GAME_INFO[g.kind];
   const asked = g.applicants.includes(me);
   return (
-    <div className={cx('flex gap-5', g.kind === 'undercover' ? 'flex-col' : 'flex-col md:flex-row')}>
-      {g.kind !== 'undercover' && g.status !== 'waiting' && <Board v={v} g={g} />}
+    <div className={cx('flex gap-5', !boardGame(g) ? 'flex-col' : 'flex-col md:flex-row')}>
+      {boardGame(g) && g.status !== 'waiting' && <Board v={v} g={g} />}
       <div className="min-w-0 flex-1 space-y-3">
         <div className={cx('rounded-xl px-3 py-2 text-[0.9rem] font-medium', g.waitingOn.includes(me) ? 'bg-accent-100 text-accent-700 dark:bg-accent/20 dark:text-accent-100' : 'bg-black/[0.04] dark:bg-white/[0.05]')} data-testid="game-status">
           {g.status === 'waiting' ? `等人加入（${g.players.length}/${info.max}，至少 ${info.min} 人）` : statusLine(v, g)}
@@ -185,6 +186,7 @@ function GameWindow({ v, g }: { v: SessionView; g: Game }) {
           </div>
         )}
         {g.kind === 'undercover' && g.status !== 'waiting' && <Undercover v={v} g={g} />}
+        {g.kind === 'trail' && g.status !== 'waiting' && <Trail v={v} g={g} />}
         <div className="flex flex-wrap gap-2">
           {g.status === 'waiting' && seat < 0 && (
             <Button variant="primary" disabled={asked || g.players.length >= info.max} onClick={() => s().gameStep(g.id, 'join').then((x) => toast(seatOf(x, me) >= 0 ? '坐下了' : '申请了，等开局的人同意'))}>
@@ -198,7 +200,7 @@ function GameWindow({ v, g }: { v: SessionView; g: Game }) {
             <Button variant="soft" onClick={() => s().gameStep(g.id, 'leave')}><LogOut size={15} /> {host ? '不玩了，关掉' : '退出'}</Button>
           )}
           {g.status === 'playing' && seat >= 0 && !g.players[seat].out && (
-            <Button variant="soft" onClick={() => s().gameStep(g.id, 'leave')}><Flag size={15} /> {g.kind === 'undercover' ? '退出这局' : '认输'}</Button>
+            <Button variant="soft" onClick={() => s().gameStep(g.id, 'leave')}><Flag size={15} /> {boardGame(g) ? '认输' : '退出这局'}</Button>
           )}
           {g.status === 'playing' && host && (
             <Button variant="soft" onClick={() => s().gameStep(g.id, 'end')}><X size={15} /> 结束这局</Button>
@@ -216,8 +218,11 @@ function GameWindow({ v, g }: { v: SessionView; g: Game }) {
   );
 }
 
+/** 五子棋 / 黑白棋: two seats, black and white, a board. */
+const boardGame = (g: Game) => g.kind === 'gomoku' || g.kind === 'reversi';
+
 function Seats({ v, g }: { v: SessionView; g: Game }) {
-  const board = g.kind !== 'undercover';
+  const board = boardGame(g);
   return (
     <div className="space-y-1">
       {g.players.map((p, i) => {
@@ -376,4 +381,105 @@ function Undercover({ v, g }: { v: SessionView; g: Game }) {
       )}
     </div>
   );
+}
+
+/** 数字迷踪: everyone's cards (mine face up for me), what was asked and guessed, my turn. */
+function Trail({ v, g }: { v: SessionView; g: Game }) {
+  const me = v.me?.id ?? '';
+  const seat = seatOf(g, me);
+  const st = g.state;
+  const hands = st.hands ?? [];
+  const myTurn = g.status === 'playing' && g.waitingOn.includes(me);
+  const others = g.players.flatMap((p, i) => (i !== seat && !p.out ? [i] : []));
+  const [target, setTarget] = useState(-1);
+  const [mode, setMode] = useState<'ask' | 'guess'>('ask');
+  const [q, setQ] = useState<TrailQ>('gt');
+  const [x, setX] = useState('10');
+  const tgt = others.includes(target) ? target : others[0] ?? -1;
+  const qInfo = TRAIL_QUESTIONS.find((t) => t.q === q)!;
+  const needX = mode === 'guess' || qInfo.max > 0;
+  const n = Number(x);
+  const lo = mode === 'guess' ? 1 : qInfo.min;
+  const hi = mode === 'guess' ? TRAIL_MAX : qInfo.max;
+  const valid = tgt >= 0 && (!needX || (Number.isInteger(n) && n >= lo && n <= hi));
+  const s = () => session(v.id)!;
+  const act = () => s().actGame(g.id, mode === 'guess' ? { action: 'guess', target: tgt, x: n } : { action: 'ask', target: tgt, text: q, x: needX ? n : 0 });
+  const steps = st.steps ?? [];
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5" data-testid="trail-hands">
+        {g.players.map((p, i) => {
+          const h = hands[i];
+          if (!h) return null;
+          return (
+            <div key={p.userId} className={cx('flex items-center gap-2', p.out && 'opacity-50')}>
+              <span className="w-20 shrink-0 truncate text-[0.82rem] text-ink-soft dark:text-white/55">{i + 1}号 {i === seat ? '你' : name(v, p.userId)}</span>
+              {h.nums.map((num, k) => {
+                const open = h.shown[k];
+                const mine = i === seat;
+                return (
+                  <motion.span key={k} layout transition={spring} title={h.hinted[k] && !open ? '猜错时公开过单双' : undefined}
+                    className={cx('relative flex h-11 w-9 items-center justify-center rounded-lg text-[1rem] font-bold tabular-nums shadow-sm',
+                      open ? 'bg-white text-ink ring-1 ring-black/10 dark:bg-white/90' : mine ? 'bg-accent-100 text-accent-700 dark:bg-accent/25 dark:text-white' : 'bg-gradient-to-br from-slate-600 to-slate-800 text-white/80')}
+                    data-testid={open ? 'card-open' : 'card'}>
+                    {open || mine ? num : '?'}
+                    {h.hinted[k] && !open && (
+                      <span className="absolute -right-1.5 -bottom-1.5 rounded-full bg-amber-400 px-1 text-[0.6rem] leading-4 text-black">
+                        {mine ? (num % 2 ? '单' : '双') : stepHint(steps, i, k)}
+                      </span>
+                    )}
+                    {open && <span className="absolute inset-x-1 bottom-0.5 h-0.5 rounded bg-rose-400/70" aria-hidden />}
+                  </motion.span>
+                );
+              })}
+              {i === seat && g.status === 'playing' && <span className="text-[0.72rem] text-ink-soft dark:text-white/45">只有你看得到</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl bg-black/[0.03] p-2.5 text-[0.84rem] dark:bg-white/[0.04]" data-testid="trail-steps">
+        {steps.length ? steps.map((x2, i) => (
+          <div key={i} className={cx(x2.kind === 'guess' && x2.yes && 'font-medium text-emerald-700 dark:text-emerald-300')}>{stepText(g, x2, (id) => name(v, id))}</div>
+        )) : <div className="text-ink-soft dark:text-white/45">还没人行动。</div>}
+      </div>
+      {myTurn && (
+        <form className="space-y-2 rounded-xl bg-accent-50 p-3 dark:bg-white/[0.06]" data-testid="trail-act" onSubmit={(e) => {
+          e.preventDefault();
+          if (valid) void act().catch((err) => toast(err instanceof Error ? err.message : String(err), true));
+        }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented id="trail-mode" value={mode} onChange={setMode} options={[{ value: 'ask', label: '问' }, { value: 'guess', label: '猜' }]} />
+            <select value={tgt} onChange={(e) => setTarget(Number(e.target.value))} aria-label="对谁"
+              className="h-9 rounded-xl border border-black/10 bg-white/90 px-2 text-[0.88rem] dark:border-white/10 dark:bg-white/5">
+              {others.map((i) => <option key={i} value={i}>{i + 1}号 {name(v, g.players[i].userId)}</option>)}
+            </select>
+            {mode === 'ask' && (
+              <select value={q} onChange={(e) => setQ(e.target.value as TrailQ)} aria-label="问什么"
+                className="h-9 rounded-xl border border-black/10 bg-white/90 px-2 text-[0.88rem] dark:border-white/10 dark:bg-white/5">
+                {TRAIL_QUESTIONS.map((t) => <option key={t.q} value={t.q}>{t.text}</option>)}
+              </select>
+            )}
+            {needX && (
+              <div className="w-20 shrink-0">
+                <Input value={x} onChange={(e) => setX(e.target.value.replace(/\D/g, '').slice(0, 2))} inputMode="numeric" aria-label={mode === 'guess' ? '猜的数' : 'X'}
+                  placeholder={`${lo}–${hi}`} className="h-9" />
+              </div>
+            )}
+            <Button variant="primary" type="submit" disabled={!valid}>{mode === 'guess' ? '猜' : '问'}</Button>
+          </div>
+          <div className="text-[0.78rem] text-ink-soft dark:text-white/50">
+            {tgt < 0 ? '' : mode === 'guess'
+              ? `猜 ${tgt + 1}号 有 ${valid ? n : '?'}：猜错了要公开你一张牌的单双。`
+              : `问 ${tgt + 1}号：${questionText(q, valid ? n : 0)}？${needX ? `（X 在 ${lo}–${hi}）` : ''}`}
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** Parity of someone else's card k, from the wrong guess that gave it away. */
+function stepHint(steps: Game['state']['steps'], seat: number, k: number): string {
+  const s = (steps ?? []).find((x) => x.kind === 'guess' && !x.yes && x.seat === seat && x.hint === k);
+  return s ? (s.odd ? '单' : '双') : '?';
 }

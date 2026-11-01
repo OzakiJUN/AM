@@ -563,7 +563,7 @@ export class Session {
     return this.gameCall('PATCH', `/api/v1/games/${id}`, { schema: api.SetGameRequestSchema, value: { autoApprove } });
   }
 
-  actGame(id: string, act: { action: 'move' | 'say' | 'vote' | 'resign'; x?: number; y?: number; text?: string; target?: number }) {
+  actGame(id: string, act: { action: 'move' | 'say' | 'vote' | 'resign' | 'ask' | 'guess'; x?: number; y?: number; text?: string; target?: number }) {
     return this.gameCall('POST', `/api/v1/games/${id}/act`, { schema: api.GameActRequestSchema, value: act });
   }
 
