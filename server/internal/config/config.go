@@ -28,6 +28,7 @@ type Config struct {
 	Limits    Limits    `toml:"limits"`
 	Retention Retention `toml:"retention"`
 	Media     Media     `toml:"media"`
+	Stickers  Stickers  `toml:"stickers"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
@@ -82,6 +83,13 @@ type Retention struct {
 	EvidenceDays    int `toml:"evidence_days"`
 	LoginRecordDays int `toml:"login_record_days"`
 	GamesDays       int `toml:"games_days"`
+}
+
+// Stickers configures the shared sticker library (docs/design.md §11).
+type Stickers struct {
+	Library        bool `toml:"library"`
+	DefaultPublic  bool `toml:"default_public"`
+	DedupeDistance int  `toml:"dedupe_distance"`
 }
 
 type Media struct {
@@ -265,6 +273,9 @@ func (c *Config) validate() error {
 	}
 	if c.Retention.GamesDays < 1 {
 		return errors.New("retention.games_days must be >= 1")
+	}
+	if c.Stickers.DedupeDistance < 0 || c.Stickers.DedupeDistance > 64 {
+		return errors.New("stickers.dedupe_distance must be 0-64")
 	}
 	if c.Media.BlockDistance < 0 || c.Media.BlockDistance > 64 {
 		return errors.New("media.block_distance must be 0-64")

@@ -104,6 +104,11 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 		kind = KindText
 	case *amv1.SendRequest_Image:
 		m, err := s.media.OwnUpload(ctx, me.ID, b.Image.GetMediaId(), true)
+		if errors.Is(err, media.ErrMediaMissing) {
+			// Someone else's picture: fine when it is a sticker I have or one
+			// in the shared library.
+			m, err = s.media.StickerImage(ctx, me.ID, b.Image.GetMediaId())
+		}
 		if err != nil {
 			return nil, err
 		}

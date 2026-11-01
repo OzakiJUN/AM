@@ -32,8 +32,10 @@ type App struct {
 	Account *account.Service
 	Media   *media.Service
 	Profile *profile.Service
-	Janitor *janitor.Janitor
-	Handler http.Handler
+	// Stickers: collections and the shared library (the panel's 表情库 page).
+	Stickers *sticker.Service
+	Janitor  *janitor.Janitor
+	Handler  http.Handler
 }
 
 // New opens the database, applies migrations and builds the HTTP handler.
@@ -73,19 +75,24 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	acct.OnLeft(cs.LeaveAll)
 	prof := profile.New(st, ids, acct, cs, md, cfg.Retention)
 
+	sk := sticker.New(st, ids, md, sticker.Config{Max: cfg.Limits.MaxStickers, Library: cfg.Stickers.Library,
+		DefaultPublic: cfg.Stickers.DefaultPublic, DedupeDistance: cfg.Stickers.DedupeDistance, EvidenceDays: cfg.Retention.EvidenceDays})
+	sk.LinkWaiting(ctx, log)
+
 	mux := http.NewServeMux()
-	httpapi.New(acct, cs, ms, md, ps, prof, sticker.New(st, ids, md, cfg.Limits.MaxStickers),
+	httpapi.New(acct, cs, ms, md, ps, prof, sk,
 		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, log).Register(mux)
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
 
 	return &App{
-		Store:   st,
-		Hub:     hub,
-		Account: acct,
-		Media:   md,
-		Profile: prof,
-		Janitor: janitor.New(st, md, cfg.Retention, log),
-		Handler: mux,
+		Store:    st,
+		Hub:      hub,
+		Account:  acct,
+		Media:    md,
+		Profile:  prof,
+		Stickers: sk,
+		Janitor:  janitor.New(st, md, cfg.Retention, log),
+		Handler:  mux,
 	}, nil
 }
 

@@ -24,10 +24,12 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 	"math/bits"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -267,6 +269,147 @@ func (s *Service) OwnUpload(ctx context.Context, userID, mediaID int64, mustBeIm
 		return nil, ErrNotImage
 	}
 	return m, nil
+}
+
+// StickerImage returns an image a user may send as a sticker although
+// they did not upload it: it is in their collection or in the shared
+// sticker library.
+func (s *Service) StickerImage(ctx context.Context, userID, mediaID int64) (*store.Media, error) {
+	ok, err := s.st.StickerMediaUsable(ctx, userID, mediaID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrMediaMissing
+	}
+	m, err := s.st.GetMedia(ctx, mediaID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrMediaMissing
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !m.IsImage {
+		return nil, ErrNotImage
+	}
+	return m, nil
+}
+
+// VisibleImage returns an image the user uploaded or may see (e.g. one sent
+// in a chat they are in), for putting it into their sticker collection.
+func (s *Service) VisibleImage(ctx context.Context, userID, mediaID int64) (*store.Media, error) {
+	m, err := s.st.GetMedia(ctx, mediaID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrMediaMissing
+	}
+	if err != nil {
+		return nil, err
+	}
+	if m.UploaderID != userID {
+		ok, err := s.st.CanAccessMedia(ctx, mediaID, userID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, ErrMediaMissing
+		}
+	}
+	if !m.IsImage {
+		return nil, ErrNotImage
+	}
+	return m, nil
+}
+
+// Fingerprint returns a 256-bit perceptual hash (64 hex digits) of an
+// image file, finer than the 64-bit one used for the blocklist: the shared
+// sticker library uses it to find copies that look the same (re-saved,
+// resized). "" when the picture is too plain to compare that way (then
+// only identical files match). GIFs use their first frame.
+func (s *Service) Fingerprint(m *store.Media) (string, error) {
+	f, err := os.Open(s.blobPath(m.SHA256))
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil || cfg.Width*cfg.Height > maxPixels {
+		return "", ErrBadImage
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return "", ErrBadImage
+	}
+	h, ok := PHash256(img)
+	if !ok {
+		return "", nil
+	}
+	return fmt.Sprintf("%016x%016x%016x%016x", h[0], h[1], h[2], h[3]), nil
+}
+
+// PHash256 is a DCT perceptual hash: shrink to 32x32 grey, take the 16x16
+// lowest frequencies, one bit per coefficient = "above their median". About
+// half the bits are set for any picture, so different pictures land about
+// 128 bits apart and re-saved / resized copies a few bits apart. ok is
+// false for pictures with hardly any contrast.
+func PHash256(img image.Image) (h [4]uint64, ok bool) {
+	const n = 32
+	small := image.NewGray(image.Rect(0, 0, n, n))
+	xdraw.CatmullRom.Scale(small, small.Bounds(), img, img.Bounds(), draw.Src, nil)
+	var px [n][n]float64
+	var sum, sq float64
+	for y := 0; y < n; y++ {
+		for x := 0; x < n; x++ {
+			v := float64(small.GrayAt(x, y).Y)
+			px[y][x] = v
+			sum += v
+			sq += v * v
+		}
+	}
+	mean := sum / (n * n)
+	if sq/(n*n)-mean*mean < 8*8 { // standard deviation under 8 of 255
+		return h, false
+	}
+	// Separable DCT-II, only the 16 lowest frequencies each way.
+	var cos [16][n]float64
+	for u := 0; u < 16; u++ {
+		for x := 0; x < n; x++ {
+			cos[u][x] = math.Cos(float64(2*x+1) * float64(u) * math.Pi / (2 * n))
+		}
+	}
+	var rows [n][16]float64
+	for y := 0; y < n; y++ {
+		for u := 0; u < 16; u++ {
+			var a float64
+			for x := 0; x < n; x++ {
+				a += px[y][x] * cos[u][x]
+			}
+			rows[y][u] = a
+		}
+	}
+	var c [256]float64
+	for v := 0; v < 16; v++ {
+		for u := 0; u < 16; u++ {
+			var a float64
+			for y := 0; y < n; y++ {
+				a += rows[y][u] * cos[v][y]
+			}
+			c[v*16+u] = a
+		}
+	}
+	// Median of the AC coefficients (the DC one is just the brightness).
+	ac := make([]float64, 255)
+	copy(ac, c[1:])
+	sort.Float64s(ac)
+	med := (ac[126] + ac[127]) / 2
+	for i := 1; i < 256; i++ {
+		if c[i] > med {
+			h[i/64] |= 1 << (63 - uint(i%64))
+		}
+	}
+	return h, true
 }
 
 // File is an opened media file ready to be served.

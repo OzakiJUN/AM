@@ -47,6 +47,8 @@ const TEXT: Record<string, string> = {
   rate_limited: '操作太频繁了，等一会儿再试',
   ai_limit: 'AI 已经建到上限了',
   sticker_limit: '表情存满了，删掉一些再导入',
+  sticker_tags_full: '这个表情的标签已经满了（最多 20 个）',
+  sticker_library_off: '这个服务器关掉了公共表情库',
   game_bad_move: '这一步不行（位置被占了、不合规则，或者描述里直接说出了词）',
   not_your_turn: '还没轮到你',
   game_state: '这局现在不能这样做（还没开始或已经结束）',

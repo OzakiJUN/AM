@@ -480,7 +480,8 @@ var settingKinds = map[string]string{
 	"limits.login_attempts_per_minute": "int", "limits.max_devices": "int", "limits.pair_code_minutes": "int", "limits.max_ai_per_user": "int",
 	"retention.evidence_days": "int", "retention.login_record_days": "int",
 	"media.block_distance": "int",
-	"admin.open_browser":   "bool", "admin.tray": "bool", "admin.listen": "string", "admin.window": "bool",
+	"stickers.library":     "bool", "stickers.default_public": "bool", "stickers.dedupe_distance": "int", "limits.max_stickers": "int",
+	"admin.open_browser": "bool", "admin.tray": "bool", "admin.listen": "string", "admin.window": "bool",
 	"log.level": "string",
 }
 
@@ -496,7 +497,9 @@ func settingValues(c *config.Config) map[string]any {
 		"limits.max_ai_per_user":  c.Limits.MaxAIPerUser,
 		"retention.evidence_days": c.Retention.EvidenceDays, "retention.login_record_days": c.Retention.LoginRecordDays,
 		"media.block_distance": c.Media.BlockDistance,
-		"admin.open_browser":   c.Admin.OpenBrowser, "admin.tray": c.Admin.Tray, "admin.listen": c.Admin.Listen,
+		"stickers.library":     c.Stickers.Library, "stickers.default_public": c.Stickers.DefaultPublic,
+		"stickers.dedupe_distance": c.Stickers.DedupeDistance, "limits.max_stickers": c.Limits.MaxStickers,
+		"admin.open_browser": c.Admin.OpenBrowser, "admin.tray": c.Admin.Tray, "admin.listen": c.Admin.Listen,
 		"admin.window": c.Admin.Window,
 		"log.level":    c.Log.Level,
 	}

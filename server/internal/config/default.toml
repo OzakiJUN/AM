@@ -94,6 +94,21 @@ block_distance = 6
 netease = true
 netease_api = "https://music.163.com"
 
+[stickers]
+# The shared sticker library: stickers people add to their collection are
+# shared with everyone on this server (one copy per picture, earliest
+# uploader shown); everyone can add tags. Turned off = only personal
+# collections, as before.
+library = true
+# New stickers are shared unless the person marks them private. false =
+# private unless they choose to share.
+default_public = true
+# How alike two pictures must be to count as the same one: how many of the
+# 256 fingerprint bits may differ (0-64; 0 = only identical files). Measured:
+# re-saved / resized copies differ by 4 or less, the same picture with
+# different words underneath by 36 or more. 10 merges copies safely.
+dedupe_distance = 10
+
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so
 # only this computer can open it. On a headless Linux server, reach it through

@@ -10,6 +10,7 @@ import { endpointFromJoin, fetchServerInfo } from '@/lib/transport';
 import { errorText } from '@/lib/errors';
 import { rememberLogin, savedPassword, useIdentity } from '@/lib/identity';
 import { copyAll, forgetServer, profileSource, whenReady } from '@/lib/sync';
+import { forgetStickerServer } from '@/lib/stickerSync';
 import type { User } from '@/lib/types';
 import { Avatar, Button, Field, Input, Toggle, ask, cx, inputClass, spring, toast } from '@/ui';
 import { useMediaUrl } from './media';
@@ -282,6 +283,7 @@ function Account({ mode, found, onBack, onSwitch }: { mode: 'register' | 'login'
       });
       if (ok === null) return;
       forgetServer(old.id);
+      forgetStickerServer(old.id);
     }
     setBusy(true);
     const pw = useSaved ? savedPw : password;
