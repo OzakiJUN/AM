@@ -81,6 +81,8 @@ export interface SessionView {
   /** The built-in bot's commands (without "/"), and its account. */
   commands: string[];
   helperId: string;
+  /** Newest client version this server keeps an installer of ('' = none; lib/update.ts). */
+  clientVersion: string;
   /** Who is online, as I see them (user id -> presence). Empty while disconnected. */
   presence: Record<string, Presence>;
   /** Server icon (media path), '' when none. */
@@ -474,6 +476,8 @@ export class Session {
   onClientState?: () => void;
   /** The server has a new public address (relay changed): lib/store.ts checks it and switches. */
   onMoved?: (address: string) => void;
+  /** The server keeps a newer client installer (lib/update.ts). */
+  onClientUpdate?: (version: string) => void;
   /** Someone asks me to let them talk with one of my AIs. */
   onShareRequest?: (aiId: string, user: User) => void;
   /** Someone's AI asks this device to run a computer tool (lib/ai/remote.ts decides). */
@@ -491,7 +495,7 @@ export class Session {
     this.t = createTransport(record.id, record.endpoint);
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
-      users: {}, convs: {}, messages: {}, replyTargets: {}, pins: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false, commands: [], helperId: '',
+      users: {}, convs: {}, messages: {}, replyTargets: {}, pins: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false, commands: [], helperId: '', clientVersion: '',
       presence: {},
       icon: '',
       games: {},
@@ -866,6 +870,12 @@ export class Session {
 
   // ---- connection ----
 
+  /** The server's copy of release.json / release.json.sig (lib/update.ts verifies them). */
+  async updateFile(name: 'release.json' | 'release.json.sig'): Promise<Uint8Array> {
+    const b = await this.t.mediaBytes('/api/v1/update/' + name);
+    return new Uint8Array(await b.arrayBuffer());
+  }
+
   async start() {
     if (!this.record.token) return;
     this.stopped = false;
@@ -875,7 +885,8 @@ export class Session {
         this.record = { ...this.record, name: i.name };
         this.onRecord(this.record);
       }
-      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon, plugins: i.plugins, hosting: i.hosting, commands: i.commands, helperId: i.helperId ? s(i.helperId) : '' });
+      this.patch({ name: i.name || this.view.name, downloadUrl: i.downloadUrl, icon: i.icon, plugins: i.plugins, hosting: i.hosting, commands: i.commands, helperId: i.helperId ? s(i.helperId) : '', clientVersion: i.clientVersion });
+      if (i.clientVersion) this.onClientUpdate?.(i.clientVersion);
     }).catch(() => {});
     await this.connect();
   }
@@ -1001,6 +1012,10 @@ export class Session {
       }
       case 'clientState':
         this.onClientState?.();
+        break;
+      case 'clientUpdate':
+        this.patch({ clientVersion: f.msg.value.version });
+        this.onClientUpdate?.(f.msg.value.version);
         break;
       case 'serverMoved':
         if (f.msg.value.address && f.msg.value.address !== this.record.endpoint.address) this.onMoved?.(f.msg.value.address);

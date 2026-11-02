@@ -252,8 +252,12 @@ impl Net {
     /// Fetches a media path (/api/v1/media/...) with the session token.
     pub async fn fetch(&self, id: &str, path: &str) -> Result<(u16, String, Vec<u8>), NetError> {
         let c = self.get(id)?;
-        // Media files and the server icon only (the token is attached).
-        if !path.starts_with("/api/v1/media/") && !path.starts_with("/api/v1/server/icon") {
+        // Media files, the server icon and the kept release manifest only (the token is attached).
+        if !path.starts_with("/api/v1/media/")
+            && !path.starts_with("/api/v1/server/icon")
+            && path != "/api/v1/update/release.json"
+            && path != "/api/v1/update/release.json.sig"
+        {
             return Err(NetError("bad media path".into()));
         }
         let mut req = c.http.get(format!("{}{}", c.ep.base_url(), path));
@@ -269,6 +273,17 @@ impl Net {
             .unwrap_or("application/octet-stream")
             .to_string();
         Ok((status, mime, resp.bytes().await.map_err(err)?.to_vec()))
+    }
+
+    /// Starts downloading the client installer this server keeps
+    /// (docs/release.md); update.rs streams and checks it.
+    pub async fn update_installer(&self, id: &str) -> Result<reqwest::Response, NetError> {
+        let c = self.get(id)?;
+        let mut req = c.http.get(format!("{}/api/v1/update/client", c.ep.base_url())).timeout(std::time::Duration::from_secs(3600));
+        if let Some(t) = &c.token {
+            req = req.bearer_auth(t);
+        }
+        req.send().await.map_err(describe)
     }
 
     /// Opens the WebSocket. Frames and the final close go to `on_event`.

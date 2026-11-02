@@ -92,6 +92,7 @@ function attach(rec: ServerRecord): Session {
     },
   );
   s.onMoved = (address) => void moveServer(rec.id, address);
+  s.onClientUpdate = (version) => void import('./update').then((u) => u.offerFromServer(rec.id, version));
   s.onRemoteTool = (ask) => void handleRemote(rec.id, s, ask);
   s.onUnreachable = () => void tryOldAddresses(rec.id);
   live.set(rec.id, s);

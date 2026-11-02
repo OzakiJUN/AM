@@ -3,12 +3,11 @@ name: ci
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write # needed to publish releases on tags
+  contents: read
 
 jobs:
   test:
@@ -64,83 +63,6 @@ jobs:
 
   build:
     needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - name: Windows exe icon and version info
-        # Cosmetic only: if this fails the exe simply has no icon.
-        continue-on-error: true
-        working-directory: server/cmd/am-server
-        run: go run github.com/tc-hib/go-winres@v0.3.3 make
-      - name: Build
-        env:
-          CGO_ENABLED: "0"
-        run: |
-          VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
-          mkdir -p dist/am
-          # Windows: GUI build (no console window; tray icon + admin panel).
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui -X main.version=${VERSION}" -o dist/am/am-server.exe ./server/cmd/am-server
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/am/am-testclient.exe ./tools/testclient
-          cp scripts/windows/*.bat dist/am/
-          cp docs/server-setup.md dist/am/README-server-setup.md
-          cp dist/am/am-server.exe dist/am-server-windows-amd64.exe
-          (cd dist && zip -r am-windows-amd64.zip am)
-          # Linux server (headless, e.g. a cloud VPS).
-          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o dist/am-server-linux-amd64 ./server/cmd/am-server
-      - uses: actions/upload-artifact@v7
-        with:
-          name: am-windows-amd64
-          path: dist/am-windows-amd64.zip
-      - uses: actions/upload-artifact@v7
-        with:
-          name: am-server-linux-amd64
-          path: dist/am-server-linux-amd64
-      - name: Publish release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            dist/am-windows-amd64.zip
-            dist/am-server-windows-amd64.exe
-            dist/am-server-linux-amd64
-
-  client-windows:
-    needs: test
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: client/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: client/src-tauri
-      - name: Build the Windows client (exe + installer)
-        working-directory: client
-        shell: bash
-        run: |
-          npm ci
-          VERSION="${GITHUB_REF_NAME}-$(git rev-parse --short HEAD)"
-          AM_VERSION="$VERSION" npx tauri build --bundles nsis
-          mkdir -p ../dist
-          cp src-tauri/target/release/am-client.exe ../dist/AM.exe
-          cp src-tauri/target/release/bundle/nsis/*-setup.exe ../dist/AM-setup.exe
-      - uses: actions/upload-artifact@v7
-        with:
-          name: am-client-windows
-          path: |
-            dist/AM.exe
-            dist/AM-setup.exe
-      - name: Publish release (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            dist/AM.exe
-            dist/AM-setup.exe
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ""

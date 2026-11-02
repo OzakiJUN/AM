@@ -36,6 +36,7 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 		return p
 	}
 	out := map[string]any{
+		"update":      "",
 		"version":     snap.Version,
 		"state":       snap.State,
 		"error":       snap.Error,
@@ -45,6 +46,11 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 			"supported": desktop.AutostartSupported(),
 			"enabled":   desktop.AutostartEnabled(),
 		},
+	}
+	if u := snap.Updater; u != nil {
+		if st := u.Status(); st.Newer {
+			out["update"] = st.Latest
+		}
 	}
 	if text, err := os.ReadFile(snap.ConfigPath); err == nil && snap.Config != nil {
 		out["config_changed"] = string(text) != snap.ConfigText
@@ -498,6 +504,7 @@ var settingKinds = map[string]string{
 	"news.xai_key": "string", "news.xai_model": "string", "news.steam_push": "bool", "news.max_per_conv": "int",
 	"draw.enabled": "bool", "draw.token": "string", "draw.proxy": "string", "draw.daily_per_person": "int", "draw.nsfw_in_dm": "bool", "draw.max_count": "int",
 	"news.weibo_cookie": "string", "news.tieba_cookie": "string", "news.nga_cookie": "string",
+	"update.check": "bool", "update.auto": "bool", "update.auto_at": "string", "update.proxy": "string", "update.keep_client": "bool",
 }
 
 func settingValues(c *config.Config) map[string]any {
@@ -527,6 +534,8 @@ func settingValues(c *config.Config) map[string]any {
 		"draw.enabled": c.Draw.Enabled, "draw.token": c.Draw.Token, "draw.proxy": c.Draw.Proxy, "draw.daily_per_person": c.Draw.DailyPerPerson,
 		"draw.nsfw_in_dm": c.Draw.NsfwInDM, "draw.max_count": c.Draw.MaxCount,
 		"news.weibo_cookie": c.News.WeiboCookie, "news.tieba_cookie": c.News.TiebaCookie, "news.nga_cookie": c.News.NGACookie,
+		"update.check": c.Update.Check, "update.auto": c.Update.Auto, "update.auto_at": c.Update.AutoAt, "update.proxy": c.Update.Proxy,
+		"update.keep_client": c.Update.KeepClient,
 	}
 }
 

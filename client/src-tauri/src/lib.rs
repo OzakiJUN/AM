@@ -9,6 +9,7 @@ mod music;
 mod net;
 mod secrets;
 mod uia;
+mod update;
 
 use net::{Endpoint, Net, Reply, WsEvent};
 use tauri::http::{Response, StatusCode};
@@ -245,6 +246,18 @@ fn host_config() -> Option<String> {
 
 /// Host mode: the AI's login ended; quit so am-server starts this client
 /// again with a new one. Does nothing outside host mode.
+/// Downloads the client installer of a verified release (update.rs).
+#[tauri::command]
+async fn update_download(net: State<'_, Net>, sources: Vec<update::Source>, version: String, size: u64, sha256: String, on_progress: Channel<u64>) -> Res<String> {
+    update::download(&net, sources, version, size, sha256, on_progress).await
+}
+
+/// Runs the downloaded installer and quits.
+#[tauri::command]
+fn update_install(app: tauri::AppHandle, path: String) -> Res<()> {
+    update::install(&app, path)
+}
+
 #[tauri::command]
 fn host_exit(app: tauri::AppHandle) {
     if host_file().is_some() {
@@ -492,7 +505,8 @@ pub fn run() {
             save_edited_image, server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit
+            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
+            update_download, update_install
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

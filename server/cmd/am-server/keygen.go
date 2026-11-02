@@ -11,14 +11,27 @@ import (
 )
 
 // workshopKeygen makes the creative workshop's signing key pair (docs/design.md
-// §13): the private key goes into a file the owner pastes into the
-// am-workshop repository's GitHub Secret WORKSHOP_SIGNING_KEY and then
-// deletes; the public key is printed (and saved) to be built into the client.
-// It never overwrites an existing key file.
+// §13): the private key goes into the am-workshop repository's GitHub
+// Secret WORKSHOP_SIGNING_KEY; the public key is built into the client.
 func workshopKeygen(args []string) error {
-	fs := flag.NewFlagSet("workshop-keygen", flag.ContinueOnError)
-	out := fs.String("out", "workshop_signing_key.txt", "file for the private key")
-	pubOut := fs.String("pub", "workshop_public_key.txt", "file for the public key")
+	return keygen("workshop-keygen", "workshop", "Workshop", "am-workshop", "WORKSHOP_SIGNING_KEY", args)
+}
+
+// releaseKeygen makes the release signing key pair (docs/design.md §3 更新):
+// the private key goes into the AM repository's GitHub Secret
+// RELEASE_SIGNING_KEY (CI signs release.json with it); the public key is
+// built into am-server and the client (internal/release, lib/release.ts).
+func releaseKeygen(args []string) error {
+	return keygen("release-keygen", "release", "Release", "AM", "RELEASE_SIGNING_KEY", args)
+}
+
+// keygen writes the private key into a file the owner pastes into a GitHub
+// Secret and then deletes; the public key is printed (and saved) to be
+// built in. It never overwrites an existing key file.
+func keygen(cmd, prefix, title, repo, secret string, args []string) error {
+	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
+	out := fs.String("out", prefix+"_signing_key.txt", "file for the private key")
+	pubOut := fs.String("pub", prefix+"_public_key.txt", "file for the public key")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -41,11 +54,11 @@ func workshopKeygen(args []string) error {
 	if err := os.WriteFile(*pubOut, []byte(pubText+"\n"), 0o644); err != nil {
 		return err
 	}
-	fmt.Println("Workshop signing key created.")
+	fmt.Println(title + " signing key created.")
 	fmt.Println()
 	fmt.Println("PRIVATE key (secret!) saved to:", *out)
-	fmt.Println("  Paste its content into GitHub: am-workshop > Settings > Secrets and variables >")
-	fmt.Println("  Actions > New repository secret, name WORKSHOP_SIGNING_KEY. Then delete the file.")
+	fmt.Println("  Paste its content into GitHub: " + repo + " > Settings > Secrets and variables >")
+	fmt.Println("  Actions > New repository secret, name " + secret + ". Then delete the file.")
 	fmt.Println("  Never send it to anyone, not even in a chat.")
 	fmt.Println()
 	fmt.Println("PUBLIC key (safe to share, send it to Claude):")

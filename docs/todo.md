@@ -9,7 +9,7 @@
 5. 「正在听歌 / 打游戏」以后可以由客户端自动识别（现在要手动选）。
 7. **bot / AI 账号的管理放到 AI 栏**（第二阶段做 bot 时）：主页、资料、在哪些频道等都在 AI 栏里设置（design.md 第 10 节）。
 8. 安卓端：存密码和共享密钥要接 Android Keystore（现在只有 Windows 凭据管理器），扫登录码 / 加入码用摄像头（Tauri 扫码插件）。
-9. **自动更新**（方案已定，见 design.md 第 3 节「更新」）：AI 功能做好、给朋友试之前完成——现在就是下一个。要先定签名密钥放哪（GitHub Secrets），Weiqi 确认后开工。在那之前手动升级：只换 exe，`config.toml` 和 `data\` 不动（docs/server-setup.md「升级到新版本」）。
+9. **自动更新**：做完了（2026-11-02，见 docs/release.md）。还差 Weiqi 运行 `release_keygen.bat`：私钥放进 GitHub Secret `RELEASE_SIGNING_KEY`，公钥发给 Claude 内置进去，然后发第一个版本。在那之前还是手动升级：只换 exe，`config.toml` 和 `data\` 不动（docs/server-setup.md「升级到新版本」）。
 10. **AI 第 2 批收尾**（design.md 第 9 节「操作电脑」）：2a、2b 已完成，等 Weiqi 在 Windows 上整批测试（界面自动化、自己的浏览器、MCP 只有桌面版能用）。用真的 DeepSeek key 测一遍工具调用（云端开发环境要先放开 api.deepseek.com）。游戏只接有 AI 接口的（Minecraft、环世界的 MCP 模板，已做），截图 + 虚拟手柄不做了（Weiqi 定的）。
 11. **以后做 AI 直播 / 语音时参考**：dsh-game-bridge（DeepSeek Harness 的游戏插件：DXcam 截屏 + RapidOCR，虚拟 Xbox 手柄 ViGEmBus + SendInput；F12 一键收回控制、游戏窗口不在前台就不动、反作弊游戏直接拒绝、默认只演练不真按、操作留记录——第 2 批的「让鼠标」和急停照这个思路），ZerolanLiveRobot（B 站弹幕 + 看屏幕 + mineflayer 操作 Minecraft）、DeepSeek Harness（DeepSeek 开源的 agent 框架，插件式，开发者预览版）、AI-XiaoPi（弹幕 → 模型 → TTS 的直播助手）、digital-human-livestream（LiveTalking 二次开发：B 站弹幕 → DeepSeek → EdgeTTS → wav2lip / MuseTalk 数字人，要 CUDA 显卡）。以后做 AI 直播 / 语音时再细看。
 
@@ -19,11 +19,11 @@
 2. **Bot 移植**：插件做完了（2026-11-01，见 CHANGELOG「AI 插件」、design.md 第 10 节、写插件看 docs/plugins.md）：上传 NoneBot 插件，管理员批准后在服务器上以 AI 的身份运行，有设置表单。Weiqi 的 7 个插件在真 NoneBot 里加载过。等 Weiqi 测试。
    - AI 托管到服务器做完了（2026-11-01，见 CHANGELOG「AI 托管到服务器」、design.md 第 10 节），等 Weiqi 在 Windows 上测（要装客户端）。
    - **把 Weiqi 的插件改成内置功能**（2026-11-01 他定的：随机接话、状态监视、本地画图不要；指令查询、电子厕所留；X 周报留）。顺序：NAI 生图（做完了，见 design.md 第 9 节「画画」）→ 电子博物馆（做完了，见 design.md 第 13 节「博物馆」）→ 游戏资讯（做完了，见 design.md 第 10 节「内置 bot」「游戏资讯」）→ 电子厕所、指令查询（2026-11-02 做完了，同一节）。全部等 Weiqi 一起测。
-   - **bot 第二轮**（2026-11-02 Weiqi 定的）：① AI 会用小助手（指令列在提示里，`use_helper`，AI 自己选发不发出来）+ 站点管理员改小助手资料和主页：做完了。② 画画搬到小助手：做完了（NovelAI 用服务器的一个 key，AI 叫小助手画，「用我的头像」当角色参考，客户端的「画画」设置去掉了）。③ 插件搬到小助手：做完了（只有站点管理员在管理面板传，马上运行；AI 身上以前的插件升级后删掉）。下一步：自动更新。
+   - **bot 第二轮**（2026-11-02 Weiqi 定的）：① AI 会用小助手（指令列在提示里，`use_helper`，AI 自己选发不发出来）+ 站点管理员改小助手资料和主页：做完了。② 画画搬到小助手：做完了（NovelAI 用服务器的一个 key，AI 叫小助手画，「用我的头像」当角色参考，客户端的「画画」设置去掉了）。③ 插件搬到小助手：做完了（只有站点管理员在管理面板传，马上运行；AI 身上以前的插件升级后删掉）。自动更新也做完了（2026-11-02，docs/release.md），等 Weiqi 生成发布钥匙后内置公钥、发第一个版本。
 3. **创意工坊**：数据类作品（主题、形象包、人格、表情包）2026-11-01 做完了（见 CHANGELOG「创意工坊能下载别人的作品了」、design.md 第 13 节）。`OzakiJUN/am-workshop` 已建好，检查工具、发布流程、说明和模板都推上去了。
    - 签名密钥 2026-11-01 设好了：私钥在 am-workshop 的 Secret 里，公钥写进了 `client/src/lib/workshopIndex.ts`，`index` 分支上的签名验证通过（现在还没有作品）。
    - 程序类（小游戏 / 组件 / 插件的沙盒和权限清单）还没做，manifest 里留了 `permissions`。
-4. 自动更新（上面第 9 条）：Weiqi 2026-11-01：这周其他东西都做好了就排，排在最后。
+4. 自动更新（上面第 9 条）：做完了，等钥匙。
 
 顺序：表情包库 → 工坊 → bot（插件 → AI 托管）。
 

@@ -12,9 +12,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
@@ -38,6 +40,7 @@ type Config struct {
 	Helper    Helper    `toml:"helper"`
 	News      News      `toml:"news"`
 	Draw      Draw      `toml:"draw"`
+	Update    Update    `toml:"update"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
@@ -169,6 +172,18 @@ type Draw struct {
 	Negative       string   `toml:"negative"`
 	BlockWords     []string `toml:"block_words"`
 	AutoNsfw       bool     `toml:"auto_nsfw"`
+}
+
+// Update configures updates (docs/release.md).
+type Update struct {
+	Check      bool     `toml:"check"`
+	CheckHours int      `toml:"check_hours"`
+	Auto       bool     `toml:"auto"`
+	AutoAt     string   `toml:"auto_at"`
+	Repo       string   `toml:"repo"`
+	Mirrors    []string `toml:"mirrors"`
+	Proxy      string   `toml:"proxy"`
+	KeepClient bool     `toml:"keep_client"`
 }
 
 // News configures 游戏资讯 (docs/design.md §10 内置 bot).
@@ -320,6 +335,20 @@ func (c *Config) InDataDir(p string) string {
 func DefaultTemplate() string { return defaultTOML }
 
 func (c *Config) validate() error {
+	if c.Update.CheckHours < 1 {
+		return errors.New("update.check_hours must be at least 1")
+	}
+	if _, err := time.Parse("15:04", c.Update.AutoAt); err != nil {
+		return fmt.Errorf("update.auto_at must look like \"04:00\": %q", c.Update.AutoAt)
+	}
+	if !regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(c.Update.Repo) {
+		return fmt.Errorf("update.repo must look like \"owner/name\": %q", c.Update.Repo)
+	}
+	for _, m := range c.Update.Mirrors {
+		if !strings.HasPrefix(m, "https://") && !strings.HasPrefix(m, "http://") {
+			return fmt.Errorf("update.mirrors: %q is not an http(s) address", m)
+		}
+	}
 	switch c.TLS.Mode {
 	case "self_signed", "off":
 	case "files":
