@@ -143,6 +143,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	hc := cfg.Helper
 	bot.SetModel(helper.Model{URL: hc.AIURL, Key: hc.AIKey, Name: hc.AIModel, Proxy: hc.AIProxy})
 	cs.SetHelper(bot.Bot().ID)
+	ps.AlwaysOn(bot.Bot().ID)
 	if err := cs.HelperEverywhere(ctx); err != nil {
 		log.Warn("helper: joining the channels", "err", err)
 	}

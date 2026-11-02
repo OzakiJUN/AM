@@ -296,7 +296,7 @@ const pages = [];
   await shot(A, '09-hover');
 
   // Presence: both online in the member list; signature and activity.
-  await B.waitForSelector('aside >> text=在线 — 2');
+  await B.waitForSelector('aside >> text=在线 — 3'); // A, B and 小助手 (always online)
   await A.click('button[aria-label="账号设置"]');
   await A.fill('textarea#bio', '今天也在写 AM');
   await A.click('button:has-text("保存签名")');
@@ -368,7 +368,7 @@ const pages = [];
   await wait(600);
   await shot(B, '19-visit-profile-dark');
   await B.click('button[aria-label="频道"]');
-  await B.waitForSelector('aside >> text=在线 — 2');
+  await B.waitForSelector('aside >> text=在线 — 3'); // A, B and 小助手 (always online)
   // Invisible: B sees A offline; A still sees itself as invisible.
   await A.click('button[aria-label="账号设置"]');
   await A.click('button[role="switch"][aria-label="隐身"]');
@@ -385,7 +385,7 @@ const pages = [];
   await B.click('button[aria-label="展开成员列表"]');
   await B.click('button[aria-label="展开列表"]');
   await A.click('button[role="switch"][aria-label="隐身"]');
-  await B.waitForSelector('aside >> text=在线 — 2');
+  await B.waitForSelector('aside >> text=在线 — 3'); // A, B and 小助手 (always online)
   await A.click('button[aria-label="频道"]');
 
   // Pin and do not disturb (right-click a channel; my own setting).
