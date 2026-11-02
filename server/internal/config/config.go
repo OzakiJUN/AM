@@ -133,6 +133,13 @@ type Museum struct {
 // Helper is the server's built-in bot (docs/design.md §10 内置 bot).
 type Helper struct {
 	Name string `toml:"name"`
+	// Autofix: a mistyped command close to a safe one just runs it.
+	Autofix bool `toml:"autofix"`
+	// The model its features share (an OpenAI-compatible API).
+	AIURL   string `toml:"ai_url"`
+	AIKey   string `toml:"ai_key"`
+	AIModel string `toml:"ai_model"`
+	AIProxy string `toml:"ai_proxy"`
 }
 
 // News configures 游戏资讯 (docs/design.md §10 内置 bot).
@@ -366,6 +373,9 @@ func (c *Config) validate() error {
 	}
 	if n := utf8.RuneCountInString(strings.TrimSpace(c.Helper.Name)); n < 1 || n > 32 {
 		return errors.New("helper.name must be 1-32 characters")
+	}
+	if u := c.Helper.AIURL; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		return errors.New("helper.ai_url must start with http:// or https://")
 	}
 	if err := c.News.check(); err != nil {
 		return err

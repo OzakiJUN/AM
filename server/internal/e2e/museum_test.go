@@ -170,9 +170,16 @@ func testMuseum(t *testing.T, a *app.App, base string) {
 	_, err = admin.cli.MuseumHang(ctx, pub.Id, &amv1.MuseumHangRequest{EventId: human.EventId, Title: "萝莉"})
 	wantCode(t, err, "museum_title")
 	// With NSFW allowed in the channel, the NSFW work goes up; elsewhere it shows hidden.
-	must(admin.cli.UpdateGroup(ctx, pub.Id, &amv1.UpdateGroupRequest{Nsfw: ptr(true)}))
+	// Only the admin panel sets it (channel owners can't).
+	_, err = admin.cli.UpdateGroup(ctx, pub.Id, &amv1.UpdateGroupRequest{Nsfw: ptr(true)})
+	wantCode(t, err, "no_permission")
+	if err := a.Conv.SetNsfw(ctx, pub.Id, true); err != nil {
+		t.Fatal(err)
+	}
 	must(admin.cli.MuseumHang(ctx, pub.Id, &amv1.MuseumHangRequest{EventId: drawn.EventId, Slot: 3}))
-	must(admin.cli.UpdateGroup(ctx, pub.Id, &amv1.UpdateGroupRequest{Nsfw: ptr(false)}))
+	if err := a.Conv.SetNsfw(ctx, pub.Id, false); err != nil {
+		t.Fatal(err)
+	}
 	if h := must(admin.cli.Museum(ctx, pub.Id)).Hall[2]; !h.Hidden || h.MediaId != 0 {
 		t.Fatalf("nsfw work shown in a channel without nsfw: %+v", h)
 	}

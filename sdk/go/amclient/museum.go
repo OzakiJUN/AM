@@ -52,3 +52,14 @@ func (c *Client) MuseumVote(ctx context.Context, voteID int64, agree bool) (*amv
 func (c *Conn) SendImageMade(ctx context.Context, convID, mediaID int64, madeWith string, nsfw bool) (*amv1.Event, error) {
 	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Image{Image: &amv1.ImageMsg{MediaId: mediaID, MadeWith: madeWith, Nsfw: nsfw}}})
 }
+
+// SendImageFor sends a picture an AI drew for someone (made_for / made_from are kept only for ai / bot accounts).
+func (c *Conn) SendImageFor(ctx context.Context, convID, mediaID int64, madeWith string, nsfw bool, madeFor int64, madeFrom string) (*amv1.Event, error) {
+	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Image{Image: &amv1.ImageMsg{
+		MediaId: mediaID, MadeWith: madeWith, Nsfw: nsfw, MadeFor: madeFor, MadeFrom: madeFrom}}})
+}
+
+// Reply sends a text that replies to an earlier message.
+func (c *Conn) Reply(ctx context.Context, convID, replyTo int64, text string) (*amv1.Event, error) {
+	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: replyTo}}})
+}

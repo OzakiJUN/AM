@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -159,6 +160,12 @@ func (s *Service) createGroupFor(ctx context.Context, me *store.User, rawName st
 			return err
 		}
 		rows = append(rows, row)
+		// The built-in bot is in every channel (not in an AI's own room), quietly.
+		if s.helperID != 0 && aiID == 0 && s.helperID != me.ID && !slices.Contains(ids, s.helperID) {
+			if err := q.AddMember(ctx, &store.Member{ConvID: convID, UserID: s.helperID, Role: roleMember, JoinedAt: now}); err != nil {
+				return err
+			}
+		}
 		for _, id := range ids {
 			if err := q.AddMember(ctx, &store.Member{ConvID: convID, UserID: id, Role: roleMember, JoinedAt: now}); err != nil {
 				return err
@@ -350,8 +357,11 @@ func (s *Service) UpdateGroup(ctx context.Context, me *store.User, convID int64,
 		avatarMedia, change.Avatar = &id, &url
 	}
 	change.JoinApproval = req.JoinApproval
-	change.Nsfw = req.Nsfw
-	if name == nil && notice == nil && avatarMedia == nil && req.JoinApproval == nil && req.Nsfw == nil {
+	// NSFW is the server's call, channel by channel, in the admin panel (SetNsfw).
+	if req.Nsfw != nil {
+		return nil, apperr.ErrNoPermission
+	}
+	if name == nil && notice == nil && avatarMedia == nil && req.JoinApproval == nil {
 		return s.ConvView(ctx, convID, me.ID)
 	}
 
@@ -367,11 +377,6 @@ func (s *Service) UpdateGroup(ctx context.Context, me *store.User, convID int64,
 		if err := q.UpdateConvInfo(ctx, convID, name, avatarMedia, notice, req.JoinApproval); err != nil {
 			return err
 		}
-		if req.Nsfw != nil {
-			if err := q.SetConvNsfw(ctx, convID, req.GetNsfw()); err != nil {
-				return err
-			}
-		}
 		row, err = s.msg.AppendSystem(ctx, q, convID, me.ID, &amv1.Event{Body: &amv1.Event_SysConv{SysConv: change}})
 		return err
 	})
@@ -380,6 +385,44 @@ func (s *Service) UpdateGroup(ctx context.Context, me *store.User, convID int64,
 	}
 	s.msg.FanOut(ctx, row, nil, 0)
 	return s.ConvView(ctx, convID, me.ID)
+}
+
+// SetNsfw allows or stops adult content in a channel (the admin panel only;
+// actor 0). Members see a system line; the AIs and the museum follow it.
+func (s *Service) SetNsfw(ctx context.Context, convID int64, on bool) error {
+	var row *store.Event
+	err := s.st.InTx(ctx, func(q *store.Queries) error {
+		c, err := q.GetConvForUpdate(ctx, convID)
+		if errors.Is(err, store.ErrNotFound) {
+			return apperr.ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if c.Kind != int16(amv1.ConvKind_CONV_KIND_GROUP) || c.Dissolved {
+			return apperr.ErrNotFound
+		}
+		if c.Nsfw == on {
+			return nil
+		}
+		if s.helperID == 0 {
+			return apperr.ErrNotFound
+		}
+		if err := q.SetConvNsfw(ctx, convID, on); err != nil {
+			return err
+		}
+		if err := s.audit(ctx, q, 0, "channel_nsfw", convID, 0, map[bool]string{true: "on", false: "off"}[on]); err != nil {
+			return err
+		}
+		// Recorded as said by the built-in bot: events need a real sender.
+		row, err = s.msg.AppendSystem(ctx, q, convID, s.helperID, &amv1.Event{Body: &amv1.Event_SysConv{SysConv: &amv1.SysConv{OperatorId: s.helperID, Nsfw: &on}}})
+		return err
+	})
+	if err != nil || row == nil {
+		return err
+	}
+	s.msg.FanOut(ctx, row, nil, 0)
+	return nil
 }
 
 // SetAdmin makes a member an admin or back to a member (owner only).

@@ -29,12 +29,14 @@ import (
 	"github.com/OzakiJUN/am/server/internal/remote"
 	"github.com/OzakiJUN/am/server/internal/sticker"
 	"github.com/OzakiJUN/am/server/internal/store"
+	"github.com/OzakiJUN/am/server/internal/toilet"
 )
 
 type App struct {
 	Store   *store.Store
 	Hub     *gateway.Hub
 	Account *account.Service
+	Conv    *conv.Service
 	Media   *media.Service
 	Profile *profile.Service
 	// Stickers: collections and the shared library (the panel's 表情库 page).
@@ -126,7 +128,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	mus := museum.New(museum.Config{Enabled: cfg.Museum.Enabled, MinMembers: cfg.Museum.MinMembers, VoteMinutes: cfg.Museum.VoteMinutes}, st, ids, ms, log)
 	go mus.Run()
 
-	bot, err := helper.New(ctx, st, ids, ms, cs, cfg.Helper.Name, cfg.Limits.MaxTextLength, log)
+	bot, err := helper.New(ctx, st, ids, ms, cs, cfg.Helper.Name, cfg.Limits.MaxTextLength, cfg.Helper.Autofix, log)
 	if err != nil {
 		mus.Close()
 		if hosted != nil {
@@ -138,7 +140,16 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		st.Close()
 		return nil, err
 	}
+	hc := cfg.Helper
+	bot.SetModel(helper.Model{URL: hc.AIURL, Key: hc.AIKey, Name: hc.AIModel, Proxy: hc.AIProxy})
+	cs.SetHelper(bot.Bot().ID)
+	if err := cs.HelperEverywhere(ctx); err != nil {
+		log.Warn("helper: joining the channels", "err", err)
+	}
 	nc := cfg.News
+	if nc.AIURL == "" { // 游戏资讯 uses the bot's model unless it has its own
+		nc.AIURL, nc.AIKey, nc.AIModel, nc.AIProxy = hc.AIURL, hc.AIKey, hc.AIModel, hc.AIProxy
+	}
 	nw := news.New(news.Config{Enabled: nc.Enabled, AIURL: nc.AIURL, AIKey: nc.AIKey, AIModel: nc.AIModel, AIProxy: nc.AIProxy,
 		Proxy: nc.Proxy, CommunityProxy: nc.CommunityProxy, CheckMinutes: nc.CheckMinutes, DailyTime: nc.DailyTime,
 		WeeklyDay: nc.WeeklyDay, WeeklyTime: nc.WeeklyTime, XWeekly: nc.XWeekly, XAIKey: nc.XAIKey, XAIModel: nc.XAIModel,
@@ -147,6 +158,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Cookies: map[string]string{"weibo": nc.WeiboCookie, "tieba": nc.TiebaCookie, "nga": nc.NGACookie, "bili": nc.BiliCookie, "steam": nc.SteamCookie},
 	}, st, bot, log)
 	go nw.Run()
+	toilet.New(st, ids, ms, bot, log)
 
 	mux := http.NewServeMux()
 	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,
@@ -166,6 +178,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		Store:    st,
 		Hub:      hub,
 		Account:  acct,
+		Conv:     cs,
 		Media:    md,
 		Profile:  prof,
 		Stickers: sk,

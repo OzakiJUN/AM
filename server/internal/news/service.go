@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/OzakiJUN/am/server/internal/apperr"
@@ -49,7 +50,7 @@ type Service struct {
 	bot   *helper.Service
 	fetch *Fetcher
 	log   *slog.Logger
-	now   func() time.Time
+	clock atomic.Pointer[func() time.Time]
 
 	mu        sync.Mutex // one round at a time; guards the state below while it runs
 	stop      chan struct{}
@@ -59,17 +60,24 @@ type Service struct {
 
 // New sets up 游戏资讯 and registers its commands with the bot.
 func New(cfg Config, st *store.Store, bot *helper.Service, log *slog.Logger) *Service {
-	s := &Service{cfg: cfg, st: st, bot: bot, log: log, now: time.Now, stop: make(chan struct{}), done: make(chan struct{})}
+	s := &Service{cfg: cfg, st: st, bot: bot, log: log, stop: make(chan struct{}), done: make(chan struct{})}
 	s.fetch = &Fetcher{Proxy: cfg.Proxy, CommunityProxy: cfg.CommunityProxy, Cookies: cfg.Cookies, SteamCC: cfg.SteamCC, Now: func() time.Time { return s.now() }}
 	bot.Register(s.commands()...)
 	return s
 }
 
 // SetClock replaces the clock (tests).
-func (s *Service) SetClock(now func() time.Time) { s.now = now }
+func (s *Service) SetClock(now func() time.Time) { s.clock.Store(&now) }
+
+func (s *Service) now() time.Time {
+	if f := s.clock.Load(); f != nil {
+		return (*f)()
+	}
+	return time.Now()
+}
 
 // SetRewrite points the sites at another server (tests).
-func (s *Service) SetRewrite(f func(string) string) { s.fetch.Rewrite = f }
+func (s *Service) SetRewrite(f func(string) string) { s.fetch.SetRewrite(f) }
 
 // ---- state (news_state rows, JSON) ----
 
@@ -777,11 +785,11 @@ func (s *Service) commands() []*helper.Command {
 	g := "🎮 游戏资讯"
 	return []*helper.Command{
 		{Name: "关注游戏", Aliases: []string{"关注关键词", "订阅游戏"}, Group: g, Usage: "关注游戏 dota2|刀塔 [steam:570]",
-			Help: "关注一个游戏或厂商（| 后面是别名，一起搜）：大事立刻推到这里，每晚发汇总，每周发 X 周报", Run: s.cmdFollow},
+			Help: "关注一个游戏或厂商（| 后面是别名，一起搜）：大事立刻推到这里，每晚发汇总，每周发 X 周报", Safe: true, Run: s.cmdFollow},
 		{Name: "取消关注", Group: g, Usage: "取消关注 <序号或关键词>", Help: "不再关注", Run: s.cmdUnfollow},
-		{Name: "关注列表", Group: g, Usage: "关注列表", Help: "这里关注了哪些", Run: s.cmdList},
-		{Name: "资讯", Aliases: []string{"游戏资讯"}, Group: g, Usage: "资讯 [关键词]", Help: "马上查一次（不写 = 这里关注的全部）", Run: s.cmdNews},
-		{Name: "资讯源", Aliases: []string{"资讯来源"}, Group: g, Usage: "资讯源 [关键词]", Help: "测一遍每个来源通不通、抓到几条", Run: s.cmdSources},
+		{Name: "关注列表", Group: g, Usage: "关注列表", Help: "这里关注了哪些", Safe: true, Run: s.cmdList},
+		{Name: "资讯", Aliases: []string{"游戏资讯"}, Group: g, Usage: "资讯 [关键词]", Help: "马上查一次（不写 = 这里关注的全部）", Safe: true, Run: s.cmdNews},
+		{Name: "资讯源", Aliases: []string{"资讯来源"}, Group: g, Usage: "资讯源 [关键词]", Help: "测一遍每个来源通不通、抓到几条", Safe: true, Run: s.cmdSources},
 		{Name: "资讯类型", Aliases: []string{"资讯判断"}, Group: g, Usage: "资讯类型 <名字> 厂商|游戏|自动 [群组:xxx] [steam:1,2]",
 			Help: "自动判断是游戏还是厂商判断错了时手动改", Run: s.cmdKind},
 		{Name: "周报", Aliases: []string{"游戏周报"}, Group: g, Usage: "周报 [关键词]", Help: "马上用 X 搜一次本周动态（按帖子收费，一次约 0.3 美元）", Run: s.cmdWeekly},

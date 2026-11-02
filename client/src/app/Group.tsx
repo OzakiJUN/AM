@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
 import { current, openProfile } from '@/lib/store';
-import type { SessionView } from '@/lib/session';
+import { memberCount, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole } from '@/lib/types';
 import { Button, Dialog, Field, IconButton, IdentityChip, Input, RoleChip, Spinner, Toggle, ask, cx, inputClass, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { FoldColumn, StripItem } from './Fold';
@@ -216,7 +216,7 @@ export function GroupDialog({ open, onClose, v, conv }: { open: boolean; onClose
           </button>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[1.1rem] font-semibold">{conv.name}</div>
-            <div className="text-[0.85rem] text-ink-soft dark:text-white/50">{conv.members.length} 位成员 · 你是{conv.myRole === 'owner' ? '频道主' : conv.myRole === 'admin' ? '管理员' : '成员'}</div>
+            <div className="text-[0.85rem] text-ink-soft dark:text-white/50">{memberCount(v, conv)} 位成员 · 你是{conv.myRole === 'owner' ? '频道主' : conv.myRole === 'admin' ? '管理员' : '成员'}</div>
           </div>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) avatar(f); e.target.value = ''; }} />
         </div>
@@ -235,15 +235,13 @@ export function GroupDialog({ open, onClose, v, conv }: { open: boolean; onClose
             <Toggle label="加入审批" checked={conv.joinApproval} onChange={(on) => current().updateGroup(conv.id, { joinApproval: on }).catch(toastError)} />
           </div>
         )}
-        {canManage && (
-          <div className="flex items-center justify-between rounded-2xl bg-black/[0.03] px-4 py-3 dark:bg-white/5">
-            <div>
-              <div className="font-medium">允许 NSFW</div>
-              <div className="text-[0.82rem] text-ink-soft dark:text-white/50">AI 在这个频道里画画时可以画成人内容（涉及未成年的永远不画）</div>
-            </div>
-            <Toggle label="允许 NSFW" checked={conv.nsfw} onChange={(on) => current().updateGroup(conv.id, { nsfw: on }).catch(toastError)} />
+        <div className="rounded-2xl bg-black/[0.03] px-4 py-3 dark:bg-white/5" data-testid="channel-nsfw">
+          <div className="font-medium">NSFW：{conv.nsfw ? '允许' : '不允许'}</div>
+          <div className="text-[0.82rem] text-ink-soft dark:text-white/50">
+            {conv.nsfw ? 'AI 在这个频道能画成人内容，博物馆和电子厕所也能放 NSFW 图（涉及未成年的永远不画）。' : 'AI 不画成人内容，NSFW 图也不能挂进博物馆、投进电子厕所。'}
+            由服务器管理员在管理面板的「频道记录」里按频道设置。
           </div>
-        )}
+        </div>
         <div className="flex items-center gap-2 pt-1">
           <Button variant="danger" onClick={leave}><LogOut size={16} />{conv.myRole === 'owner' ? '解散频道' : '退出频道'}</Button>
           <div className="flex-1" />

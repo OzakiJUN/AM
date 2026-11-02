@@ -357,12 +357,19 @@ function drawCommand(run: Run, convId: string, m: Message): boolean {
   const cmd = parseCommand(m.body.text, run.plugins.starts.length ? run.plugins.starts : ['/']);
   if (!cmd) return false;
   const draw = run.settings.draw;
-  if (!draw.providerId) return false;
   const conv = run.s.view.convs[convId];
   const me = run.ai.user.id;
   const mentions = m.body.mentions ?? [];
   if (conv?.kind === 'group' && mentions.length && !mentions.includes(me)) return false;
   const owner = m.senderId === run.ai.user.ownerId;
+  if (!draw.providerId) {
+    // Not set up: say so (in a DM, to its owner, or when @-ed) instead of staying silent.
+    if (conv?.kind !== 'group' || owner || mentions.includes(me)) {
+      void run.s.sendText(convId, '我还没接 NovelAI，画不了：主人在 AI 设置 →「画画」里选一个 NovelAI 服务商（在「模型 → 管理服务商」里加 token）。', undefined, undefined, m.id).catch(() => {});
+      return true;
+    }
+    return false;
+  }
   if (!owner && draw.who === 'owner') return false;
   if (!owner && draw.dailyPerPerson && cmd.kind !== 'tags' && cmd.kind !== 'balance') {
     const key = `${me}|${m.senderId}`;

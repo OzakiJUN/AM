@@ -150,6 +150,7 @@ func (h *handler) routes() {
 	api("DELETE /api/server-icon", h.deleteServerIcon)
 	api("GET /api/channels", h.listChannels)
 	api("GET /api/channels/{id}/events", h.channelEvents)
+	api("POST /api/channels/{id}/nsfw", h.setChannelNsfw)
 	api("GET /api/evidence", h.listEvidence)
 	api("GET /api/stickers", h.listStickers)
 	api("POST /api/stickers/{id}/hide", h.hideSticker)

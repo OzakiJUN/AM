@@ -711,7 +711,7 @@ async function renderChannels(root, page) {
     t = setTimeout(() => { channelQuery = search.value.trim(); channelPage = 1; load(); }, 250);
   });
   const box = el('div');
-  root.append(head('频道记录', '所有频道（公开和私密）的聊天记录，只能看不能改。私信看不到。打开某个频道会记入操作记录。', search), box);
+  root.append(head('频道记录', '所有频道（公开和私密）的聊天记录，只能看不能改。私信看不到。打开某个频道会记入操作记录。「允许 NSFW」只能在这里按频道设置：打开后 AI 在这个频道能画成人内容，博物馆和电子厕所也能放 NSFW 图（涉及未成年的永远不画）。', search), box);
   async function load() {
     let data;
     try { data = await api('GET', 'channels?q=' + encodeURIComponent(channelQuery) + '&page=' + channelPage); } catch (e) { fail(e); return; }
@@ -721,7 +721,7 @@ async function renderChannels(root, page) {
       return;
     }
     box.replaceChildren(el('div', { class: 'table-wrap' }, el('table', {},
-      el('thead', {}, el('tr', {}, ['频道', '人数', '记录数', '创建时间', ''].map((h) => el('th', {}, h)))),
+      el('thead', {}, el('tr', {}, ['频道', '人数', '记录数', '创建时间', '允许 NSFW', ''].map((h) => el('th', {}, h)))),
       el('tbody', {}, data.items.map((c) => el('tr', {},
         el('td', {},
           el('b', {}, c.name),
@@ -731,10 +731,26 @@ async function renderChannels(root, page) {
         el('td', {}, c.members),
         el('td', {}, c.messages),
         el('td', {}, fmtTime(c.created_at)),
+        el('td', {}, c.dissolved ? '' : nsfwSwitch(c)),
         el('td', { class: 'actions' }, el('a', { class: 'btn small ghost', href: '#/channels/' + c.id }, '查看记录'))))))),
     pager(data.total, data.page_size, channelPage, (p) => { channelPage = p; load(); }));
   }
   load();
+}
+
+// The per-channel NSFW switch (saved at once; members see a system line).
+function nsfwSwitch(c) {
+  const box = el('input', { type: 'checkbox', checked: c.nsfw, 'aria-label': '允许 NSFW：' + c.name });
+  box.addEventListener('change', async () => {
+    box.disabled = true;
+    try {
+      await api('POST', 'channels/' + c.id + '/nsfw', { on: box.checked });
+      c.nsfw = box.checked;
+      toast((box.checked ? '已允许' : '已关闭') + '「' + c.name + '」的 NSFW');
+    } catch (e) { box.checked = c.nsfw; fail(e); }
+    box.disabled = false;
+  });
+  return el('label', { class: 'check' }, box, el('span', {}, '允许'));
 }
 
 async function renderChannel(root, page, id) {
@@ -1245,11 +1261,16 @@ const SETTINGS = [
     { k: 'media.block_distance', label: '相似度容差', help: '0–64，越小越严格。6 能拦住改过尺寸或重新压缩的同一张图。', type: 'int', min: 0, max: 64 },
   ] },
   { title: '内置 bot 和游戏资讯', items: [
-    { k: 'helper.name', label: 'bot 的名字', help: '服务器自带的 bot，大家在频道里或私聊它发 / 开头的指令', type: 'text', max: 32 },
+    { k: 'helper.name', label: 'bot 的名字', help: '服务器自带的 bot，在每个频道里，也可以私聊它；发「/指令」看它会什么', type: 'text', max: 32 },
+    { k: 'helper.autofix', label: '打错指令自动纠正', help: '很像某个指令时直接按对的处理并说一声；删东西、花钱的指令只提示「你是不是想发…」', type: 'bool' },
+    { k: 'helper.ai_url', label: '模型地址', help: 'bot 的功能共用：游戏资讯归类打分、电子厕所起名。任何 OpenAI 兼容接口，比如 https://api.deepseek.com/v1。不填也能用，只是简单些', type: 'text', placeholder: 'https://api.deepseek.com/v1' },
+    { k: 'helper.ai_model', label: '模型名', type: 'text', placeholder: 'deepseek-chat' },
+    { k: 'helper.ai_key', label: '模型 key', type: 'secret' },
+    { k: 'helper.ai_proxy', label: '模型代理', help: '不填 = 直连', type: 'text' },
     { k: 'news.enabled', label: '游戏资讯', help: '发「/关注游戏 名字|别名」关注游戏或厂商：每小时看 Steam、B站、新闻、Reddit、YouTube、微博、贴吧、NGA，大事立刻推，每晚发汇总', type: 'bool' },
-    { k: 'news.ai_url', label: '模型地址', help: '用来把消息归成事件、打分、翻译。任何 OpenAI 兼容接口，比如 https://api.deepseek.com/v1。不填就不归类，只有 Steam 消息会立刻推', type: 'text', placeholder: 'https://api.deepseek.com/v1' },
-    { k: 'news.ai_model', label: '模型名', type: 'text', placeholder: 'deepseek-chat' },
-    { k: 'news.ai_key', label: '模型 key', type: 'secret' },
+    { k: 'news.ai_url', label: '资讯单独用的模型地址', help: '不填就用上面 bot 共用的模型。都没有时不归类，只有 Steam 消息会立刻推', type: 'text' },
+    { k: 'news.ai_model', label: '资讯单独用的模型名', type: 'text' },
+    { k: 'news.ai_key', label: '资讯单独用的模型 key', type: 'secret' },
     { k: 'news.proxy', label: '代理', help: '访问 Google、Reddit、YouTube、Steam 用，比如 http://127.0.0.1:7890。不填 = 直连', type: 'text' },
     { k: 'news.steam_community_proxy', label: 'Steam 社区代理', help: '读厂商的 Steam 群组公告用。不填 = 和上面一样；开了加速器（Watt Toolkit）填 direct', type: 'text' },
     { k: 'news.daily_time', label: '每晚汇总时间', help: '按这台电脑的时间，比如 21:00', type: 'text', max: 5 },

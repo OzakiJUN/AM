@@ -9,7 +9,7 @@ import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
 import { closeConv, current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
 import { replyPreview, replyTarget } from '@/lib/replies';
-import { systemText, type SessionView } from '@/lib/session';
+import { memberCount, systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message, User } from '@/lib/types';
 import { applyMention, matchPeople, mentionParts, mentionQuery, mentionedIds } from '@/lib/mentions';
 import { copyText } from '@/lib/platform';
@@ -101,7 +101,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
             </div>
             <div className="truncate text-[0.8rem] text-ink-soft dark:text-white/50">
               {group
-                ? `${conv.public ? '公开频道' : '私密频道'} · ${conv.members.length} 人`
+                ? `${conv.public ? '公开频道' : '私密频道'} · ${memberCount(v, conv)} 人`
                 : peer ? `@${peer.username} · ${peerPresence ? activityText(peerPresence.activity) || '在线' : '离线'}` : ''}
               {conv.left && ' · 你已不在这个频道里'}
               {blocked && ' · 已屏蔽'}

@@ -688,6 +688,10 @@ const pages = [];
   await B.fill('textarea[aria-label="消息"]', '/关注列表');
   await B.press('textarea[aria-label="消息"]', 'Enter');
   await B.waitForSelector('section div.whitespace-pre-wrap:has-text("这里还没关注任何关键词")', { timeout: 15000 });
+  await B.fill('textarea[aria-label="消息"]', '/指令');
+  await B.press('textarea[aria-label="消息"]', 'Enter');
+  await B.waitForSelector('section div.whitespace-pre-wrap:has-text("📖 指令一览")', { timeout: 15000 });
+  await B.waitForSelector('section div.whitespace-pre-wrap:has-text("🚽 电子厕所：投厕")');
   await shot(B, '27j-helper-bot');
   await B.click('button[aria-label="频道"]');
 

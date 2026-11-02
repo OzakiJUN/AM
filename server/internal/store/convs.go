@@ -172,14 +172,15 @@ func (q *Queries) GetMember(ctx context.Context, convID, userID int64) (*Member,
 func (q *Queries) NextOwner(ctx context.Context, convID, leaving int64) (int64, error) {
 	var id int64
 	err := q.queryRow(ctx, `SELECT m.user_id FROM conv_members m JOIN users u ON u.id = m.user_id
-		WHERE m.conv_id = ? AND m.user_id <> ? AND NOT u.banned AND u.left_at IS NULL
+		WHERE m.conv_id = ? AND m.user_id <> ? AND NOT u.banned AND u.left_at IS NULL AND `+notServerBot+`
 		ORDER BY m.role DESC, m.joined_at, m.user_id LIMIT 1`, convID, leaving).Scan(&id)
 	return id, notFound(err)
 }
 
 func (q *Queries) CountMembers(ctx context.Context, convID int64) (int, error) {
 	var n int
-	err := q.queryRow(ctx, `SELECT count(*) FROM conv_members WHERE conv_id=?`, convID).Scan(&n)
+	// The server's built-in bot doesn't take a place.
+	err := q.queryRow(ctx, `SELECT count(*) FROM conv_members cm JOIN users ON users.id = cm.user_id WHERE cm.conv_id=? AND `+notServerBot, convID).Scan(&n)
 	return n, err
 }
 

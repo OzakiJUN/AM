@@ -60,6 +60,12 @@ message ImageMsg {
   string made_with = 5;
   // An AI drew it with adult content; only kept on ai / bot messages.
   bool nsfw = 6;
+  // Who asked the AI to draw it (a member of this conversation); only kept
+  // on ai / bot messages. The 电子厕所 names them as the culprit.
+  int64 made_for = 7;
+  // What was asked for (at most 200 characters); only kept on ai / bot
+  // messages. Used to name a picture.
+  string made_from = 8;
 }
 
 message FileMsg {

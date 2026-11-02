@@ -103,7 +103,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | POST | `/api/v1/groups` | `CreateGroupRequest` | `Conversation` | 任何人建私密频道（`member_ids` 须是存在且没被封的账号）；`public = true` 只有站点管理员，所有人自动加入 |
 | GET | `/api/v1/channels` | — | `ListChannelsResponse`：所有公开频道（人数、我是否已加入） | 登录即可 |
 | POST | `/api/v1/channels/{id}/join` | — | `Conversation` | 只能加入公开频道，否则 `not_public`；已在里面直接返回 |
-| PATCH | `/api/v1/groups/{id}` | `UpdateGroupRequest` | `Conversation` | 管理员 / 群主；`nsfw`：频道允许成人内容（AI 画画用，只有群主 / 管理员能改） |
+| PATCH | `/api/v1/groups/{id}` | `UpdateGroupRequest` | `Conversation` | 管理员 / 群主；`nsfw` 不能在这里改（`no_permission`）：频道允许不允许成人内容由服务器管理员在管理面板里按频道设置，`Conversation.nsfw` 只读 |
 | DELETE | `/api/v1/groups/{id}` | — | `Empty`（解散） | 群主 |
 | POST | `/api/v1/groups/{id}/members` | `InviteMembersRequest` | `InviteMembersResponse` | 成员，可以拉服务器上任何人 |
 | DELETE | `/api/v1/groups/{id}/members/{uid}` | — | `Empty` | 自己 = 退群；他人 = 踢人（角色须更高） |
@@ -315,7 +315,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 - 文字：`text`，可带 `reply_to` 和 `mentions`（文字里「@名字」对应的用户 id；客户端高亮这些名字，AI 被 @ 时会回）。
   - 回复时 `reply_to` 是同会话里的一条文字、图片或文件消息的 event id，服务器校验目标存在、在当前会话且尚未被管理员删除。
   - `GET /api/v1/conversations/{id}/messages/{event}` 返回一条 `Event`，仅当前会话成员可读。客户端用它读取较早的引用，已删原文只返回删除记录，不返回内容。
-- 图片：先上传，再发 `image{media_id}`，宽高由服务器填（也可以直接发我表情里的或公共表情库里的图，不用自己上传）。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。bot / AI 发的图可以带 `made_with`（怎么做的，比如「NovelAI V5」，最多 30 字）和 `nsfw`；人发的图这两项会被去掉。
+- 图片：先上传，再发 `image{media_id}`，宽高由服务器填（也可以直接发我表情里的或公共表情库里的图，不用自己上传）。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。bot / AI 发的图可以带 `made_with`（怎么做的，比如「NovelAI V5」，最多 30 字）、`nsfw`、`made_for`（谁让它画的，要是这个会话的成员，否则去掉；电子厕所认它当罪犯）和 `made_from`（让它画的那句话，最多 200 字；用来给图起名）；人发的图这几项都会被去掉。
 - 文件：先上传，再发 `file{media_id, name}`，`name` 为空时用上传时的文件名。
 - 划掉：`strike{target_event_id}`，只能划自己的文字 / 图片 / 文件消息，每条只能划一次。
 
@@ -328,7 +328,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | 事件 | 含义 |
 | --- | --- |
 | `sys_conv{created}` | 建群 |
-| `sys_conv{name / avatar / notice / join_approval / nsfw}` | 群信息变化（只带变了的字段） |
+| `sys_conv{name / avatar / notice / join_approval / nsfw}` | 群信息变化（只带变了的字段）；`nsfw` 只来自管理面板，发送者记为服务器的内置 bot |
 | `sys_conv{dissolved}` | 群解散 |
 | `sys_member{JOIN}` | 入群（`operator_id` 是拉人或批准的人） |
 | `sys_member{LEAVE / KICK}` | 退群 / 被踢 |

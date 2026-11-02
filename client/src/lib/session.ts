@@ -450,8 +450,11 @@ function toBody(e: ev.Event): MessageBody | null {
   }
 }
 
+/** How many people a channel has (the server's built-in bot doesn't count). */
+export const memberCount = (v: Pick<SessionView, 'helperId'>, c: Conversation) => c.members.filter((m) => m.userId !== v.helperId).length;
+
 /** Text for a system event, with the current names. */
-const MEMBER_CHANGES = new Set<SysEvent['t']>(['join', 'leave', 'kick', 'role']);
+const MEMBER_CHANGES = new Set<SysEvent['t']>(['join', 'leave', 'kick', 'role', 'nsfw']);
 
 export function systemText(sys: SysEvent, name: (id: string) => string): string {
   switch (sys.t) {
@@ -460,7 +463,7 @@ export function systemText(sys: SysEvent, name: (id: string) => string): string 
     case 'notice': return `${name(sys.op)} 修改了频道公告`;
     case 'avatar': return `${name(sys.op)} 更换了频道头像`;
     case 'approval': return `${name(sys.op)} ${sys.on ? '开启' : '关闭'}了加入审批`;
-    case 'nsfw': return `${name(sys.op)} ${sys.on ? '允许' : '关闭'}了 NSFW 内容`;
+    case 'nsfw': return `服务器管理员${sys.on ? '允许' : '关闭'}了这个频道的 NSFW 内容`;
     case 'museum':
       if (sys.kind === 'proposed') return `博物馆 · ${name(sys.op)} 发起投票：${sys.text}`;
       if (sys.kind === 'done') return `博物馆 · ${name(sys.op)}：${sys.text}`;
@@ -1373,10 +1376,10 @@ export class Session {
   }
 
   /** made: how an AI made the picture ("NovelAI V5") and its adult flag (kept only for AI / bot senders). */
-  async sendFile(convId: string, file: File, made?: { with: string; nsfw: boolean }) {
+  async sendFile(convId: string, file: File, made?: { with: string; nsfw: boolean; for?: string; from?: string }) {
     const info = await this.upload(file);
     if (info.isImage) {
-      return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: info.id, madeWith: made?.with ?? '', nsfw: !!made?.nsfw }) },
+      return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: info.id, madeWith: made?.with ?? '', nsfw: !!made?.nsfw, madeFor: BigInt(made?.for || 0), madeFrom: made?.from ?? '' }) },
         { kind: 'image', mediaId: s(info.id), w: info.width, h: info.height });
     }
     return this.sendBody(convId, { case: 'file', value: create(ev.FileMsgSchema, { mediaId: info.id, name: file.name }) },
@@ -1564,7 +1567,7 @@ export class Session {
     });
   }
 
-  async updateGroup(convId: string, value: { name?: string; notice?: string; joinApproval?: boolean; nsfw?: boolean; avatarMediaId?: bigint }) {
+  async updateGroup(convId: string, value: { name?: string; notice?: string; joinApproval?: boolean; avatarMediaId?: bigint }) {
     this.upsertConv(await this.call('PATCH', `/api/v1/groups/${convId}`, common.ConversationSchema, { schema: api.UpdateGroupRequestSchema, value }));
   }
 

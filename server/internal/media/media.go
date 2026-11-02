@@ -632,3 +632,19 @@ func urlEscape(s string) string {
 	}
 	return b.String()
 }
+
+// AnyImage is a stored picture, whoever uploaded it (only for the server's
+// own bot, which shows pictures its features keep).
+func (s *Service) AnyImage(ctx context.Context, mediaID int64) (*store.Media, error) {
+	m, err := s.st.GetMedia(ctx, mediaID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrMediaMissing
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !m.IsImage {
+		return nil, ErrNotImage
+	}
+	return m, nil
+}

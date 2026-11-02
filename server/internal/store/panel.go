@@ -17,6 +17,7 @@ type PanelChannel struct {
 	Members       int
 	LastSeq       int64
 	CreatedAt     int64
+	Nsfw          bool
 }
 
 // ListChannelsAdmin lists conversations of kind groupKind, most recently
@@ -34,7 +35,7 @@ func (q *Queries) ListChannelsAdmin(ctx context.Context, groupKind int16, search
 	}
 	rows, err := q.query(ctx, `SELECT c.id, c.name, COALESCE(c.avatar_media_id, 0), c.is_public, c.dissolved,
 		COALESCE(c.owner_id, 0), COALESCE(u.display_name, ''),
-		(SELECT count(*) FROM conv_members m WHERE m.conv_id = c.id), c.last_seq, c.created_at
+		(SELECT count(*) FROM conv_members m JOIN users mu ON mu.id = m.user_id WHERE m.conv_id = c.id AND NOT (mu.account_type = 2 AND mu.owner_id IS NULL)), c.last_seq, c.created_at, c.nsfw
 		FROM conversations c LEFT JOIN users u ON u.id = c.owner_id`+where+`
 		ORDER BY c.dissolved, COALESCE((SELECT max(e.created_at) FROM events e WHERE e.conv_id = c.id), c.created_at) DESC
 		LIMIT ? OFFSET ?`, append(args, limit, offset)...)
@@ -46,7 +47,7 @@ func (q *Queries) ListChannelsAdmin(ctx context.Context, groupKind int16, search
 	for rows.Next() {
 		c := &PanelChannel{}
 		if err := rows.Scan(&c.ID, &c.Name, &c.AvatarMediaID, &c.Public, &c.Dissolved, &c.OwnerID, &c.OwnerName,
-			&c.Members, &c.LastSeq, &c.CreatedAt); err != nil {
+			&c.Members, &c.LastSeq, &c.CreatedAt, &c.Nsfw); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, c)
