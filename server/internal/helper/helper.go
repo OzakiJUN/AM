@@ -109,13 +109,7 @@ func ensureBot(ctx context.Context, st *store.Store, ids *idgen.Generator, name 
 	if id, _ := strconv.ParseInt(set[settingKey], 10, 64); id != 0 {
 		u, err := st.GetUser(ctx, id)
 		if err == nil {
-			if u.DisplayName != name {
-				if err := st.UpdateProfile(ctx, u.ID, name, u.AvatarMediaID, u.Avatar); err != nil {
-					return nil, err
-				}
-				u.DisplayName = name
-			}
-			return u, nil
+			return u, nil // renamed by site admins in the app: helper.name is only its first name
 		}
 		if !errors.Is(err, store.ErrNotFound) {
 			return nil, err
@@ -320,7 +314,14 @@ func (s *Service) Say(ctx context.Context, convID int64, text string) error {
 }
 
 // Reply is Say with the first message replying to event replyTo (0 = none).
+// Under RunFor without show, the text is kept for the caller instead.
 func (s *Service) Reply(ctx context.Context, convID, replyTo int64, text string) error {
+	if k, ok := ctx.Value(sinkKey{}).(*sink); ok {
+		k.mu.Lock()
+		k.texts = append(k.texts, strings.TrimSpace(text))
+		k.mu.Unlock()
+		return nil
+	}
 	for i, part := range Split(text, s.maxText) {
 		if part == "" {
 			continue
@@ -337,9 +338,120 @@ func (s *Service) Reply(ctx context.Context, convID, replyTo int64, text string)
 	return nil
 }
 
-// Picture posts a stored picture in a conversation the bot is in.
+// Picture posts a stored picture in a conversation the bot is in (kept for
+// the caller under RunFor without show).
 func (s *Service) Picture(ctx context.Context, convID, mediaID int64) error {
+	if k, ok := ctx.Value(sinkKey{}).(*sink); ok {
+		k.mu.Lock()
+		k.media = append(k.media, mediaID)
+		k.mu.Unlock()
+		return nil
+	}
 	_, err := s.ms.Send(ctx, s.bot, &amv1.SendRequest{ConvId: convID, ClientMsgId: "helper-" + token(12),
 		Body: &amv1.SendRequest_Image{Image: &amv1.ImageMsg{MediaId: mediaID}}}, 0)
 	return err
+}
+
+// sink keeps what the bot would have said (RunFor without show).
+type sink struct {
+	mu    sync.Mutex
+	texts []string
+	media []int64
+}
+
+type sinkKey struct{}
+
+// Ran is what a command run for someone produced.
+type Ran struct {
+	Texts []string
+	Media []int64
+	Shown bool
+}
+
+// RunFor runs a command for user (usually an AI) in a conversation it is
+// in, without posting the command. show: the bot's answers are posted
+// there as usual (only where the bot can post: channels, or a DM with it);
+// otherwise nothing is posted and the answers come back.
+func (s *Service) RunFor(ctx context.Context, user *store.User, convID, replyTo int64, text string, show bool) (*Ran, error) {
+	conv, err := s.st.GetConv(ctx, convID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, apperr.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.st.GetMember(ctx, convID, user.ID); errors.Is(err, store.ErrNotFound) || conv.Dissolved {
+		return nil, apperr.ErrNotMember
+	} else if err != nil {
+		return nil, err
+	}
+	name, args, ok := Match(text, s.Names())
+	if !ok {
+		body := strings.TrimLeft(strings.TrimSpace(text), "/／")
+		if sug := Suggest(body, s.Entries(), 3); len(sug) > 0 {
+			var names []string
+			for _, g := range sug {
+				names = append(names, "/"+g.Entry.Name)
+			}
+			return &Ran{Texts: []string{"小助手没有这个指令。你是不是想用：" + strings.Join(names, "、")}}, nil
+		}
+		return &Ran{Texts: []string{"小助手没有这个指令（发 /指令 看全部）"}}, nil
+	}
+	cmd := s.find(name)
+	if cmd == nil {
+		return nil, apperr.ErrNotFound
+	}
+	// Where the bot can't post (a DM between two others), it answers privately.
+	if show {
+		switch amv1.ConvKind(conv.Kind) {
+		case amv1.ConvKind_CONV_KIND_GROUP:
+			if _, err := s.st.GetMember(ctx, conv.ID, s.bot.ID); errors.Is(err, store.ErrNotFound) {
+				if res, err := s.inv.InviteMembers(ctx, user, conv.ID, []int64{s.bot.ID}); err != nil || len(res.GetAdded()) == 0 {
+					show = false
+				}
+			}
+		default:
+			if _, err := s.st.GetMember(ctx, conv.ID, s.bot.ID); err != nil {
+				show = false
+			}
+		}
+	}
+	s.mu.Lock()
+	if s.busy[user.ID] {
+		s.mu.Unlock()
+		return &Ran{Texts: []string{"上一条指令还没做完，等一下"}}, nil
+	}
+	s.busy[user.ID] = true
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.busy, user.ID)
+		s.mu.Unlock()
+	}()
+	ctx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+	k := &sink{}
+	if !show {
+		ctx = context.WithValue(ctx, sinkKey{}, k)
+	}
+	ev := &amv1.Event{ConvId: convID, SenderId: user.ID, Body: &amv1.Event_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: replyTo}}}
+	if err := cmd.Run(ctx, &Call{User: user, Conv: conv, Name: name, Args: args, Event: ev}); err != nil {
+		var said Said
+		var ae *apperr.Error
+		msg := "出错了，等会儿再试"
+		switch {
+		case errors.As(err, &said):
+			msg = string(said)
+		case errors.As(err, &ae):
+			msg = "出错了（" + ae.Code + "）"
+		default:
+			s.log.Warn("helper: command failed", "command", cmd.Name, "err", err)
+		}
+		if show {
+			_ = s.Say(ctx, conv.ID, msg)
+		} else {
+			k.texts = append(k.texts, msg)
+		}
+	}
+	return &Ran{Texts: k.texts, Media: k.media, Shown: show}, nil
 }

@@ -105,9 +105,15 @@ func (s *Service) CreateAI(ctx context.Context, owner *store.User, displayName s
 	return &AIInfo{User: u}, nil
 }
 
-// UpdateAIProfile changes an AI's name, avatar (uploaded by the owner) or signature.
+// UpdateAIProfile changes an AI's name, avatar (uploaded by the owner) or
+// signature. Site admins do the same for the server's built-in bot.
 func (s *Service) UpdateAIProfile(ctx context.Context, owner *store.User, id int64, req *amv1.UpdateProfileRequest) (*store.User, error) {
 	ai, err := s.ownedAI(ctx, owner, id)
+	if errors.Is(err, apperr.ErrUserNotFound) && owner.IsSiteAdmin {
+		if u, err2 := s.st.GetUser(ctx, id); err2 == nil && u.IsServerBot() {
+			ai, err = u, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

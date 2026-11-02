@@ -5268,6 +5268,274 @@ func (x *MuseumVoteRequest) GetAgree() bool {
 	return false
 }
 
+// POST /api/v1/helper/run: someone (usually an AI) has the server's built-in
+// bot run a command without posting the command. show = the bot's answers
+// are posted in the conversation as usual; otherwise nothing is posted and
+// the answers come back here.
+type HelperRunRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	ConvId int64                  `protobuf:"varint,1,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	// The command with its "/", e.g. "/资讯 dota2".
+	Text string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	// A message the command is about (e.g. the picture for /投厕).
+	ReplyTo       int64 `protobuf:"varint,3,opt,name=reply_to,json=replyTo,proto3" json:"reply_to,omitempty"`
+	Show          bool  `protobuf:"varint,4,opt,name=show,proto3" json:"show,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HelperRunRequest) Reset() {
+	*x = HelperRunRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HelperRunRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HelperRunRequest) ProtoMessage() {}
+
+func (x *HelperRunRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HelperRunRequest.ProtoReflect.Descriptor instead.
+func (*HelperRunRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *HelperRunRequest) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *HelperRunRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *HelperRunRequest) GetReplyTo() int64 {
+	if x != nil {
+		return x.ReplyTo
+	}
+	return 0
+}
+
+func (x *HelperRunRequest) GetShow() bool {
+	if x != nil {
+		return x.Show
+	}
+	return false
+}
+
+type HelperRunResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The bot's answers (when not shown: what it would have said).
+	Texts []string `protobuf:"bytes,1,rep,name=texts,proto3" json:"texts,omitempty"`
+	// Pictures it would have sent (not shown).
+	MediaIds []int64 `protobuf:"varint,2,rep,packed,name=media_ids,json=mediaIds,proto3" json:"media_ids,omitempty"`
+	// The answers were posted in the conversation.
+	Shown         bool `protobuf:"varint,3,opt,name=shown,proto3" json:"shown,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HelperRunResponse) Reset() {
+	*x = HelperRunResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HelperRunResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HelperRunResponse) ProtoMessage() {}
+
+func (x *HelperRunResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HelperRunResponse.ProtoReflect.Descriptor instead.
+func (*HelperRunResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *HelperRunResponse) GetTexts() []string {
+	if x != nil {
+		return x.Texts
+	}
+	return nil
+}
+
+func (x *HelperRunResponse) GetMediaIds() []int64 {
+	if x != nil {
+		return x.MediaIds
+	}
+	return nil
+}
+
+func (x *HelperRunResponse) GetShown() bool {
+	if x != nil {
+		return x.Shown
+	}
+	return false
+}
+
+// One command of the built-in bot (or one an AI answers), for 指令查询 and AIs.
+type HelperCommand struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Aliases []string               `protobuf:"bytes,2,rep,name=aliases,proto3" json:"aliases,omitempty"`
+	Group   string                 `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
+	Usage   string                 `protobuf:"bytes,4,opt,name=usage,proto3" json:"usage,omitempty"`
+	Help    string                 `protobuf:"bytes,5,opt,name=help,proto3" json:"help,omitempty"`
+	// The bot runs it (false: an AI's drawing command, listed only).
+	Own           bool `protobuf:"varint,6,opt,name=own,proto3" json:"own,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HelperCommand) Reset() {
+	*x = HelperCommand{}
+	mi := &file_am_v1_api_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HelperCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HelperCommand) ProtoMessage() {}
+
+func (x *HelperCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HelperCommand.ProtoReflect.Descriptor instead.
+func (*HelperCommand) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *HelperCommand) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *HelperCommand) GetAliases() []string {
+	if x != nil {
+		return x.Aliases
+	}
+	return nil
+}
+
+func (x *HelperCommand) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *HelperCommand) GetUsage() string {
+	if x != nil {
+		return x.Usage
+	}
+	return ""
+}
+
+func (x *HelperCommand) GetHelp() string {
+	if x != nil {
+		return x.Help
+	}
+	return ""
+}
+
+func (x *HelperCommand) GetOwn() bool {
+	if x != nil {
+		return x.Own
+	}
+	return false
+}
+
+// GET /api/v1/helper/commands
+type HelperCommandsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Commands      []*HelperCommand       `protobuf:"bytes,1,rep,name=commands,proto3" json:"commands,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HelperCommandsResponse) Reset() {
+	*x = HelperCommandsResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HelperCommandsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HelperCommandsResponse) ProtoMessage() {}
+
+func (x *HelperCommandsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HelperCommandsResponse.ProtoReflect.Descriptor instead.
+func (*HelperCommandsResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *HelperCommandsResponse) GetCommands() []*HelperCommand {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -5680,7 +5948,25 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12\x17\n" +
 	"\avote_id\x18\x03 \x01(\x03R\x06voteId\")\n" +
 	"\x11MuseumVoteRequest\x12\x14\n" +
-	"\x05agree\x18\x01 \x01(\bR\x05agree*k\n" +
+	"\x05agree\x18\x01 \x01(\bR\x05agree\"n\n" +
+	"\x10HelperRunRequest\x12\x17\n" +
+	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x19\n" +
+	"\breply_to\x18\x03 \x01(\x03R\areplyTo\x12\x12\n" +
+	"\x04show\x18\x04 \x01(\bR\x04show\"\\\n" +
+	"\x11HelperRunResponse\x12\x14\n" +
+	"\x05texts\x18\x01 \x03(\tR\x05texts\x12\x1b\n" +
+	"\tmedia_ids\x18\x02 \x03(\x03R\bmediaIds\x12\x14\n" +
+	"\x05shown\x18\x03 \x01(\bR\x05shown\"\x8f\x01\n" +
+	"\rHelperCommand\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\aaliases\x18\x02 \x03(\tR\aaliases\x12\x14\n" +
+	"\x05group\x18\x03 \x01(\tR\x05group\x12\x14\n" +
+	"\x05usage\x18\x04 \x01(\tR\x05usage\x12\x12\n" +
+	"\x04help\x18\x05 \x01(\tR\x04help\x12\x10\n" +
+	"\x03own\x18\x06 \x01(\bR\x03own\"J\n" +
+	"\x16HelperCommandsResponse\x120\n" +
+	"\bcommands\x18\x01 \x03(\v2\x14.am.v1.HelperCommandR\bcommands*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -5699,7 +5985,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 87)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -5783,50 +6069,55 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*MuseumActRequest)(nil),         // 79: am.v1.MuseumActRequest
 	(*MuseumResult)(nil),             // 80: am.v1.MuseumResult
 	(*MuseumVoteRequest)(nil),        // 81: am.v1.MuseumVoteRequest
-	nil,                              // 82: am.v1.LookupStickersResponse.LibraryIdsEntry
-	nil,                              // 83: am.v1.PortraitPack.MediaIdsEntry
-	(*User)(nil),                     // 84: am.v1.User
-	(*Activity)(nil),                 // 85: am.v1.Activity
-	(*Game)(nil),                     // 86: am.v1.Game
+	(*HelperRunRequest)(nil),         // 82: am.v1.HelperRunRequest
+	(*HelperRunResponse)(nil),        // 83: am.v1.HelperRunResponse
+	(*HelperCommand)(nil),            // 84: am.v1.HelperCommand
+	(*HelperCommandsResponse)(nil),   // 85: am.v1.HelperCommandsResponse
+	nil,                              // 86: am.v1.LookupStickersResponse.LibraryIdsEntry
+	nil,                              // 87: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 88: am.v1.User
+	(*Activity)(nil),                 // 89: am.v1.Activity
+	(*Game)(nil),                     // 90: am.v1.Game
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	84, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	88, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	84, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	88, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	84, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	84, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	84, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	84, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	84, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	85, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	88, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	88, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	88, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	88, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	88, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	89, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	84, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	84, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	88, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	88, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	84, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	88, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	43, // 18: am.v1.AIAccount.hosting:type_name -> am.v1.AIHosting
 	49, // 19: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
 	54, // 20: am.v1.ListLibraryResponse.items:type_name -> am.v1.LibrarySticker
-	82, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
+	86, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
 	60, // 22: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	83, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
-	84, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
-	86, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
+	87, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	88, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
+	90, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
 	70, // 26: am.v1.AIPlugin.config_items:type_name -> am.v1.PluginConfigItem
 	71, // 27: am.v1.ListPluginsResponse.plugins:type_name -> am.v1.AIPlugin
 	75, // 28: am.v1.MuseumView.hall:type_name -> am.v1.MuseumArt
 	75, // 29: am.v1.MuseumView.second:type_name -> am.v1.MuseumArt
 	75, // 30: am.v1.MuseumView.store:type_name -> am.v1.MuseumArt
 	76, // 31: am.v1.MuseumView.votes:type_name -> am.v1.MuseumVote
-	32, // [32:32] is the sub-list for method output_type
-	32, // [32:32] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	84, // 32: am.v1.HelperCommandsResponse.commands:type_name -> am.v1.HelperCommand
+	33, // [33:33] is the sub-list for method output_type
+	33, // [33:33] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -5846,7 +6137,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   83,
+			NumMessages:   87,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

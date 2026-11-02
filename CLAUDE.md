@@ -144,6 +144,11 @@ update the docs in the same commit.
   电子厕所 = `server/internal/toilet` (`rules.go` pure + tested;
   `toilet_pits`, 16 shared pits, culprit from `ImageMsg.made_for`). Shared
   model `[helper] ai_*` (`helper.Ask`); news uses its own `[news] ai_*` or that.
+  Site admins edit the bot like an owner edits an AI (`User.IsServerBot`,
+  `UpdateAIProfile`, profile rights; client `HelperProfileDialog`). AIs use
+  it through `POST /api/v1/helper/run` (`helper.RunFor`: no command posted;
+  `show` or answers captured by a context sink) and the `use_helper` tool;
+  `appPrompt` lists `GET /api/v1/helper/commands`.
 - Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
 - Discord-style servers: there are NO friends. Anyone on a server can DM

@@ -97,6 +97,20 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
 type Tab = 'persona' | 'model' | 'social' | 'computer' | 'draw' | 'plugins' | 'profile' | 'run' | 'log';
 
 /** One AI's settings. */
+/** The server's built-in bot's name, avatar, signature and page (site admins). */
+export function HelperProfileDialog({ open, onClose, serverId, botId }: { open: boolean; onClose: () => void; serverId: string; botId: string }) {
+  return (
+    <Dialog open={open} onClose={onClose} title="小助手的资料" width={480}>
+      {open && (
+        <div className="space-y-4" data-testid="helper-profile">
+          <p className="text-[0.85rem] text-ink-soft dark:text-white/55">服务器自带的 bot，只有站点管理员能改。它会的指令（游戏资讯、电子厕所……）在服务器上，不用在这里设置。</p>
+          <ProfileTab serverId={serverId} aiId={botId} onClose={onClose} portraits={false} />
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
 export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClose: () => void; aiId: string }) {
   const serverId = useApp((s) => s.currentId ?? '');
   const info = useAI((s) => s.byServer[serverId]?.find((a) => a.user.id === aiId));
@@ -648,7 +662,7 @@ function LogTab({ logKey }: { logKey: string }) {
   );
 }
 
-function ProfileTab({ serverId, aiId, onClose }: { serverId: string; aiId: string; onClose: () => void }) {
+function ProfileTab({ serverId, aiId, onClose, portraits = true }: { serverId: string; aiId: string; onClose: () => void; portraits?: boolean }) {
   const user = useApp((s) => s.sessions[serverId]?.users[aiId]);
   const [name, setName] = useState(user?.name ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
@@ -677,7 +691,7 @@ function ProfileTab({ serverId, aiId, onClose }: { serverId: string; aiId: strin
           </span>
         </button>
         <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void avatar(f); e.target.value = ''; }} />
-        <div className="text-[0.85rem] text-ink-soft dark:text-white/55">点头像换图（GIF 也行）。立绘在下面换。</div>
+        <div className="text-[0.85rem] text-ink-soft dark:text-white/55">点头像换图（GIF 也行）。{portraits && '立绘在下面换。'}</div>
       </div>
       <Field label="名字"><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={32} /></Field>
       <Field label="个性签名"><Input value={bio} onChange={(e) => setBio(e.target.value)} maxLength={100} /></Field>
@@ -685,7 +699,7 @@ function ProfileTab({ serverId, aiId, onClose }: { serverId: string; aiId: strin
         <Button variant="soft" onClick={() => { onClose(); openProfile(aiId); }}><LayoutGrid size={15} /> 编辑它的主页</Button>
         <Button variant="primary" disabled={!name.trim()} onClick={() => s().updateAI(aiId, { displayName: name.trim(), bio: bio.trim() }).then(() => refreshAIs(serverId)).then(() => toast('已保存'))}>保存资料</Button>
       </div>
-      <PackEditor serverId={serverId} aiId={aiId} />
+      {portraits && <PackEditor serverId={serverId} aiId={aiId} />}
     </>
   );
 }

@@ -181,9 +181,13 @@ export function systemPrompt(o: { name: string; owner: string; persona: Persona;
  * What it can do in AM by itself (so nobody has to tell it): built from the
  * tools it has this time. Every reply gets it, from the first one on.
  */
-export function appPrompt(tools: string[], plugins: { name: string; kind: string; detail: string }[] = []): string {
+export function appPrompt(tools: string[], plugins: { name: string; kind: string; detail: string }[] = [], helper: { name: string; usage: string; help: string }[] = [], helperName = '小助手'): string {
   const has = (n: string) => tools.includes(n);
   const lines: string[] = [];
+  if (helper.length && has('use_helper')) {
+    lines.push(`- 服务器的「${helperName}」（服务器自带的 bot，在每个频道里）会这些指令，你想用就用 use_helper（想让大家看到就 show=true，只想自己知道就 show=false）：\n`
+      + helper.map((c) => `  · /${c.usage}：${c.help}`).join('\n'));
+  }
   if (plugins.length) {
     lines.push('- 工坊里装好的东西（插件，你都会）：\n' + plugins.map((p) => `  · ${p.name}（${p.kind}）：${p.detail}`).join('\n'));
   }

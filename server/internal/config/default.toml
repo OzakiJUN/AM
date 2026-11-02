@@ -161,9 +161,9 @@ vote_minutes = 30
 
 [helper]
 # The server's built-in bot: answers "/" commands in channels and in DMs
-# with it (游戏资讯 now; more built-in features later). Type "/" + a command,
-# e.g. /关注游戏 dota2|刀塔. In a private channel someone has to be allowed to
-# add members for it to come in.
+# with it. Type "/" + a command, e.g. /指令. It is in every channel.
+# name is only its first name: site admins change its name, avatar,
+# signature and page in the app (DM it →「小助手的资料」).
 name = "小助手"
 # A mistyped command that is clearly one of its commands (/资讯原 → /资讯源)
 # just runs, with a note. Commands that delete or cost money are only
