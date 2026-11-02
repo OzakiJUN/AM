@@ -84,6 +84,7 @@ func (q *Queries) PanelCanSeeMedia(ctx context.Context, mediaID int64, groupKind
 	var n int
 	err := q.queryRow(ctx, `SELECT
 		(SELECT count(*) FROM evidence WHERE media_id=?) +
+        (SELECT count(*) FROM forwarded_media fm JOIN evidence ev ON ev.event_id=fm.event_id WHERE fm.media_id=?) +
 		(SELECT count(*) FROM events e JOIN conversations c ON c.id = e.conv_id WHERE e.media_id=? AND c.kind=?) +
 		(SELECT count(*) FROM forwarded_media fm JOIN events e ON e.event_id=fm.event_id JOIN conversations c ON c.id=e.conv_id
             WHERE fm.media_id=? AND c.kind=? AND (e.redacted_by IS NULL OR EXISTS (SELECT 1 FROM evidence ev WHERE ev.event_id=e.event_id))) +
@@ -92,7 +93,7 @@ func (q *Queries) PanelCanSeeMedia(ctx context.Context, mediaID int64, groupKind
 		(SELECT count(*) FROM portrait_packs WHERE media_id=?) +
 		(SELECT count(*) FROM sticker_library WHERE media_id=?) +
 		(SELECT count(*) FROM conversations WHERE avatar_media_id=? AND kind=?)`,
-		mediaID, mediaID, groupKind, mediaID, groupKind, mediaID, mediaID, mediaID, mediaID, mediaID, groupKind).Scan(&n)
+		mediaID, mediaID, mediaID, groupKind, mediaID, groupKind, mediaID, mediaID, mediaID, mediaID, mediaID, groupKind).Scan(&n)
 	return n > 0, err
 }
 

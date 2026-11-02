@@ -93,6 +93,24 @@ func testChatTools(t *testing.T, a *app.App, base string) {
 	if !found {
 		t.Fatal("deleted forwarded media leaked after evidence expiry")
 	}
+
+	// A forwarded image in deleted DM evidence is visible to the panel;
+	// live DM history remains hidden from the panel.
+	sourceDM := must(alice.cli.OpenDM(ctx, bob.me.Id))
+	targetDM := must(bob.cli.OpenDM(ctx, carol.me.Id))
+	dmInfo := must(alice.cli.Upload(ctx, "private.png", bytes.NewReader(encodePNG(testImage(37, 37)))))
+	dmImage := must(aliceWS.SendImage(ctx, sourceDM.Id, dmInfo.Id))
+	dmForward := &amv1.SendRequest{Body: &amv1.SendRequest_Forward{Forward: &amv1.ForwardRequest{SourceConvId: sourceDM.Id, EventIds: []int64{dmImage.EventId}}}}
+	dmCopy := must(send(bobWS, targetDM.Id, dmForward))
+	if must(a.Store.PanelCanSeeMedia(ctx, dmInfo.Id, 2)) {
+		t.Fatal("panel exposed live forwarded DM media")
+	}
+	if err := alice.cli.AdminDelete(ctx, dmCopy.EventId, "test", false); err != nil {
+		t.Fatal(err)
+	}
+	if !must(a.Store.PanelCanSeeMedia(ctx, dmInfo.Id, 2)) {
+		t.Fatal("forwarded DM evidence media unavailable")
+	}
 	pin := func(anchor int64, remove int64) *amv1.SendRequest {
 		return &amv1.SendRequest{Body: &amv1.SendRequest_EmojiPin{EmojiPin: &amv1.EmojiPinAct{TargetEventId: anchor, RemovePinId: remove, Emoji: "😂", X: 0.4, Y: 12}}}
 	}
