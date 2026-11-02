@@ -48,6 +48,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [aiOpen, setAIOpen] = useState(false);
+  const [botOpen, setBotOpen] = useState(false);
   const [poked, setPoked] = useState(0);
   const [pokedMood, setPokedMood] = useState<Mood | undefined>();
   const lastPoke = useRef(0);
@@ -74,7 +75,6 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const myAI = ai && !!peer && peer.ownerId === v.me?.id;
   // The server's built-in bot: site admins edit its name, avatar and page.
   const botAdmin = !!peer && peer.id === v.helperId && v.isAdmin;
-  const [botOpen, setBotOpen] = useState(false);
   const mood = pokedMood ?? aiMood(v, conv.id, peer?.id, streaming);
   // Poking the portrait: a click on the figure (not on the empty space around it) sends "[戳一戳] …".
   const poke = (e: React.MouseEvent) => {
