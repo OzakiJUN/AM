@@ -306,7 +306,7 @@ func testPlugins(t *testing.T, a *app.App, base string) {
 		t.Fatalf("unsupported action: %v", r)
 	}
 	members := bot.call("get_group_member_list", map[string]any{"group_id": ch.Id})["data"].([]any)
-	if len(members) != 3 {
+	if len(members) != 4 { // bob, carol, the AI and the built-in bot
 		t.Fatalf("members %v", members)
 	}
 

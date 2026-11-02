@@ -29,6 +29,9 @@ type state struct {
 	ownerID   int64
 	invisible bool
 	activity  *amv1.Activity // nil = none
+	// always: the server's built-in bot, online while the server runs (not
+	// counted as a visitor).
+	always bool
 }
 
 type Service struct {
@@ -87,13 +90,25 @@ func (s *Service) Disconnect(userID int64, detach func()) {
 	if st == nil {
 		return
 	}
-	if st.conns > 1 {
-		st.conns--
+	if st.conns > 1 || st.always {
+		st.conns = max(st.conns-1, 1)
 		return
 	}
 	old := *st
 	delete(s.online, userID)
 	s.broadcast(userID, &old, nil)
+}
+
+// AlwaysOn shows a server-run account (the built-in bot) as online to
+// everyone while the server runs (at startup, before anyone connects).
+func (s *Service) AlwaysOn(id int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if st := s.online[id]; st != nil {
+		st.always = true
+		return
+	}
+	s.online[id] = &state{conns: 1, always: true}
 }
 
 // Set saves u's invisible flag and activity and tells everyone who sees a
@@ -130,7 +145,7 @@ func (s *Service) VisibleCount() int {
 	defer s.mu.Unlock()
 	n := 0
 	for _, st := range s.online {
-		if !st.invisible {
+		if !st.invisible && !st.always {
 			n++
 		}
 	}

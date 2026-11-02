@@ -165,6 +165,18 @@ vote_minutes = 30
 # e.g. /关注游戏 dota2|刀塔. In a private channel someone has to be allowed to
 # add members for it to come in.
 name = "小助手"
+# A mistyped command that is clearly one of its commands (/资讯原 → /资讯源)
+# just runs, with a note. Commands that delete or cost money are only
+# suggested ("你是不是想发…"). false = always only suggest.
+autofix = true
+# The model its features share: grouping news, naming pictures in the
+# 电子厕所. Any OpenAI-compatible API (DeepSeek: https://api.deepseek.com/v1,
+# deepseek-chat). Empty = no model (things still work, just plainer).
+ai_url = ""
+ai_key = ""
+ai_model = ""
+# Proxy for the model ("" = direct).
+ai_proxy = ""
 
 [news]
 # 游戏资讯 (docs/design.md §10 内置 bot): follow games / companies with
@@ -172,10 +184,9 @@ name = "小助手"
 # reads Steam, B站, news, Reddit, YouTube, 微博, 贴吧, NGA; big news is
 # posted at once, a digest every evening, an X (Twitter) report every week.
 enabled = true
-# The model that groups posts into events and scores them: any
-# OpenAI-compatible API (DeepSeek: https://api.deepseek.com/v1,
-# deepseek-chat). Empty = no model: every post is its own event and only
-# Steam news is posted at once.
+# The model that groups posts into events and scores them. Empty = the
+# one in [helper] (and when that is empty too: every post is its own event
+# and only Steam news is posted at once).
 ai_url = ""
 ai_key = ""
 ai_model = ""

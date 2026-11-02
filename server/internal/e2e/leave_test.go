@@ -30,7 +30,7 @@ func testLeaveServer(t *testing.T, a *app.App, base string) {
 	waitClosed(t, bobWS)
 	// The shared channel passed to carol; bob left it. The solo one is dissolved.
 	waitPush(t, carolWS, "bob left", isSysMember(amv1.SysMember_ACTION_LEAVE, bob.me.Id))
-	if c := must(carol.cli.GetConversation(ctx, shared.Id)); c.OwnerId != carol.me.Id || len(c.Members) != 1 {
+	if c := must(carol.cli.GetConversation(ctx, shared.Id)); c.OwnerId != carol.me.Id || len(c.Members) != 2 { // carol + the built-in bot
 		t.Fatalf("shared channel after bob left: owner %d, %d members", c.OwnerId, len(c.Members))
 	}
 	if c, _ := a.Store.GetConv(ctx, solo.Id); c == nil || !c.Dissolved {

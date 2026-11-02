@@ -35,9 +35,14 @@ type Service struct {
 	limits config.Limits
 	// Name of the public channel created for the first admin ("" = none).
 	defaultChannel string
-	log            *slog.Logger
-	now            func() time.Time
+	// The server's built-in bot: in every channel (0 = none yet).
+	helperID int64
+	log      *slog.Logger
+	now      func() time.Time
 }
+
+// SetHelper tells the service the built-in bot's account (at startup).
+func (s *Service) SetHelper(id int64) { s.helperID = id }
 
 func New(st *store.Store, ids *idgen.Generator, p push.Pusher, ms *message.Service, md *media.Service,
 	limits config.Limits, defaultChannel string, log *slog.Logger) *Service {

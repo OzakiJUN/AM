@@ -124,6 +124,10 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 			// Someone else's picture: fine when it is a sticker I have or one
 			// in the shared library.
 			m, err = s.media.StickerImage(ctx, me.ID, b.Image.GetMediaId())
+			// The server's built-in bot shows pictures kept by its features (电子厕所).
+			if errors.Is(err, media.ErrMediaMissing) && me.AccountType == int16(amv1.AccountType_ACCOUNT_TYPE_BOT) && me.OwnerID == 0 {
+				m, err = s.media.AnyImage(ctx, b.Image.GetMediaId())
+			}
 		}
 		if err != nil {
 			return nil, err
@@ -135,6 +139,14 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 				img.MadeWith = mw
 			}
 			img.Nsfw = b.Image.GetNsfw()
+			if f := []rune(strings.TrimSpace(b.Image.GetMadeFrom())); len(f) > 0 {
+				img.MadeFrom = string(f[:min(len(f), 200)])
+			}
+			if who := b.Image.GetMadeFor(); who != 0 {
+				if _, err := s.st.GetMember(ctx, conv.ID, who); err == nil {
+					img.MadeFor = who
+				}
+			}
 		}
 		body.Body = &amv1.Event_Image{Image: img}
 		kind, mediaID = KindImage, m.ID

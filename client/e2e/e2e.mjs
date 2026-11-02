@@ -296,7 +296,7 @@ const pages = [];
   await shot(A, '09-hover');
 
   // Presence: both online in the member list; signature and activity.
-  await B.waitForSelector('aside >> text=在线 — 2');
+  await B.waitForSelector('aside >> text=在线 — 3'); // A, B and 小助手 (always online)
   await A.click('button[aria-label="账号设置"]');
   await A.fill('textarea#bio', '今天也在写 AM');
   await A.click('button:has-text("保存签名")');
@@ -368,7 +368,7 @@ const pages = [];
   await wait(600);
   await shot(B, '19-visit-profile-dark');
   await B.click('button[aria-label="频道"]');
-  await B.waitForSelector('aside >> text=在线 — 2');
+  await B.waitForSelector('aside >> text=在线 — 3'); // A, B and 小助手 (always online)
   // Invisible: B sees A offline; A still sees itself as invisible.
   await A.click('button[aria-label="账号设置"]');
   await A.click('button[role="switch"][aria-label="隐身"]');
@@ -385,7 +385,7 @@ const pages = [];
   await B.click('button[aria-label="展开成员列表"]');
   await B.click('button[aria-label="展开列表"]');
   await A.click('button[role="switch"][aria-label="隐身"]');
-  await B.waitForSelector('aside >> text=在线 — 2');
+  await B.waitForSelector('aside >> text=在线 — 3'); // A, B and 小助手 (always online)
   await A.click('button[aria-label="频道"]');
 
   // Pin and do not disturb (right-click a channel; my own setting).
@@ -688,6 +688,10 @@ const pages = [];
   await B.fill('textarea[aria-label="消息"]', '/关注列表');
   await B.press('textarea[aria-label="消息"]', 'Enter');
   await B.waitForSelector('section div.whitespace-pre-wrap:has-text("这里还没关注任何关键词")', { timeout: 15000 });
+  await B.fill('textarea[aria-label="消息"]', '/指令');
+  await B.press('textarea[aria-label="消息"]', 'Enter');
+  await B.waitForSelector('section div.whitespace-pre-wrap:has-text("📖 指令一览")', { timeout: 15000 });
+  await B.waitForSelector('section div.whitespace-pre-wrap:has-text("🚽 电子厕所：投厕")');
   await shot(B, '27j-helper-bot');
   await B.click('button[aria-label="频道"]');
 
@@ -705,7 +709,7 @@ const pages = [];
   // In the channel: @ picks it from the member list, it answers; the mention is highlighted.
   await A.click('button[aria-label="频道"]');
   await A.click('aside button:has-text("AM 内测")');
-  await A.fill('textarea[aria-label="消息"]', '@小');
+  await A.fill('textarea[aria-label="消息"]', '@小鱼'); // 「@小」 also lists 小助手 (in every channel)
   await A.waitForSelector('div[role="listbox"][aria-label="提到谁"] >> text=小鱼');
   await shot(A, '27c-mention');
   await A.press('textarea[aria-label="消息"]', 'Enter'); // picks

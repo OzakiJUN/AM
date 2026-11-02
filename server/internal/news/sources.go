@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -38,8 +39,8 @@ type Fetcher struct {
 	Cookies map[string]string
 	// SteamCC: the Steam store region for searches (US shows adult-only games).
 	SteamCC string
-	// Rewrite changes every URL before it is fetched (tests point the sites at a fake server).
-	Rewrite func(string) string
+	// rewrite changes every URL before it is fetched (tests point the sites at a fake server).
+	rewrite atomic.Pointer[func(string) string]
 	Now     func() time.Time
 }
 
@@ -55,6 +56,9 @@ type req struct {
 	timeout time.Duration
 }
 
+// SetRewrite changes every URL before it is fetched (tests).
+func (f *Fetcher) SetRewrite(rw func(string) string) { f.rewrite.Store(&rw) }
+
 func (f *Fetcher) now() time.Time {
 	if f.Now != nil {
 		return f.Now()
@@ -69,8 +73,8 @@ func (f *Fetcher) get(ctx context.Context, raw string, q url.Values, r req) ([]b
 	if len(q) > 0 {
 		raw += "?" + q.Encode()
 	}
-	if f.Rewrite != nil {
-		raw = f.Rewrite(raw)
+	if rw := f.rewrite.Load(); rw != nil {
+		raw = (*rw)(raw)
 	}
 	method := r.method
 	if method == "" {

@@ -34,7 +34,7 @@ func (h *handler) listChannels(w http.ResponseWriter, r *http.Request) {
 		out = append(out, map[string]any{
 			"id": id64(c.ID), "name": c.Name, "avatar_media_id": id64(c.AvatarMediaID), "public": c.Public,
 			"dissolved": c.Dissolved, "owner_name": c.OwnerName, "members": c.Members, "messages": c.LastSeq,
-			"created_at": c.CreatedAt,
+			"created_at": c.CreatedAt, "nsfw": c.Nsfw,
 		})
 	}
 	writeJSON(w, map[string]any{"items": out, "total": total, "page_size": limit})
@@ -205,4 +205,30 @@ func sysText(ev *amv1.Event, name func(int64) string) string {
 		return target + " 现在是普通成员"
 	}
 	return "成员变动"
+}
+
+// setChannelNsfw allows or stops adult content in one channel (AI drawing,
+// the museum, the toilet). Only here: channel owners can't change it.
+func (h *handler) setChannelNsfw(w http.ResponseWriter, r *http.Request) {
+	a, _, okk := h.running(w)
+	if !okk {
+		return
+	}
+	id, okID := pathID(r)
+	var req struct {
+		On bool `json:"on"`
+	}
+	if !okID {
+		writeErr(w, http.StatusBadRequest, "bad_request", "bad channel id")
+		return
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	if err := a.Conv.SetNsfw(r.Context(), id, req.On); err != nil {
+		h.fail(w, err)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true})
 }

@@ -187,13 +187,26 @@ async function draw(d: NaiDeps, convId: string, j: Job): Promise<{ pngs: Uint8Ar
 }
 
 /** Sends the pictures, labelled for the museum ("NovelAI V5", adult content). */
-async function sendPictures(d: NaiDeps, convId: string, pngs: Uint8Array[], made?: { with: string; nsfw: boolean }) {
+async function sendPictures(d: NaiDeps, convId: string, pngs: Uint8Array[], made?: Made) {
   for (const [i, png] of pngs.entries()) {
     await d.s.sendFile(convId, new File([png.slice()], `nai-${Date.now()}-${i}.png`, { type: 'image/png' }), made);
   }
 }
 
-const madeBy = (v5: boolean, prompt: string, nsfwAllowed: boolean) => ({ with: `NovelAI ${v5 ? 'V5' : 'V4.5'}`, nsfw: nsfwAllowed && NSFW_RE.test(prompt) });
+/** How a picture was made, and for whom (the 电子厕所 names them; the request names the picture). */
+type Made = { with: string; nsfw: boolean; for?: string; from?: string };
+const madeBy = (v5: boolean, prompt: string, nsfwAllowed: boolean, forId?: string, from?: string): Made =>
+  ({ with: `NovelAI ${v5 ? 'V5' : 'V4.5'}`, nsfw: nsfwAllowed && NSFW_RE.test(prompt), for: forId, from: from?.slice(0, 200) });
+
+/** The latest person who spoke here (who the draw_picture tool drew for) and what they said. */
+function askedBy(d: NaiDeps, convId: string): { id?: string; text?: string } {
+  const msgs = d.s.view.messages[convId] ?? [];
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (d.s.view.users[m.senderId]?.type === 'human' && m.body.kind === 'text') return { id: m.senderId, text: m.body.text };
+  }
+  return {};
+}
 
 /** Pictures the command came with: an image the same person sent just before, or the one it replies to. */
 async function picturesFor(d: NaiDeps, convId: string, m: Message, limit = 2): Promise<Uint8Array[]> {
@@ -263,7 +276,7 @@ export async function runCommand(d: NaiDeps, convId: string, m: Message, cmd: Dr
       const before = (await balance(d))?.anlas ?? null;
       const src = await shrinkPng(img, 1024 * 1024);
       const out = extractPngs(await serialized(d.token, () => request(d, 'POST', UPSCALE_URL, { image: src.b64, width: src.width, height: src.height, scale: 2 }, 120)));
-      await sendPictures(d, convId, out);
+      await sendPictures(d, convId, out, { with: 'NovelAI 放大', nsfw: false, for: m.senderId });
       await say('NovelAI 放大 2 倍，' + costNote(before, (await balance(d, true))?.anlas ?? null, true));
       return;
     }
@@ -302,7 +315,7 @@ export async function runCommand(d: NaiDeps, convId: string, m: Message, cmd: Dr
       references: cmd.kind === 'charref' ? pics.slice(0, 1) : undefined,
     };
     const r = await draw(d, convId, job);
-    await sendPictures(d, convId, r.pngs, madeBy(v5, [prompt, ...chars.flat()].join(' '), d.nsfwAllowed(convId)));
+    await sendPictures(d, convId, r.pngs, madeBy(v5, [prompt, ...chars.flat()].join(' '), d.nsfwAllowed(convId), m.senderId, m.body.kind === 'text' ? m.body.text : undefined));
     await say([...notes, r.note].join('；'));
   } catch (e) {
     await say(e instanceof DrawError ? e.message : `没画成：${e instanceof Error ? e.message : String(e)}`).catch(() => {});
@@ -322,7 +335,8 @@ export async function drawForTool(d: NaiDeps, convId: string, a: Record<string, 
   const n = Math.max(1, Math.min(Math.min(4, d.draw.maxCount), Math.round(Number(a.count) || 1)));
   try {
     const r = await draw(d, convId, { v5: a.model === 'v5', prompt, negative, orientation, n });
-    await sendPictures(d, convId, r.pngs, madeBy(a.model === 'v5', prompt, d.nsfwAllowed(convId)));
+    const asker = askedBy(d, convId);
+    await sendPictures(d, convId, r.pngs, madeBy(a.model === 'v5', prompt, d.nsfwAllowed(convId), asker.id, asker.text));
     return `画好了，${r.pngs.length} 张已经发到聊天里（${r.note}）。用一句话自然地说一下就行，不要再贴提示词。`;
   } catch (e) {
     return `没画成：${e instanceof Error ? e.message : String(e)}`;

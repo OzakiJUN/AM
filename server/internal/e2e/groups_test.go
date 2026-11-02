@@ -31,7 +31,7 @@ func testGroups(t *testing.T, a *app.App, base string) {
 	_, err := owner.cli.CreateGroup(ctx, "   ")
 	wantCode(t, err, "invalid_group_name")
 	g := must(owner.cli.CreateGroup(ctx, "测试群", bob.me.Id))
-	if g.Kind != amv1.ConvKind_CONV_KIND_GROUP || len(g.Members) != 2 || g.Self.Role != amv1.MemberRole_MEMBER_ROLE_OWNER {
+	if g.Kind != amv1.ConvKind_CONV_KIND_GROUP || len(g.Members) != 3 || g.Self.Role != amv1.MemberRole_MEMBER_ROLE_OWNER {
 		t.Fatalf("bad group: %v", g)
 	}
 	waitPush(t, bobWS, "group conv push", func(f *amv1.ServerFrame) bool {
@@ -53,17 +53,19 @@ func testGroups(t *testing.T, a *app.App, base string) {
 	})
 	waitPush(t, bobWS, "join event", isSysMember(amv1.SysMember_ACTION_JOIN, carol.me.Id))
 
-	// --- NSFW (AI drawing): admins only, everyone sees it, a system event says so ---
-	_, err = bob.cli.UpdateGroup(ctx, g.Id, &amv1.UpdateGroupRequest{Nsfw: ptr(true)})
+	// --- NSFW: only the admin panel sets it (per channel); everyone sees it, a system event says so ---
+	_, err = owner.cli.UpdateGroup(ctx, g.Id, &amv1.UpdateGroupRequest{Nsfw: ptr(true)})
 	wantCode(t, err, "no_permission")
-	if c := must(owner.cli.UpdateGroup(ctx, g.Id, &amv1.UpdateGroupRequest{Nsfw: ptr(true)})); !c.Nsfw {
-		t.Fatal("nsfw not set")
+	if err := a.Conv.SetNsfw(ctx, g.Id, true); err != nil {
+		t.Fatal(err)
 	}
 	waitPush(t, bobWS, "nsfw event", func(f *amv1.ServerFrame) bool { return f.GetEvent().GetEvent().GetSysConv().GetNsfw() })
 	if !must(bob.cli.GetConversation(ctx, g.Id)).Nsfw {
 		t.Fatal("bob doesn't see nsfw")
 	}
-	must(owner.cli.UpdateGroup(ctx, g.Id, &amv1.UpdateGroupRequest{Nsfw: ptr(false)}))
+	if err := a.Conv.SetNsfw(ctx, g.Id, false); err != nil {
+		t.Fatal(err)
+	}
 
 	// --- join approval ---
 	_, err = bob.cli.UpdateGroup(ctx, g.Id, &amv1.UpdateGroupRequest{JoinApproval: ptr(true)})

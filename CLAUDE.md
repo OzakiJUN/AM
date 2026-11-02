@@ -136,6 +136,14 @@ update the docs in the same commit.
   `ai.go` OpenAI-compatible model + xAI, `service.go` state in
   `news_state`, subscriptions in `news_subs`, schedule, commands), config
   `[news]`; e2e `news_test.go` runs against fake sites (`SetRewrite`).
+  The bot is in every channel (`conv.SetHelper`: added on creation, existing
+  channels once via `HelperEverywhere`; never counted in member counts or
+  limits, never inherits a channel). 指令查询 = `helper/help.go` (pure +
+  tested: `Overview`, `Lookup`, difflib-like `Ratio`, `Suggest`, `Typo`;
+  `Command.Safe` = a typo may just run it; `AIDrawing` mirrors nai.ts CMDS).
+  电子厕所 = `server/internal/toilet` (`rules.go` pure + tested;
+  `toilet_pits`, 16 shared pits, culprit from `ImageMsg.made_for`). Shared
+  model `[helper] ai_*` (`helper.Ask`); news uses its own `[news] ai_*` or that.
 - Site-admin actions (ban, reset password, revoke invites) live in
   `account/admin.go` and write the audit log; actor 0 = admin panel.
 - Discord-style servers: there are NO friends. Anyone on a server can DM
@@ -316,7 +324,8 @@ update the docs in the same commit.
   `draw_picture` tool (category `draw`) run in the runner (`drawCommand`,
   `naiDeps`) through `lib/ai/naiRun.ts`; parsing / payload / rules are pure in
   `lib/ai/nai.ts` (tested); Rust `nai_request` (novelai.net only, proxy).
-  Channels have `conversations.nsfw` (owners / admins); minors are never drawn.
+  Channels have `conversations.nsfw`, set per channel in the admin panel only
+  (`conv.SetNsfw`, recorded as said by the built-in bot); minors are never drawn.
 - AI memory (docs/design.md §9 一个记忆): `lib/ai/memory.ts` (pure, tested:
   per-person notes by account id, events, known plugins, 28 KB cap) stored as
   the AI account's own client state; `rememberNow` (runner) updates it in batches with a persisted per-chat cursor; every reply gets `whoPrompt` (who is talking,

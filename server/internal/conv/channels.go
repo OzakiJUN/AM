@@ -122,3 +122,36 @@ func (s *Service) Welcome(ctx context.Context, u *store.User) {
 		}
 	}
 }
+
+// HelperEverywhere puts the built-in bot into every channel that existed
+// before it joined channels by default (once per server; after that a
+// channel that removed it stays without it until someone uses a command).
+func (s *Service) HelperEverywhere(ctx context.Context) error {
+	if s.helperID == 0 {
+		return nil
+	}
+	set, err := s.st.ServerSettings(ctx)
+	if err != nil || set["helper_in_channels"] == "1" {
+		return err
+	}
+	ids, err := s.st.ChannelsWithout(ctx, s.helperID)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		var row *store.Event
+		err := s.st.InTx(ctx, func(q *store.Queries) error {
+			if err := q.AddMember(ctx, &store.Member{ConvID: id, UserID: s.helperID, Role: roleMember, JoinedAt: s.now().UnixMilli()}); err != nil {
+				return err
+			}
+			var err error
+			row, err = s.msg.AppendSystem(ctx, q, id, s.helperID, sysMember(amv1.SysMember_ACTION_JOIN, s.helperID, s.helperID))
+			return err
+		})
+		if err != nil {
+			return err
+		}
+		s.msg.FanOut(ctx, row, nil, 0)
+	}
+	return s.st.SetServerSetting(ctx, "helper_in_channels", "1")
+}

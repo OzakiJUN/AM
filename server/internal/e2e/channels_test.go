@@ -42,7 +42,8 @@ func testChannels(t *testing.T, a *app.App, base string) {
 	_, err := bob.cli.CreatePublicChannel(ctx, "bob's")
 	wantCode(t, err, "no_permission")
 	news := must(admin.cli.CreatePublicChannel(ctx, "公告"))
-	if !news.Public || len(news.Members) != 2 {
+	// Everyone, plus the built-in bot (in every channel).
+	if !news.Public || len(news.Members) != 3 {
 		t.Fatalf("public channel = %v", news)
 	}
 	waitPush(t, bobWS, "public channel push", func(f *amv1.ServerFrame) bool {

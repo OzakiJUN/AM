@@ -77,6 +77,7 @@ func (q *Queries) UnreferencedMedia(ctx context.Context, before int64, limit int
 		AND NOT EXISTS (SELECT 1 FROM portrait_packs pp WHERE pp.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM conversations c WHERE c.avatar_media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM museum_arts ma WHERE ma.media_id = md.id)
+		AND NOT EXISTS (SELECT 1 FROM toilet_pits tp WHERE tp.media_id = md.id)
 		LIMIT ?`, before, limit)
 	if err != nil {
 		return nil, err

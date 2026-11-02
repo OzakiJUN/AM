@@ -115,12 +115,14 @@ func testNews(t *testing.T, a *app.App, base string) {
 		t.Fatalf("server info: %+v", info)
 	}
 	botID := info.HelperId
-	// The bot isn't a person: not counted, not put into new public channels.
+	// The bot is in every new channel (but doesn't count as a member).
 	pub := must(admin.cli.CreatePublicChannel(ctx, "游戏"))
+	in := false
 	for _, m := range pub.Members {
-		if m.GetId() == botID {
-			t.Fatal("bot put into a public channel")
-		}
+		in = in || m.GetId() == botID
+	}
+	if ch := must(admin.cli.ListChannels(ctx)).Channels; !in || len(ch) != 1 || ch[0].MemberCount != 2 {
+		t.Fatalf("bot in the channel %v, list %v", in, ch)
 	}
 
 	adminWS := must(admin.cli.Connect(ctx))
@@ -145,6 +147,22 @@ func testNews(t *testing.T, a *app.App, base string) {
 	fromBot("baseline", "基线建好了，最近的 1 个事件")
 	must(adminWS.SendText(ctx, pub.Id, "/关注列表"))
 	fromBot("list", "1. dota2（刀塔）")
+	// 指令查询: the list, one command, a typo fixed (safe), a typo only suggested (deletes).
+	must(adminWS.SendText(ctx, pub.Id, "/指令"))
+	help := fromBot("help", "📖 指令一览").GetText().GetText()
+	if !strings.Contains(help, "🎮 游戏资讯：关注游戏") || !strings.Contains(help, "🖌 AI 画画") || !strings.Contains(help, "📚 帮助：指令") {
+		t.Fatalf("help %q", help)
+	}
+	must(adminWS.SendText(ctx, pub.Id, "/帮助 资讯源"))
+	fromBot("help lookup", "📌 /资讯源 [关键词]")
+	must(adminWS.SendText(ctx, pub.Id, "/关住列表"))
+	fromBot("typo note", "（「/关住列表」按「/关注列表」处理了）")
+	fromBot("typo fixed", "1. dota2（刀塔）")
+	must(adminWS.SendText(ctx, pub.Id, "/取消关住 1"))
+	fromBot("typo suggested", "没有「/取消关住」这个指令，你是不是想发：/取消关注")
+	if subs := must(a.Store.NewsSubs(ctx, pub.Id)); len(subs) != 1 {
+		t.Fatal("a suggested delete ran")
+	}
 
 	// A new hour: a Steam post and a hot video. Steam is pushed (translated), and the big event.
 	fake.mu.Lock()
@@ -212,5 +230,21 @@ func testNews(t *testing.T, a *app.App, base string) {
 	fromBot("unfollow", "已取消关注「dota2」")
 	if subs := must(a.Store.NewsSubs(ctx, 0)); len(subs) != 0 {
 		t.Fatalf("subs left: %+v", subs)
+	}
+	// Channels from before the bot joined every channel get it once at startup.
+	if err := a.Store.RemoveMember(ctx, pub.Id, botID); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Store.SetServerSetting(ctx, "helper_in_channels", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Conv.HelperEverywhere(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Store.GetMember(ctx, pub.Id, botID); err != nil {
+		t.Fatal("bot not put back into the channel:", err)
+	}
+	if err := a.Conv.HelperEverywhere(ctx); err != nil { // once only
+		t.Fatal(err)
 	}
 }

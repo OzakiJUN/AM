@@ -409,7 +409,13 @@ type ImageMsg struct {
 	// How an AI made it (e.g. "NovelAI V5"); only kept on ai / bot messages.
 	MadeWith string `protobuf:"bytes,5,opt,name=made_with,json=madeWith,proto3" json:"made_with,omitempty"`
 	// An AI drew it with adult content; only kept on ai / bot messages.
-	Nsfw          bool `protobuf:"varint,6,opt,name=nsfw,proto3" json:"nsfw,omitempty"`
+	Nsfw bool `protobuf:"varint,6,opt,name=nsfw,proto3" json:"nsfw,omitempty"`
+	// Who asked the AI to draw it (a member of this conversation); only kept
+	// on ai / bot messages. The 电子厕所 names them as the culprit.
+	MadeFor int64 `protobuf:"varint,7,opt,name=made_for,json=madeFor,proto3" json:"made_for,omitempty"`
+	// What was asked for (at most 200 characters); only kept on ai / bot
+	// messages. Used to name a picture.
+	MadeFrom      string `protobuf:"bytes,8,opt,name=made_from,json=madeFrom,proto3" json:"made_from,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -484,6 +490,20 @@ func (x *ImageMsg) GetNsfw() bool {
 		return x.Nsfw
 	}
 	return false
+}
+
+func (x *ImageMsg) GetMadeFor() int64 {
+	if x != nil {
+		return x.MadeFor
+	}
+	return 0
+}
+
+func (x *ImageMsg) GetMadeFrom() string {
+	if x != nil {
+		return x.MadeFrom
+	}
+	return ""
 }
 
 type FileMsg struct {
@@ -1034,14 +1054,16 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x19\n" +
 	"\breply_to\x18\x02 \x01(\x03R\areplyTo\x12\x1a\n" +
 	"\bmentions\x18\x03 \x03(\x03R\bmentions\x12\x12\n" +
-	"\x04mood\x18\x04 \x01(\tR\x04mood\"\xa7\x01\n" +
+	"\x04mood\x18\x04 \x01(\tR\x04mood\"\xdf\x01\n" +
 	"\bImageMsg\x12\x19\n" +
 	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\x12\x14\n" +
 	"\x05width\x18\x02 \x01(\x05R\x05width\x12\x16\n" +
 	"\x06height\x18\x03 \x01(\x05R\x06height\x12!\n" +
 	"\fsticker_tags\x18\x04 \x03(\tR\vstickerTags\x12\x1b\n" +
 	"\tmade_with\x18\x05 \x01(\tR\bmadeWith\x12\x12\n" +
-	"\x04nsfw\x18\x06 \x01(\bR\x04nsfw\"L\n" +
+	"\x04nsfw\x18\x06 \x01(\bR\x04nsfw\x12\x19\n" +
+	"\bmade_for\x18\a \x01(\x03R\amadeFor\x12\x1b\n" +
+	"\tmade_from\x18\b \x01(\tR\bmadeFrom\"L\n" +
 	"\aFileMsg\x12\x19\n" +
 	"\bmedia_id\x18\x01 \x01(\x03R\amediaId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
