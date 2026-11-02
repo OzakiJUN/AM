@@ -144,11 +144,12 @@ export const TOOLS: ToolDef[] = [
   { name: 'start_game', category: 'games', own: true, description: '开始你开的那局（人要够）。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
   {
     name: 'draw_picture', category: 'draw', own: true,
-    description: '用 NovelAI 画一张（或几张）图，直接发到现在的聊天里。prompt 用英文写：Danbooru 风格标签或英文句子都行（人数标签开头，如 1girl / 1boy / 2girls；可以写 artist:名字）。有人让你画画、或者你想画给对方看时用。',
+    description: '让服务器的小助手用 NovelAI 画一张（或几张）图，直接发到现在的聊天里。prompt 用英文写：Danbooru 风格标签或英文句子都行（人数标签开头，如 1girl / 1boy / 2girls；可以写 artist:名字）。想画你自己时设 as_me=true：用你的头像当角色参考（prompt 写你在做什么、在哪）。有人让你画画、或者你想画给对方看时用。',
     parameters: obj({
       prompt: str('英文提示词'), negative: str('不想要的东西（英文，可以不写）'),
       orientation: { type: 'string', enum: ['portrait', 'landscape', 'square'], description: '竖图 / 横图 / 方图' },
       count: num('几张（1–4，默认 1；多于 1 张会扣 Anlas）'), model: { type: 'string', enum: ['v4.5', 'v5'], description: '默认 v4.5' },
+      as_me: { type: 'boolean', description: '画你自己：用你的头像当角色参考' },
     }, ['prompt']),
   },
   { name: 'view_game', category: 'games', own: true, description: '看一局桌游现在的样子：棋盘、轮到谁、大家说了什么。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
@@ -240,6 +241,22 @@ const short = (s: unknown, n = 80) => {
 };
 
 /** A call in plain words (permission question, status bar, action log). */
+/**
+ * draw_picture's arguments as a command for the server's bot: options
+ * first, 「用我的头像」, the English prompt word for word (原样), a Negative line.
+ */
+export function drawCommandFor(a: Record<string, unknown>): string {
+  const parts = [a.model === 'v5' ? '/nai5' : '/nai'];
+  if (a.orientation === 'landscape') parts.push('横图');
+  else if (a.orientation === 'square') parts.push('方图');
+  const n = Math.max(1, Math.min(4, Math.round(Number(a.count) || 1)));
+  if (n > 1) parts.push(`*${n}`);
+  if (a.as_me === true) parts.push('用我的头像');
+  parts.push('原样', String(a.prompt ?? '').replace(/\s*\n\s*/g, ' ').trim());
+  const neg = String(a.negative ?? '').replace(/\s*\n\s*/g, ' ').trim();
+  return parts.join(' ') + (neg ? `\nNegative: ${neg}` : '');
+}
+
 export function describeCall(name: string, args: Record<string, unknown>): string {
   switch (name) {
     case 'list_dir': return `看文件夹 ${short(args.path)}`;

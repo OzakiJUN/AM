@@ -102,12 +102,6 @@ async fn web_get_bytes(url: String, max: u64) -> Res<tauri::ipc::Response> {
     ai_http::get_bytes(url, max).await.map(tauri::ipc::Response::new)
 }
 
-/// A NovelAI request (drawing, lib/ai/naiRun.ts).
-#[tauri::command]
-async fn nai_request(method: String, url: String, token: String, body: Option<String>, proxy: String, timeout: u64) -> Res<tauri::ipc::Response> {
-    ai_http::nai(method, url, token, body, proxy, timeout).await.map(tauri::ipc::Response::new)
-}
-
 /// A request to an AI model provider; the reply streams back through `on_event`.
 #[tauri::command]
 async fn ai_request(url: String, headers: Vec<(String, String)>, body: String, on_event: Channel<ai_http::StreamEvent>) -> Res<u16> {
@@ -498,7 +492,7 @@ pub fn run() {
             save_edited_image, server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit, nai_request
+            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

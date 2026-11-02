@@ -181,6 +181,44 @@ ai_model = ""
 # Proxy for the model ("" = direct).
 ai_proxy = ""
 
+[draw]
+# Drawing with NovelAI on the built-in bot: /nai, /nai5, /角色参考,
+# /风格迁移, /放大, /查标签, /nai余额 in any channel or a DM with it; AIs
+# draw through it too ("用我的头像" draws the asker from their avatar).
+# One NovelAI key for the whole server (its Anlas are spent).
+enabled = true
+# NovelAI → Settings → Account → Get Persistent API Token. Empty = drawing off.
+token = ""
+# Proxy for NovelAI, e.g. "http://127.0.0.1:7890" ("" = direct).
+proxy = ""
+# NovelAI's address (change only for a mirror).
+api = "https://image.novelai.net"
+# Pictures a day per person (site admins: no limit; 0 = no limit at all).
+daily_per_person = 20
+# Adult content in DMs with the bot (channels: the admin panel's per-channel switch).
+nsfw_in_dm = false
+# Pictures per command at most.
+max_count = 8
+steps = 28
+scale = 5.0
+sampler = "k_euler_ancestral"
+# img2img, vibe transfer, character reference strength / fidelity.
+strength = 0.6
+vibe_strength = 0.6
+ref_strength = 1.0
+ref_fidelity = 1.0
+model = "nai-diffusion-4-5-full"
+v5_model = "nai-diffusion-5-full"
+# /nai5 takes Chinese as it is (/nai translates with the bot's model).
+v5_native = true
+quality = "very aesthetic, masterpiece, no text"
+quality_v5 = "very aesthetic, masterpiece, no text, high complexity"
+negative = "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page, bad anatomy, bad proportions, bad hands, wrong hand, wrong fingers, extra digits, fewer digits, extra fingers, missing fingers, fused fingers, too many fingers, malformed hands, mutated hands, deformed hands, extra arms, extra hands, extra legs, missing limb, bad feet, extra toes"
+# Never drawn (English ones also go into the negative prompt).
+block_words = []
+# Add "nsfw" when adult words are in the prompt and adult content is allowed.
+auto_nsfw = true
+
 [news]
 # 游戏资讯 (docs/design.md §10 内置 bot): follow games / companies with
 # "/关注游戏 名字|别名" in a channel or in a DM with the bot. Every hour it

@@ -29,8 +29,6 @@ export default defineConfig({
     // Browser mode only (e2e): a local workshop index and its test key instead of GitHub's.
     __AM_DEV_WORKSHOP__: JSON.stringify(process.env.AM_DEV_WORKSHOP ?? ''),
     __AM_DEV_WORKSHOP_KEY__: JSON.stringify(process.env.AM_DEV_WORKSHOP_KEY ?? ''),
-    // Browser development / e2e only: a stand-in for image.novelai.net.
-    __AM_DEV_NAI__: JSON.stringify(process.env.AM_DEV_NAI ?? ''),
   },
   server: {
     port: 1420,

@@ -10,8 +10,8 @@ import (
 // 指令查询 (from Weiqi's qqhelp): the command list, looking a command up,
 // and catching typos. The functions here are pure (tested).
 
-// Entry is a command in the help: the bot's own, or one something else
-// answers (an AI's drawing commands), which is only listed and suggested.
+// Entry is a command in the help: the bot's own, or (Own false) one
+// something else answers, only listed and suggested.
 type Entry struct {
 	Name, Group, Usage, Help string
 	Aliases                  []string
@@ -20,21 +20,6 @@ type Entry struct {
 	// Own: the bot runs it (otherwise only suggested).
 	Own bool
 }
-
-// AIDrawing lists the drawing commands an AI answers (client
-// lib/ai/nai.ts CMDS; keep in sync).
-var AIDrawing = []Entry{
-	{Name: "nai", Usage: "nai [横图/方图] [*4] <描述>", Help: "叫有 NovelAI 的 AI 画画（V4.5，中文会先翻成英文）；频道里要 @ 它"},
-	{Name: "nai5", Usage: "nai5 <描述>", Help: "NovelAI V5，直接写中文"},
-	{Name: "nai余额", Aliases: []string{"nai额度"}, Usage: "nai余额", Help: "查 NovelAI 还剩多少 Anlas"},
-	{Name: "角色参考", Aliases: []string{"角色迁移", "人物参考"}, Usage: "角色参考 <新画面> + 回复一张角色图", Help: "画同一个角色的新画面（换动作、场景、衣服）"},
-	{Name: "风格迁移", Aliases: []string{"画风迁移", "vibe"}, Usage: "风格迁移 [强度0.8] <要画什么> + 回复一张图", Help: "照这张图的画风画新内容"},
-	{Name: "放大", Aliases: []string{"高清放大", "upscale"}, Usage: "放大 + 回复一张图", Help: "NovelAI 放大"},
-	{Name: "查标签", Aliases: []string{"查画师", "标签联想"}, Usage: "查画师 <名字>", Help: "查 NovelAI 认不认识这个画师 / 标签"},
-}
-
-// AIDrawingGroup is the group name of AIDrawing.
-const AIDrawingGroup = "🖌 AI 画画（叫自己的 AI 画，频道里 @ 它）"
 
 // Overview lists every group and its command names.
 func Overview(entries []Entry) string {
