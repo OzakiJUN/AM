@@ -30,7 +30,7 @@ const (
 	guestbookPerMinute = 3
 )
 
-var messageKinds = []int16{message.KindText, message.KindImage, message.KindFile}
+var messageKinds = []int16{message.KindText, message.KindImage, message.KindFile, message.KindForward}
 
 type Service struct {
 	st        *store.Store
