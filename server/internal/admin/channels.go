@@ -212,7 +212,7 @@ func sysText(ev *amv1.Event, name func(int64) string) string {
 func forwardEntries(forward *amv1.ForwardMsg) []map[string]any {
 	entries := []map[string]any{}
 	for _, entry := range forward.Entries {
-		item := map[string]any{"sender_name": entry.SenderName, "source_name": entry.SourceName, "at": entry.SentAt}
+		item := map[string]any{"sender_name": entry.SenderName, "source_name": entry.SourceName, "source_server":entry.SourceServer, "imported":entry.Imported, "at": entry.SentAt}
 		switch b := entry.Body.(type) {
 		case *amv1.ForwardEntry_Text:
 			item["kind"], item["text"] = "text", b.Text.Text

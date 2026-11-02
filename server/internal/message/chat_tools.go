@@ -4,17 +4,25 @@ import (
 	"context"
 	"errors"
 	"math"
+	"path"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/server/internal/apperr"
+	"github.com/OzakiJUN/am/server/internal/sticker"
 	"github.com/OzakiJUN/am/server/internal/store"
 	"google.golang.org/protobuf/proto"
 )
 
 func (s *Service) buildForward(ctx context.Context, me *store.User, req *amv1.ForwardRequest) (*amv1.ForwardMsg, map[int64]bool, error) {
+	if len(req.GetImportedEntries()) > 0 {
+		return s.importForward(ctx, me, req)
+	}
+	if req.GetSourceServer() != "" {
+		return nil, nil, apperr.ErrBadRequest
+	}
 	if len(req.GetEventIds()) == 0 || len(req.GetEventIds()) > s.limits.MaxForwardMessages {
 		return nil, nil, apperr.ErrBadRequest
 	}
@@ -163,4 +171,81 @@ func (s *Service) ListPins(ctx context.Context, me *store.User, convID int64) (*
 		out.Pins = append(out.Pins, &amv1.EmojiPin{Id: p.ID, ConvId: p.ConvID, TargetEventId: p.TargetID, UserId: p.UserID, Emoji: p.Emoji, X: p.X, Y: p.Y, Revision: p.Revision, Removed: p.Removed, OnBubble: p.OnBubble})
 	}
 	return out, nil
+}
+
+// ExportForward creates a read-only snapshot. Imported payloads cannot be
+// used here to turn foreign metadata into native, server-verified authors.
+func (s *Service) ExportForward(ctx context.Context, me *store.User, convID int64, req *amv1.ForwardRequest) (*amv1.ForwardMsg, error) {
+	if len(req.GetImportedEntries()) != 0 || req.GetSourceServer() != "" {
+		return nil, apperr.ErrBadRequest
+	}
+	snapshot, _, err := s.buildForward(ctx, me, &amv1.ForwardRequest{SourceConvId: convID, EventIds: req.GetEventIds()})
+	return snapshot, err
+}
+
+func (s *Service) importForward(ctx context.Context, me *store.User, req *amv1.ForwardRequest) (*amv1.ForwardMsg, map[int64]bool, error) {
+	if req.GetSourceConvId() != 0 || len(req.GetEventIds()) != 0 || len(req.GetImportedEntries()) > s.limits.MaxForwardMessages {
+		return nil, nil, apperr.ErrBadRequest
+	}
+	server := strings.TrimSpace(req.GetSourceServer())
+	if server == "" || utf8.RuneCountInString(server) > 255 || strings.ContainsAny(server, "\r\n\t") {
+		return nil, nil, apperr.ErrBadRequest
+	}
+	result := &amv1.ForwardMsg{}
+	mediaIDs := map[int64]bool{}
+	for _, original := range req.ImportedEntries {
+		if original == nil {
+			return nil, nil, apperr.ErrBadRequest
+		}
+		entry := proto.Clone(original).(*amv1.ForwardEntry)
+		entry.Imported = true
+		entry.SourceServer = strings.TrimSpace(entry.SourceServer)
+		if entry.SourceServer == "" {
+			entry.SourceServer = server
+		}
+		if entry.SourceConvId <= 0 || entry.SourceEventId <= 0 || entry.SenderId <= 0 || entry.SentAt <= 0 || strings.TrimSpace(entry.SenderName) == "" || strings.TrimSpace(entry.SourceName) == "" || utf8.RuneCountInString(entry.SenderName) > 64 || utf8.RuneCountInString(entry.SourceName) > 256 || utf8.RuneCountInString(entry.SourceServer) > 255 || strings.ContainsAny(entry.SourceServer, "\r\n\t") {
+			return nil, nil, apperr.ErrBadRequest
+		}
+		switch body := entry.Body.(type) {
+		case *amv1.ForwardEntry_Text:
+			if utf8.RuneCountInString(body.Text.GetText()) > s.limits.MaxTextLength {
+				return nil, nil, apperr.ErrTooLong
+			}
+			if strings.TrimSpace(body.Text.GetText()) == "" {
+				return nil, nil, apperr.ErrEmptyMessage
+			}
+			entry.Body = &amv1.ForwardEntry_Text{Text: &amv1.TextMsg{Text: body.Text.Text}}
+		case *amv1.ForwardEntry_Image:
+			m, err := s.media.OwnUpload(ctx, me.ID, body.Image.GetMediaId(), true)
+			if err != nil {
+				return nil, nil, err
+			}
+			entry.Body = &amv1.ForwardEntry_Image{Image: &amv1.ImageMsg{MediaId: m.ID, Width: int32(m.Width), Height: int32(m.Height), StickerTags: sticker.CleanTags(body.Image.GetStickerTags()), Nsfw: body.Image.GetNsfw()}}
+			mediaIDs[m.ID] = true
+		case *amv1.ForwardEntry_File:
+			m, err := s.media.OwnUpload(ctx, me.ID, body.File.GetMediaId(), false)
+			if err != nil {
+				return nil, nil, err
+			}
+			name := path.Base(strings.ReplaceAll(strings.TrimSpace(body.File.GetName()), "\\", "/"))
+			if name == "." || name == "/" || name == "" {
+				name = m.Name
+			}
+			if utf8.RuneCountInString(name) > 255 {
+				return nil, nil, apperr.ErrTooLong
+			}
+			entry.Body = &amv1.ForwardEntry_File{File: &amv1.FileMsg{MediaId: m.ID, Name: name, Size: m.Size}}
+			mediaIDs[m.ID] = true
+		default:
+			return nil, nil, apperr.ErrBadRequest
+		}
+		result.Entries = append(result.Entries, entry)
+	}
+	return result, mediaIDs, nil
+}
+
+// JSON escapes can use six bytes per rune. The remaining per-entry budget
+// covers provenance, media tags and field names without changing global limits.
+func (s *Service) ForwardImportBytes() int64 {
+	return int64(s.limits.MaxForwardMessages)*(int64(s.limits.MaxTextLength)*6+8192) + 8192
 }

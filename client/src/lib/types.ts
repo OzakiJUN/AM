@@ -138,6 +138,8 @@ export interface ChannelInfo {
 }
 
 export interface ForwardEntry {
+ sourceServer?: string;
+ imported?: boolean;
  struck?: boolean;
  sourceConvId: string;
  sourceName: string;

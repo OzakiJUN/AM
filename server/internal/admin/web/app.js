@@ -791,7 +791,7 @@ function forwardContent(entries) {
     if (entry.kind === 'text') body = entry.text;
     else if (entry.kind === 'image') body = el('img', { src: 'api/media/' + entry.media_id + '?thumb=1', alt: '转发的图片', loading: 'lazy' });
     else body = el('a', { href: 'api/media/' + entry.media_id }, entry.file_name || '[文件]');
-    return el('div', {}, el('div', { class: 'muted' }, entry.sender_name + ' · ' + entry.source_name + ' · ' + fmtTime(entry.at)), body);
+    return el('div', {}, el('div', { class: 'muted' }, entry.sender_name + (entry.imported ? '（跨服来源由转发者带入）' : '') + ' · ' + (entry.source_server ? entry.source_server + ' · ' : '') + entry.source_name + ' · ' + fmtTime(entry.at)), body);
   }));
 }
 
