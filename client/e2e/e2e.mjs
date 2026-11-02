@@ -702,7 +702,7 @@ const pages = [];
   await A.click('button[aria-label="服务器成员"]');
   await A.click('button[aria-label="私信 小助手"]');
   await A.click('header button[aria-label="小助手的资料"]');
-  await A.fill('[data-testid="helper-profile"] input >> nth=1', '服务器的小管家');
+  await A.fill('[data-testid="helper-profile"] input:not([type=file]) >> nth=1', '服务器的小管家'); // the signature (name is first)
   await A.click('[data-testid="helper-profile"] button:has-text("保存资料")');
   await A.waitForSelector('text=已保存');
   await shot(A, '27k-helper-profile');
