@@ -27,7 +27,7 @@ import (
 // (A variable only so a local test build can use a test key with
 // -ldflags "-X github.com/OzakiJUN/am/internal/release.PublicKey=...";
 // releases use the one written here.)
-var PublicKey = ""
+var PublicKey = "+h4CFuTEOdY8V0Bd1zsBqdF5e5RTPuMgnf0vr8u9zwQ=" // Weiqi, 2026-11-02
 
 // Manifest and signature file names, next to the release's other files.
 const (

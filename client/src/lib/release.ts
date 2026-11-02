@@ -7,7 +7,7 @@
 // rules as the server's internal/release. Pure; tested in release.test.ts.
 
 /** Release public key (base64), from `am-server release-keygen`; the private key is only in the GitHub Secret RELEASE_SIGNING_KEY. Empty = this build can't update. */
-export const RELEASE_PUBLIC_KEY = '';
+export const RELEASE_PUBLIC_KEY = '+h4CFuTEOdY8V0Bd1zsBqdF5e5RTPuMgnf0vr8u9zwQ='; // Weiqi, 2026-11-02
 
 export const RELEASE_REPO = 'OzakiJUN/AM';
 export const MANIFEST = 'release.json';
