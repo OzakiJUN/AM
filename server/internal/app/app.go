@@ -109,7 +109,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		tap.SetHost(host)
 		plugins = plugin.NewService(st, ids, md, acct, host, plugin.Limits{MaxZip: int64(pc.MaxZipMB) << 20,
 			MaxUnpacked: int64(pc.MaxUnpackedMB) << 20, MaxPerAI: pc.MaxPerAI}, log)
-		host.Sync()
+		// host.Sync() runs once the built-in bot is known (below): plugins run as it.
 	}
 
 	var hosted *hosting.Service
@@ -145,6 +145,20 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	bot.SetModel(helper.Model{URL: hc.AIURL, Key: hc.AIKey, Name: hc.AIModel, Proxy: hc.AIProxy})
 	cs.SetHelper(bot.Bot().ID)
 	ps.AlwaysOn(bot.Bot().ID)
+	if plugins != nil {
+		plugins.SetBot(bot.Bot().ID)
+		if err := plugins.RetireAIPlugins(ctx); err != nil {
+			log.Warn("plugins: retiring the AIs' plugins", "err", err)
+		}
+		plugins.Host().Sync()
+		bot.SetExternal(func() []helper.Entry {
+			var out []helper.Entry
+			for _, c := range plugins.Commands(context.Background()) {
+				out = append(out, helper.Entry{Name: c.Name, Group: "🧩 插件：" + c.Plugin, Usage: c.Name, Help: c.Usage})
+			}
+			return out
+		})
+	}
 	if err := cs.HelperEverywhere(ctx); err != nil {
 		log.Warn("helper: joining the channels", "err", err)
 	}

@@ -12,6 +12,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,10 +25,12 @@ import (
 	"github.com/OzakiJUN/am/server/internal/app"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/logx"
+	"github.com/OzakiJUN/am/server/internal/store"
 )
 
-// AI plugins (docs/plugins.md): upload, admin approval, settings, and the
-// OneBot v11 endpoint, with this test playing NoneBot.
+// Plugins on the built-in bot (docs/plugins.md): uploaded in the admin
+// panel, settings, the OneBot v11 endpoint (this test plays NoneBot), and
+// the AIs' old plugins retired.
 func TestPlugins(t *testing.T) {
 	forEachDB(t, testPlugins, func(c *config.Config) { c.Plugins.NoSpawn = true })
 }
@@ -156,108 +159,132 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
+// panelPlugin is a plugin as the panel sends it.
+type panelPlugin struct {
+	ID          string         `json:"id"`
+	Dir         string         `json:"dir"`
+	Name        string         `json:"name"`
+	Commands    []string       `json:"commands"`
+	Enabled     bool           `json:"enabled"`
+	Values      map[string]any `json:"values"`
+	SecretsSet  []string       `json:"secrets_set"`
+	ConfigItems []struct {
+		Key     string `json:"key"`
+		Type    string `json:"type"`
+		Default any    `json:"default"`
+		Secret  bool   `json:"secret"`
+	} `json:"config_items"`
+	Code string `json:"code"`
+}
+
+type panelPlugins struct {
+	Enabled   bool          `json:"enabled"`
+	Items     []panelPlugin `json:"items"`
+	HostState string        `json:"host_state"`
+	BotName   string        `json:"bot_name"`
+	Code      string        `json:"code"`
+}
+
 func testPlugins(t *testing.T, a *app.App, base string) {
 	ctx := ctxT(t)
 	us := newServerUsers(t, a, base, "admin", "bob", "carol")
-	admin, bob, carol := us[0], us[1], us[2]
+	bob, carol := us[1], us[2]
 	host := a.Plugins.Host()
+	botID := a.Helper.Bot().ID
+	pc := panelFor(t, a)
 
 	if !must(bob.cli.ServerInfo(ctx)).Plugins {
 		t.Fatal("server says plugins are off")
 	}
-	ai := must(bob.cli.CreateAI(ctx, "小鱼")).User
 
-	// Upload: a folder with one plugin (and litter). Bob isn't a site admin: it waits.
+	// Upload in the panel: a folder with one plugin (and litter). It runs as the bot at once.
 	zipData := pluginZip(t, map[string]string{"hello/__init__.py": pluginInit, "hello/__pycache__/x.pyc": "junk"})
-	up := must(bob.cli.Upload(ctx, "hello.zip", bytes.NewReader(zipData)))
-	_, err := carol.cli.UploadPlugins(ctx, ai.Id, up.Id)
-	wantCode(t, err, "user_not_found")
-	res := must(bob.cli.UploadPlugins(ctx, ai.Id, up.Id))
-	if len(res.Plugins) != 1 {
-		t.Fatalf("uploaded %+v", res.Plugins)
+	var up panelPlugins
+	if code := pc.do("POST", "/api/plugins/upload", map[string]any{"data": base64.StdEncoding.EncodeToString(zipData)}, &up); code != 200 || len(up.Items) != 1 {
+		t.Fatalf("upload %d %+v", code, up)
 	}
-	p := res.Plugins[0]
-	if p.Dir != "hello" || p.Name != "打招呼" || p.Status != "pending" || !p.Enabled || strings.Join(p.Commands, ",") != "hi,你好" {
+	p := up.Items[0]
+	if p.Dir != "hello" || p.Name != "打招呼" || !p.Enabled || strings.Join(p.Commands, ",") != "hi,你好" {
 		t.Fatalf("plugin %+v", p)
 	}
-	keys := map[string]*amv1.PluginConfigItem{}
-	for _, c := range p.ConfigItems {
-		keys[c.Key] = c
+	keys := map[string]int{}
+	for i, c := range p.ConfigItems {
+		keys[c.Key] = i
 	}
-	if keys["hello_text"].GetDefaultJson() != `"你好"` || keys["hello_times"].GetType() != "int" || !keys["hello_api_key"].GetSecret() {
+	if c := p.ConfigItems; c[keys["hello_text"]].Default != "你好" || c[keys["hello_times"]].Type != "int" || !c[keys["hello_api_key"]].Secret {
 		t.Fatalf("settings %+v", p.ConfigItems)
 	}
-	bad := must(bob.cli.Upload(ctx, "bad.zip", bytes.NewReader(pluginZip(t, map[string]string{"../x/__init__.py": ""}))))
-	_, err = bob.cli.UploadPlugins(ctx, ai.Id, bad.Id)
-	wantCode(t, err, "bad_plugin")
-	if host.Token(ai.Id) != "" {
-		t.Fatal("a pending plugin runs")
+	var bad panelPlugins
+	pc.do("POST", "/api/plugins/upload", map[string]any{"data": base64.StdEncoding.EncodeToString(pluginZip(t, map[string]string{"../x/__init__.py": ""}))}, &bad)
+	if bad.Code != "bad_plugin" {
+		t.Fatalf("bad zip: %+v", bad)
 	}
+	waitFor(t, "the host", func() bool { return host.Token(botID) != "" })
 
 	// Settings: checked against what the plugin reads; secrets are never sent back.
-	_, err = bob.cli.UpdatePlugin(ctx, ai.Id, p.Id, nil, `{"hello_times":"many"}`)
-	wantCode(t, err, "invalid_plugin_config")
-	_, err = bob.cli.UpdatePlugin(ctx, ai.Id, p.Id, nil, `{"superusers":["1"]}`)
-	wantCode(t, err, "invalid_plugin_config")
-	p = must(bob.cli.UpdatePlugin(ctx, ai.Id, p.Id, nil, `{"hello_text":"嗨","hello_times":2,"hello_api_key":"sk-123"}`))
-	if p.ConfigJson != `{"hello_text":"嗨","hello_times":2}` || strings.Join(p.SecretsSet, ",") != "hello_api_key" {
-		t.Fatalf("settings view %s %v", p.ConfigJson, p.SecretsSet)
+	patch := func(cfg string) panelPlugin {
+		var out panelPlugin
+		pc.do("PUT", "/api/plugins/"+p.ID, map[string]any{"config_patch": cfg}, &out)
+		return out
+	}
+	if r := patch(`{"hello_times":"many"}`); r.Code != "invalid_plugin_config" {
+		t.Fatalf("bad setting %+v", r)
+	}
+	if r := patch(`{"superusers":["1"]}`); r.Code != "invalid_plugin_config" {
+		t.Fatalf("NoneBot setting %+v", r)
+	}
+	if r := patch(`{"hello_text":"嗨","hello_times":2,"hello_api_key":"sk-123"}`); r.Values["hello_text"] != "嗨" || r.Values["hello_api_key"] != nil || strings.Join(r.SecretsSet, ",") != "hello_api_key" {
+		t.Fatalf("settings view %+v", r)
 	}
 
-	// The admin reads it in the panel and approves: NoneBot (this test) may connect.
-	pc := panelFor(t, a)
-	var st struct {
-		Stats map[string]int64 `json:"stats"`
-	}
-	pc.do("GET", "/api/status", nil, &st)
-	if st.Stats["plugins_pending"] != 1 {
-		t.Fatalf("pending badge %v", st.Stats)
-	}
-	var pl struct {
-		Items []struct {
-			ID       string   `json:"id"`
-			AIName   string   `json:"ai_name"`
-			Owner    string   `json:"owner_name"`
-			Requires []string `json:"requires"`
-		} `json:"items"`
-	}
-	pc.do("GET", "/api/plugins?status=pending", nil, &pl)
-	if len(pl.Items) != 1 || pl.Items[0].AIName != "小鱼" || pl.Items[0].Owner != "bob" || pl.Items[0].ID != strconv.FormatInt(p.Id, 10) {
-		t.Fatalf("panel list %+v", pl)
-	}
+	// Reading the files.
 	var files struct {
 		Files []struct{ Path string } `json:"files"`
 	}
-	pc.do("GET", "/api/plugins/"+pl.Items[0].ID+"/files", nil, &files)
+	pc.do("GET", "/api/plugins/"+p.ID+"/files", nil, &files)
 	if len(files.Files) != 1 || files.Files[0].Path != "__init__.py" {
 		t.Fatalf("files %+v", files)
 	}
 	var file struct{ Text string }
-	pc.do("GET", "/api/plugins/"+pl.Items[0].ID+"/files?path=__init__.py", nil, &file)
+	pc.do("GET", "/api/plugins/"+p.ID+"/files?path=__init__.py", nil, &file)
 	if !strings.Contains(file.Text, "打招呼") {
 		t.Fatalf("file %q", file.Text)
 	}
-	if code := pc.do("GET", "/api/plugins/"+pl.Items[0].ID+"/files?path=../../config.toml", nil, nil); code != 404 {
+	if code := pc.do("GET", "/api/plugins/"+p.ID+"/files?path=../../config.toml", nil, nil); code != 404 {
 		t.Fatalf("reading outside the plugin: %d", code)
 	}
-	if code := pc.do("POST", "/api/plugins/"+pl.Items[0].ID+"/decide", map[string]any{"approve": true}, nil); code != 200 {
-		t.Fatalf("approve: %d", code)
+
+	// NoneBot (this test) connects as the bot.
+	bot := dialBot(t, host.Addr(), botID, host.Token(botID))
+	bot.next("lifecycle", func(m map[string]any) bool { return m["meta_event_type"] == "lifecycle" && num(m["self_id"]) == botID })
+	list := func() panelPlugins {
+		var l panelPlugins
+		pc.do("GET", "/api/plugins", nil, &l)
+		return l
 	}
-	waitFor(t, "the host", func() bool { return host.Token(ai.Id) != "" })
-	if l := must(bob.cli.ListPlugins(ctx, ai.Id)); l.Plugins[0].Status != "approved" || l.HostState != "starting" {
-		t.Fatalf("after approval: %s %s", l.Plugins[0].Status, l.HostState)
+	waitFor(t, "running", func() bool { return list().HostState == "running" })
+	if l := list(); len(l.Items) != 1 || l.BotName == "" {
+		t.Fatalf("panel list %+v", l)
 	}
-	bot := dialBot(t, host.Addr(), ai.Id, host.Token(ai.Id))
-	bot.next("lifecycle", func(m map[string]any) bool { return m["meta_event_type"] == "lifecycle" && num(m["self_id"]) == ai.Id })
-	waitFor(t, "running", func() bool { return must(bob.cli.ListPlugins(ctx, ai.Id)).HostState == "running" })
-	if info := bot.call("get_login_info", nil); num(info["data"].(map[string]any)["user_id"]) != ai.Id {
+	if info := bot.call("get_login_info", nil); num(info["data"].(map[string]any)["user_id"]) != botID {
 		t.Fatalf("login info %v", info)
 	}
+	// Its commands are the bot's: listed for AIs and 指令查询.
+	if !slices.Contains(must(bob.cli.ServerInfo(ctx)).Commands, "hi") {
+		t.Fatal("ServerInfo.commands misses the plugin's")
+	}
+	found := false
+	for _, c := range must(bob.cli.HelperCommands(ctx)).Commands {
+		found = found || c.Name == "hi"
+	}
+	if !found {
+		t.Fatal("helper commands miss the plugin's")
+	}
 
-	// A DM to the AI reaches the plugin as a private message; its reply comes from the AI.
+	// A DM to the bot reaches the plugin (the bot itself keeps quiet); the reply comes from the bot.
 	bobWS := must(bob.cli.Connect(ctx))
 	defer bobWS.Close()
-	dm := must(bob.cli.OpenDM(ctx, ai.Id))
+	dm := must(bob.cli.OpenDM(ctx, botID))
 	sent := must(bobWS.SendText(ctx, dm.Id, "/hi"))
 	ev := bot.next("private message", func(m map[string]any) bool { return m["post_type"] == "message" })
 	if ev["message_type"] != "private" || ev["raw_message"] != "/hi" || num(ev["user_id"]) != bob.me.Id || num(ev["message_id"]) != sent.EventId {
@@ -268,17 +295,17 @@ func testPlugins(t *testing.T, a *app.App, base string) {
 		t.Fatalf("send %v", r)
 	}
 	got := waitPush(t, bobWS, "the plugin's reply", func(f *amv1.ServerFrame) bool {
-		return f.GetEvent().GetEvent().GetSenderId() == ai.Id
+		return f.GetEvent().GetEvent().GetSenderId() == botID
 	}).GetEvent().GetEvent()
 	if got.GetText().GetText() != "嗨" || got.GetText().GetReplyTo() != sent.EventId || got.GetConvId() != dm.Id {
-		t.Fatalf("reply %+v", got)
+		t.Fatalf("reply %+v (the bot answered instead of the plugin?)", got)
 	}
 
-	// In a channel: a group message with an @, and a picture back.
-	ch := must(bob.cli.CreateGroup(ctx, "开黑", carol.me.Id, ai.Id))
+	// In a channel (the bot is in every one): a group message, and a picture back.
+	ch := must(bob.cli.CreateGroup(ctx, "开黑", carol.me.Id))
 	carolWS := must(carol.cli.Connect(ctx))
 	defer carolWS.Close()
-	must(carolWS.SendText(ctx, ch.Id, "小鱼看这里"))
+	must(carolWS.SendText(ctx, ch.Id, "看这里"))
 	ev = bot.next("group message", func(m map[string]any) bool { return m["message_type"] == "group" })
 	if num(ev["group_id"]) != ch.Id || ev["sender"].(map[string]any)["role"] != "member" {
 		t.Fatalf("group event %v", ev)
@@ -293,63 +320,76 @@ func testPlugins(t *testing.T, a *app.App, base string) {
 		t.Fatalf("group send %v", r)
 	}
 	text := waitPush(t, carolWS, "text", func(f *amv1.ServerFrame) bool {
-		return f.GetEvent().GetEvent().GetText() != nil && f.GetEvent().GetEvent().GetSenderId() == ai.Id
+		return f.GetEvent().GetEvent().GetText() != nil && f.GetEvent().GetEvent().GetSenderId() == botID
 	})
 	if tx := text.GetEvent().GetEvent().GetText(); tx.GetText() != "@carol 给你看" || len(tx.GetMentions()) != 1 || tx.GetMentions()[0] != carol.me.Id {
 		t.Fatalf("text %+v", tx)
 	}
 	waitPush(t, carolWS, "picture", func(f *amv1.ServerFrame) bool { return f.GetEvent().GetEvent().GetImage() != nil })
 	if r := bot.call("send_group_msg", map[string]any{"group_id": 999, "message": "x"}); r["status"] != "failed" {
-		t.Fatal("sent to a channel the AI isn't in")
+		t.Fatal("sent to a channel that doesn't exist")
 	}
 	if r := bot.call("set_group_kick", map[string]any{"group_id": ch.Id, "user_id": carol.me.Id}); num(r["retcode"]) != 1404 {
 		t.Fatalf("unsupported action: %v", r)
 	}
 	members := bot.call("get_group_member_list", map[string]any{"group_id": ch.Id})["data"].([]any)
-	if len(members) != 4 { // bob, carol, the AI and the built-in bot
+	if len(members) != 3 { // bob, carol and the bot
 		t.Fatalf("members %v", members)
 	}
 
-	// A new version waits for the admin again (and stops running); the owner's
-	// upload as a site admin counts as approved.
-	v2 := must(bob.cli.Upload(ctx, "hello2.zip", bytes.NewReader(pluginZip(t, map[string]string{"hello/__init__.py": pluginInit + "\n# v2\n"}))))
-	if p2 := must(bob.cli.UploadPlugins(ctx, ai.Id, v2.Id)).Plugins[0]; p2.Id != p.Id || p2.Status != "pending" || p2.ConfigJson != p.ConfigJson {
-		t.Fatalf("new version %+v", p2)
+	// A new version replaces the files, keeps the settings and still runs.
+	var v2 panelPlugins
+	pc.do("POST", "/api/plugins/upload", map[string]any{"data": base64.StdEncoding.EncodeToString(pluginZip(t, map[string]string{"hello/__init__.py": pluginInit + "\n# v2\n"}))}, &v2)
+	if len(v2.Items) != 1 || v2.Items[0].ID != p.ID || v2.Items[0].Values["hello_text"] != "嗨" {
+		t.Fatalf("new version %+v", v2)
 	}
-	waitFor(t, "stopped", func() bool { return host.Token(ai.Id) == "" })
-	if n := must(a.Plugins.Pending(ctx)); n != 1 {
-		t.Fatalf("pending %d", n)
-	}
-	adminAI := must(admin.cli.CreateAI(ctx, "管家")).User
-	up = must(admin.cli.Upload(ctx, "hello.zip", bytes.NewReader(zipData)))
-	if p3 := must(admin.cli.UploadPlugins(ctx, adminAI.Id, up.Id)).Plugins[0]; p3.Status != "approved" {
-		t.Fatalf("admin's own upload: %s", p3.Status)
-	}
-	waitFor(t, "admin's AI running", func() bool { return host.Token(adminAI.Id) != "" })
+	waitFor(t, "running again", func() bool { return host.Token(botID) != "" })
 
-	// Stopped from the panel (reject), with the reason the owner sees.
-	adminPlugin := must(admin.cli.ListPlugins(ctx, adminAI.Id)).Plugins[0]
-	pc.do("POST", "/api/plugins/"+strconv.FormatInt(adminPlugin.Id, 10)+"/decide", map[string]any{"approve": false, "reason": "先停一下"}, nil)
-	waitFor(t, "stopped by the panel", func() bool { return host.Token(adminAI.Id) == "" })
-	if p := must(admin.cli.ListPlugins(ctx, adminAI.Id)).Plugins[0]; p.Status != "rejected" || p.RejectReason != "先停一下" {
-		t.Fatalf("rejected %+v", p)
-	}
-	pc.do("POST", "/api/plugins/"+strconv.FormatInt(adminPlugin.Id, 10)+"/decide", map[string]any{"approve": true}, nil)
-	waitFor(t, "running again", func() bool { return host.Token(adminAI.Id) != "" })
-
-	// Turned off, deleted.
-	off := false
-	if p := must(admin.cli.UpdatePlugin(ctx, adminAI.Id, must(admin.cli.ListPlugins(ctx, adminAI.Id)).Plugins[0].Id, &off, "")); p.Enabled {
-		t.Fatal("still enabled")
-	}
-	waitFor(t, "turned off", func() bool { return host.Token(adminAI.Id) == "" })
-	if err := bob.cli.DeletePlugin(ctx, ai.Id, p.Id); err != nil {
+	// Plugins AIs had before are retired, once.
+	ai := must(bob.cli.CreateAI(ctx, "小鱼")).User
+	old := &store.AIPlugin{ID: ai.Id + 1, AIID: ai.Id, Dir: "old", Meta: "{}", Status: "approved", Enabled: true, Config: "{}", UploadedBy: bob.me.Id, UploadedAt: 1}
+	if err := a.Store.InsertPlugin(ctx, old); err != nil {
 		t.Fatal(err)
 	}
-	if l := must(bob.cli.ListPlugins(ctx, ai.Id)); len(l.Plugins) != 0 {
+	if err := a.Plugins.RetireAIPlugins(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Store.GetPlugin(ctx, old.ID); err != nil {
+		t.Fatal("retired again (only once)")
+	}
+	if err := a.Store.SetServerSetting(ctx, "plugins_on_bot", "0"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Plugins.RetireAIPlugins(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Store.GetPlugin(ctx, old.ID); err == nil {
+		t.Fatal("the AI's plugin is still there")
+	}
+	if l := list(); len(l.Items) != 1 {
+		t.Fatalf("the bot's plugin went too: %+v", l)
+	}
+
+	// Turned off, deleted.
+	if r := func() panelPlugin {
+		var out panelPlugin
+		pc.do("PUT", "/api/plugins/"+p.ID, map[string]any{"enabled": false}, &out)
+		return out
+	}(); r.Enabled {
+		t.Fatal("still enabled")
+	}
+	waitFor(t, "turned off", func() bool { return host.Token(botID) == "" })
+	if slices.Contains(must(bob.cli.ServerInfo(ctx)).Commands, "hi") {
+		t.Fatal("a turned-off plugin's command is still listed")
+	}
+	if code := pc.do("DELETE", "/api/plugins/"+p.ID, nil, nil); code != 200 {
+		t.Fatalf("delete %d", code)
+	}
+	if l := list(); len(l.Items) != 0 {
 		t.Fatal("not deleted")
 	}
-	if files, err := a.Plugins.Files(ctx, p.Id); err == nil {
+	id, _ := strconv.ParseInt(p.ID, 10, 64)
+	if files, err := a.Plugins.Files(ctx, id); err == nil {
 		t.Fatalf("files still there: %v", files)
 	}
 }

@@ -74,11 +74,6 @@ func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 			"users": st.Users, "banned": st.Banned, "groups": st.Groups, "dms": st.DMs,
 			"messages": st.Messages, "media_bytes": st.MediaBytes, "evidence": st.EvidenceItems,
 		}
-		if a.Plugins != nil {
-			if n, err := a.Plugins.Pending(r.Context()); err == nil {
-				out["stats"].(map[string]int64)["plugins_pending"] = int64(n)
-			}
-		}
 		if a.Hosting != nil {
 			if n, err := a.Hosting.Pending(r.Context()); err == nil {
 				out["stats"].(map[string]int64)["hosting_pending"] = int64(n)

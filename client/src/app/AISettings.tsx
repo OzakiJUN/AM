@@ -22,7 +22,6 @@ import { aiRequest } from '@/lib/transport';
 import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, cx, inputClass, openMenu, toast, toastError } from '@/ui';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { forgetPack } from './Portrait';
-import { PluginsTab } from './PluginsTab';
 import { MOODS, MOOD_LABEL, packFromFiles, type Mood } from '@/lib/portraits';
 import { personaTemplates, portraitFiles, useWorkshop } from '@/lib/workshop';
 
@@ -93,7 +92,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
   );
 }
 
-type Tab = 'persona' | 'model' | 'social' | 'computer' | 'plugins' | 'profile' | 'run' | 'log';
+type Tab = 'persona' | 'model' | 'social' | 'computer' | 'profile' | 'run' | 'log';
 
 /** One AI's settings. */
 /** The server's built-in bot's name, avatar, signature and page (site admins). */
@@ -126,7 +125,7 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
       <div className="mb-4">
         <Segmented id="ai-tab" value={tab} onChange={setTab} options={[
           { value: 'persona', label: '人格' }, { value: 'model', label: '模型' }, { value: 'social', label: '频道与作息' },
-          { value: 'computer', label: '电脑' }, { value: 'plugins', label: '插件' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
+          { value: 'computer', label: '电脑' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
         ]} />
       </div>
       {!info ? (
@@ -137,7 +136,6 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
           {tab === 'model' && <ModelTab draft={draft} set={set} save={save} />}
           {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
           {tab === 'social' && <SocialTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
-          {tab === 'plugins' && <PluginsTab aiId={aiId} aiName={info.user.name} />}
           {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
           {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} onClose={onClose} />}
           {tab === 'run' && <RunTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} onDeleted={onClose} />}

@@ -1,9 +1,10 @@
 package plugin
 
-// The service behind the 插件 tab of an AI's settings and the panel's 插件
-// page: owners upload zips (one or several plugins), change settings and
-// turn plugins on / off; site admins approve or reject them. Every change
-// asks the host to catch up (Sync).
+// The service behind the panel's 插件 page: plugins run as the server's
+// built-in bot (docs/design.md §10 内置 bot), and only site admins upload
+// them (in the panel), change their settings, turn them on / off and delete
+// them. Every change asks the host to catch up (Sync). Plugins AIs had
+// before are retired once (RetireAIPlugins).
 
 import (
 	"context"
@@ -52,7 +53,14 @@ type Service struct {
 	limits Limits
 	log    *slog.Logger
 	now    func() time.Time
+	bot    int64 // the built-in bot: plugins run as it
 }
+
+// MaxZip is the largest plugin zip accepted.
+func (s *Service) MaxZip() int64 { return s.limits.MaxZip }
+
+// SetBot sets the built-in bot's account (at startup).
+func (s *Service) SetBot(id int64) { s.bot = id }
 
 func NewService(st *store.Store, ids *idgen.Generator, md *media.Service, acct *account.Service, host *Host, limits Limits, log *slog.Logger) *Service {
 	return &Service{st: st, ids: ids, md: md, acct: acct, host: host, limits: limits, log: log, now: time.Now}
@@ -98,15 +106,9 @@ func (s *Service) view(p *store.AIPlugin) *View {
 	return v
 }
 
-// List returns an AI's plugins and the state of its plugin host.
-func (s *Service) List(ctx context.Context, owner *store.User, aiID int64) ([]*View, Status, error) {
-	// The owner, or the AI itself (its runner reads the commands).
-	if owner.ID != aiID {
-		if _, err := s.acct.OwnedAI(ctx, owner, aiID); err != nil {
-			return nil, Status{}, err
-		}
-	}
-	list, err := s.st.ListPlugins(ctx, aiID)
+// List returns the bot's plugins and the state of its plugin host.
+func (s *Service) List(ctx context.Context) ([]*View, Status, error) {
+	list, err := s.st.ListPlugins(ctx, s.bot)
 	if err != nil {
 		return nil, Status{}, err
 	}
@@ -114,23 +116,20 @@ func (s *Service) List(ctx context.Context, owner *store.User, aiID int64) ([]*V
 	for i, p := range list {
 		out[i] = s.view(p)
 	}
-	return out, s.host.StatusOf(aiID), nil
+	return out, s.host.StatusOf(s.bot), nil
 }
 
-// Upload adds the plugins in an uploaded zip to an AI (or replaces the
-// ones with the same folder name). New and changed plugins wait for a site
-// admin, unless the owner is one.
-func (s *Service) Upload(ctx context.Context, owner *store.User, aiID, mediaID int64) ([]*View, error) {
+// Upload adds the plugins in a zip to the bot (or replaces the ones with the
+// same folder name). Site admins upload in the panel (actor 0), so they run
+// at once.
+func (s *Service) Upload(ctx context.Context, data []byte) ([]*View, error) {
 	if !s.Enabled() {
 		return nil, ErrPluginsOff
 	}
-	if _, err := s.acct.OwnedAI(ctx, owner, aiID); err != nil {
-		return nil, err
+	if int64(len(data)) > s.limits.MaxZip {
+		return nil, apperr.New(http.StatusBadRequest, "bad_plugin", fmt.Sprintf("zip 太大了（最多 %d MB）", s.limits.MaxZip>>20))
 	}
-	data, err := s.md.ReadOwn(ctx, owner.ID, mediaID, s.limits.MaxZip)
-	if err != nil {
-		return nil, err
-	}
+	aiID, uploader := s.bot, int64(0)
 	pkgs, err := Unpack(data, s.limits.MaxUnpacked)
 	if err != nil {
 		var bz *ErrBadZip
@@ -173,29 +172,26 @@ func (s *Service) Upload(ctx context.Context, owner *store.User, aiID, mediaID i
 		if err := s.writeFiles(p.ID, pkg); err != nil {
 			return nil, err
 		}
-		p.Meta, p.FilesSHA256, p.UploadedBy, p.UploadedAt = string(mb), sha, owner.ID, now
+		p.Meta, p.FilesSHA256, p.UploadedBy, p.UploadedAt = string(mb), sha, uploader, now
 		p.Status, p.DecidedBy, p.DecidedAt, p.RejectReason = "pending", 0, 0, ""
 		err := s.st.InTx(ctx, func(q *store.Queries) error {
 			if byDir[pkg.Dir] == nil {
 				if err := q.InsertPlugin(ctx, p); err != nil {
 					return err
 				}
-			} else if err := q.ReplacePluginFiles(ctx, p.ID, p.Meta, sha, owner.ID, now); err != nil {
+			} else if err := q.ReplacePluginFiles(ctx, p.ID, p.Meta, sha, uploader, now); err != nil {
 				return err
 			}
-			if owner.IsSiteAdmin {
-				p.Status, p.DecidedBy, p.DecidedAt = "approved", owner.ID, now
-				if err := q.DecidePlugin(ctx, p.ID, "approved", owner.ID, "", now); err != nil {
-					return err
-				}
-				return s.audit(ctx, q, owner.ID, "plugin_approve", p, "uploaded by a site admin")
+			p.Status, p.DecidedBy, p.DecidedAt = "approved", uploader, now
+			if err := q.DecidePlugin(ctx, p.ID, "approved", uploader, "", now); err != nil {
+				return err
 			}
-			return nil
+			return s.audit(ctx, q, uploader, "plugin_upload", p, "")
 		})
 		if err != nil {
 			return nil, err
 		}
-		s.log.Info("plugin uploaded", "ai", aiID, "plugin", p.Dir, "by", owner.ID, "status", p.Status)
+		s.log.Info("plugin uploaded", "plugin", p.Dir)
 		out = append(out, s.view(p))
 	}
 	s.host.Sync()
@@ -231,12 +227,10 @@ func (s *Service) get(ctx context.Context, id int64) (*store.AIPlugin, error) {
 	return p, err
 }
 
-func (s *Service) owned(ctx context.Context, owner *store.User, aiID, id int64) (*store.AIPlugin, error) {
-	if _, err := s.acct.OwnedAI(ctx, owner, aiID); err != nil {
-		return nil, err
-	}
+// mine returns one of the bot's plugins.
+func (s *Service) mine(ctx context.Context, id int64) (*store.AIPlugin, error) {
 	p, err := s.get(ctx, id)
-	if err == nil && p.AIID != aiID {
+	if err == nil && p.AIID != s.bot {
 		return nil, apperr.ErrNotFound
 	}
 	return p, err
@@ -245,9 +239,9 @@ func (s *Service) owned(ctx context.Context, owner *store.User, aiID, id int64) 
 // Update turns a plugin on / off (enabled != nil) and changes settings:
 // patch is a JSON object, key -> value sets it, key -> null goes back to the
 // plugin's default, keys left out stay as they are (so secret values the
-// owner can't see are kept).
-func (s *Service) Update(ctx context.Context, owner *store.User, aiID, id int64, enabled *bool, patch string) (*View, error) {
-	p, err := s.owned(ctx, owner, aiID, id)
+// admin can't see are kept).
+func (s *Service) Update(ctx context.Context, id int64, enabled *bool, patch string) (*View, error) {
+	p, err := s.mine(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +270,8 @@ func (s *Service) Update(ctx context.Context, owner *store.User, aiID, id int64,
 }
 
 // Delete removes a plugin and its files (what it saved in its data folder stays).
-func (s *Service) Delete(ctx context.Context, owner *store.User, aiID, id int64) error {
-	if _, err := s.owned(ctx, owner, aiID, id); err != nil {
+func (s *Service) Delete(ctx context.Context, id int64) error {
+	if _, err := s.mine(ctx, id); err != nil {
 		return err
 	}
 	if err := s.st.DeletePlugin(ctx, id); err != nil {
@@ -399,45 +393,6 @@ func (s *Service) audit(ctx context.Context, q *store.Queries, actor int64, acti
 		Detail: d, CreatedAt: s.now().UnixMilli()})
 }
 
-// Decide approves or rejects a plugin (also stops an approved one: reject).
-func (s *Service) Decide(ctx context.Context, actor, id int64, approve bool, reason string) error {
-	status, action := "rejected", "plugin_reject"
-	if approve {
-		status, action, reason = "approved", "plugin_approve", ""
-	}
-	err := s.st.InTx(ctx, func(q *store.Queries) error {
-		p, err := q.GetPlugin(ctx, id)
-		if errors.Is(err, store.ErrNotFound) {
-			return apperr.ErrNotFound
-		}
-		if err != nil {
-			return err
-		}
-		if err := q.DecidePlugin(ctx, id, status, actor, reason, s.now().UnixMilli()); err != nil {
-			return err
-		}
-		return s.audit(ctx, q, actor, action, p, reason)
-	})
-	if err != nil {
-		return err
-	}
-	s.host.Sync()
-	return nil
-}
-
-// AdminList lists plugins for the panel ("" = every status).
-func (s *Service) AdminList(ctx context.Context, status string) ([]*View, error) {
-	list, err := s.st.ListPluginsAdmin(ctx, status)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]*View, len(list))
-	for i, p := range list {
-		out[i] = s.view(p)
-	}
-	return out, nil
-}
-
 // FileInfo is one file of a plugin, for reviewing it in the panel.
 type FileInfo struct {
 	Path string `json:"path"`
@@ -485,9 +440,6 @@ func (s *Service) File(ctx context.Context, id int64, name string) ([]byte, erro
 	return nil, apperr.ErrNotFound
 }
 
-// Pending counts plugins waiting for a site admin (panel badge).
-func (s *Service) Pending(ctx context.Context) (int, error) { return s.st.CountPendingPlugins(ctx) }
-
 // ValuesJSON encodes settings values as a JSON object.
 func ValuesJSON(v map[string]json.RawMessage) string {
 	if len(v) == 0 {
@@ -495,4 +447,58 @@ func ValuesJSON(v map[string]json.RawMessage) string {
 	}
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// RetireAIPlugins removes the plugins AIs had before plugins moved to the
+// built-in bot (once per server; Weiqi 2026-11-02: 「现在 ai 上那几个插件设置直接废弃」).
+func (s *Service) RetireAIPlugins(ctx context.Context) error {
+	set, err := s.st.ServerSettings(ctx)
+	if err != nil || set["plugins_on_bot"] == "1" {
+		return err
+	}
+	list, err := s.st.ListPluginsAdmin(ctx, "")
+	if err != nil {
+		return err
+	}
+	for _, p := range list {
+		if p.AIID == s.bot {
+			continue
+		}
+		if err := s.st.DeletePlugin(ctx, p.ID); err != nil {
+			return err
+		}
+		_ = os.RemoveAll(s.host.PkgDir(p.ID))
+		s.log.Info("plugins: retired an AI's plugin (plugins run as the built-in bot now)", "ai", p.AIID, "plugin", p.Dir)
+	}
+	s.host.Sync()
+	return s.st.SetServerSetting(ctx, "plugins_on_bot", "1")
+}
+
+// Command is one command of the bot's running plugins.
+type Command struct {
+	Name, Plugin, Usage string
+}
+
+// Commands lists the commands of the bot's approved, enabled plugins (for
+// 指令查询 and so AIs leave them alone).
+func (s *Service) Commands(ctx context.Context) []Command {
+	list, err := s.st.ListPlugins(ctx, s.bot)
+	if err != nil {
+		return nil
+	}
+	var out []Command
+	for _, p := range list {
+		if p.Status != "approved" || !p.Enabled {
+			continue
+		}
+		v := s.view(p)
+		name := v.Meta.Name
+		if name == "" {
+			name = p.Dir
+		}
+		for _, c := range v.Meta.Commands {
+			out = append(out, Command{Name: c, Plugin: name, Usage: v.Meta.Usage})
+		}
+	}
+	return out
 }

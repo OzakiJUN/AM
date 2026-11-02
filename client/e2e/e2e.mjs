@@ -863,34 +863,46 @@ const pages = [];
   await B.click('button[aria-label="AI"]');
   await B.waitForSelector('aside button:has-text("小鱼和大家")');
 
-  // AI plugins: Weiqi (a site admin, so it's approved at once) uploads a NoneBot plugin for 小鱼
-  // and fills in its settings in the generated form; the secret one isn't shown again.
-  writeFileSync(`${OUT}/plugin.zip`, zipSync({ 'hello/__init__.py': strToU8([
-    'from nonebot import get_driver, on_command',
-    'from nonebot.plugin import PluginMetadata',
-    '__plugin_meta__ = PluginMetadata(name="打招呼", description="回一句你好", usage="/hi")',
-    '_cfg = get_driver().config',
-    'TEXT = getattr(_cfg, "hello_text", "你好")',
-    'TIMES = int(getattr(_cfg, "hello_times", 1))',
-    'KEY = getattr(_cfg, "hello_api_key", "")',
-    'hi = on_command("hi")',
-  ].join('\n')) }));
+  // Plugins run as the built-in bot and are uploaded in the admin panel only: no 插件 tab
+  // in the AI's settings. With the panel (AM_E2E_ADMIN / AM_E2E_ADMIN_KEY), Weiqi uploads
+  // a NoneBot plugin there and fills in its settings; the secret one isn't shown again.
   await A.click('button[aria-label="AI 设置"]');
-  await A.click('div[role="dialog"] button[role="radio"]:has-text("插件")');
-  await A.setInputFiles('input[type="file"][aria-label="选择插件 zip"]', `${OUT}/plugin.zip`);
-  await A.waitForSelector('text=传好了 1 个插件');
-  await A.waitForSelector('div[role="dialog"] >> text=已批准');
-  await A.fill('input[aria-label="times"]', '2.5');
-  await A.waitForSelector('text=要填整数');
-  await A.fill('input[aria-label="times"]', '3');
-  await A.fill('input[aria-label="text"]', '嗨');
-  await A.fill('input[aria-label="api_key"]', 'sk-test');
-  await A.click('div[role="dialog"] button:has-text("保存设置")');
-  await A.waitForSelector('text=已保存');
-  await A.waitForSelector('input[aria-label="api_key"][placeholder^="已经填过了"]');
-  if ((await A.inputValue('input[aria-label="api_key"]')) !== '') throw new Error('secret shown again');
-  await shot(A, '29f-plugins');
+  await A.waitForSelector('div[role="dialog"] button[role="radio"]:has-text("电脑")');
+  if (await A.locator('div[role="dialog"] button[role="radio"]:has-text("插件")').count()) throw new Error('AI settings still have a plugins tab');
   await A.keyboard.press('Escape');
+  if (process.env.AM_E2E_ADMIN && process.env.AM_E2E_ADMIN_KEY) {
+    writeFileSync(`${OUT}/plugin.zip`, zipSync({ 'hello/__init__.py': strToU8([
+      'from nonebot import get_driver, on_command',
+      'from nonebot.plugin import PluginMetadata',
+      '__plugin_meta__ = PluginMetadata(name="打招呼", description="回一句你好", usage="/hi")',
+      '_cfg = get_driver().config',
+      'TEXT = getattr(_cfg, "hello_text", "你好")',
+      'TIMES = int(getattr(_cfg, "hello_times", 1))',
+      'KEY = getattr(_cfg, "hello_api_key", "")',
+      'hi = on_command("hi")',
+    ].join('\n')) }));
+    const P = await mk();
+    await P.goto(`http://${process.env.AM_E2E_ADMIN}/login?key=${process.env.AM_E2E_ADMIN_KEY}`);
+    await P.goto(`http://${process.env.AM_E2E_ADMIN}/#/plugins`);
+    await P.waitForSelector('text=还没有插件');
+    await P.setInputFiles('input[type="file"][accept^=".zip"]', `${OUT}/plugin.zip`);
+    await P.waitForSelector('text=已装好：打招呼');
+    await P.waitForSelector('article >> text=命令：/hi');
+    await P.click('article button:has-text("设置")');
+    await P.fill('dialog input[placeholder="1"]', '3');
+    await P.fill('dialog input[placeholder="你好"]', '嗨');
+    await P.fill('dialog input[type="password"]', 'sk-test');
+    await P.click('dialog button:has-text("保存")');
+    await P.waitForSelector('text=设置已保存');
+    await P.click('article button:has-text("设置")');
+    await P.waitForSelector('dialog input[type="password"][placeholder^="已设置"]');
+    if ((await P.inputValue('dialog input[type="password"]')) !== '') throw new Error('secret shown again');
+    if ((await P.inputValue('dialog input[placeholder="1"]')) !== '3') throw new Error('setting not saved');
+    await shot(P, '29f-plugins');
+    await P.click('dialog button:has-text("取消")');
+    await P.click('article button:has-text("停用")');
+    await P.waitForSelector('article >> text=已停用');
+  }
 
   // Hosting (needs the first server's hosting.client_path to be a stand-in that copies the host file to
   // AM_E2E_HOST_FILE): Weiqi (a site admin, approved at once) hosts 小鱼 on the server; the client in host
@@ -956,10 +968,11 @@ const pages = [];
   await A.waitForSelector('section div.whitespace-pre-wrap:has-text("这里没开 NSFW")', { timeout: 20000 });
   if (naiRequests.length !== count) throw new Error('NSFW drawn in a DM where it is off');
   await A.click('aside button:has-text("小鱼"):has-text("我的")');
-  before = await pics();
   await say('给我画一张向日葵');
   await A.waitForSelector('section div.whitespace-pre-wrap:has-text("放好啦（画好了")', { timeout: 30000 });
-  await A.waitForFunction((n) => document.querySelectorAll('section img').length > n, before, { timeout: 20000 });
+  // Posted as 小鱼 (the bot isn't in this DM): the picture, then the done line.
+  await A.waitForSelector('section div.whitespace-pre-wrap:has-text("NovelAI V4.5，")', { timeout: 20000 });
+  if (!(await pics())) throw new Error('no picture in the DM');
   if (naiRequests.at(-1).input !== '1girl, solo, sunflower field, very aesthetic, masterpiece, no text' || naiRequests.at(-1).parameters.width !== 1024) throw new Error('draw_picture did not draw: ' + naiRequests.at(-1).input);
   await shot(A, '29i-drawing');
 

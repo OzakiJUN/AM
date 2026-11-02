@@ -89,8 +89,6 @@ interface Run {
   memoryLoaded: boolean;
   /** Serialize writes to the single server-side memory document. */
   memoryQueue: Promise<void>;
-  /** Commands of its running plugins (docs/plugins.md): those messages are left to them. */
-  plugins: { starts: string[]; commands: string[]; at: number };
   /** The server bot's commands (for its prompt; fetched now and then). */
   helper: { cmds: HelperCommand[]; at: number };
   lastThought: number;
@@ -206,7 +204,7 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   const run: Run = {
     serverId, ai, settings, s: null as unknown as Session, busy: new Set(), again: new Set(), greeted: false,
     pending: new Map(), sends: new Map(), statusUntil: 0, ownerOnline: false, ownerActivity: '', pageChecked: false,
-    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, memoryQueue: Promise.resolve(), plugins: { starts: [], commands: [], at: 0 }, helper: { cmds: [], at: 0 }, lastThought: Date.now(), rememberTimers: new Map(),
+    memory: emptyMemory(), memoryAt: 0, memoryLoaded: false, memoryQueue: Promise.resolve(), helper: { cmds: [], at: 0 }, lastThought: Date.now(), rememberTimers: new Map(),
   };
   run.s = new Session(
     record,
@@ -252,7 +250,6 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   runs.set(key, run);
   patch('running', key, false);
   run.routine = setInterval(() => void tickRoutine(run), 30_000);
-  void loadPluginCommands(run);
   await run.s.start();
 }
 
@@ -292,37 +289,18 @@ async function loadHelperCommands(run: Run) {
   }
 }
 
-/** Reads its plugins' commands (with the owner's session: only the owner may list them). */
-async function loadPluginCommands(run: Run) {
-  // On the server, the AI reads its own plugins.
-  const owner = hosted && isHosted(run.serverId) ? hosted.api : session(run.serverId);
-  if (!owner || (!hosted && !owner.view.plugins)) return;
-  try {
-    const l = await owner.listPlugins(run.ai.user.id);
-    const on = l.plugins.filter((p) => p.status === 'approved' && p.enabled);
-    run.plugins = { starts: l.commandStart, commands: on.flatMap((p) => p.commands), at: Date.now() };
-  } catch {
-    run.plugins = { ...run.plugins, at: Date.now() };
-  }
-}
-
 /** Its owner's name (in host mode there is no owner session: ask the AI's own). */
 function ownerNameOf(run: Run): string {
   if (isHosted(run.serverId)) return run.ai.user.ownerId ? run.s.nameOf(run.ai.user.ownerId) : '主人';
   return session(run.serverId)?.view.me?.name ?? '主人';
 }
 
-/** The owner changed its plugins: read the commands again. */
-export function refreshPluginCommands(serverId: string, aiId: string) {
-  const run = runs.get(k(serverId, aiId));
-  if (run) void loadPluginCommands(run);
-}
-
 /** A command something else answers (a plugin, the server's bot — drawing too): not a chat turn. */
 function isCommand(run: Run, m: Message): boolean {
   if (m.body.kind !== 'text') return false;
   const t = m.body.text;
-  return isPluginCommand(t, run.plugins.starts, run.plugins.commands) || isPluginCommand(t, ['/', '／'], run.s.view.commands);
+  // The bot's commands, its plugins' included (ServerInfo.commands).
+  return isPluginCommand(t, ['/', '／'], run.s.view.commands);
 }
 
 function onMessage(run: Run, convId: string, m: Message) {
@@ -1179,7 +1157,6 @@ function saveDone(key: string, day: string, done: Set<string>) {
 
 async function tickRoutine(run: Run) {
   if (run.s.view.status !== 'online') return;
-  if (Date.now() - run.plugins.at > 10 * 60_000) void loadPluginCommands(run);
   await tickProactive(run).catch(() => {});
   if (run.statusUntil && Date.now() > run.statusUntil) {
     run.statusUntil = 0;

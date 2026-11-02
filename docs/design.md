@@ -440,20 +440,20 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
 
 ## 10. Bot（第二阶段）
 
-- 管理放在 AI 那一栏里（Weiqi 定的）：自己的 bot / AI 的主页、资料、在哪些频道、触发规则、插件等都在那里设置，不放到账号设置。bot / AI 是单独的账号，不占主人的设备名额。
+- 管理放在 AI 那一栏里（Weiqi 定的）：自己的 bot / AI 的主页、资料、在哪些频道、触发规则等都在那里设置（插件只挂在服务器的小助手上，管理面板里管），不放到账号设置。bot / AI 是单独的账号，不占主人的设备名额。
 - 原生接口与客户端相同；另有 OneBot v11 兼容层，NoneBot2 插件不用改就能搬来（下面）。
 
-**插件**（2026-11-01，Weiqi：「bot 移植这次只要上传 onebot 的插件」「包括 ai 的插件之类的，都托管到服务器上」）
+**插件**（2026-11-01，Weiqi：「bot 移植这次只要上传 onebot 的插件」「包括 ai 的插件之类的，都托管到服务器上」；2026-11-02 改：「插件只有管理员在管理面板传，现在 ai 上那几个插件设置直接废弃，集成到 bot 里」）
 
-- **跑在服务器上**：每个有插件的 AI 一个 NoneBot2 进程（`server/internal/plugin`，`host.go`），由 am-server 启动、挂了自动重启（5 秒起，每次 ×3，最多 5 分钟）。Windows 上不弹黑窗口。主人的设备关着插件也照常工作。
-- **OneBot v11 正向 WebSocket**：am-server 在 127.0.0.1 的随机端口上开 `/onebot/{ai}`，每个 AI 每次启动一个随机 token；NoneBot 用 `~websockets` 驱动连上来。连上时发 lifecycle connect，每 30 秒心跳。AI 收到的新消息（频道 = 群，私信 = 私聊；ID 一一对应）按顺序转给插件（每个 AI 一个队列，积压 512 条以上丢弃并记日志），AI 自己发的不转。插件调的接口翻译成 AM 的操作，发消息就是 AI 发的。翻译规则是纯函数（`onebot.go`，有单测）。支持的消息段和接口见 [plugins.md](plugins.md) 第 5 节；管理类接口（踢人、禁言、撤回）不给。
-- **Python 环境**：`data/plugins/venv` 一个虚拟环境（启动时换成绝对路径：NoneBot 在 AI 自己的目录里运行，相对路径会找不到 python.exe），所有 AI 共用（`env.go`）。找 Python 3.10+（`plugins.python` 可指定；Windows 先试 `py -3`），自动装 NoneBot、OneBot 适配器和插件要的包（只装没装过的，可设 `plugins.pip_index` 镜像）。每个 AI 的目录 `data/plugins/ai-<id>/`：每次启动把已批准的插件复制进 `plugins/`，生成 `bot.py` 和 `.env`（驱动、连接、`COMMAND_START`、`NICKNAME` = AI 名、`SUPERUSERS` = 主人、localstore 目录、插件设置）。插件自己存的数据在 `data/`、`cache/`、`config/`，删插件不删。
-- **上传**：AI 设置 →「插件」→ 上传 zip（一个 zip 可以有好几个插件；带 `__init__.py` 的文件夹或单个 `.py`；`unpack.go`，纯函数有单测：拒绝 `..`、绝对路径、链接，扔掉缓存和 `.env`，名字只能是 Python 包名）。文件存在 `data/plugins/pkgs/<插件 id>/`，表 `ai_plugins`（一个 AI 一个文件夹名一行，状态 pending / approved / rejected、开关、设置 JSON）。同名再传 = 更新，设置留着，重新审核。
-- **管理员审核**：插件是能做任何事的程序，所以每个插件、每次更新都要站点管理员批准才运行（管理面板「插件」页，`admin/plugins.go`：看文件、读代码、批准 / 拒绝写原因，已批准的能停用；侧栏显示待审数）。站点管理员自己传的直接算批准。都记操作记录（`plugin_approve` / `plugin_reject`）。
-- **设置表单**：不跑插件代码，从源码里扫出名字、说明、用法、命令、设置项（`getattr(config, "key", 默认)`、包了一层的 `_c("key", 默认)`、`cfg*()`、pydantic 配置类）和要装的包（`scan.go`，纯函数有单测）；作者可以写 `am_plugin.json` 补标签、说明、类型、分组、范围、选项。客户端按这些生成表单（`app/PluginsTab.tsx`，`lib/plugins.ts` 纯函数有单测），服务器保存时按类型检查（`ApplyConfig`）。名字带 token / secret / password / key 的是密钥：只存服务器，不发回客户端。设置写进 `.env`，改了就重启那个 AI 的进程。
-- **和 AI 本身的关系**：AI 的模型聊天还在主人设备上跑；以插件命令开头的消息（命令前缀 + 插件命令）AI 不回，留给插件（`runner.ts` 用主人的会话读插件命令，10 分钟刷新一次）。
-- **配置**：`config.toml` 的 `[plugins]`：`enabled`（默认开）、`python`、`pip_index`、`command_start`（默认 `["/"]`）、`max_zip_mb`、`max_unpacked_mb`、`max_per_ai`。
-- **测试**：`server/internal/e2e/plugins_test.go` 用假 NoneBot 走完整流程；`AM_TEST_NONEBOT=1` 时 `plugins_nonebot_test.go` 装真的 NoneBot 跑一个插件（Weiqi 的 7 个插件也在真 NoneBot 里加载过，「/帮助」能回）。
+- **挂在小助手上**：插件只给服务器的内置 bot 用（下面「内置 bot」），不再挂在 AI 账号上。服务器升级后第一次启动时，AI 身上以前的插件和设置一次性删掉（`plugin.RetireAIPlugins`，设置 `plugins_on_bot`），以后都只有小助手的。表、目录、OneBot 端点还按「AI id」组织，只是只用小助手的账号 id。
+- **跑在服务器上**：小助手一个 NoneBot2 进程（`server/internal/plugin`，`host.go`），由 am-server 启动、挂了自动重启（5 秒起，每次 ×3，最多 5 分钟）。Windows 上不弹黑窗口。
+- **OneBot v11 正向 WebSocket**：am-server 在 127.0.0.1 的随机端口上开 `/onebot/{id}`，每次启动一个随机 token；NoneBot 用 `~websockets` 驱动连上来。连上时发 lifecycle connect，每 30 秒心跳。小助手收到的新消息（频道 = 群，私信 = 私聊；ID 一一对应）按顺序转给插件（一个队列，积压 512 条以上丢弃并记日志），它自己发的不转。插件调的接口翻译成 AM 的操作，发消息就是小助手发的。翻译规则是纯函数（`onebot.go`，有单测）。支持的消息段和接口见 [plugins.md](plugins.md) 第 5 节；管理类接口（踢人、禁言、撤回）不给。
+- **Python 环境**：`data/plugins/venv` 一个虚拟环境（启动时换成绝对路径：NoneBot 在自己的目录里运行，相对路径会找不到 python.exe；`env.go`）。找 Python 3.10+（`plugins.python` 可指定；Windows 先试 `py -3`），自动装 NoneBot、OneBot 适配器和插件要的包（只装没装过的，可设 `plugins.pip_index` 镜像）。目录 `data/plugins/ai-<小助手 id>/`：每次启动把启用的插件复制进 `plugins/`，生成 `bot.py` 和 `.env`（驱动、连接、`COMMAND_START`、`NICKNAME` = 小助手的名字、`SUPERUSERS` = 站点管理员、localstore 目录、插件设置）。插件自己存的数据在 `data/`、`cache/`、`config/`，删插件不删。
+- **只有站点管理员传**：管理面板「插件」页（`admin/plugins.go`，面板接口 `POST /api/plugins/upload`（JSON 里 base64 的 zip）、`PUT /api/plugins/{id}`（开关、`config_patch`）、`DELETE /api/plugins/{id}`、`GET /api/plugins/{id}/files`）：上传 zip 马上运行（一个 zip 可以有好几个插件；带 `__init__.py` 的文件夹或单个 `.py`；`unpack.go`，纯函数有单测：拒绝 `..`、绝对路径、链接，扔掉缓存和 `.env`，名字只能是 Python 包名）、看代码、设置、启用 / 停用、删除，上面显示插件进程的状态和最近的输出。文件存在 `data/plugins/pkgs/<插件 id>/`，表 `ai_plugins`（一个文件夹名一行；`status` 列还在，现在都是 approved）。同名再传 = 更新，设置留着。上传记操作记录（`plugin_upload`，操作人 0 = 面板）。客户端没有插件界面了，`/api/v1/ai/{id}/plugins` 那组接口去掉了。
+- **设置表单**：不跑插件代码，从源码里扫出名字、说明、用法、命令、设置项（`getattr(config, "key", 默认)`、包了一层的 `_c("key", 默认)`、`cfg*()`、pydantic 配置类）和要装的包（`scan.go`，纯函数有单测）；作者可以写 `am_plugin.json` 补标签、说明、类型、范围、选项。面板按这些生成表单，服务器保存时按类型检查（`ApplyConfig`）。名字带 token / secret / password / key 的是密钥：只存服务器，不发回面板。设置写进 `.env`，改了就重启进程。
+- **和小助手、AI 的关系**：插件的命令算小助手的指令（`plugin.Commands` → `helper.SetExternal`）：在 `ServerInfo.commands`、`/api/v1/helper/commands` 和「/指令」里（分组「🧩 插件：名字」）；小助手听到插件命令不回（交给插件），打错提示也会提到它们，但不会自动替人执行。AI 看到这些命令不接话（`runner.ts` 只看 `ServerInfo.commands`）；`use_helper` 只跑小助手自己的指令。
+- **配置**：`config.toml` 的 `[plugins]`：`enabled`（默认开）、`python`、`pip_index`、`command_start`（默认 `["/"]`）、`max_zip_mb`、`max_unpacked_mb`、`max_per_ai`（现在是小助手最多几个插件）。
+- **测试**：`server/internal/e2e/plugins_test.go` 用假 NoneBot 走完整流程（面板上传、设置、小助手收发、旧插件清掉）；`AM_TEST_NONEBOT=1` 时 `plugins_nonebot_test.go` 装真的 NoneBot 跑一个插件（Weiqi 的 7 个插件也在真 NoneBot 里加载过，「/帮助」能回）。
 - **给别人写插件**：技术标准在 [plugins.md](plugins.md)。
 
 **AI 托管到服务器**（2026-11-01，Weiqi：「直接让服务端静默唤起一个客户端」「托管的 AI 单独给分配个文件夹做工作目录」「每人最多托管一个 AI」）
@@ -461,7 +461,7 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
 - **申请**：AI 设置 →「运行」→「申请托管」：把这个 AI 用的模型服务商（含 key）发给服务器（`POST /api/v1/ai/{id}/host`），界面写明 key 交给服务器。key 用 `data/hosting/key`（随机 32 字节）AES-GCM 加密存在 `ai_hosting.secrets`。每人最多 `hosting.max_per_user` 个（默认 1，没通过的不算），再申请就是换 key（已批准的保持批准，客户端重启）。站点管理员自己申请直接批准。
 - **管理员**：面板「AI 托管」页（`admin/hosting.go`）：待审数、批准 / 拒绝（写原因，主人能看到）、停止已批准的、看客户端日志；都记操作记录（`hosting_approve` / `hosting_reject`）。
 - **运行**：批准后 `settings.runner` 改成「服务器托管」（`server-host`），主人设备上的运行停下。`server/internal/hosting` 的管理器给每个批准的 AI 起一个 AM 客户端：`AM.exe --host data/hosting/ai-<id>/host.json`（找 `hosting.client_path`，没填就找 am-server 旁边和安装目录），隐藏窗口，挂了自动重启（5 秒起 ×3，最多 5 分钟）。host.json 写 AI 的登录（服务器用 `account.HostSession` 直接签一个 AI 会话，AI 别处的登录都结束）、模型服务商、工作文件夹、单独的浏览器数据目录；客户端读完就删。连接用本机回环地址（`LoopbackAddress(server.listen)`），证书按指纹固定（真证书也是，名字对不上本机地址）。客户端在线 = 状态「在线」。
-- **客户端的 host 模式**：Rust（`lib.rs`）读 `--host` 文件、主窗口隐藏不进任务栏、用自己的 WebView 数据目录（不和同一台电脑上正常的 AM 客户端混）、不占单实例、没有托盘、不注册全局 F12。界面层（`main.tsx` → `lib/ai/host.ts`）不启动其他东西，只跑这一个 AI：设备 id = `server-host`，模型 key 来自文件（不进凭据管理器），设置用 AI 自己的会话读写（`GET /api/v1/me/ai`、`PUT /api/v1/me/ai/settings`），插件命令也用 AI 自己的会话读。
+- **客户端的 host 模式**：Rust（`lib.rs`）读 `--host` 文件、主窗口隐藏不进任务栏、用自己的 WebView 数据目录（不和同一台电脑上正常的 AM 客户端混）、不占单实例、没有托盘、不注册全局 F12。界面层（`main.tsx` → `lib/ai/host.ts`）不启动其他东西，只跑这一个 AI：设备 id = `server-host`，模型 key 来自文件（不进凭据管理器），设置用 AI 自己的会话读写（`GET /api/v1/me/ai`、`PUT /api/v1/me/ai/settings`）。
 - **在服务器上能做什么**（`lib/ai/hostMode.ts` `hostedSettings`，纯函数有单测，不存回去）：文件工具只能在 `data/hosting/ai-<id>/work` 里，读写删都允许；看屏幕、鼠标键盘、操作软件、浏览器、命令、打开文件、剪贴板、MCP 一律不行；没人回答「要不要允许」，所以「问我」等于不允许。
 - **结束**：主人在自己设备上点「在这台设备上运行」（`RunAI` 的钩子 `OnAIRun` 删掉托管）、点「停止托管 / 撤回」（`DELETE /api/v1/ai/{id}/host`：停客户端、清 `settings.runner`、AI 的登录全部结束），或者管理员停止。目前只支持 Windows 服务器（要装 AM 客户端）。
 - **测试**：Go e2e `hosting_test.go`（测试自己读 host.json 当客户端）；浏览器 e2e 用一个替身程序当 `client_path`，再用 `#host=` 打开 host 模式的页面（只在浏览器开发模式认）。
@@ -480,7 +480,7 @@ AI 不只是被动回话，也可以自己发消息、做动作、调用程序�
 - **站点管理员管它的资料**（2026-11-02，Weiqi：「让服务器管理员可以改小助手的资料和主页」）：站点管理员私聊它时右上角有「小助手的资料」（名字、头像、签名、编辑主页），和主人改自己的 AI 一样（`PATCH /api/v1/ai/{id}`、主页编辑权限都对站点管理员放开）。`helper.name` 只是第一次建号时的名字，之后不会覆盖。
 - **AI 会用它**（2026-11-02，Weiqi：「让 ai 知道这些指令，想画图的时候就去画图，想获取资讯就去查」「想法出来的时候可以发出来……让 ai 自己选择发不发出来」）：AI 的系统提示里列出 bot 的全部指令和用法（`appPrompt`，每 10 分钟重新读一次 `/api/v1/helper/commands`）；工具 `use_helper`（类别「自己」，不用开电脑）让 bot 在当前聊天执行一条指令，指令本身不发出来，`show` 由 AI 自己选：true 回复发在聊天里，false 只回给它自己（它看完再决定说什么）；`about_last_picture` = 针对这个聊天里最近的一张图（投厕）。服务端是 `helper.RunFor`：不发出来的回复先收在一个 sink 里（`Reply` / `Picture` 看 context），最后一起回给它。
 - AI 叫小助手时，小助手发不进去的会话（AI 和人的私聊）：回复和图以 AI 自己的名义发出来（`helper.Speaker`），所以 AI 在私聊里画的图也是它自己发的。
-- 以后：插件也搬到小助手上（只有管理员在管理面板传），见 docs/todo.md。
+- 插件挂在小助手上（2026-11-02，只有站点管理员在管理面板传），见上面「插件」。
 
 **画画**（2026-11-02，Weiqi：「ai 里面的……画画全都搬到服务端的 bot 上去」「nai 的 token 用服务器一个 key」；`server/internal/draw`）
 
