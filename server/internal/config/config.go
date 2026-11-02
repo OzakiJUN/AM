@@ -26,6 +26,7 @@ import (
 var defaultTOML string
 
 type Config struct {
+	Fishing   Fishing   `toml:"fishing"`
 	Server    Server    `toml:"server"`
 	TLS       TLS       `toml:"tls"`
 	Database  Database  `toml:"database"`
@@ -43,6 +44,10 @@ type Config struct {
 	Update    Update    `toml:"update"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
+}
+
+type Fishing struct {
+	RulesFile string `toml:"rules_file"`
 }
 
 type Server struct {

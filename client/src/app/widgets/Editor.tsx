@@ -1,3 +1,5 @@
+import { FishingConfig } from './Fishing';
+import { exhibitCapacity } from '@/lib/fishing';
 // Dialogs for editing a profile board: a widget's settings (contents, size,
 // page, who may edit it), the "add a widget" picker and the background.
 // Changes go into the board's draft; the board saves them all at once.
@@ -70,7 +72,7 @@ export function WidgetEditor({ target, profileKind, page, onClose, onApply }: {
   const set = (p: Config) => setCfg((c) => ({ ...c, ...p }));
   const apply = () => {
     const ok = onApply(
-      { ...w, config: cfg, contentEditors: target.editors ? (admins ? 'admins' : 'everyone') : w.contentEditors },
+      { ...w, config: w.kind.startsWith('fishing_') && Array.isArray(cfg.ids) ? { ...cfg, ids: cfg.ids.slice(0, exhibitCapacity(w.kind, ...size)) } : cfg, contentEditors: target.editors ? (admins ? 'admins' : 'everyone') : w.contentEditors },
       { size: size[0] !== w.w || size[1] !== w.h ? size : undefined, page: pg !== page ? pg : undefined },
     );
     if (ok) onClose();
@@ -78,7 +80,8 @@ export function WidgetEditor({ target, profileKind, page, onClose, onApply }: {
   return (
     <Dialog open onClose={onClose} title={`${info?.emoji ?? '🧩'} ${info?.label ?? w.kind}`} width={520}>
       <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
-        {w.source === 'builtin' && target.content && cfgFor === w.id && <ConfigForm key={w.id} kind={w.kind} cfg={cfg} set={set} profileKind={profileKind} />}
+        {w.source === 'builtin' && target.content && cfgFor === w.id && w.kind.startsWith('fishing_') && <FishingConfig kind={w.kind} cfg={cfg} set={set} capacity={exhibitCapacity(w.kind, ...size)} />}
+        {w.source === 'builtin' && target.content && cfgFor === w.id && !w.kind.startsWith('fishing_') && <ConfigForm key={w.id} kind={w.kind} cfg={cfg} set={set} profileKind={profileKind} />}
         {!target.content && <p className="text-[0.85rem] text-ink-soft dark:text-white/55">这个小组件的内容只有管理员能改，你可以调整它的大小和位置。</p>}
         {target.layout && info && (
           <Field label="大小（宽 × 高，格）">

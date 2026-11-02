@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	Fishing    = "fishing"
 	Gomoku     = "gomoku"
 	Reversi    = "reversi"
 	Undercover = "undercover"
@@ -38,6 +39,7 @@ var (
 
 // Kinds lists the games, with their player counts.
 var Kinds = map[string]struct{ Min, Max int }{
+	Fishing:    {1, 12},
 	Gomoku:     {2, 2},
 	Reversi:    {2, 2},
 	Undercover: {4, 8},
@@ -61,6 +63,7 @@ type Said struct {
 
 // State is a whole game as stored. Board cells: 0 empty, 1 black (seat 0), 2 white (seat 1).
 type State struct {
+	Pond        *Pond    `json:"pond,omitempty"`
 	Kind        string   `json:"kind"`
 	Status      string   `json:"status"`
 	Players     []Player `json:"players"`
@@ -117,6 +120,9 @@ func (s *State) TurnUser() int64 {
 
 // Waiting on: everyone who still has to act (one seat, or all who have not voted).
 func (s *State) Waiting() []int64 {
+	if s.Kind == Fishing {
+		return nil
+	}
 	if s.Status != Playing {
 		return nil
 	}

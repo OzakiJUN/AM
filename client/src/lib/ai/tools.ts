@@ -204,6 +204,9 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
       return { text: await ctx.self.helper(a) };
     case 'start_game':
     case 'view_game':
+    case 'fishing_state':
+    case 'fishing_act':
+    case 'fishing_shop':
     case 'game_move':
     case 'game_say':
     case 'game_vote':

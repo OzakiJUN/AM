@@ -319,3 +319,7 @@ level = "info"
 file = "logs/am-server.log"
 # When the log file grows beyond this size it is renamed to .1 and restarted.
 max_size_mb = 10
+
+# Leave empty for built-in fishing balance. JSON schema and all defaults: docs/fishing.md.
+[fishing]
+rules_file = ""

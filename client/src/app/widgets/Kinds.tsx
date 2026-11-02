@@ -1,3 +1,4 @@
+import { FishingWidget } from './Fishing';
 // What each built-in widget shows on a profile board. Settings live in the
 // widget's JSON config (see lib/widgetKinds.ts); editing is in Editor.tsx.
 import { useEffect, useState } from 'react';
@@ -33,6 +34,9 @@ export function WidgetView({ w, ctx }: { w: WidgetModel; ctx: WidgetCtx }) {
   if (w.source === 'workshop') return <WorkshopWidget w={w} />;
   const c = w.config;
   switch (w.kind) {
+    case 'fishing_fish':
+    case 'fishing_cards':
+    case 'fishing_badges': return <FishingWidget w={w} ctx={ctx} />;
     case 'text': return <TextWidget title={str(c.title)} text={str(c.text)} />;
     case 'image': return <ImageWidget id={str(c.media_id)} caption={str(c.caption)} fit={str(c.fit) === 'contain' ? 'contain' : 'cover'} editing={ctx.editing} />;
     case 'gallery': return <GalleryWidget ids={strs(c.media_ids)} interval={num(c.interval, 5)} caption={str(c.caption)} editing={ctx.editing} />;

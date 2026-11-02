@@ -24,10 +24,13 @@ var ErrGameLimit = apperr.New(http.StatusForbidden, "game_limit", "this conversa
 const ShowEnded = 6 * time.Hour
 
 type Service struct {
-	st   *store.Store
-	ids  *idgen.Generator
-	push push.Pusher
-	max  int
+	st            *store.Store
+	ids           *idgen.Generator
+	push          push.Pusher
+	max           int
+	fishing       *FishingRules
+	fishingCancel context.CancelFunc
+	fishingDone   chan struct{}
 
 	mu  sync.Mutex
 	rnd *rand.Rand
@@ -35,7 +38,7 @@ type Service struct {
 
 // New: max = games open or running at once per conversation (0 = games off).
 func New(st *store.Store, ids *idgen.Generator, p push.Pusher, max int) *Service {
-	return &Service{st: st, ids: ids, push: p, max: max, rnd: rand.New(rand.NewSource(time.Now().UnixNano()))}
+	return &Service{st: st, ids: ids, push: p, max: max, fishing: DefaultFishingRules(), rnd: rand.New(rand.NewSource(time.Now().UnixNano()))}
 }
 
 func load(g *store.Game) (*State, error) {
@@ -112,6 +115,9 @@ func (s *Service) broadcast(ctx context.Context, g *store.Game, st *State) {
 
 // Open starts a waiting game in a conversation, with me in the first seat.
 func (s *Service) Open(ctx context.Context, me *store.User, convID int64, kind string, autoApprove bool) (*amv1.Game, error) {
+	if kind == Fishing {
+		return s.openPond(ctx, me, convID)
+	}
 	st, err := NewState(kind, me.ID, autoApprove)
 	if err != nil {
 		return nil, err
@@ -177,6 +183,9 @@ func (s *Service) Rematch(ctx context.Context, me *store.User, id int64) (*amv1.
 		if err := member(ctx, q, old.ConvID, me.ID); err != nil {
 			return err
 		}
+		if old.Kind == Fishing {
+			return ErrGameState
+		}
 		prev, err := load(old)
 		if err != nil {
 			return err
@@ -241,6 +250,9 @@ func (s *Service) List(ctx context.Context, me *store.User, convID int64) (*amv1
 }
 
 func (s *Service) Get(ctx context.Context, me *store.User, id int64) (*amv1.Game, error) {
+	if s.isPond(ctx, id) {
+		return s.pondChange(ctx, me, id, "refresh", 0)
+	}
 	g, err := s.st.GetGame(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, apperr.ErrNotFound
@@ -303,6 +315,9 @@ func without(list []int64, id int64) []int64 {
 
 // Join: take a seat (host, auto-approve) or ask the host for one.
 func (s *Service) Join(ctx context.Context, me *store.User, id int64) (*amv1.Game, error) {
+	if s.isPond(ctx, id) {
+		return s.pondChange(ctx, me, id, "join", -1)
+	}
 	return s.change(ctx, me, id, func(_ *store.Queries, g *store.Game, st *State) error {
 		if st.Status != Waiting {
 			return ErrGameState
@@ -392,6 +407,9 @@ func (s *Service) Start(ctx context.Context, me *store.User, id int64) (*amv1.Ga
 
 // Act is a player's move: move (x, y), say (text), vote (target seat) or resign.
 func (s *Service) Act(ctx context.Context, me *store.User, id int64, req *amv1.GameActRequest) (*amv1.Game, error) {
+	if s.isPond(ctx, id) {
+		return s.pondChange(ctx, me, id, req.GetAction(), int(req.GetTarget()))
+	}
 	return s.change(ctx, me, id, func(_ *store.Queries, _ *store.Game, st *State) error {
 		seat := st.Seat(me.ID)
 		if seat < 0 {
@@ -418,6 +436,9 @@ func (s *Service) Act(ctx context.Context, me *store.User, id int64, req *amv1.G
 // Leave: before the start, give up my seat or request (the host leaving
 // closes the game); while playing, it counts as resigning.
 func (s *Service) Leave(ctx context.Context, me *store.User, id int64) (*amv1.Game, error) {
+	if s.isPond(ctx, id) {
+		return s.pondChange(ctx, me, id, "leave", 0)
+	}
 	return s.change(ctx, me, id, func(_ *store.Queries, g *store.Game, st *State) error {
 		switch st.Status {
 		case Waiting:
@@ -442,6 +463,9 @@ func (s *Service) Leave(ctx context.Context, me *store.User, id int64) (*amv1.Ga
 
 // End: the host stops the game (no winner).
 func (s *Service) End(ctx context.Context, me *store.User, id int64) (*amv1.Game, error) {
+	if s.isPond(ctx, id) {
+		return s.pondChange(ctx, me, id, "end", 0)
+	}
 	return s.change(ctx, me, id, func(_ *store.Queries, g *store.Game, st *State) error {
 		if g.HostID != me.ID {
 			return apperr.ErrNoPermission

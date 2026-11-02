@@ -34,6 +34,7 @@ import (
 )
 
 type App struct {
+	Games   *game.Service
 	Store   *store.Store
 	Hub     *gateway.Hub
 	Account *account.Service
@@ -184,9 +185,14 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 			V5Native: dc.V5Native, Quality: dc.Quality, QualityV5: dc.QualityV5, Negative: dc.Negative, BlockWords: dc.BlockWords, AutoNsfw: dc.AutoNsfw},
 	}, st, ms, md, bot, log)
 
+	games := game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv)
+	if err := games.LoadFishingRules(cfg.Fishing.RulesFile); err != nil {
+		return nil, err
+	}
+	games.RunFishing()
 	mux := http.NewServeMux()
 	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,
-		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
+		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), games, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
 	if plugins != nil {
 		api.SetPlugins(plugins)
 	}
@@ -199,6 +205,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	mux.Handle("GET /ws", gateway.New(hub, acct, cs, ms, ps, remote.New(st, hub), log))
 
 	return &App{
+		Games:    games,
 		Store:    st,
 		Hub:      hub,
 		Account:  acct,
@@ -218,6 +225,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 }
 
 func (a *App) Close() {
+	a.Games.CloseFishing()
 	a.News.Close()
 	a.Museum.Close()
 	if a.Hosting != nil {

@@ -53,6 +53,18 @@ jobs:
           npm run typecheck
           npm test
           npx vite build
+      - name: Fishing browser interactions
+        working-directory: client
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+          node e2e/fishing-browser.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fishing-ui-check
+          path: /tmp/fishing-*.png
+          if-no-files-found: ignore
       - run: go vet ./...
       - name: Vet the Windows build too
         run: GOOS=windows go vet ./...

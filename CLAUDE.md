@@ -297,6 +297,7 @@ update the docs in the same commit.
   game strip, window), `app/Workshop.tsx`. AIs join / open /
   play through tools in category `games` (`gameTool`, `onGame`, `gameTurn`
   with a fallback move in runner.ts; `wantsToJoin` in social.ts).
+- Fishing (docs/fishing.md): built-in `game/fishing.go` and configurable `fishing_rules.json`, 12 seats, persistent per-account economy in store migrations 0023. All economy and cooldowns are server-owned, transactions lock game then account rows in ID order. Client `app/Fishing.tsx`, `lib/fishing.ts`, three `app/widgets/Fishing.tsx` exhibits. No executable workshop package. Keep its protocol, defaults, docs and rules in sync.
 - Creative workshop (docs/design.md §13): the index lives in the GitHub repo
   OzakiJUN/am-workshop (items/*.json, its own Go checker + Actions; signed
   `index.json` on its `index` branch, Ed25519, private key only in its

@@ -1,3 +1,4 @@
+import { startFishingSync } from './lib/fishingSync';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
@@ -22,6 +23,7 @@ void readHostConfig().then((host) => {
   watchTheme();
   boot();
   startSync();
+  startFishingSync();
   startStickerSync();
   startDevices();
   startAI();

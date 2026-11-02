@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { arrangeFishingExhibits } from './fishingPage.ts';
+import type { FishingAccount } from '../fishing.ts';
+import type { LayoutModel } from '../widgets.ts';
+const layout: LayoutModel = { version: 1, portraitCustom: false, background: { kind: '', value: '', blur: 0, dim: 0 }, widgets: [{ id: 'hello', kind: 'text', source: 'builtin', w: 2, h: 1, land: { page: 0, x: 0, y: 0 }, config: { text: 'keep this' }, contentEditors: 'everyone' }] } as LayoutModel;
+const account = { identity: 'global', fish: [{ id: 'owned', owner_key: 'global', caught_by: 'different-server-id', value: 33.16, length_m: 53.16 }, { id: 'stolen', owner_key: 'stolen', value: 1000, length_m: 20 }], cards: { '0:f001': 2, '4:f099': 1 }, badges: [0, 0, 0, 0, 1] } as unknown as FishingAccount;
+const copy = JSON.stringify(layout), next = arrangeFishingExhibits(layout, account, 'local-user');
+assert.equal(JSON.stringify(layout), copy);
+assert.deepEqual(next.widgets[0], layout.widgets[0]);
+assert.deepEqual(next.widgets.find(w => w.kind === 'fishing_fish')?.config.ids, ['owned']);
+assert.deepEqual(next.widgets.find(w => w.kind === 'fishing_cards')?.config.ids, ['4:f099', '0:f001']);
+assert.deepEqual(arrangeFishingExhibits(next, account, 'local-user'), next);
+account.fish = []; const sold = arrangeFishingExhibits(next, account, 'local-user');
+assert.deepEqual(sold.widgets.find(w => w.kind === 'fishing_fish')?.config.ids, []);
+console.log('AI fishing exhibits preserve unrelated content, choose own fish/cards and remove sold specimens');

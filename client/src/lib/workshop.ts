@@ -39,6 +39,7 @@ export const CATEGORY_NAME: Record<WorkshopCategory, string> = {
 };
 
 const GAME_TEXT: Record<GameKind, string> = {
+  fishing: '12 人共享星屿鱼塘，钓 100 种幻想鱼，收集鱼卡、装备与徽章。',
   gomoku: '两个人轮流下，先连五个的赢。AI 也会下（不算很强）。',
   reversi: '夹住就翻，最后子多的赢。和 AI 下正合适。',
   undercover: '4–8 个人（AI 也算）各拿一个词，轮流描述、投票找卧底。',

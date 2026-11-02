@@ -173,6 +173,7 @@ export function isSkip(text: string): boolean {
 
 /** Board games (docs/design.md §13 小游戏): asking to join, opening games in its play time. */
 export interface GameSettings {
+  exhibitMinutes?: number;
   /** Asks to join games opened where it is (channels, its shared room). */
   join: boolean;
   /** 0–1: how keen it is (its owner's games: almost always). */
@@ -183,7 +184,7 @@ export interface GameSettings {
   maxAtOnce: number;
 }
 
-export const defaultGames = (): GameSettings => ({ join: true, eagerness: 0.6, open: true, maxAtOnce: 1 });
+export const defaultGames = (): GameSettings => ({ join: true, eagerness: 0.6, open: true, maxAtOnce: 1, exhibitMinutes: 60 });
 
 /**
  * Whether to ask to join a game that just opened. `free` = seats left,
