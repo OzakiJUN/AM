@@ -171,6 +171,6 @@ func (q *Queries) ListEvidence(ctx context.Context, limit, offset int) ([]*Evide
 // EvidenceHasMedia reports whether a media item is referenced by evidence.
 func (q *Queries) EvidenceHasMedia(ctx context.Context, mediaID int64) (bool, error) {
 	var n int
-	err := q.queryRow(ctx, `SELECT count(*) FROM evidence WHERE media_id=?`, mediaID).Scan(&n)
+	err := q.queryRow(ctx, `SELECT (SELECT count(*) FROM evidence WHERE media_id=?) + (SELECT count(*) FROM forwarded_media fm JOIN evidence ev ON ev.event_id=fm.event_id WHERE fm.media_id=?)`, mediaID, mediaID).Scan(&n)
 	return n > 0, err
 }

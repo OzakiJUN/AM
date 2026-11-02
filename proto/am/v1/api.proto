@@ -801,3 +801,19 @@ message MuseumResult {
 message MuseumVoteRequest {
   bool agree = 1;
 }
+
+message EmojiPin {
+  int64 id = 1;
+  int64 conv_id = 2;
+  int64 target_event_id = 3;
+  int64 user_id = 4;
+  string emoji = 5;
+  double x = 6;
+  double y = 7;
+  int64 revision = 8;
+  bool removed = 9;
+  bool on_bubble = 10;
+}
+message ListEmojiPinsResponse {
+  repeated EmojiPin pins = 1;
+}

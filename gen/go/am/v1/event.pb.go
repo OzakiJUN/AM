@@ -104,6 +104,8 @@ type Event struct {
 	//	*Event_Text
 	//	*Event_Image
 	//	*Event_File
+	//	*Event_Forward
+	//	*Event_EmojiPin
 	//	*Event_Strike
 	//	*Event_AdminDelete
 	//	*Event_SysMember
@@ -223,6 +225,24 @@ func (x *Event) GetFile() *FileMsg {
 	return nil
 }
 
+func (x *Event) GetForward() *ForwardMsg {
+	if x != nil {
+		if x, ok := x.Body.(*Event_Forward); ok {
+			return x.Forward
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetEmojiPin() *EmojiPinAct {
+	if x != nil {
+		if x, ok := x.Body.(*Event_EmojiPin); ok {
+			return x.EmojiPin
+		}
+	}
+	return nil
+}
+
 func (x *Event) GetStrike() *StrikeAct {
 	if x != nil {
 		if x, ok := x.Body.(*Event_Strike); ok {
@@ -291,6 +311,14 @@ type Event_File struct {
 	File *FileMsg `protobuf:"bytes,12,opt,name=file,proto3,oneof"`
 }
 
+type Event_Forward struct {
+	Forward *ForwardMsg `protobuf:"bytes,13,opt,name=forward,proto3,oneof"`
+}
+
+type Event_EmojiPin struct {
+	EmojiPin *EmojiPinAct `protobuf:"bytes,22,opt,name=emoji_pin,json=emojiPin,proto3,oneof"`
+}
+
 type Event_Strike struct {
 	Strike *StrikeAct `protobuf:"bytes,20,opt,name=strike,proto3,oneof"`
 }
@@ -316,6 +344,10 @@ func (*Event_Text) isEvent_Body() {}
 func (*Event_Image) isEvent_Body() {}
 
 func (*Event_File) isEvent_Body() {}
+
+func (*Event_Forward) isEvent_Body() {}
+
+func (*Event_EmojiPin) isEvent_Body() {}
 
 func (*Event_Strike) isEvent_Body() {}
 
@@ -1024,11 +1056,297 @@ func (x *SysMuseum) GetNo() int32 {
 	return 0
 }
 
+// A server-stamped snapshot of selected chat messages.
+type ForwardMsg struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*ForwardEntry        `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ForwardMsg) Reset() {
+	*x = ForwardMsg{}
+	mi := &file_am_v1_event_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForwardMsg) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForwardMsg) ProtoMessage() {}
+
+func (x *ForwardMsg) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_event_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForwardMsg.ProtoReflect.Descriptor instead.
+func (*ForwardMsg) Descriptor() ([]byte, []int) {
+	return file_am_v1_event_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ForwardMsg) GetEntries() []*ForwardEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type ForwardEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SourceConvId  int64                  `protobuf:"varint,1,opt,name=source_conv_id,json=sourceConvId,proto3" json:"source_conv_id,omitempty"`
+	SourceName    string                 `protobuf:"bytes,2,opt,name=source_name,json=sourceName,proto3" json:"source_name,omitempty"`
+	SourceEventId int64                  `protobuf:"varint,3,opt,name=source_event_id,json=sourceEventId,proto3" json:"source_event_id,omitempty"`
+	SenderId      int64                  `protobuf:"varint,4,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
+	SenderName    string                 `protobuf:"bytes,5,opt,name=sender_name,json=senderName,proto3" json:"sender_name,omitempty"`
+	SentAt        int64                  `protobuf:"varint,6,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	Struck        bool                   `protobuf:"varint,7,opt,name=struck,proto3" json:"struck,omitempty"`
+	// Types that are valid to be assigned to Body:
+	//
+	//	*ForwardEntry_Text
+	//	*ForwardEntry_Image
+	//	*ForwardEntry_File
+	Body          isForwardEntry_Body `protobuf_oneof:"body"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ForwardEntry) Reset() {
+	*x = ForwardEntry{}
+	mi := &file_am_v1_event_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForwardEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForwardEntry) ProtoMessage() {}
+
+func (x *ForwardEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_event_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForwardEntry.ProtoReflect.Descriptor instead.
+func (*ForwardEntry) Descriptor() ([]byte, []int) {
+	return file_am_v1_event_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ForwardEntry) GetSourceConvId() int64 {
+	if x != nil {
+		return x.SourceConvId
+	}
+	return 0
+}
+
+func (x *ForwardEntry) GetSourceName() string {
+	if x != nil {
+		return x.SourceName
+	}
+	return ""
+}
+
+func (x *ForwardEntry) GetSourceEventId() int64 {
+	if x != nil {
+		return x.SourceEventId
+	}
+	return 0
+}
+
+func (x *ForwardEntry) GetSenderId() int64 {
+	if x != nil {
+		return x.SenderId
+	}
+	return 0
+}
+
+func (x *ForwardEntry) GetSenderName() string {
+	if x != nil {
+		return x.SenderName
+	}
+	return ""
+}
+
+func (x *ForwardEntry) GetSentAt() int64 {
+	if x != nil {
+		return x.SentAt
+	}
+	return 0
+}
+
+func (x *ForwardEntry) GetStruck() bool {
+	if x != nil {
+		return x.Struck
+	}
+	return false
+}
+
+func (x *ForwardEntry) GetBody() isForwardEntry_Body {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+func (x *ForwardEntry) GetText() *TextMsg {
+	if x != nil {
+		if x, ok := x.Body.(*ForwardEntry_Text); ok {
+			return x.Text
+		}
+	}
+	return nil
+}
+
+func (x *ForwardEntry) GetImage() *ImageMsg {
+	if x != nil {
+		if x, ok := x.Body.(*ForwardEntry_Image); ok {
+			return x.Image
+		}
+	}
+	return nil
+}
+
+func (x *ForwardEntry) GetFile() *FileMsg {
+	if x != nil {
+		if x, ok := x.Body.(*ForwardEntry_File); ok {
+			return x.File
+		}
+	}
+	return nil
+}
+
+type isForwardEntry_Body interface {
+	isForwardEntry_Body()
+}
+
+type ForwardEntry_Text struct {
+	Text *TextMsg `protobuf:"bytes,10,opt,name=text,proto3,oneof"`
+}
+
+type ForwardEntry_Image struct {
+	Image *ImageMsg `protobuf:"bytes,11,opt,name=image,proto3,oneof"`
+}
+
+type ForwardEntry_File struct {
+	File *FileMsg `protobuf:"bytes,12,opt,name=file,proto3,oneof"`
+}
+
+func (*ForwardEntry_Text) isForwardEntry_Body() {}
+
+func (*ForwardEntry_Image) isForwardEntry_Body() {}
+
+func (*ForwardEntry_File) isForwardEntry_Body() {}
+
+// Position is relative to an anchor message: horizontal fraction of the
+// message row, vertical pixel offset from its top. remove_pin_id removes a pin.
+type EmojiPinAct struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetEventId int64                  `protobuf:"varint,1,opt,name=target_event_id,json=targetEventId,proto3" json:"target_event_id,omitempty"`
+	Emoji         string                 `protobuf:"bytes,2,opt,name=emoji,proto3" json:"emoji,omitempty"`
+	X             float64                `protobuf:"fixed64,3,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,4,opt,name=y,proto3" json:"y,omitempty"`
+	RemovePinId   int64                  `protobuf:"varint,5,opt,name=remove_pin_id,json=removePinId,proto3" json:"remove_pin_id,omitempty"`
+	// On a bubble, x and y are fractions; otherwise y is a row pixel offset.
+	OnBubble      bool `protobuf:"varint,6,opt,name=on_bubble,json=onBubble,proto3" json:"on_bubble,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EmojiPinAct) Reset() {
+	*x = EmojiPinAct{}
+	mi := &file_am_v1_event_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmojiPinAct) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmojiPinAct) ProtoMessage() {}
+
+func (x *EmojiPinAct) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_event_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmojiPinAct.ProtoReflect.Descriptor instead.
+func (*EmojiPinAct) Descriptor() ([]byte, []int) {
+	return file_am_v1_event_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *EmojiPinAct) GetTargetEventId() int64 {
+	if x != nil {
+		return x.TargetEventId
+	}
+	return 0
+}
+
+func (x *EmojiPinAct) GetEmoji() string {
+	if x != nil {
+		return x.Emoji
+	}
+	return ""
+}
+
+func (x *EmojiPinAct) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *EmojiPinAct) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *EmojiPinAct) GetRemovePinId() int64 {
+	if x != nil {
+		return x.RemovePinId
+	}
+	return 0
+}
+
+func (x *EmojiPinAct) GetOnBubble() bool {
+	if x != nil {
+		return x.OnBubble
+	}
+	return false
+}
+
 var File_am_v1_event_proto protoreflect.FileDescriptor
 
 const file_am_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"\x11am/v1/event.proto\x12\x05am.v1\x1a\x12am/v1/common.proto\"\xd5\x04\n" +
+	"\x11am/v1/event.proto\x12\x05am.v1\x1a\x12am/v1/common.proto\"\xb7\x05\n" +
 	"\x05Event\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x17\n" +
 	"\aconv_id\x18\x02 \x01(\x03R\x06convId\x12\x10\n" +
@@ -1040,7 +1358,9 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\x04text\x18\n" +
 	" \x01(\v2\x0e.am.v1.TextMsgH\x00R\x04text\x12'\n" +
 	"\x05image\x18\v \x01(\v2\x0f.am.v1.ImageMsgH\x00R\x05image\x12$\n" +
-	"\x04file\x18\f \x01(\v2\x0e.am.v1.FileMsgH\x00R\x04file\x12*\n" +
+	"\x04file\x18\f \x01(\v2\x0e.am.v1.FileMsgH\x00R\x04file\x12-\n" +
+	"\aforward\x18\r \x01(\v2\x11.am.v1.ForwardMsgH\x00R\aforward\x121\n" +
+	"\temoji_pin\x18\x16 \x01(\v2\x12.am.v1.EmojiPinActH\x00R\bemojiPin\x12*\n" +
 	"\x06strike\x18\x14 \x01(\v2\x10.am.v1.StrikeActH\x00R\x06strike\x12:\n" +
 	"\fadmin_delete\x18\x15 \x01(\v2\x15.am.v1.AdminDeleteActH\x00R\vadminDelete\x121\n" +
 	"\n" +
@@ -1119,7 +1439,32 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\x06art_id\x18\x06 \x01(\x03R\x05artId\x12\x19\n" +
 	"\bmedia_id\x18\a \x01(\x03R\amediaId\x12\x10\n" +
 	"\x03yes\x18\b \x01(\x05R\x03yes\x12\x0e\n" +
-	"\x02no\x18\t \x01(\x05R\x02noB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\x02no\x18\t \x01(\x05R\x02no\";\n" +
+	"\n" +
+	"ForwardMsg\x12-\n" +
+	"\aentries\x18\x01 \x03(\v2\x13.am.v1.ForwardEntryR\aentries\"\xe9\x02\n" +
+	"\fForwardEntry\x12$\n" +
+	"\x0esource_conv_id\x18\x01 \x01(\x03R\fsourceConvId\x12\x1f\n" +
+	"\vsource_name\x18\x02 \x01(\tR\n" +
+	"sourceName\x12&\n" +
+	"\x0fsource_event_id\x18\x03 \x01(\x03R\rsourceEventId\x12\x1b\n" +
+	"\tsender_id\x18\x04 \x01(\x03R\bsenderId\x12\x1f\n" +
+	"\vsender_name\x18\x05 \x01(\tR\n" +
+	"senderName\x12\x17\n" +
+	"\asent_at\x18\x06 \x01(\x03R\x06sentAt\x12\x16\n" +
+	"\x06struck\x18\a \x01(\bR\x06struck\x12$\n" +
+	"\x04text\x18\n" +
+	" \x01(\v2\x0e.am.v1.TextMsgH\x00R\x04text\x12'\n" +
+	"\x05image\x18\v \x01(\v2\x0f.am.v1.ImageMsgH\x00R\x05image\x12$\n" +
+	"\x04file\x18\f \x01(\v2\x0e.am.v1.FileMsgH\x00R\x04fileB\x06\n" +
+	"\x04body\"\xa8\x01\n" +
+	"\vEmojiPinAct\x12&\n" +
+	"\x0ftarget_event_id\x18\x01 \x01(\x03R\rtargetEventId\x12\x14\n" +
+	"\x05emoji\x18\x02 \x01(\tR\x05emoji\x12\f\n" +
+	"\x01x\x18\x03 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x04 \x01(\x01R\x01y\x12\"\n" +
+	"\rremove_pin_id\x18\x05 \x01(\x03R\vremovePinId\x12\x1b\n" +
+	"\ton_bubble\x18\x06 \x01(\bR\bonBubbleB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_event_proto_rawDescOnce sync.Once
@@ -1134,7 +1479,7 @@ func file_am_v1_event_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_event_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_am_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_am_v1_event_proto_goTypes = []any{
 	(SysMember_Action)(0),  // 0: am.v1.SysMember.Action
 	(*Event)(nil),          // 1: am.v1.Event
@@ -1147,25 +1492,34 @@ var file_am_v1_event_proto_goTypes = []any{
 	(*SysMember)(nil),      // 8: am.v1.SysMember
 	(*SysConv)(nil),        // 9: am.v1.SysConv
 	(*SysMuseum)(nil),      // 10: am.v1.SysMuseum
-	(MemberRole)(0),        // 11: am.v1.MemberRole
+	(*ForwardMsg)(nil),     // 11: am.v1.ForwardMsg
+	(*ForwardEntry)(nil),   // 12: am.v1.ForwardEntry
+	(*EmojiPinAct)(nil),    // 13: am.v1.EmojiPinAct
+	(MemberRole)(0),        // 14: am.v1.MemberRole
 }
 var file_am_v1_event_proto_depIdxs = []int32{
 	2,  // 0: am.v1.Event.text:type_name -> am.v1.TextMsg
 	3,  // 1: am.v1.Event.image:type_name -> am.v1.ImageMsg
 	4,  // 2: am.v1.Event.file:type_name -> am.v1.FileMsg
-	5,  // 3: am.v1.Event.strike:type_name -> am.v1.StrikeAct
-	6,  // 4: am.v1.Event.admin_delete:type_name -> am.v1.AdminDeleteAct
-	8,  // 5: am.v1.Event.sys_member:type_name -> am.v1.SysMember
-	9,  // 6: am.v1.Event.sys_conv:type_name -> am.v1.SysConv
-	10, // 7: am.v1.Event.sys_museum:type_name -> am.v1.SysMuseum
-	7,  // 8: am.v1.Event.redaction:type_name -> am.v1.Redaction
-	0,  // 9: am.v1.SysMember.action:type_name -> am.v1.SysMember.Action
-	11, // 10: am.v1.SysMember.new_role:type_name -> am.v1.MemberRole
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	11, // 3: am.v1.Event.forward:type_name -> am.v1.ForwardMsg
+	13, // 4: am.v1.Event.emoji_pin:type_name -> am.v1.EmojiPinAct
+	5,  // 5: am.v1.Event.strike:type_name -> am.v1.StrikeAct
+	6,  // 6: am.v1.Event.admin_delete:type_name -> am.v1.AdminDeleteAct
+	8,  // 7: am.v1.Event.sys_member:type_name -> am.v1.SysMember
+	9,  // 8: am.v1.Event.sys_conv:type_name -> am.v1.SysConv
+	10, // 9: am.v1.Event.sys_museum:type_name -> am.v1.SysMuseum
+	7,  // 10: am.v1.Event.redaction:type_name -> am.v1.Redaction
+	0,  // 11: am.v1.SysMember.action:type_name -> am.v1.SysMember.Action
+	14, // 12: am.v1.SysMember.new_role:type_name -> am.v1.MemberRole
+	12, // 13: am.v1.ForwardMsg.entries:type_name -> am.v1.ForwardEntry
+	2,  // 14: am.v1.ForwardEntry.text:type_name -> am.v1.TextMsg
+	3,  // 15: am.v1.ForwardEntry.image:type_name -> am.v1.ImageMsg
+	4,  // 16: am.v1.ForwardEntry.file:type_name -> am.v1.FileMsg
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_event_proto_init() }
@@ -1178,6 +1532,8 @@ func file_am_v1_event_proto_init() {
 		(*Event_Text)(nil),
 		(*Event_Image)(nil),
 		(*Event_File)(nil),
+		(*Event_Forward)(nil),
+		(*Event_EmojiPin)(nil),
 		(*Event_Strike)(nil),
 		(*Event_AdminDelete)(nil),
 		(*Event_SysMember)(nil),
@@ -1185,13 +1541,18 @@ func file_am_v1_event_proto_init() {
 		(*Event_SysMuseum)(nil),
 	}
 	file_am_v1_event_proto_msgTypes[8].OneofWrappers = []any{}
+	file_am_v1_event_proto_msgTypes[11].OneofWrappers = []any{
+		(*ForwardEntry_Text)(nil),
+		(*ForwardEntry_Image)(nil),
+		(*ForwardEntry_File)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_event_proto_rawDesc), len(file_am_v1_event_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

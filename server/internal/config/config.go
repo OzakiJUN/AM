@@ -74,6 +74,8 @@ type Invites struct {
 }
 
 type Limits struct {
+	MaxForwardMessages     int `toml:"max_forward_messages"`
+	MaxPinsPerMessage      int `toml:"max_pins_per_message"`
 	MaxTextLength          int `toml:"max_text_length"`
 	SyncPageSize           int `toml:"sync_page_size"`
 	SyncMaxPageSize        int `toml:"sync_max_page_size"`
@@ -331,6 +333,9 @@ func (c *Config) validate() error {
 	}
 	if c.Limits.MaxGroupMembers < 2 || c.Limits.MaxUploadMB < 1 {
 		return errors.New("limits.max_group_members must be >= 2 and limits.max_upload_mb >= 1")
+	}
+	if c.Limits.MaxForwardMessages < 1 || c.Limits.MaxForwardMessages > 100 || c.Limits.MaxPinsPerMessage < 1 {
+		return errors.New("invalid chat tool limits")
 	}
 	if c.Limits.MaxTextLength < 1 {
 		return errors.New("limits.max_text_length must be >= 1")

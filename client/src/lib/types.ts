@@ -96,6 +96,7 @@ export type MessageBody =
   | { kind: 'text'; text: string; replyTo?: string; mood?: string; mentions?: string[] }
   | { kind: 'image'; mediaId: string; w: number; h: number; /** Sent from the sticker panel. */ stickerTags?: string[]; /** AI / bot pictures: how it was made (e.g. NovelAI V5). */ madeWith?: string; nsfw?: boolean }
   | { kind: 'file'; mediaId: string; name: string; size: number }
+  | { kind: 'forward'; entries: ForwardEntry[] }
   | { kind: 'deleted'; byId: string; reason: string }
   | { kind: 'system'; sys: SysEvent };
 
@@ -134,4 +135,26 @@ export interface ChannelInfo {
   notice: string;
   memberCount: number;
   joined: boolean;
+}
+
+export interface ForwardEntry {
+ struck?: boolean;
+ sourceConvId: string;
+ sourceName: string;
+ sourceEventId: string;
+ senderId: string;
+ senderName: string;
+ time: number;
+ body: MessageBody;
+}
+export interface EmojiPin {
+ id: string;
+ targetId: string;
+ userId: string;
+ emoji: string;
+ x: number;
+ y: number;
+ onBubble: boolean;
+ revision: string;
+ removed: boolean;
 }

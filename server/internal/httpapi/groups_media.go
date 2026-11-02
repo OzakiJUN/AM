@@ -34,6 +34,20 @@ func (a *API) getMessage(w http.ResponseWriter, r *http.Request, _ *store.Sessio
 	a.ok(w, ev)
 }
 
+func (a *API) listEmojiPins(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	pins, err := a.msg.ListPins(r.Context(), me, id)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, pins)
+}
+
 // ---- lookups ----
 
 func (a *API) getConversation(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {

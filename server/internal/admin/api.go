@@ -401,6 +401,8 @@ func (h *handler) listEvidence(w http.ResponseWriter, r *http.Request) {
 				item["kind"], item["text"] = "text", b.Text.GetText()
 			case *amv1.Event_Image:
 				item["kind"] = "image"
+			case *amv1.Event_Forward:
+				item["kind"], item["entries"] = "forward", forwardEntries(b.Forward)
 			case *amv1.Event_File:
 				item["kind"], item["file_name"], item["file_size"] = "file", b.File.GetName(), b.File.GetSize()
 			default:

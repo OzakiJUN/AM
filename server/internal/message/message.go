@@ -30,6 +30,8 @@ const (
 	KindText        int16 = 10
 	KindImage       int16 = 11
 	KindFile        int16 = 12
+	KindForward     int16 = 13
+	KindEmojiPin    int16 = 22
 	KindStrike      int16 = 20
 	KindAdminDelete int16 = 21
 	KindSysMember   int16 = 30
@@ -98,6 +100,7 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 	body := &amv1.Event{}
 	var kind int16
 	var target, mediaID int64
+	var forwardMedia map[int64]bool
 	switch b := req.GetBody().(type) {
 	case *amv1.SendRequest_Text:
 		text := strings.TrimRight(b.Text.GetText(), " \t\r\n")
@@ -161,6 +164,20 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 		}
 		body.Body = &amv1.Event_File{File: &amv1.FileMsg{MediaId: m.ID, Name: name, Size: m.Size}}
 		kind, mediaID = KindFile, m.ID
+	case *amv1.SendRequest_Forward:
+		f, mediaIDs, err := s.buildForward(ctx, me, b.Forward)
+		if err != nil {
+			return nil, err
+		}
+		body.Body = &amv1.Event_Forward{Forward: f}
+		kind, forwardMedia = KindForward, mediaIDs
+	case *amv1.SendRequest_EmojiPin:
+		act, err := s.validatePin(ctx, me, conv.ID, b.EmojiPin)
+		if err != nil {
+			return nil, err
+		}
+		body.Body = &amv1.Event_EmojiPin{EmojiPin: act}
+		kind = KindEmojiPin
 	case *amv1.SendRequest_Strike:
 		target = b.Strike.GetTargetEventId()
 		if err := s.checkStrike(ctx, me.ID, conv.ID, target); err != nil {
@@ -204,7 +221,16 @@ func (s *Service) Send(ctx context.Context, me *store.User, req *amv1.SendReques
 				return apperr.ErrAlreadyStruck
 			}
 		}
-		return q.AppendEvent(ctx, row)
+		if err := q.AppendEvent(ctx, row); err != nil {
+			return err
+		}
+		if kind == KindForward {
+			return q.AddForwardMedia(ctx, row.EventID, forwardMedia)
+		}
+		if kind == KindEmojiPin {
+			return s.storePin(ctx, q, me, row, body.GetEmojiPin())
+		}
+		return nil
 	})
 	if store.IsUniqueViolation(err) {
 		// Same client_msg_id raced with itself: return the stored one.
@@ -270,7 +296,7 @@ func (s *Service) checkStrike(ctx context.Context, me, convID, target int64) err
 }
 
 func isMessage(kind int16) bool {
-	return kind == KindText || kind == KindImage || kind == KindFile
+	return kind == KindText || kind == KindImage || kind == KindFile || kind == KindForward
 }
 
 // AppendSystem appends a server-generated event inside the caller's

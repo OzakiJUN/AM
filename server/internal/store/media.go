@@ -58,9 +58,11 @@ func (q *Queries) CanAccessMedia(ctx context.Context, mediaID, userID int64) (bo
 			WHERE c.avatar_media_id=?) +
 		(SELECT count(*) FROM events e JOIN conv_members m ON m.conv_id=e.conv_id AND m.user_id=?
 			WHERE e.media_id=? AND e.redacted_by IS NULL) +
-		(SELECT count(*) FROM museum_arts a JOIN conversations c ON c.id=a.conv_id
+		(SELECT count(*) FROM forwarded_media fm JOIN events e ON e.event_id=fm.event_id
+            JOIN conv_members m ON m.conv_id=e.conv_id WHERE m.user_id=? AND fm.media_id=? AND e.redacted_by IS NULL) +
+        (SELECT count(*) FROM museum_arts a JOIN conversations c ON c.id=a.conv_id
 			WHERE a.media_id=? AND (c.is_public=? OR EXISTS (SELECT 1 FROM conv_members m WHERE m.conv_id=a.conv_id AND m.user_id=?)))`,
-		mediaID, userID, mediaID, mediaID, mediaID, userID, mediaID, mediaID, userID, mediaID, userID, mediaID, mediaID, true, userID).Scan(&n)
+		mediaID, userID, mediaID, mediaID, mediaID, userID, mediaID, mediaID, userID, mediaID, userID, mediaID, userID, mediaID, mediaID, true, userID).Scan(&n)
 	return n > 0, err
 }
 
@@ -70,6 +72,8 @@ func (q *Queries) UnreferencedMedia(ctx context.Context, before int64, limit int
 	rows, err := q.query(ctx, `SELECT `+mediaCols+` FROM media md WHERE md.created_at < ?
 		AND NOT EXISTS (SELECT 1 FROM events e WHERE e.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM evidence ev WHERE ev.media_id = md.id)
+        AND NOT EXISTS (SELECT 1 FROM forwarded_media fm JOIN events e ON e.event_id=fm.event_id WHERE fm.media_id=md.id
+            AND (e.redacted_by IS NULL OR EXISTS (SELECT 1 FROM evidence ev WHERE ev.event_id=e.event_id)))
 		AND NOT EXISTS (SELECT 1 FROM users u WHERE u.avatar_media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM profile_media pm WHERE pm.media_id = md.id)
 		AND NOT EXISTS (SELECT 1 FROM stickers st WHERE st.media_id = md.id)

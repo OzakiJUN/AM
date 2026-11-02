@@ -5268,6 +5268,166 @@ func (x *MuseumVoteRequest) GetAgree() bool {
 	return false
 }
 
+type EmojiPin struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ConvId        int64                  `protobuf:"varint,2,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	TargetEventId int64                  `protobuf:"varint,3,opt,name=target_event_id,json=targetEventId,proto3" json:"target_event_id,omitempty"`
+	UserId        int64                  `protobuf:"varint,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Emoji         string                 `protobuf:"bytes,5,opt,name=emoji,proto3" json:"emoji,omitempty"`
+	X             float64                `protobuf:"fixed64,6,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,7,opt,name=y,proto3" json:"y,omitempty"`
+	Revision      int64                  `protobuf:"varint,8,opt,name=revision,proto3" json:"revision,omitempty"`
+	Removed       bool                   `protobuf:"varint,9,opt,name=removed,proto3" json:"removed,omitempty"`
+	OnBubble      bool                   `protobuf:"varint,10,opt,name=on_bubble,json=onBubble,proto3" json:"on_bubble,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EmojiPin) Reset() {
+	*x = EmojiPin{}
+	mi := &file_am_v1_api_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmojiPin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmojiPin) ProtoMessage() {}
+
+func (x *EmojiPin) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmojiPin.ProtoReflect.Descriptor instead.
+func (*EmojiPin) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *EmojiPin) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *EmojiPin) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *EmojiPin) GetTargetEventId() int64 {
+	if x != nil {
+		return x.TargetEventId
+	}
+	return 0
+}
+
+func (x *EmojiPin) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *EmojiPin) GetEmoji() string {
+	if x != nil {
+		return x.Emoji
+	}
+	return ""
+}
+
+func (x *EmojiPin) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *EmojiPin) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *EmojiPin) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *EmojiPin) GetRemoved() bool {
+	if x != nil {
+		return x.Removed
+	}
+	return false
+}
+
+func (x *EmojiPin) GetOnBubble() bool {
+	if x != nil {
+		return x.OnBubble
+	}
+	return false
+}
+
+type ListEmojiPinsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pins          []*EmojiPin            `protobuf:"bytes,1,rep,name=pins,proto3" json:"pins,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEmojiPinsResponse) Reset() {
+	*x = ListEmojiPinsResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEmojiPinsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEmojiPinsResponse) ProtoMessage() {}
+
+func (x *ListEmojiPinsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEmojiPinsResponse.ProtoReflect.Descriptor instead.
+func (*ListEmojiPinsResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *ListEmojiPinsResponse) GetPins() []*EmojiPin {
+	if x != nil {
+		return x.Pins
+	}
+	return nil
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -5680,7 +5840,21 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12\x17\n" +
 	"\avote_id\x18\x03 \x01(\x03R\x06voteId\")\n" +
 	"\x11MuseumVoteRequest\x12\x14\n" +
-	"\x05agree\x18\x01 \x01(\bR\x05agree*k\n" +
+	"\x05agree\x18\x01 \x01(\bR\x05agree\"\xf9\x01\n" +
+	"\bEmojiPin\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
+	"\aconv_id\x18\x02 \x01(\x03R\x06convId\x12&\n" +
+	"\x0ftarget_event_id\x18\x03 \x01(\x03R\rtargetEventId\x12\x17\n" +
+	"\auser_id\x18\x04 \x01(\x03R\x06userId\x12\x14\n" +
+	"\x05emoji\x18\x05 \x01(\tR\x05emoji\x12\f\n" +
+	"\x01x\x18\x06 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\a \x01(\x01R\x01y\x12\x1a\n" +
+	"\brevision\x18\b \x01(\x03R\brevision\x12\x18\n" +
+	"\aremoved\x18\t \x01(\bR\aremoved\x12\x1b\n" +
+	"\ton_bubble\x18\n" +
+	" \x01(\bR\bonBubble\"<\n" +
+	"\x15ListEmojiPinsResponse\x12#\n" +
+	"\x04pins\x18\x01 \x03(\v2\x0f.am.v1.EmojiPinR\x04pins*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -5699,7 +5873,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 85)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -5783,50 +5957,53 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*MuseumActRequest)(nil),         // 79: am.v1.MuseumActRequest
 	(*MuseumResult)(nil),             // 80: am.v1.MuseumResult
 	(*MuseumVoteRequest)(nil),        // 81: am.v1.MuseumVoteRequest
-	nil,                              // 82: am.v1.LookupStickersResponse.LibraryIdsEntry
-	nil,                              // 83: am.v1.PortraitPack.MediaIdsEntry
-	(*User)(nil),                     // 84: am.v1.User
-	(*Activity)(nil),                 // 85: am.v1.Activity
-	(*Game)(nil),                     // 86: am.v1.Game
+	(*EmojiPin)(nil),                 // 82: am.v1.EmojiPin
+	(*ListEmojiPinsResponse)(nil),    // 83: am.v1.ListEmojiPinsResponse
+	nil,                              // 84: am.v1.LookupStickersResponse.LibraryIdsEntry
+	nil,                              // 85: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 86: am.v1.User
+	(*Activity)(nil),                 // 87: am.v1.Activity
+	(*Game)(nil),                     // 88: am.v1.Game
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	84, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	86, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	84, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	86, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	84, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	84, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	84, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	84, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	84, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	85, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	86, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	86, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	86, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	86, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	86, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	87, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	84, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	84, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	86, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	86, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	84, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	86, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	43, // 18: am.v1.AIAccount.hosting:type_name -> am.v1.AIHosting
 	49, // 19: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
 	54, // 20: am.v1.ListLibraryResponse.items:type_name -> am.v1.LibrarySticker
-	82, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
+	84, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
 	60, // 22: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	83, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
-	84, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
-	86, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
+	85, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	86, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
+	88, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
 	70, // 26: am.v1.AIPlugin.config_items:type_name -> am.v1.PluginConfigItem
 	71, // 27: am.v1.ListPluginsResponse.plugins:type_name -> am.v1.AIPlugin
 	75, // 28: am.v1.MuseumView.hall:type_name -> am.v1.MuseumArt
 	75, // 29: am.v1.MuseumView.second:type_name -> am.v1.MuseumArt
 	75, // 30: am.v1.MuseumView.store:type_name -> am.v1.MuseumArt
 	76, // 31: am.v1.MuseumView.votes:type_name -> am.v1.MuseumVote
-	32, // [32:32] is the sub-list for method output_type
-	32, // [32:32] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	82, // 32: am.v1.ListEmojiPinsResponse.pins:type_name -> am.v1.EmojiPin
+	33, // [33:33] is the sub-list for method output_type
+	33, // [33:33] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -5846,7 +6023,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   83,
+			NumMessages:   85,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
