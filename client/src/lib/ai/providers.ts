@@ -3,7 +3,7 @@
 // Claude's and Gemini's own. Pure: builds requests and reads streamed
 // replies; lib/ai/runner.ts sends them (transport.aiRequest).
 
-/** novelai: only for drawing (lib/ai/nai.ts); its key is the NovelAI API token. */
+/** novelai: an old drawing entry (drawing is the server bot's now); kept so saved lists still load. */
 export type ProviderKind = 'openai' | 'claude' | 'gemini' | 'novelai';
 
 /** A model service I have a key for (kept in the credential store, lib/ai/keys.ts). */
@@ -134,7 +134,6 @@ export const PRESETS: { name: string; kind: ProviderKind; baseUrl: string; model
   { name: 'Claude', kind: 'claude', baseUrl: 'https://api.anthropic.com', model: '' },
   { name: 'Gemini', kind: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com', model: '' },
   { name: '本机模型（Ollama 等）', kind: 'openai', baseUrl: 'http://localhost:11434/v1', model: '' },
-  { name: 'NovelAI（画画）', kind: 'novelai', baseUrl: 'https://image.novelai.net', model: '' },
 ];
 
 const trim = (u: string) => u.replace(/\/+$/, '');

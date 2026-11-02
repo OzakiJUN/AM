@@ -1,6 +1,7 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
+import {
+  drawCommandFor, GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
 import { defaultComputer, parseSettings } from './persona.ts';
 
 const c = defaultComputer();
@@ -73,3 +74,8 @@ assert.deepEqual(envPairs(GAME_TEMPLATES[1].server), [['RIMAPI_BASE_URL', 'http:
 assert.deepEqual(envPairs({ ...mc, env: ['A=1=2', 'bad', ' B =x'] }), [['A', '1=2'], ['B', 'x']]);
 
 console.log('ai agent ok');
+
+// draw_picture → a command for the server's bot.
+assert.equal(drawCommandFor({ prompt: '1girl, beach', orientation: 'landscape', count: 2, as_me: true, negative: 'hat' }), '/nai 横图 *2 用我的头像 原样 1girl, beach\nNegative: hat');
+assert.equal(drawCommandFor({ prompt: 'a cat', model: 'v5', count: 9 }), '/nai5 *4 原样 a cat');
+console.log('draw command ok');

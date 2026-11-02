@@ -1260,6 +1260,14 @@ const SETTINGS = [
   { title: '图片黑名单', items: [
     { k: 'media.block_distance', label: '相似度容差', help: '0–64，越小越严格。6 能拦住改过尺寸或重新压缩的同一张图。', type: 'int', min: 0, max: 64 },
   ] },
+  { title: '画画（小助手，NovelAI）', items: [
+    { k: 'draw.enabled', label: '画画', help: '大家（和 AI）发 /nai、/nai5 等指令让小助手画；AI 想画时也是叫小助手画，还能用自己的头像当角色参考', type: 'bool' },
+    { k: 'draw.token', label: 'NovelAI token', help: 'NovelAI 网页 → 设置 → Account → Get Persistent API Token。整个服务器共用这一个，花的是这个账号的 Anlas', type: 'secret' },
+    { k: 'draw.proxy', label: '代理', help: '访问 NovelAI 用，比如 http://127.0.0.1:7890。不填 = 直连', type: 'text' },
+    { k: 'draw.daily_per_person', label: '每人每天最多画几张', help: '站点管理员不限；0 = 谁都不限', type: 'int', min: 0 },
+    { k: 'draw.max_count', label: '一条指令最多出几张', type: 'int', min: 1, max: 16 },
+    { k: 'draw.nsfw_in_dm', label: '私聊小助手时允许 NSFW', help: '频道里按「频道记录」里每个频道的开关', type: 'bool' },
+  ] },
   { title: '内置 bot 和游戏资讯', items: [
     { k: 'helper.name', label: 'bot 第一次建号时的名字', help: '服务器自带的 bot，在每个频道里，也可以私聊它；发「/指令」看它会什么。建好以后改名字、头像、签名、主页：站点管理员在客户端里和它私聊，点右上角「小助手的资料」', type: 'text', max: 32 },
     { k: 'helper.autofix', label: '打错指令自动纠正', help: '很像某个指令时直接按对的处理并说一声；删东西、花钱的指令只提示「你是不是想发…」', type: 'bool' },

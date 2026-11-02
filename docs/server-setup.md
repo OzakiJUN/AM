@@ -94,6 +94,8 @@ transport.proxyProtocolVersion = "v2"
 
 - **AI 托管**：大家申请把自己的 AI 放到这台电脑上运行。批准后 am-server 会在后台（没有窗口）启动 AM 客户端替他运行这个 AI，用的是他自己的模型 key；它只能在 `data\hosting\ai-<编号>\work` 里读写文件。**这台电脑上要装好 AM 客户端**（am-server 自己去找：和 am-server.exe 放一起，或者安装程序装的位置；找不到就在 `config.toml` 的 `[hosting]` 里写 `client_path`）。每人最多托管几个也在 `[hosting]`（`max_per_user`，0 = 不让托管）。
 
+**画画**：小助手用 NovelAI 画图（`/nai`、`/nai5` 等，AI 也叫它画）。在管理面板「设置 → 画画」填一个 NovelAI token（整个服务器共用，花的是这个账号的 Anlas），国内一般要填代理；每人每天最多画几张也在那里设。
+
 **内置 bot 和游戏资讯**：服务器自带一个 bot（默认叫「小助手」），大家在频道里或私聊它发「/关注游戏 名字|别名」就能关注游戏，大事立刻推、每晚发汇总。要让它把消息归类、打分，在管理面板「设置 → 内置 bot 和游戏资讯」填一个模型（任何 OpenAI 兼容的，比如 DeepSeek）；Google、Reddit、YouTube 国内要填代理；微博、贴吧最好填 cookie，NGA 必须填。每周的 X 周报要 xAI key（按次收费）。不想要就关掉「游戏资讯」。
 
 **频道博物馆**：每个频道自带，不用管理。想关掉或改投票规则（人数超过几个要投票、投多久）在 `config.toml` 的 `[museum]` 里改。

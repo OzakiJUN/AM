@@ -144,22 +144,6 @@ pub(crate) fn public_client() -> Result<reqwest::Client, NetError> {
         .map_err(err)
 }
 
-/// Like public_client, through an http(s) proxy (NovelAI from places that
-/// need one) and with an overall timeout.
-pub(crate) fn proxied_client(proxy: &str, timeout_secs: u64) -> Result<reqwest::Client, NetError> {
-    let ep = Endpoint { address: String::new(), plain: false, pin: None };
-    let cfg = tls_config(&ep)?.expect("TLS config for a non-plain endpoint");
-    let mut b = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(15))
-        .timeout(std::time::Duration::from_secs(timeout_secs))
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0")
-        .tls_backend_preconfigured((*cfg).clone());
-    if !proxy.is_empty() {
-        b = b.proxy(reqwest::Proxy::all(proxy).map_err(err)?);
-    }
-    b.build().map_err(err)
-}
-
 fn http_client(ep: &Endpoint) -> Result<reqwest::Client, NetError> {
     let mut b = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(10))

@@ -150,7 +150,7 @@ func testNews(t *testing.T, a *app.App, base string) {
 	// 指令查询: the list, one command, a typo fixed (safe), a typo only suggested (deletes).
 	must(adminWS.SendText(ctx, pub.Id, "/指令"))
 	help := fromBot("help", "📖 指令一览").GetText().GetText()
-	if !strings.Contains(help, "🎮 游戏资讯：关注游戏") || !strings.Contains(help, "🖌 AI 画画") || !strings.Contains(help, "📚 帮助：指令") {
+	if !strings.Contains(help, "🎮 游戏资讯：关注游戏") || !strings.Contains(help, "🖌 画画（NovelAI）：nai、nai5") || !strings.Contains(help, "📚 帮助：指令") {
 		t.Fatalf("help %q", help)
 	}
 	must(adminWS.SendText(ctx, pub.Id, "/帮助 资讯源"))

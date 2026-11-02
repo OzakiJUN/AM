@@ -11,6 +11,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/conv"
+	"github.com/OzakiJUN/am/server/internal/draw"
 	"github.com/OzakiJUN/am/server/internal/game"
 	"github.com/OzakiJUN/am/server/internal/gateway"
 	"github.com/OzakiJUN/am/server/internal/helper"
@@ -160,6 +161,12 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	}, st, bot, log)
 	go nw.Run()
 	toilet.New(st, ids, ms, bot, log)
+	dc := cfg.Draw
+	draw.New(draw.Config{Enabled: dc.Enabled, Token: dc.Token, Proxy: dc.Proxy, API: dc.API, DailyPerPerson: dc.DailyPerPerson, NsfwInDM: dc.NsfwInDM,
+		Settings: draw.Settings{MaxCount: dc.MaxCount, Steps: dc.Steps, Scale: dc.Scale, Sampler: dc.Sampler, Strength: dc.Strength,
+			VibeStrength: dc.VibeStrength, RefStrength: dc.RefStrength, RefFidelity: dc.RefFidelity, Model: dc.Model, V5Model: dc.V5Model,
+			V5Native: dc.V5Native, Quality: dc.Quality, QualityV5: dc.QualityV5, Negative: dc.Negative, BlockWords: dc.BlockWords, AutoNsfw: dc.AutoNsfw},
+	}, st, ms, md, bot, log)
 
 	mux := http.NewServeMux()
 	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,

@@ -30,7 +30,7 @@ var testEntries = []Entry{
 	{Name: "关注游戏", Group: "🎮 游戏资讯", Usage: "关注游戏 名字", Help: "关注", Own: true, Safe: true},
 	{Name: "取消关注", Group: "🎮 游戏资讯", Usage: "取消关注 <序号>", Help: "不再关注", Own: true},
 	{Name: "冲", Group: "🚽 电子厕所", Usage: "冲 <序号>", Help: "冲掉", Own: true},
-	{Name: "nai", Group: AIDrawingGroup, Usage: "nai <描述>", Help: "画画"},
+	{Name: "nai", Group: "🖌 别人的指令", Usage: "nai <描述>", Help: "画画"},
 }
 
 func TestHelpText(t *testing.T) {
@@ -81,7 +81,7 @@ func TestTypo(t *testing.T) {
 			t.Fatalf("%q: %+v %+v", body, fix, sug)
 		}
 	}
-	// AI drawing commands are only suggested.
+	// Commands something else answers are only suggested.
 	if fix, _, sug := Typo("nia 猫", testEntries, nil); fix != nil || len(sug) == 0 || sug[0].Entry.Name != "nai" {
 		t.Fatalf("nia %+v %+v", fix, sug)
 	}

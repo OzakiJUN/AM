@@ -6,4 +6,3 @@ declare const __AM_DEV_SERVER2__: string;
 declare const __AM_DEV_WORKSHOP__: string;
 /** Browser development / e2e: public key of that index (AM_DEV_WORKSHOP_KEY). */
 declare const __AM_DEV_WORKSHOP_KEY__: string;
-declare const __AM_DEV_NAI__: string;
