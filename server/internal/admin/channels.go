@@ -120,6 +120,8 @@ func (h *handler) channelEvents(w http.ResponseWriter, r *http.Request) {
 			item["kind"], item["text"] = "text", b.Text.GetText()
 		case *amv1.Event_Image:
 			item["kind"], item["media_id"] = "image", id64(b.Image.GetMediaId())
+		case *amv1.Event_Forward:
+			item["kind"], item["entries"] = "forward", forwardEntries(b.Forward)
 		case *amv1.Event_File:
 			item["kind"], item["media_id"] = "file", id64(b.File.GetMediaId())
 			item["file_name"], item["file_size"] = b.File.GetName(), b.File.GetSize()
@@ -205,6 +207,23 @@ func sysText(ev *amv1.Event, name func(int64) string) string {
 		return target + " 现在是普通成员"
 	}
 	return "成员变动"
+}
+
+func forwardEntries(forward *amv1.ForwardMsg) []map[string]any {
+	entries := []map[string]any{}
+	for _, entry := range forward.Entries {
+		item := map[string]any{"sender_name": entry.SenderName, "source_name": entry.SourceName, "at": entry.SentAt}
+		switch b := entry.Body.(type) {
+		case *amv1.ForwardEntry_Text:
+			item["kind"], item["text"] = "text", b.Text.Text
+		case *amv1.ForwardEntry_Image:
+			item["kind"], item["media_id"] = "image", id64(b.Image.MediaId)
+		case *amv1.ForwardEntry_File:
+			item["kind"], item["media_id"], item["file_name"] = "file", id64(b.File.MediaId), b.File.Name
+		}
+		entries = append(entries, item)
+	}
+	return entries
 }
 
 // setChannelNsfw allows or stops adult content in one channel (AI drawing,

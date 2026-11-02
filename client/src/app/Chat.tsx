@@ -1,8 +1,8 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle, Ban, Bot, Copy, Download, FileText, Hash, ImagePlus, Landmark, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
-  Reply, X, SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
+  Pencil, Forward, CheckSquare, Reply, X, SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
@@ -13,7 +13,7 @@ import { memberCount, systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message, User } from '@/lib/types';
 import { applyMention, matchPeople, mentionParts, mentionQuery, mentionedIds } from '@/lib/mentions';
 import { copyText } from '@/lib/platform';
-import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
+import { Empty, IconButton, IdentityChip, RoleChip, Spinner, ask, cx, ease, openMenu, spring, toast, toastError, type MenuItem, Button, Dialog } from '@/ui';
 import { GroupDialog, InviteDialog, MemberPanel } from './Group';
 import { StickerManager, StickerPanel } from './Stickers';
 import { addFromChat } from '@/lib/stickers';
@@ -24,8 +24,19 @@ import { HangDialog, MuseumButton, askHang, openMuseum } from './Museum';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait, usePortraitPack } from './Portrait';
 import { AISettingsDialog, HelperProfileDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
+import { CHAT_EMOJI } from '@/lib/chatTools';
+import { ImageEditor } from './ImageEditor';
+import type { ForwardEntry } from '@/lib/types';
 import { voiceInput } from '@/lib/voice';
 import { MOODS, pokeText, type Mood } from '@/lib/portraits';
+
+type PinSpot = { targetId: string; x: number; y: number; onBubble: boolean };
+const ChatTools = createContext<{
+ selected: Set<string> | null;
+ select: (id: string) => void;
+ edit: (id: string) => void;
+ place: (spot: PinSpot) => void;
+}>(null!);
 
 const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 
@@ -43,6 +54,16 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const convId = useOpenConv(page, v.id);
   const [replying, setReplying] = useState<{ convId: string; id: string } | null>(null);
   useEffect(() => setReplying(null), [convId, v.id]);
+  const [selected, setSelected] = useState<Set<string> | null>(null);
+  const [forwardOpen, setForwardOpen] = useState(false);
+  const [editor, setEditor] = useState<string | null>(null);
+  const [pinSpot, setPinSpot] = useState<PinSpot | null>(null);
+  useEffect(() => { setSelected(null); setEditor(null); setForwardOpen(false); setPinSpot(null); }, [convId, v.id]);
+  const select = (id: string) => setSelected((old) => {
+    const next = new Set(old ?? []);
+    if (next.has(id)) next.delete(id); else if (next.size < 100) next.add(id); else toast('一次最多选 100 条');
+    return next;
+  });
   const membersFolded = usePrefs((p) => p.membersFolded);
   const setPrefs = usePrefs((p) => p.set);
   const [groupOpen, setGroupOpen] = useState(false);
@@ -93,6 +114,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
     current().sendText(conv.id, pokeText(part, peer.name)).catch(toastError);
   };
   return (
+    <ChatTools.Provider value={{ selected, select, edit: setEditor, place: setPinSpot }}>
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b border-black/5 px-5 dark:border-white/5">
@@ -130,6 +152,11 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} pack={pack} />}
         </header>
         {group && <GameBar v={v} conv={conv} />}
+        {selected && <div className="flex items-center gap-2 border-b border-black/5 px-5 py-2 text-sm">
+          <span className="flex-1">已选 {selected.size} 条消息</span>
+          <Button size="sm" disabled={!selected.size || v.status !== 'online'} onClick={() => setForwardOpen(true)}><Forward size={16} />转发聊天记录</Button>
+          <IconButton label="取消多选" onClick={() => setSelected(null)}><X size={16} /></IconButton>
+        </div>}
         {group && <HangDialog v={v} conv={conv} />}
         <div
           className="relative flex min-h-0 flex-1 flex-col"
@@ -167,7 +194,11 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
       </AnimatePresence>
       {group && <GroupDialog open={groupOpen} onClose={() => setGroupOpen(false)} v={v} conv={conv} />}
       {group && <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} v={v} conv={conv} />}
+      {editor && <ImageEditor serverId={v.id} convId={conv.id} mediaId={editor} onClose={() => setEditor(null)} />}
+      {forwardOpen && <ForwardDialog v={v} conv={conv} selected={selected ?? new Set()} onClose={() => setForwardOpen(false)} onSent={() => { setForwardOpen(false); setSelected(null); }} />}
+      {pinSpot && <PinPicker v={v} conv={conv} spot={pinSpot} onClose={() => setPinSpot(null)} />}
     </>
+    </ChatTools.Provider>
   );
 }
 
@@ -192,6 +223,7 @@ function aiMood(v: SessionView, convId: string, aiId: string | undefined, stream
  * upwards, so the portrait at the top never hides the newest messages.
  */
 function MessageList({ v, conv, streaming, fromBottom, onReply }: { v: SessionView; conv: Conversation; streaming?: string; fromBottom?: boolean; onReply: (id: string) => void }) {
+  const tools = useContext(ChatTools);
   const list = v.messages[conv.id] ?? [];
   const ref = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -242,8 +274,21 @@ function MessageList({ v, conv, streaming, fromBottom, onReply }: { v: SessionVi
     prevSender = m.body.kind === 'system' ? '' : m.senderId;
     items.push(<MessageItem key={m.id} v={v} conv={conv} msg={m} grouped={grouped} animate={m.time > mountedAt.current} onView={setViewer} onReply={onReply} />);
   }
+  const decorate = (e: React.MouseEvent) => {
+    if (conv.left || conv.mutedUntil > Date.now() || v.status !== 'online') return;
+    const rows = [...ref.current!.querySelectorAll<HTMLElement>('[data-message-id]')];
+    const anchor = rows.reduce<HTMLElement | null>((best, row) => {
+      const r = row.getBoundingClientRect(), old = best?.getBoundingClientRect();
+      const distance = (rect: DOMRect) => e.clientY < rect.top ? rect.top - e.clientY : e.clientY > rect.bottom ? e.clientY - rect.bottom : 0;
+      return !old || distance(r) < distance(old) ? row : best;
+    }, null);
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const spot = { targetId: anchor.dataset.messageId!, x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)), y: Math.max(-4000, Math.min(4000, e.clientY - rect.top)), onBubble: false };
+    openMenu(e, [{ label: '贴上 emoji', icon: <Smile size={16} />, onClick: () => tools.place(spot) }]);
+  };
   return (
-    <div ref={ref} onScroll={onScroll} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fromBottom && 'flex flex-col')}>
+    <div ref={ref} onScroll={onScroll} onContextMenu={decorate} className={cx('selectable relative flex-1 overflow-y-auto px-5 py-4', fromBottom && 'flex flex-col')}>
       {fromBottom && <div className="flex-1" aria-hidden />}
       {v.hasOlder[conv.id] && <div className="flex justify-center py-2 text-ink-soft"><Spinner size={16} /></div>}
       {conv.notice && (
@@ -253,6 +298,7 @@ function MessageList({ v, conv, streaming, fromBottom, onReply }: { v: SessionVi
         </div>
       )}
       {!list.length && streaming === undefined && <p className="py-16 text-center text-ink-soft dark:text-white/45">还没有消息，打个招呼吧 👋</p>}
+      <div data-message-id="0" className="relative"><PinOverlay v={v} conv={conv} targetId="0" /></div>
       {items}
       {streaming !== undefined && conv.peerId && <StreamingReply v={v} aiId={conv.peerId} text={streaming} />}
       <ImageViewer mediaId={viewer} onClose={() => setViewer(null)} />
@@ -263,6 +309,7 @@ function MessageList({ v, conv, streaming, fromBottom, onReply }: { v: SessionVi
 const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, onView, onReply }: {
   v: SessionView; conv: Conversation; msg: Message; grouped: boolean; animate: boolean; onView: (id: string) => void; onReply: (id: string) => void;
 }) {
+  const tools = useContext(ChatTools);
   const b = msg.body;
   const name = (id: string) => v.users[id]?.name ?? (id === v.me?.id ? v.me?.name ?? '我' : '某人');
   const enter = animate ? { initial: { opacity: 0, y: 10, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: spring } : {};
@@ -291,8 +338,17 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
   const role = conv.kind === 'group' ? roleOf(msg.senderId) : undefined;
 
   const menu = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const s = current();
     const items: MenuItem[] = [];
+    if (!msg.pending && !msg.failed && !conv.left) {
+      items.push({ label: '多选 / 转发', icon: <CheckSquare size={16} />, onClick: () => tools.select(msg.id) });
+      const bubble = (e.target as Element).closest('[data-message-bubble]');
+      const rect = (bubble ?? e.currentTarget).getBoundingClientRect();
+      const y = bubble ? Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)) : e.clientY - rect.top;
+      items.push({ label: '贴上 emoji', icon: <Smile size={16} />, onClick: () => tools.place({ targetId: msg.id, x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)), y, onBubble: !!bubble }) });
+    }
+    if (b.kind === 'image' && !msg.pending && !msg.failed) items.push({ label: '编辑图片', icon: <Pencil size={16} />, onClick: () => tools.edit(b.mediaId) });
     if (!msg.pending && !msg.failed && !conv.left) items.push({ label: '回复', icon: <Reply size={16} />, onClick: () => onReply(msg.id) });
     if (b.kind === 'text') items.push({ label: '复制', icon: <Copy size={16} />, onClick: () => copyText(b.text) });
     if (b.kind === 'image') items.push({ label: '查看原图', icon: <ImagePlus size={16} />, onClick: () => onView(b.mediaId) });
@@ -313,8 +369,7 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
       });
     }
     if (msg.failed) {
-      if (!msg.pending && !msg.failed && !conv.left) items.push({ label: '回复', icon: <Reply size={16} />, onClick: () => onReply(msg.id) });
-    if (b.kind === 'text') items.push({ label: '重新发送', icon: <RotateCw size={16} />, onClick: () => { s.dropFailed(conv.id, msg.id); s.sendText(conv.id, b.text, b.mood, b.mentions, b.replyTo).catch(toastError); } });
+      if (b.kind === 'text') items.push({ label: '重新发送', icon: <RotateCw size={16} />, onClick: () => { s.dropFailed(conv.id, msg.id); s.sendText(conv.id, b.text, b.mood, b.mentions, b.replyTo).catch(toastError); } });
       items.push({ label: '删掉这条', icon: <Trash2 size={16} />, danger: true, onClick: () => s.dropFailed(conv.id, msg.id) });
     } else if (!msg.pending) {
       if (mine && !msg.struck && !conv.left) {
@@ -339,7 +394,9 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
   };
 
   return (
-    <motion.div {...enter} className={cx('group flex gap-3', grouped ? 'pt-1' : 'pt-3', mine && 'flex-row-reverse')} onContextMenu={menu}>
+    <motion.div {...enter} data-message-id={msg.pending || msg.failed ? undefined : msg.id} className={cx('group relative flex gap-3', grouped ? 'pt-1' : 'pt-3', mine && 'flex-row-reverse')} onContextMenu={menu}>
+      <PinOverlay v={v} conv={conv} targetId={msg.id} />
+      {tools.selected && !msg.pending && !msg.failed && <input type="checkbox" aria-label={`选择 ${name(msg.senderId)} 的消息`} className="mt-3 shrink-0 accent-[var(--accent)]" checked={tools.selected.has(msg.id)} onChange={() => tools.select(msg.id)} />}
       <div className="w-[38px] shrink-0">
         {!grouped && (
           <button onClick={() => openProfile(msg.senderId)} className="press rounded-full" aria-label={`${sender?.name ?? '对方'}的主页`} title="看主页">
@@ -357,7 +414,7 @@ const MessageItem = memo(function MessageItem({ v, conv, msg, grouped, animate, 
         )}
         {b.kind === 'text' && b.replyTo && <ReplyQuote v={v} convId={conv.id} message={msg} />}
         <div className={cx('flex items-end gap-2', mine && 'flex-row-reverse')}>
-          <Body msg={msg} mine={mine} onView={onView} />
+          <div data-message-bubble className="relative min-w-0"><Body msg={msg} mine={mine} onView={onView} /><PinOverlay v={v} conv={conv} targetId={msg.id} onBubble /></div>
           {msg.pending && !msg.failed && <span className="mb-1 text-ink-soft"><Spinner size={13} /></span>}
           {msg.failed && (
             <button onClick={menu} title={msg.failed} className="mb-1 text-rose-500" aria-label="发送失败">
@@ -406,6 +463,7 @@ function StreamingReply({ v, aiId, text }: { v: SessionView; aiId: string; text:
 function Body({ msg, mine, onView }: { msg: Message; mine: boolean; onView: (id: string) => void }) {
   const b = msg.body;
   const thumb = useMediaUrl(b.kind === 'image' ? mediaPath(b.mediaId, true) : undefined);
+  if (b.kind === 'forward') return <ForwardHistory entries={b.entries} onView={onView} />;
   if (b.kind === 'image' && b.stickerTags) {
     // A sticker: small, no frame, its tags as the tooltip.
     const ratio = b.w && b.h ? b.w / b.h : 1;
@@ -801,4 +859,74 @@ function addBotMenu(e: React.MouseEvent, v: SessionView, conv: Conversation) {
       toast(res.requested.length ? '已经申请了，等频道管理员同意' : `${u.name} 进频道了`);
     },
   })));
+}
+
+function ForwardDialog({ v, conv, selected, onClose, onSent }: { v: SessionView; conv: Conversation; selected: Set<string>; onClose: () => void; onSent: () => void }) {
+  const [target, setTarget] = useState('');
+  const [busy, setBusy] = useState(false);
+  const messages = (v.messages[conv.id] ?? []).filter((m) => selected.has(m.id) && !m.pending && !m.failed && m.body.kind !== 'deleted' && m.body.kind !== 'system');
+  const targets = Object.values(v.convs).filter((c) => !c.left && c.mutedUntil <= Date.now());
+  const send = async () => {
+    if (!target || !messages.length || busy) return;
+    setBusy(true);
+    try { await current().forwardMessages(target, conv.id, messages); toast('聊天记录已转发'); onSent(); }
+    catch (e) { toastError(e); }
+    finally { setBusy(false); }
+  };
+  return <Dialog open onClose={() => !busy && onClose()} title="转发聊天记录" width={520}>
+    <p className="mb-3 text-sm text-ink-soft">来自「{conv.name}」的 {messages.length} 条消息，会保留原作者、时间和来源。</p>
+    <div className="mb-3 max-h-36 space-y-1 overflow-auto rounded-xl bg-black/5 p-3 text-sm dark:bg-white/5">
+      {messages.slice(0, 5).map((m) => <div key={m.id} className="truncate">{current().nameOf(m.senderId)}：{replyPreview(m)}</div>)}
+      {messages.length > 5 && <div>…</div>}
+    </div>
+    <label className="mb-1 block text-sm" htmlFor="forward-target">发送到</label>
+    <select id="forward-target" className="mb-4 w-full rounded-xl border border-black/10 bg-white p-2 dark:bg-[#221f3c]" value={target} onChange={(e) => setTarget(e.target.value)} disabled={busy}>
+      <option value="">选择频道或私聊</option>
+      {targets.map((c) => <option key={c.id} value={c.id}>{c.kind === 'group' ? '#' : '私聊 · '}{c.name}</option>)}
+    </select>
+    <div className="flex justify-end"><Button variant="primary" disabled={!target || !messages.length || busy} onClick={send}><Forward size={16} />转发</Button></div>
+  </Dialog>;
+}
+
+function ForwardHistory({ entries, onView }: { entries: ForwardEntry[]; onView: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return <>
+    <button className="card w-72 rounded-2xl bg-white/90 p-3 text-left dark:bg-white/10" onClick={() => setOpen(true)}>
+      <div className="mb-2 flex items-center gap-2 font-medium"><Forward size={16} />聊天记录 · {entries.length} 条</div>
+      {entries.slice(0, 3).map((e, i) => <div key={i} className="truncate text-sm text-ink-soft">{e.senderName}：{replyPreview({ id: '', seq: 0, senderId: e.senderId, time: e.time, body: e.body })}</div>)}
+      <div className="mt-2 border-t border-black/5 pt-1 text-xs text-ink-soft">来自 {Array.from(new Set(entries.map((e) => e.sourceName))).join('、')}</div>
+    </button>
+    <Dialog open={open} onClose={() => setOpen(false)} title="转发的聊天记录" width={720}>
+      <div className="max-h-[65vh] space-y-5 overflow-auto pr-2">
+        {entries.map((e, i) => <div key={i}>
+          <div className="mb-1 text-xs text-ink-soft">{e.senderName} · {chatTime(e.time)} · 来自「{e.sourceName}」</div>
+          <Body msg={{ id: e.sourceEventId, seq: 0, senderId: e.senderId, time: e.time, body: e.body, struck: e.struck }} mine={false} onView={onView} />
+        </div>)}
+      </div>
+    </Dialog>
+  </>;
+}
+
+function PinPicker({ v, conv, spot, onClose }: { v: SessionView; conv: Conversation; spot: PinSpot; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+  return <Dialog open onClose={() => !busy && onClose()} title="贴上 emoji" width={380}>
+    <div className="grid grid-cols-6 gap-1">{CHAT_EMOJI.map((emoji) => <Button key={emoji} disabled={busy || v.status !== 'online'} className="text-2xl" onClick={async () => {
+      setBusy(true);
+      try { await current().placeEmoji(conv.id, spot.targetId, emoji, spot.x, spot.y, '', spot.onBubble); onClose(); }
+      catch (e) { toastError(e); }
+      finally { setBusy(false); }
+    }}>{emoji}</Button>)}</div>
+  </Dialog>;
+}
+
+function PinOverlay({ v, conv, targetId, onBubble = false }: { v: SessionView; conv: Conversation; targetId: string; onBubble?: boolean }) {
+  const pins = Object.values(v.pins[conv.id] ?? {}).filter((p) => p.targetId === targetId && !p.removed && p.onBubble === onBubble);
+  return <div className="pointer-events-none absolute inset-0 z-10" aria-label="消息上的 emoji">
+    {pins.map((pin) => <span key={pin.id} className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 select-none text-[30px] leading-none" style={{ left: `${pin.x * 100}%`, top: onBubble ? `${pin.y * 100}%` : pin.y }} title={`${v.users[pin.userId]?.name ?? '某人'}贴的 ${pin.emoji}`} onContextMenu={(e) => {
+      e.stopPropagation();
+      const allowed = pin.userId === v.me?.id || v.isAdmin || (conv.kind === 'group' && RANK[conv.myRole] >= RANK.admin);
+      if (!allowed) { e.preventDefault(); return; }
+      openMenu(e, [{ label: '移除 emoji', icon: <Trash2 size={16} />, key: pin.id, onClick: () => current().placeEmoji(conv.id, '', '', 0, 0, pin.id).catch(toastError) }]);
+    }}>{pin.emoji}</span>)}
+  </div>;
 }

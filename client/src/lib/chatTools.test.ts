@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { mergeEmojiPins } from './chatTools.ts';
+import type { EmojiPin } from './types.ts';
+const pin: EmojiPin = { id: '1', targetId: '2', userId: '3', emoji: '😂', x: 0.4, y: 20, revision: '9007199254740993', removed: false, onBubble: false };
+const removed = { ...pin, revision: '9007199254740994', removed: true };
+let pins = mergeEmojiPins({}, [removed]);
+pins = mergeEmojiPins(pins, [pin]);
+assert.equal(pins['1'].removed, true);
+assert.equal(mergeEmojiPins({ '1': pin }, [removed])['1'].removed, true);
+assert.equal(mergeEmojiPins({}, [{ ...pin, targetId: '0' }])['1'].targetId, '0');
+console.log('chat tools ok');

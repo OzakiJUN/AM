@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/event.proto.
  */
 export const file_am_v1_event: GenFile = /*@__PURE__*/
-  fileDesc("ChFhbS92MS9ldmVudC5wcm90bxIFYW0udjEiywMKBUV2ZW50EhAKCGV2ZW50X2lkGAEgASgDEg8KB2NvbnZfaWQYAiABKAMSCwoDc2VxGAMgASgDEhEKCXNlbmRlcl9pZBgEIAEoAxISCgpjcmVhdGVkX2F0GAUgASgDEhUKDWNsaWVudF9tc2dfaWQYBiABKAkSHgoEdGV4dBgKIAEoCzIOLmFtLnYxLlRleHRNc2dIABIgCgVpbWFnZRgLIAEoCzIPLmFtLnYxLkltYWdlTXNnSAASHgoEZmlsZRgMIAEoCzIOLmFtLnYxLkZpbGVNc2dIABIiCgZzdHJpa2UYFCABKAsyEC5hbS52MS5TdHJpa2VBY3RIABItCgxhZG1pbl9kZWxldGUYFSABKAsyFS5hbS52MS5BZG1pbkRlbGV0ZUFjdEgAEiYKCnN5c19tZW1iZXIYHiABKAsyEC5hbS52MS5TeXNNZW1iZXJIABIiCghzeXNfY29udhgfIAEoCzIOLmFtLnYxLlN5c0NvbnZIABImCgpzeXNfbXVzZXVtGCAgASgLMhAuYW0udjEuU3lzTXVzZXVtSAASIwoJcmVkYWN0aW9uGCggASgLMhAuYW0udjEuUmVkYWN0aW9uQgYKBGJvZHkiSQoHVGV4dE1zZxIMCgR0ZXh0GAEgASgJEhAKCHJlcGx5X3RvGAIgASgDEhAKCG1lbnRpb25zGAMgAygDEgwKBG1vb2QYBCABKAkilwEKCEltYWdlTXNnEhAKCG1lZGlhX2lkGAEgASgDEg0KBXdpZHRoGAIgASgFEg4KBmhlaWdodBgDIAEoBRIUCgxzdGlja2VyX3RhZ3MYBCADKAkSEQoJbWFkZV93aXRoGAUgASgJEgwKBG5zZncYBiABKAgSEAoIbWFkZV9mb3IYByABKAMSEQoJbWFkZV9mcm9tGAggASgJIjcKB0ZpbGVNc2cSEAoIbWVkaWFfaWQYASABKAMSDAoEbmFtZRgCIAEoCRIMCgRzaXplGAMgASgDIiQKCVN0cmlrZUFjdBIXCg90YXJnZXRfZXZlbnRfaWQYASABKAMiOQoOQWRtaW5EZWxldGVBY3QSFwoPdGFyZ2V0X2V2ZW50X2lkGAEgASgDEg4KBnJlYXNvbhgCIAEoCSJDCglSZWRhY3Rpb24SEgoKZGVsZXRlZF9ieRgBIAEoAxIOCgZyZWFzb24YAiABKAkSEgoKZGVsZXRlZF9hdBgDIAEoAyKoAgoJU3lzTWVtYmVyEicKBmFjdGlvbhgBIAEoDjIXLmFtLnYxLlN5c01lbWJlci5BY3Rpb24SFgoOdGFyZ2V0X3VzZXJfaWQYAiABKAMSEwoLb3BlcmF0b3JfaWQYAyABKAMSDQoFdW50aWwYBCABKAMSIwoIbmV3X3JvbGUYBSABKA4yES5hbS52MS5NZW1iZXJSb2xlIpABCgZBY3Rpb24SFgoSQUNUSU9OX1VOU1BFQ0lGSUVEEAASDwoLQUNUSU9OX0pPSU4QARIQCgxBQ1RJT05fTEVBVkUQAhIPCgtBQ1RJT05fS0lDSxADEg8KC0FDVElPTl9NVVRFEAQSEQoNQUNUSU9OX1VOTVVURRAFEhYKEkFDVElPTl9ST0xFX0NIQU5HRRAGIugBCgdTeXNDb252EhMKC29wZXJhdG9yX2lkGAEgASgDEhEKBG5hbWUYAiABKAlIAIgBARITCgZhdmF0YXIYAyABKAlIAYgBARITCgZub3RpY2UYBCABKAlIAogBARIRCglkaXNzb2x2ZWQYBSABKAgSGgoNam9pbl9hcHByb3ZhbBgGIAEoCEgDiAEBEg8KB2NyZWF0ZWQYByABKAgSEQoEbnNmdxgIIAEoCEgEiAEBQgcKBV9uYW1lQgkKB19hdmF0YXJCCQoHX25vdGljZUIQCg5fam9pbl9hcHByb3ZhbEIHCgVfbnNmdyKZAQoJU3lzTXVzZXVtEgwKBGtpbmQYASABKAkSEwoLb3BlcmF0b3JfaWQYAiABKAMSDAoEdGV4dBgDIAEoCRIPCgd2b3RlX2lkGAQgASgDEg8KB2VuZHNfYXQYBSABKAMSDgoGYXJ0X2lkGAYgASgDEhAKCG1lZGlhX2lkGAcgASgDEgsKA3llcxgIIAEoBRIKCgJubxgJIAEoBUIqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM", [file_am_v1_common]);
+  fileDesc("ChFhbS92MS9ldmVudC5wcm90bxIFYW0udjEimgQKBUV2ZW50EhAKCGV2ZW50X2lkGAEgASgDEg8KB2NvbnZfaWQYAiABKAMSCwoDc2VxGAMgASgDEhEKCXNlbmRlcl9pZBgEIAEoAxISCgpjcmVhdGVkX2F0GAUgASgDEhUKDWNsaWVudF9tc2dfaWQYBiABKAkSHgoEdGV4dBgKIAEoCzIOLmFtLnYxLlRleHRNc2dIABIgCgVpbWFnZRgLIAEoCzIPLmFtLnYxLkltYWdlTXNnSAASHgoEZmlsZRgMIAEoCzIOLmFtLnYxLkZpbGVNc2dIABIkCgdmb3J3YXJkGA0gASgLMhEuYW0udjEuRm9yd2FyZE1zZ0gAEicKCWVtb2ppX3BpbhgWIAEoCzISLmFtLnYxLkVtb2ppUGluQWN0SAASIgoGc3RyaWtlGBQgASgLMhAuYW0udjEuU3RyaWtlQWN0SAASLQoMYWRtaW5fZGVsZXRlGBUgASgLMhUuYW0udjEuQWRtaW5EZWxldGVBY3RIABImCgpzeXNfbWVtYmVyGB4gASgLMhAuYW0udjEuU3lzTWVtYmVySAASIgoIc3lzX2NvbnYYHyABKAsyDi5hbS52MS5TeXNDb252SAASJgoKc3lzX211c2V1bRggIAEoCzIQLmFtLnYxLlN5c011c2V1bUgAEiMKCXJlZGFjdGlvbhgoIAEoCzIQLmFtLnYxLlJlZGFjdGlvbkIGCgRib2R5IkkKB1RleHRNc2cSDAoEdGV4dBgBIAEoCRIQCghyZXBseV90bxgCIAEoAxIQCghtZW50aW9ucxgDIAMoAxIMCgRtb29kGAQgASgJIpcBCghJbWFnZU1zZxIQCghtZWRpYV9pZBgBIAEoAxINCgV3aWR0aBgCIAEoBRIOCgZoZWlnaHQYAyABKAUSFAoMc3RpY2tlcl90YWdzGAQgAygJEhEKCW1hZGVfd2l0aBgFIAEoCRIMCgRuc2Z3GAYgASgIEhAKCG1hZGVfZm9yGAcgASgDEhEKCW1hZGVfZnJvbRgIIAEoCSI3CgdGaWxlTXNnEhAKCG1lZGlhX2lkGAEgASgDEgwKBG5hbWUYAiABKAkSDAoEc2l6ZRgDIAEoAyIkCglTdHJpa2VBY3QSFwoPdGFyZ2V0X2V2ZW50X2lkGAEgASgDIjkKDkFkbWluRGVsZXRlQWN0EhcKD3RhcmdldF9ldmVudF9pZBgBIAEoAxIOCgZyZWFzb24YAiABKAkiQwoJUmVkYWN0aW9uEhIKCmRlbGV0ZWRfYnkYASABKAMSDgoGcmVhc29uGAIgASgJEhIKCmRlbGV0ZWRfYXQYAyABKAMiqAIKCVN5c01lbWJlchInCgZhY3Rpb24YASABKA4yFy5hbS52MS5TeXNNZW1iZXIuQWN0aW9uEhYKDnRhcmdldF91c2VyX2lkGAIgASgDEhMKC29wZXJhdG9yX2lkGAMgASgDEg0KBXVudGlsGAQgASgDEiMKCG5ld19yb2xlGAUgASgOMhEuYW0udjEuTWVtYmVyUm9sZSKQAQoGQWN0aW9uEhYKEkFDVElPTl9VTlNQRUNJRklFRBAAEg8KC0FDVElPTl9KT0lOEAESEAoMQUNUSU9OX0xFQVZFEAISDwoLQUNUSU9OX0tJQ0sQAxIPCgtBQ1RJT05fTVVURRAEEhEKDUFDVElPTl9VTk1VVEUQBRIWChJBQ1RJT05fUk9MRV9DSEFOR0UQBiLoAQoHU3lzQ29udhITCgtvcGVyYXRvcl9pZBgBIAEoAxIRCgRuYW1lGAIgASgJSACIAQESEwoGYXZhdGFyGAMgASgJSAGIAQESEwoGbm90aWNlGAQgASgJSAKIAQESEQoJZGlzc29sdmVkGAUgASgIEhoKDWpvaW5fYXBwcm92YWwYBiABKAhIA4gBARIPCgdjcmVhdGVkGAcgASgIEhEKBG5zZncYCCABKAhIBIgBAUIHCgVfbmFtZUIJCgdfYXZhdGFyQgkKB19ub3RpY2VCEAoOX2pvaW5fYXBwcm92YWxCBwoFX25zZncimQEKCVN5c011c2V1bRIMCgRraW5kGAEgASgJEhMKC29wZXJhdG9yX2lkGAIgASgDEgwKBHRleHQYAyABKAkSDwoHdm90ZV9pZBgEIAEoAxIPCgdlbmRzX2F0GAUgASgDEg4KBmFydF9pZBgGIAEoAxIQCghtZWRpYV9pZBgHIAEoAxILCgN5ZXMYCCABKAUSCgoCbm8YCSABKAUiMgoKRm9yd2FyZE1zZxIkCgdlbnRyaWVzGAEgAygLMhMuYW0udjEuRm9yd2FyZEVudHJ5IocCCgxGb3J3YXJkRW50cnkSFgoOc291cmNlX2NvbnZfaWQYASABKAMSEwoLc291cmNlX25hbWUYAiABKAkSFwoPc291cmNlX2V2ZW50X2lkGAMgASgDEhEKCXNlbmRlcl9pZBgEIAEoAxITCgtzZW5kZXJfbmFtZRgFIAEoCRIPCgdzZW50X2F0GAYgASgDEg4KBnN0cnVjaxgHIAEoCBIeCgR0ZXh0GAogASgLMg4uYW0udjEuVGV4dE1zZ0gAEiAKBWltYWdlGAsgASgLMg8uYW0udjEuSW1hZ2VNc2dIABIeCgRmaWxlGAwgASgLMg4uYW0udjEuRmlsZU1zZ0gAQgYKBGJvZHkidQoLRW1vamlQaW5BY3QSFwoPdGFyZ2V0X2V2ZW50X2lkGAEgASgDEg0KBWVtb2ppGAIgASgJEgkKAXgYAyABKAESCQoBeRgEIAEoARIVCg1yZW1vdmVfcGluX2lkGAUgASgDEhEKCW9uX2J1YmJsZRgGIAEoCEIqWihnaXRodWIuY29tL096YWtpSlVOL2FtL2dlbi9nby9hbS92MTthbXYxYgZwcm90bzM", [file_am_v1_common]);
 
 /**
  * Everything that happens in a conversation is an Event.
@@ -83,6 +83,18 @@ export type Event = Message<"am.v1.Event"> & {
      */
     value: FileMsg;
     case: "file";
+  } | {
+    /**
+     * @generated from field: am.v1.ForwardMsg forward = 13;
+     */
+    value: ForwardMsg;
+    case: "forward";
+  } | {
+    /**
+     * @generated from field: am.v1.EmojiPinAct emoji_pin = 22;
+     */
+    value: EmojiPinAct;
+    case: "emojiPin";
   } | {
     /**
      * @generated from field: am.v1.StrikeAct strike = 20;
@@ -550,4 +562,140 @@ export type SysMuseum = Message<"am.v1.SysMuseum"> & {
  */
 export const SysMuseumSchema: GenMessage<SysMuseum> = /*@__PURE__*/
   messageDesc(file_am_v1_event, 9);
+
+/**
+ * A server-stamped snapshot of selected chat messages.
+ *
+ * @generated from message am.v1.ForwardMsg
+ */
+export type ForwardMsg = Message<"am.v1.ForwardMsg"> & {
+  /**
+   * @generated from field: repeated am.v1.ForwardEntry entries = 1;
+   */
+  entries: ForwardEntry[];
+};
+
+/**
+ * Describes the message am.v1.ForwardMsg.
+ * Use `create(ForwardMsgSchema)` to create a new message.
+ */
+export const ForwardMsgSchema: GenMessage<ForwardMsg> = /*@__PURE__*/
+  messageDesc(file_am_v1_event, 10);
+
+/**
+ * @generated from message am.v1.ForwardEntry
+ */
+export type ForwardEntry = Message<"am.v1.ForwardEntry"> & {
+  /**
+   * @generated from field: int64 source_conv_id = 1;
+   */
+  sourceConvId: bigint;
+
+  /**
+   * @generated from field: string source_name = 2;
+   */
+  sourceName: string;
+
+  /**
+   * @generated from field: int64 source_event_id = 3;
+   */
+  sourceEventId: bigint;
+
+  /**
+   * @generated from field: int64 sender_id = 4;
+   */
+  senderId: bigint;
+
+  /**
+   * @generated from field: string sender_name = 5;
+   */
+  senderName: string;
+
+  /**
+   * @generated from field: int64 sent_at = 6;
+   */
+  sentAt: bigint;
+
+  /**
+   * @generated from field: bool struck = 7;
+   */
+  struck: boolean;
+
+  /**
+   * @generated from oneof am.v1.ForwardEntry.body
+   */
+  body: {
+    /**
+     * @generated from field: am.v1.TextMsg text = 10;
+     */
+    value: TextMsg;
+    case: "text";
+  } | {
+    /**
+     * @generated from field: am.v1.ImageMsg image = 11;
+     */
+    value: ImageMsg;
+    case: "image";
+  } | {
+    /**
+     * @generated from field: am.v1.FileMsg file = 12;
+     */
+    value: FileMsg;
+    case: "file";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message am.v1.ForwardEntry.
+ * Use `create(ForwardEntrySchema)` to create a new message.
+ */
+export const ForwardEntrySchema: GenMessage<ForwardEntry> = /*@__PURE__*/
+  messageDesc(file_am_v1_event, 11);
+
+/**
+ * Position is relative to an anchor message: horizontal fraction of the
+ * message row, vertical pixel offset from its top. remove_pin_id removes a pin.
+ *
+ * @generated from message am.v1.EmojiPinAct
+ */
+export type EmojiPinAct = Message<"am.v1.EmojiPinAct"> & {
+  /**
+   * @generated from field: int64 target_event_id = 1;
+   */
+  targetEventId: bigint;
+
+  /**
+   * @generated from field: string emoji = 2;
+   */
+  emoji: string;
+
+  /**
+   * @generated from field: double x = 3;
+   */
+  x: number;
+
+  /**
+   * @generated from field: double y = 4;
+   */
+  y: number;
+
+  /**
+   * @generated from field: int64 remove_pin_id = 5;
+   */
+  removePinId: bigint;
+
+  /**
+   * On a bubble, x and y are fractions; otherwise y is a row pixel offset.
+   *
+   * @generated from field: bool on_bubble = 6;
+   */
+  onBubble: boolean;
+};
+
+/**
+ * Describes the message am.v1.EmojiPinAct.
+ * Use `create(EmojiPinActSchema)` to create a new message.
+ */
+export const EmojiPinActSchema: GenMessage<EmojiPinAct> = /*@__PURE__*/
+  messageDesc(file_am_v1_event, 12);
 

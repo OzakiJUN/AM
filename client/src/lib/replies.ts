@@ -8,6 +8,7 @@ export function replyPreview(message: Message | null | undefined): string {
   switch (message.body.kind) {
     case 'text': return message.body.text;
     case 'image': return message.body.stickerTags?.length ? `[表情：${message.body.stickerTags.join('、')}]` : '[图片]';
+    case 'forward': return `[聊天记录 · ${message.body.entries.length} 条]`;
     case 'file': return `[文件：${message.body.name}]`;
     default: return '原消息暂不可用';
   }

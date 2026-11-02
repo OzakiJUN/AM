@@ -813,6 +813,8 @@ type SendRequest struct {
 	//	*SendRequest_Text
 	//	*SendRequest_Image
 	//	*SendRequest_File
+	//	*SendRequest_Forward
+	//	*SendRequest_EmojiPin
 	//	*SendRequest_Strike
 	Body          isSendRequest_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
@@ -897,6 +899,24 @@ func (x *SendRequest) GetFile() *FileMsg {
 	return nil
 }
 
+func (x *SendRequest) GetForward() *ForwardRequest {
+	if x != nil {
+		if x, ok := x.Body.(*SendRequest_Forward); ok {
+			return x.Forward
+		}
+	}
+	return nil
+}
+
+func (x *SendRequest) GetEmojiPin() *EmojiPinAct {
+	if x != nil {
+		if x, ok := x.Body.(*SendRequest_EmojiPin); ok {
+			return x.EmojiPin
+		}
+	}
+	return nil
+}
+
 func (x *SendRequest) GetStrike() *StrikeAct {
 	if x != nil {
 		if x, ok := x.Body.(*SendRequest_Strike); ok {
@@ -922,6 +942,14 @@ type SendRequest_File struct {
 	File *FileMsg `protobuf:"bytes,12,opt,name=file,proto3,oneof"`
 }
 
+type SendRequest_Forward struct {
+	Forward *ForwardRequest `protobuf:"bytes,13,opt,name=forward,proto3,oneof"`
+}
+
+type SendRequest_EmojiPin struct {
+	EmojiPin *EmojiPinAct `protobuf:"bytes,22,opt,name=emoji_pin,json=emojiPin,proto3,oneof"`
+}
+
 type SendRequest_Strike struct {
 	Strike *StrikeAct `protobuf:"bytes,20,opt,name=strike,proto3,oneof"`
 }
@@ -931,6 +959,10 @@ func (*SendRequest_Text) isSendRequest_Body() {}
 func (*SendRequest_Image) isSendRequest_Body() {}
 
 func (*SendRequest_File) isSendRequest_Body() {}
+
+func (*SendRequest_Forward) isSendRequest_Body() {}
+
+func (*SendRequest_EmojiPin) isSendRequest_Body() {}
 
 func (*SendRequest_Strike) isSendRequest_Body() {}
 
@@ -2081,6 +2113,58 @@ func (x *AIShareRequestPush) GetUser() *User {
 	return nil
 }
 
+type ForwardRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SourceConvId  int64                  `protobuf:"varint,1,opt,name=source_conv_id,json=sourceConvId,proto3" json:"source_conv_id,omitempty"`
+	EventIds      []int64                `protobuf:"varint,2,rep,packed,name=event_ids,json=eventIds,proto3" json:"event_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ForwardRequest) Reset() {
+	*x = ForwardRequest{}
+	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForwardRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForwardRequest) ProtoMessage() {}
+
+func (x *ForwardRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForwardRequest.ProtoReflect.Descriptor instead.
+func (*ForwardRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ForwardRequest) GetSourceConvId() int64 {
+	if x != nil {
+		return x.SourceConvId
+	}
+	return 0
+}
+
+func (x *ForwardRequest) GetEventIds() []int64 {
+	if x != nil {
+		return x.EventIds
+	}
+	return nil
+}
+
 var File_am_v1_gateway_proto protoreflect.FileDescriptor
 
 const file_am_v1_gateway_proto_rawDesc = "" +
@@ -2131,14 +2215,16 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\rconversations\x18\x02 \x03(\v2\x13.am.v1.ConversationR\rconversations\x12\"\n" +
 	"\ris_site_admin\x18\x03 \x01(\bR\visSiteAdmin\x12-\n" +
 	"\tpresences\x18\x04 \x03(\v2\x0f.am.v1.PresenceR\tpresences\x12%\n" +
-	"\x0epublic_address\x18\x05 \x01(\tR\rpublicAddress\"\xf3\x01\n" +
+	"\x0epublic_address\x18\x05 \x01(\tR\rpublicAddress\"\xd9\x02\n" +
 	"\vSendRequest\x12\x17\n" +
 	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x12\"\n" +
 	"\rclient_msg_id\x18\x02 \x01(\tR\vclientMsgId\x12$\n" +
 	"\x04text\x18\n" +
 	" \x01(\v2\x0e.am.v1.TextMsgH\x00R\x04text\x12'\n" +
 	"\x05image\x18\v \x01(\v2\x0f.am.v1.ImageMsgH\x00R\x05image\x12$\n" +
-	"\x04file\x18\f \x01(\v2\x0e.am.v1.FileMsgH\x00R\x04file\x12*\n" +
+	"\x04file\x18\f \x01(\v2\x0e.am.v1.FileMsgH\x00R\x04file\x121\n" +
+	"\aforward\x18\r \x01(\v2\x15.am.v1.ForwardRequestH\x00R\aforward\x121\n" +
+	"\temoji_pin\x18\x16 \x01(\v2\x12.am.v1.EmojiPinActH\x00R\bemojiPin\x12*\n" +
 	"\x06strike\x18\x14 \x01(\v2\x10.am.v1.StrikeActH\x00R\x06strikeB\x06\n" +
 	"\x04body\"2\n" +
 	"\fSendResponse\x12\"\n" +
@@ -2221,7 +2307,10 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x06images\x18\x05 \x03(\tR\x06images\"J\n" +
 	"\x12AIShareRequestPush\x12\x13\n" +
 	"\x05ai_id\x18\x01 \x01(\x03R\x04aiId\x12\x1f\n" +
-	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04userB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04user\"S\n" +
+	"\x0eForwardRequest\x12$\n" +
+	"\x0esource_conv_id\x18\x01 \x01(\x03R\fsourceConvId\x12\x1b\n" +
+	"\tevent_ids\x18\x02 \x03(\x03R\beventIdsB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_gateway_proto_rawDescOnce sync.Once
@@ -2236,7 +2325,7 @@ func file_am_v1_gateway_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_am_v1_gateway_proto_goTypes = []any{
 	(FriendPush_Kind)(0),         // 0: am.v1.FriendPush.Kind
 	(ConvRemovedPush_Reason)(0),  // 1: am.v1.ConvRemovedPush.Reason
@@ -2267,16 +2356,18 @@ var file_am_v1_gateway_proto_goTypes = []any{
 	(*RemoteToolResult)(nil),     // 26: am.v1.RemoteToolResult
 	(*RemoteToolResultPush)(nil), // 27: am.v1.RemoteToolResultPush
 	(*AIShareRequestPush)(nil),   // 28: am.v1.AIShareRequestPush
-	(*Error)(nil),                // 29: am.v1.Error
-	(*Game)(nil),                 // 30: am.v1.Game
-	(*User)(nil),                 // 31: am.v1.User
-	(*Conversation)(nil),         // 32: am.v1.Conversation
-	(*Presence)(nil),             // 33: am.v1.Presence
-	(*TextMsg)(nil),              // 34: am.v1.TextMsg
-	(*ImageMsg)(nil),             // 35: am.v1.ImageMsg
-	(*FileMsg)(nil),              // 36: am.v1.FileMsg
-	(*StrikeAct)(nil),            // 37: am.v1.StrikeAct
-	(*Event)(nil),                // 38: am.v1.Event
+	(*ForwardRequest)(nil),       // 29: am.v1.ForwardRequest
+	(*Error)(nil),                // 30: am.v1.Error
+	(*Game)(nil),                 // 31: am.v1.Game
+	(*User)(nil),                 // 32: am.v1.User
+	(*Conversation)(nil),         // 33: am.v1.Conversation
+	(*Presence)(nil),             // 34: am.v1.Presence
+	(*TextMsg)(nil),              // 35: am.v1.TextMsg
+	(*ImageMsg)(nil),             // 36: am.v1.ImageMsg
+	(*FileMsg)(nil),              // 37: am.v1.FileMsg
+	(*EmojiPinAct)(nil),          // 38: am.v1.EmojiPinAct
+	(*StrikeAct)(nil),            // 39: am.v1.StrikeAct
+	(*Event)(nil),                // 40: am.v1.Event
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
 	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
@@ -2286,7 +2377,7 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	13, // 4: am.v1.ClientFrame.ping:type_name -> am.v1.Ping
 	24, // 5: am.v1.ClientFrame.remote_tool:type_name -> am.v1.RemoteToolRequest
 	26, // 6: am.v1.ClientFrame.remote_tool_result:type_name -> am.v1.RemoteToolResult
-	29, // 7: am.v1.ServerFrame.error:type_name -> am.v1.Error
+	30, // 7: am.v1.ServerFrame.error:type_name -> am.v1.Error
 	5,  // 8: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
 	7,  // 9: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
 	10, // 10: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
@@ -2304,32 +2395,34 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	25, // 22: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
 	27, // 23: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
 	28, // 24: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
-	30, // 25: am.v1.ServerFrame.game:type_name -> am.v1.Game
-	31, // 26: am.v1.AuthResponse.me:type_name -> am.v1.User
-	32, // 27: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
-	33, // 28: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
-	34, // 29: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
-	35, // 30: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
-	36, // 31: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
-	37, // 32: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
-	38, // 33: am.v1.SendResponse.event:type_name -> am.v1.Event
-	9,  // 34: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
-	38, // 35: am.v1.SyncResponse.events:type_name -> am.v1.Event
-	38, // 36: am.v1.EventPush.event:type_name -> am.v1.Event
-	32, // 37: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
-	0,  // 38: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
-	31, // 39: am.v1.FriendPush.user:type_name -> am.v1.User
-	1,  // 40: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
-	31, // 41: am.v1.JoinRequestPush.user:type_name -> am.v1.User
-	31, // 42: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
-	33, // 43: am.v1.PresencePush.presence:type_name -> am.v1.Presence
-	31, // 44: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
-	31, // 45: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
-	46, // [46:46] is the sub-list for method output_type
-	46, // [46:46] is the sub-list for method input_type
-	46, // [46:46] is the sub-list for extension type_name
-	46, // [46:46] is the sub-list for extension extendee
-	0,  // [0:46] is the sub-list for field type_name
+	31, // 25: am.v1.ServerFrame.game:type_name -> am.v1.Game
+	32, // 26: am.v1.AuthResponse.me:type_name -> am.v1.User
+	33, // 27: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
+	34, // 28: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
+	35, // 29: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
+	36, // 30: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
+	37, // 31: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
+	29, // 32: am.v1.SendRequest.forward:type_name -> am.v1.ForwardRequest
+	38, // 33: am.v1.SendRequest.emoji_pin:type_name -> am.v1.EmojiPinAct
+	39, // 34: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
+	40, // 35: am.v1.SendResponse.event:type_name -> am.v1.Event
+	9,  // 36: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
+	40, // 37: am.v1.SyncResponse.events:type_name -> am.v1.Event
+	40, // 38: am.v1.EventPush.event:type_name -> am.v1.Event
+	33, // 39: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
+	0,  // 40: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
+	32, // 41: am.v1.FriendPush.user:type_name -> am.v1.User
+	1,  // 42: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
+	32, // 43: am.v1.JoinRequestPush.user:type_name -> am.v1.User
+	32, // 44: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
+	34, // 45: am.v1.PresencePush.presence:type_name -> am.v1.Presence
+	32, // 46: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
+	32, // 47: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
+	48, // [48:48] is the sub-list for method output_type
+	48, // [48:48] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }
@@ -2373,6 +2466,8 @@ func file_am_v1_gateway_proto_init() {
 		(*SendRequest_Text)(nil),
 		(*SendRequest_Image)(nil),
 		(*SendRequest_File)(nil),
+		(*SendRequest_Forward)(nil),
+		(*SendRequest_EmojiPin)(nil),
 		(*SendRequest_Strike)(nil),
 	}
 	type x struct{}
@@ -2381,7 +2476,7 @@ func file_am_v1_gateway_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_gateway_proto_rawDesc), len(file_am_v1_gateway_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   27,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

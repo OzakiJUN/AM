@@ -1,3 +1,5 @@
+import { mergeEmojiPins } from './chatTools';
+import type { EmojiPin, ForwardEntry } from './types';
 // One logged-in server: HTTP calls, the WebSocket (auth, sync, pushes,
 // reconnect) and the state the UI shows. See docs/protocol.md.
 import { create, fromBinary, fromJsonString, toBinary, toJsonString, type DescMessage, type MessageInitShape, type MessageShape } from '@bufbuild/protobuf';
@@ -63,6 +65,7 @@ export interface SessionView {
   messages: Record<string, Message[]>;
   /** Quoted messages kept separately so old references never create history gaps. */
   replyTargets: Record<string, Record<string, Message | null>>;
+  pins: Record<string, Record<string, EmojiPin>>;
   /** Conversations whose older history can still be loaded. */
   hasOlder: Record<string, boolean>;
   /** Site admin of this server (may create public channels). */
@@ -414,6 +417,8 @@ function toBody(e: ev.Event): MessageBody | null {
   switch (b.case) {
     case 'text':
       return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined, mentions: b.value.mentions.length ? b.value.mentions.map(s) : undefined };
+    case 'forward':
+      return { kind: 'forward', entries: b.value.entries.map((entry): ForwardEntry => ({ struck: entry.struck, sourceConvId: s(entry.sourceConvId), sourceName: entry.sourceName, sourceEventId: s(entry.sourceEventId), senderId: s(entry.senderId), senderName: entry.senderName, time: Number(entry.sentAt), body: toBody(create(ev.EventSchema, { body: entry.body })) ?? { kind: 'deleted', byId: '', reason: '' } })) };
     case 'image':
       return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height, stickerTags: b.value.stickerTags.length ? b.value.stickerTags : undefined, madeWith: b.value.madeWith || undefined, nsfw: b.value.nsfw || undefined };
     case 'file':
@@ -499,6 +504,7 @@ export function previewText(m: Message, name: (id: string) => string): string {
   switch (b.kind) {
     case 'text': return b.text;
     case 'image': return b.stickerTags ? '[表情]' : '[图片]';
+    case 'forward': return `[聊天记录 · ${b.entries.length} 条]`;
     case 'file': return `[文件] ${b.name}`;
     case 'deleted': return '[消息已被删除]';
     case 'system': return systemText(b.sys, name);
@@ -552,7 +558,7 @@ export class Session {
     this.t = createTransport(record.id, record.endpoint);
     this.view = {
       id: record.id, name: record.name, status: record.token ? 'connecting' : 'logged_out',
-      users: {}, convs: {}, messages: {}, replyTargets: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false, commands: [], helperId: '',
+      users: {}, convs: {}, messages: {}, replyTargets: {}, pins: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false, commands: [], helperId: '',
       presence: {},
       icon: '',
       games: {},
@@ -1167,7 +1173,7 @@ export class Session {
     const fresh = !this.view.convs[id];
     this.view.convs = { ...this.view.convs, [id]: this.convFrom(c, this.view.convs[id]) };
     this.emit();
-    if (fresh) this.syncConvs([{ id, after: 0 }]).catch(() => {});
+    if (fresh) { this.syncConvs([{ id, after: 0 }]).catch(() => {}); void this.loadPins(id).catch(() => {}); }
   }
 
   private async onAuth(a: gw.AuthResponse) {
@@ -1200,6 +1206,7 @@ export class Session {
     }
     this.view.hasOlder = hasOlder;
     await this.syncConvs(cursors);
+    for (const c of Object.values(convs)) if (!c.left) void this.loadPins(c.id).catch(() => {});
   }
 
   private async syncConvs(cursors: { id: string; after: number }[]) {
@@ -1216,6 +1223,27 @@ export class Session {
         .filter((c) => more.has(c.id))
         .map((c) => ({ id: c.id, after: Number(r.events.filter((e) => s(e.convId) === c.id).at(-1)?.seq ?? c.after) }));
     }
+  }
+
+  private mergePins(convId: string, pins: EmojiPin[]) {
+    const merged = mergeEmojiPins(this.view.pins[convId] ?? {}, pins);
+    this.view.pins = { ...this.view.pins, [convId]: merged };
+  }
+
+  async loadPins(convId: string) {
+    const res = await this.call('GET', `/api/v1/conversations/${convId}/emoji-pins`, api.ListEmojiPinsResponseSchema);
+    this.mergePins(convId, res.pins.map((p) => ({ id: s(p.id), targetId: p.targetEventId.toString(), userId: s(p.userId), emoji: p.emoji, x: p.x, y: p.y, revision: s(p.revision), removed: p.removed, onBubble: p.onBubble })));
+    this.emit();
+  }
+
+  async placeEmoji(convId: string, targetId: string, emoji: string, x: number, y: number, removeId = '', onBubble = false) {
+    const response = await this.request({ case: 'send', value: create(gw.SendRequestSchema, { convId: BigInt(convId), clientMsgId: randomId(), body: { case: 'emojiPin', value: { targetEventId: BigInt(targetId || '0'), emoji, x, y, removePinId: BigInt(removeId || '0'), onBubble } } }) });
+    if (response.msg.case === 'send' && response.msg.value.event) this.applyEvents([response.msg.value.event], false);
+  }
+
+  async forwardMessages(convId: string, sourceConvId: string, messages: Message[]) {
+    const entries: ForwardEntry[] = messages.flatMap((m) => m.body.kind === 'forward' ? m.body.entries : [{ struck: m.struck, sourceConvId, sourceName: this.view.convs[sourceConvId]?.name ?? '聊天', sourceEventId: m.id, senderId: m.senderId, senderName: this.nameOf(m.senderId), time: m.time, body: m.body }]);
+    return this.sendBody(convId, { case: 'forward', value: create(gw.ForwardRequestSchema, { sourceConvId: BigInt(sourceConvId), eventIds: messages.map((m) => BigInt(m.id)) }) }, { kind: 'forward', entries });
   }
 
   private replyLoads = new Map<string, Promise<void>>();
@@ -1245,10 +1273,13 @@ export class Session {
     return load;
   }
 
+  /** A history page can contain only pin/strike events, with no chat bubble. */
+  private olderBefore = new Map<string, number>();
+
   /** Loads one more page of older messages. */
   async loadOlder(convId: string) {
     const list = this.view.messages[convId] ?? [];
-    const first = list.find((m) => !m.pending)?.seq ?? (this.view.convs[convId]?.lastSeq ?? 0) + 1;
+    const first = this.olderBefore.get(convId) ?? list.find((m) => !m.pending)?.seq ?? (this.view.convs[convId]?.lastSeq ?? 0) + 1;
     if (first <= 1) {
       this.view.hasOlder = { ...this.view.hasOlder, [convId]: false };
       this.emit();
@@ -1259,7 +1290,9 @@ export class Session {
       case: 'sync',
       value: create(gw.SyncRequestSchema, { cursors: [{ convId: BigInt(convId), afterSeq: BigInt(after) }], limit: first - 1 - after }),
     });
-    if (f.msg.case === 'sync') this.applyEvents(f.msg.value.events.filter((e) => Number(e.seq) < first), false);
+    if (f.msg.case !== 'sync') return;
+    this.applyEvents(f.msg.value.events.filter((e) => Number(e.seq) < first), false);
+    this.olderBefore.set(convId, after + 1);
     this.view.hasOlder = { ...this.view.hasOlder, [convId]: after > 0 };
     this.emit();
   }
@@ -1280,6 +1313,12 @@ export class Session {
       const convId = s(e.convId);
       const list = get(convId);
       const seq = Number(e.seq);
+      if (e.body.case === 'emojiPin') {
+        const act = e.body.value;
+        const id = s(act.removePinId || e.eventId);
+        const old = this.view.pins[convId]?.[id];
+        this.mergePins(convId, [{ id, targetId: old?.targetId ?? act.targetEventId.toString(), userId: old?.userId ?? s(e.senderId), emoji: old?.emoji ?? act.emoji, x: old?.x ?? act.x, y: old?.y ?? act.y, revision: s(e.eventId), removed: !!act.removePinId, onBubble: old?.onBubble ?? act.onBubble }]);
+      }
       // Strike / admin delete modify their target.
       if (e.body.case === 'strike' || e.body.case === 'adminDelete') {
         const target = s(e.body.value.targetEventId);
@@ -1324,6 +1363,7 @@ export class Session {
       const c = this.view.convs[convId];
       if (c) {
         const nc = { ...c, lastSeq: Math.max(c.lastSeq, seq) };
+        if (e.body.case === 'emojiPin' && c.readSeq === c.lastSeq) nc.readSeq = Math.max(c.readSeq, seq);
         if (body && seq >= c.lastSeq) {
           nc.lastText = previewText({ id: '', seq, senderId: s(e.senderId), time: 0, body }, this.nameOf);
           if (body.kind !== 'system' && c.kind === 'group') nc.lastText = `${this.nameOf(s(e.senderId))}：${nc.lastText}`;

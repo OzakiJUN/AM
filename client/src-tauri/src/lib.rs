@@ -72,6 +72,13 @@ async fn download(net: State<'_, Net>, id: String, path: String, dest: String) -
     tokio::fs::write(&dest, data).await.map_err(|err| err.to_string())
 }
 
+#[tauri::command]
+async fn save_edited_image(request: Request<'_>) -> Res<()> {
+    let InvokeBody::Raw(data) = request.body() else { return Err("expected image bytes".into()); };
+    let dest = request.headers().get("x-dest").and_then(|s| s.to_str().ok()).ok_or("missing destination")?;
+    tokio::fs::write(percent_decode(dest), data).await.map_err(|e| e.to_string())
+}
+
 /// Raw bytes of a media path (to copy an avatar or a profile picture to
 /// another server). Arrives in JS as an ArrayBuffer.
 #[tauri::command]
@@ -482,7 +489,7 @@ pub fn run() {
             });
         })
         .invoke_handler(tauri::generate_handler![
-            server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
+            save_edited_image, server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
             agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit

@@ -787,10 +787,21 @@ async function renderChannel(root, page, id) {
   load(0);
 }
 
+function forwardContent(entries) {
+  return el('div', {}, entries.map((entry) => {
+    let body;
+    if (entry.kind === 'text') body = entry.text;
+    else if (entry.kind === 'image') body = el('img', { src: 'api/media/' + entry.media_id + '?thumb=1', alt: '转发的图片', loading: 'lazy' });
+    else body = el('a', { href: 'api/media/' + entry.media_id }, entry.file_name || '[文件]');
+    return el('div', {}, el('div', { class: 'muted' }, entry.sender_name + ' · ' + entry.source_name + ' · ' + fmtTime(entry.at)), body);
+  }));
+}
+
 function historyItem(x) {
   if (x.kind === 'sys') return el('div', { class: 'h-sys' }, x.text, ' · ', fmtTime(x.at));
   let content;
-  if (x.kind === 'text') content = x.text;
+  if (x.kind === 'forward') content = forwardContent(x.entries);
+  else if (x.kind === 'text') content = x.text;
   else if (x.kind === 'image') content = el('a', { href: 'api/media/' + x.media_id, target: '_blank', rel: 'noopener' },
     el('img', { src: 'api/media/' + x.media_id + '?thumb=1', alt: '图片', loading: 'lazy' }));
   else if (x.kind === 'file') content = ['[文件] ', el('a', { href: 'api/media/' + x.media_id }, x.file_name), ' ', fmtBytes(x.file_size || 0)];
@@ -825,7 +836,8 @@ async function renderEvidence(root, page) {
     }
     box.replaceChildren(el('div', { class: 'stack' }, data.items.map((x) => {
       let content;
-      if (x.kind === 'text') content = x.text;
+      if (x.kind === 'forward') content = forwardContent(x.entries);
+      else if (x.kind === 'text') content = x.text;
       else if (x.kind === 'image') content = x.media_id ? el('a', { href: 'api/media/' + x.media_id, target: '_blank', rel: 'noopener' },
         el('img', { src: 'api/media/' + x.media_id + '?thumb=1', alt: '被删除的图片' })) : '[图片]';
       else if (x.kind === 'file') content = ['[文件] ', x.media_id ? el('a', { href: 'api/media/' + x.media_id }, x.file_name) : x.file_name, ' ', fmtBytes(x.file_size || 0)];

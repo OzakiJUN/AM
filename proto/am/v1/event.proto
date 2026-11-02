@@ -27,6 +27,8 @@ message Event {
     TextMsg text = 10;
     ImageMsg image = 11;
     FileMsg file = 12;
+    ForwardMsg forward = 13;
+    EmojiPinAct emoji_pin = 22;
     StrikeAct strike = 20;
     AdminDeleteAct admin_delete = 21;
     SysMember sys_member = 30;
@@ -145,4 +147,34 @@ message SysMuseum {
   int64 media_id = 7;
   int32 yes = 8;
   int32 no = 9;
+}
+
+// A server-stamped snapshot of selected chat messages.
+message ForwardMsg {
+  repeated ForwardEntry entries = 1;
+}
+message ForwardEntry {
+  int64 source_conv_id = 1;
+  string source_name = 2;
+  int64 source_event_id = 3;
+  int64 sender_id = 4;
+  string sender_name = 5;
+  int64 sent_at = 6;
+  bool struck = 7;
+  oneof body {
+    TextMsg text = 10;
+    ImageMsg image = 11;
+    FileMsg file = 12;
+  }
+}
+// Position is relative to an anchor message: horizontal fraction of the
+// message row, vertical pixel offset from its top. remove_pin_id removes a pin.
+message EmojiPinAct {
+  int64 target_event_id = 1;
+  string emoji = 2;
+  double x = 3;
+  double y = 4;
+  int64 remove_pin_id = 5;
+  // On a bubble, x and y are fractions; otherwise y is a row pixel offset.
+  bool on_bubble = 6;
 }
