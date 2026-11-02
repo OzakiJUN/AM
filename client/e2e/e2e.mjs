@@ -709,7 +709,7 @@ const pages = [];
   // In the channel: @ picks it from the member list, it answers; the mention is highlighted.
   await A.click('button[aria-label="频道"]');
   await A.click('aside button:has-text("AM 内测")');
-  await A.fill('textarea[aria-label="消息"]', '@小');
+  await A.fill('textarea[aria-label="消息"]', '@小鱼'); // 「@小」 also lists 小助手 (in every channel)
   await A.waitForSelector('div[role="listbox"][aria-label="提到谁"] >> text=小鱼');
   await shot(A, '27c-mention');
   await A.press('textarea[aria-label="消息"]', 'Enter'); // picks
