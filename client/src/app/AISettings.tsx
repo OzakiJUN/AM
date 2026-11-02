@@ -23,7 +23,6 @@ import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, 
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { forgetPack } from './Portrait';
 import { PluginsTab } from './PluginsTab';
-import { DrawTab } from './DrawTab';
 import { MOODS, MOOD_LABEL, packFromFiles, type Mood } from '@/lib/portraits';
 import { personaTemplates, portraitFiles, useWorkshop } from '@/lib/workshop';
 
@@ -94,7 +93,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
   );
 }
 
-type Tab = 'persona' | 'model' | 'social' | 'computer' | 'draw' | 'plugins' | 'profile' | 'run' | 'log';
+type Tab = 'persona' | 'model' | 'social' | 'computer' | 'plugins' | 'profile' | 'run' | 'log';
 
 /** One AI's settings. */
 /** The server's built-in bot's name, avatar, signature and page (site admins). */
@@ -127,7 +126,7 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
       <div className="mb-4">
         <Segmented id="ai-tab" value={tab} onChange={setTab} options={[
           { value: 'persona', label: '人格' }, { value: 'model', label: '模型' }, { value: 'social', label: '频道与作息' },
-          { value: 'computer', label: '电脑' }, { value: 'draw', label: '画画' }, { value: 'plugins', label: '插件' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
+          { value: 'computer', label: '电脑' }, { value: 'plugins', label: '插件' }, { value: 'profile', label: '资料' }, { value: 'run', label: '运行' }, { value: 'log', label: '记录' },
         ]} />
       </div>
       {!info ? (
@@ -138,7 +137,6 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
           {tab === 'model' && <ModelTab draft={draft} set={set} save={save} />}
           {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
           {tab === 'social' && <SocialTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
-          {tab === 'draw' && <DrawTab draft={draft} set={set} save={save} />}
           {tab === 'plugins' && <PluginsTab aiId={aiId} aiName={info.user.name} />}
           {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
           {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} onClose={onClose} />}
@@ -834,7 +832,7 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
         </div>
         {!here && <Button variant="primary" onClick={() => runHere(serverId, aiId).then(() => toast('现在由这台设备运行'))}><Cpu size={15} /> 在这台设备上运行</Button>}
       </div>
-      <HostCard serverId={serverId} aiId={aiId} providerId={draft.providerId} drawProviderId={draft.draw.providerId} />
+      <HostCard serverId={serverId} aiId={aiId} providerId={draft.providerId} />
       <Field label="谁能和它聊">
         <Segmented id="ai-who" value={draft.whoCanChat} onChange={(w) => set({ whoCanChat: w })} options={[
           { value: 'owner', label: '只有我' }, { value: 'everyone', label: '服务器里所有人' },
@@ -861,7 +859,7 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
  * 托管到服务器 (docs/design.md §10): ask the site admin to run this AI on the
  * server (its model key goes along), see where the request is, stop it.
  */
-function HostCard({ serverId, aiId, providerId, drawProviderId }: { serverId: string; aiId: string; providerId: string; drawProviderId: string }) {
+function HostCard({ serverId, aiId, providerId }: { serverId: string; aiId: string; providerId: string }) {
   const s = session(serverId);
   const h = useAI((st) => st.byServer[serverId]?.find((a) => a.user.id === aiId)?.hosting);
   const providers = useProviders((st) => st.list);
@@ -875,12 +873,11 @@ function HostCard({ serverId, aiId, providerId, drawProviderId }: { serverId: st
   const provider = providers.find((p) => p.id === providerId);
   const request = () => ask({
     title: '托管到服务器？',
-    text: `服务器管理员同意后，这个 AI 会在服务器上运行，你这台设备关着它也在线。它用的模型 key（${provider?.name ?? '还没选'}${drawProviderId ? '，还有画画用的 NovelAI token' : ''}）会交给服务器保存。在服务器上它只能在自己的文件夹里读写文件，不能看屏幕、动鼠标键盘、运行命令、开浏览器。`,
+    text: `服务器管理员同意后，这个 AI 会在服务器上运行，你这台设备关着它也在线。它用的模型 key（${provider?.name ?? '还没选'}）会交给服务器保存。在服务器上它只能在自己的文件夹里读写文件，不能看屏幕、动鼠标键盘、运行命令、开浏览器。`,
     ok: '发送申请',
     run: async () => {
       if (!provider?.key) throw new Error('先在「模型」里选好服务商并填 key');
-      const draw = drawProviderId ? providers.find((p) => p.id === drawProviderId && p.kind === 'novelai') : undefined;
-      const r = await s.hostAI(aiId, draw ? [provider, draw] : [provider]);
+      const r = await s.hostAI(aiId, [provider]);
       await refreshAIs(serverId);
       toast(r.status === 'approved' ? '已经在服务器上运行了' : '申请发出去了，等管理员同意');
     },

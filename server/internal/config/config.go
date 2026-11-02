@@ -37,6 +37,7 @@ type Config struct {
 	Museum    Museum    `toml:"museum"`
 	Helper    Helper    `toml:"helper"`
 	News      News      `toml:"news"`
+	Draw      Draw      `toml:"draw"`
 	Admin     Admin     `toml:"admin"`
 	Log       Log       `toml:"log"`
 }
@@ -140,6 +141,32 @@ type Helper struct {
 	AIKey   string `toml:"ai_key"`
 	AIModel string `toml:"ai_model"`
 	AIProxy string `toml:"ai_proxy"`
+}
+
+// Draw configures NovelAI drawing on the built-in bot (docs/design.md §10 画画).
+type Draw struct {
+	Enabled        bool     `toml:"enabled"`
+	Token          string   `toml:"token"`
+	Proxy          string   `toml:"proxy"`
+	API            string   `toml:"api"`
+	DailyPerPerson int      `toml:"daily_per_person"`
+	NsfwInDM       bool     `toml:"nsfw_in_dm"`
+	MaxCount       int      `toml:"max_count"`
+	Steps          int      `toml:"steps"`
+	Scale          float64  `toml:"scale"`
+	Sampler        string   `toml:"sampler"`
+	Strength       float64  `toml:"strength"`
+	VibeStrength   float64  `toml:"vibe_strength"`
+	RefStrength    float64  `toml:"ref_strength"`
+	RefFidelity    float64  `toml:"ref_fidelity"`
+	Model          string   `toml:"model"`
+	V5Model        string   `toml:"v5_model"`
+	V5Native       bool     `toml:"v5_native"`
+	Quality        string   `toml:"quality"`
+	QualityV5      string   `toml:"quality_v5"`
+	Negative       string   `toml:"negative"`
+	BlockWords     []string `toml:"block_words"`
+	AutoNsfw       bool     `toml:"auto_nsfw"`
 }
 
 // News configures 游戏资讯 (docs/design.md §10 内置 bot).
@@ -376,6 +403,13 @@ func (c *Config) validate() error {
 	}
 	if u := c.Helper.AIURL; u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
 		return errors.New("helper.ai_url must start with http:// or https://")
+	}
+	if d := c.Draw; d.DailyPerPerson < 0 || d.MaxCount < 1 || d.MaxCount > 16 || d.Steps < 1 || d.Steps > 50 ||
+		d.Scale <= 0 || d.Strength <= 0 || d.Strength > 1 || d.VibeStrength <= 0 || d.VibeStrength > 1 || d.RefStrength <= 0 || d.RefFidelity <= 0 {
+		return errors.New("draw: daily_per_person >= 0, max_count 1-16, steps 1-50, scale > 0, strengths 0-1")
+	}
+	if u := c.Draw.API; !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		return errors.New("draw.api must start with https://")
 	}
 	if err := c.News.check(); err != nil {
 		return err

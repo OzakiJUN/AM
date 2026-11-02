@@ -312,8 +312,8 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
-| GET | `/api/v1/helper/commands` | — | `HelperCommandsResponse`：bot 的全部指令（`own`）和 AI 画画的指令（只列出），带用法、说明、分组、别名 |
-| POST | `/api/v1/helper/run` | `HelperRunRequest` | `HelperRunResponse`：让 bot 在 `conv_id`（自己在的会话，否则 `not_member`）里执行一条指令（`text` 带 `/`），指令本身不发出来。`show`：bot 的回复照常发在那里（bot 发不进去的会话，比如两个人的私聊，就改成只回给自己）；否则什么都不发，回复在 `texts`、图在 `media_ids` 里回来。`reply_to`：指令针对的消息（投厕的图）。不是指令时 `texts` 里是「你是不是想用…」。每人同一时间只跑一条 |
+| GET | `/api/v1/helper/commands` | — | `HelperCommandsResponse`：bot 的全部指令（游戏资讯、电子厕所、画画……），带用法、说明、分组、别名 |
+| POST | `/api/v1/helper/run` | `HelperRunRequest` | `HelperRunResponse`：让 bot 在 `conv_id`（自己在的会话，否则 `not_member`）里执行一条指令（`text` 带 `/`），指令本身不发出来。`show`：bot 的回复照常发在那里（bot 发不进去的会话，比如 AI 和人的私聊：AI 叫的就以 AI 自己的名义发出来，人叫的就只回给自己）；否则什么都不发，回复在 `texts`、图在 `media_ids` 里回来。`reply_to`：指令针对的消息（投厕的图）。不是指令时 `texts` 里是「你是不是想用…」。每人同一时间只跑一条 |
 
 在聊天里发 `/` 开头的消息也一样会让 bot 执行（它在每个频道里，也可以私聊它）。
 

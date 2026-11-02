@@ -72,7 +72,21 @@ AM_E2E_JOIN=<管理员加入码> AM_E2E_IMAGE=任意图片.png AM_E2E_OUT=/tmp n
 
 构建和预览时还要带上 `AM_DEV_WORKSHOP=http://127.0.0.1:8460/workshop` 和 `AM_DEV_WORKSHOP_KEY=6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=`：脚本自己用一把测试密钥签一个本地的工坊列表（主题、表情包、人格，一个 SHA-256 对不上的、一个下架的），测安装、拒绝被改过的包、下架的不显示、套用主题、导入表情包、人格出现在新建 AI 的模板里、从文件安装要先确认。
 
-测 AI 画画：构建和预览时带上 `AM_DEV_NAI=http://127.0.0.1:8460/nai`（脚本自己的 NovelAI 替身，token 是 `nai-test`）：脚本会加 NovelAI 服务商、在「画画」里选它，测 `/nai`（中文翻译）、`/nai5`、余额、查标签、私信里 NSFW 被拒、AI 自己调用 `draw_picture`。
+测画画（小助手画，服务器端）：测试服务器的 `config.toml` 里要指向脚本自己的 NovelAI 和模型替身：
+
+```toml
+[helper]
+ai_url = "http://127.0.0.1:8460/v1"
+ai_key = "sk-test"
+ai_model = "mock"
+
+[draw]
+token = "nai-test"
+api = "http://127.0.0.1:8460/nai"
+daily_per_person = 0
+```
+
+脚本在和小助手的私聊里测 `/nai`（中文用小助手的模型翻译）、`/nai5`、余额、查标签、NSFW 被拒，再让 AI 用 `draw_picture` 叫小助手画（图以 AI 自己的名义发在它的私聊里）。
 
 测 AI 托管：给第一个服务器的 `config.toml` 加 `[hosting]` `client_path = "<一个脚本>"`，脚本把第二个参数（host 文件）复制到某个路径再一直运行（比如 `cp "$2" /tmp/host-file.json; exec sleep 100000`），并设 `AM_E2E_HOST_FILE=<那个路径>`：脚本会申请托管、用 `#host=` 打开 host 模式的页面当服务器上的客户端，检查 AI 从那里回话，再收回到自己的设备。
 

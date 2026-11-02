@@ -499,6 +499,7 @@ var settingKinds = map[string]string{
 	"news.proxy": "string", "news.steam_community_proxy": "string", "news.daily_time": "string",
 	"news.x_weekly": "bool", "news.weekly_day": "string", "news.weekly_time": "string", "news.weekly_anyone": "bool",
 	"news.xai_key": "string", "news.xai_model": "string", "news.steam_push": "bool", "news.max_per_conv": "int",
+	"draw.enabled": "bool", "draw.token": "string", "draw.proxy": "string", "draw.daily_per_person": "int", "draw.nsfw_in_dm": "bool", "draw.max_count": "int",
 	"news.weibo_cookie": "string", "news.tieba_cookie": "string", "news.nga_cookie": "string",
 }
 
@@ -526,6 +527,8 @@ func settingValues(c *config.Config) map[string]any {
 		"news.x_weekly": c.News.XWeekly, "news.weekly_day": c.News.WeeklyDay, "news.weekly_time": c.News.WeeklyTime,
 		"news.weekly_anyone": c.News.WeeklyAnyone, "news.xai_key": c.News.XAIKey, "news.xai_model": c.News.XAIModel,
 		"news.steam_push": c.News.SteamPush, "news.max_per_conv": c.News.MaxPerConv,
+		"draw.enabled": c.Draw.Enabled, "draw.token": c.Draw.Token, "draw.proxy": c.Draw.Proxy, "draw.daily_per_person": c.Draw.DailyPerPerson,
+		"draw.nsfw_in_dm": c.Draw.NsfwInDM, "draw.max_count": c.Draw.MaxCount,
 		"news.weibo_cookie": c.News.WeiboCookie, "news.tieba_cookie": c.News.TiebaCookie, "news.nga_cookie": c.News.NGACookie,
 	}
 }

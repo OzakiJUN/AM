@@ -88,15 +88,11 @@ func New(ctx context.Context, st *store.Store, ids *idgen.Generator, ms *message
 	return s, nil
 }
 
-// Entries are the bot's commands plus the AI drawing commands, for 指令查询.
+// Entries are the bot's commands, for 指令查询.
 func (s *Service) Entries() []Entry {
 	var out []Entry
 	for _, c := range s.Commands() {
 		out = append(out, Entry{Name: c.Name, Aliases: c.Aliases, Group: c.Group, Usage: c.Usage, Help: c.Help, Safe: c.Safe, Own: true})
-	}
-	for _, e := range AIDrawing {
-		e.Group = AIDrawingGroup
-		out = append(out, e)
 	}
 	return out
 }
@@ -212,11 +208,7 @@ func (s *Service) typo(sender *store.User, ev *amv1.Event) {
 	}
 	body := t[len(start):]
 	entries := s.Entries()
-	known := s.Names()
-	for _, e := range AIDrawing {
-		known = append(append(known, e.Name), e.Aliases...)
-	}
-	fix, rest, sug := Typo(body, entries, known)
+	fix, rest, sug := Typo(body, entries, s.Names())
 	switch {
 	case fix != nil && s.autofix:
 		cmd := s.find(fix.Entry.Name)
@@ -330,7 +322,7 @@ func (s *Service) Reply(ctx context.Context, convID, replyTo int64, text string)
 		if i == 0 {
 			msg.ReplyTo = replyTo
 		}
-		if _, err := s.ms.Send(ctx, s.bot, &amv1.SendRequest{ConvId: convID, ClientMsgId: "helper-" + token(12),
+		if _, err := s.ms.Send(ctx, s.Speaker(ctx), &amv1.SendRequest{ConvId: convID, ClientMsgId: "helper-" + token(12),
 			Body: &amv1.SendRequest_Text{Text: msg}}, 0); err != nil {
 			return err
 		}
@@ -341,14 +333,21 @@ func (s *Service) Reply(ctx context.Context, convID, replyTo int64, text string)
 // Picture posts a stored picture in a conversation the bot is in (kept for
 // the caller under RunFor without show).
 func (s *Service) Picture(ctx context.Context, convID, mediaID int64) error {
+	return s.PictureMade(ctx, convID, &amv1.ImageMsg{MediaId: mediaID})
+}
+
+// PictureMade posts a picture with how it was made (made_with / nsfw /
+// made_for / made_from: the museum and the toilet read them).
+func (s *Service) PictureMade(ctx context.Context, convID int64, img *amv1.ImageMsg) error {
+	mediaID := img.GetMediaId()
 	if k, ok := ctx.Value(sinkKey{}).(*sink); ok {
 		k.mu.Lock()
 		k.media = append(k.media, mediaID)
 		k.mu.Unlock()
 		return nil
 	}
-	_, err := s.ms.Send(ctx, s.bot, &amv1.SendRequest{ConvId: convID, ClientMsgId: "helper-" + token(12),
-		Body: &amv1.SendRequest_Image{Image: &amv1.ImageMsg{MediaId: mediaID}}}, 0)
+	_, err := s.ms.Send(ctx, s.Speaker(ctx), &amv1.SendRequest{ConvId: convID, ClientMsgId: "helper-" + token(12),
+		Body: &amv1.SendRequest_Image{Image: img}}, 0)
 	return err
 }
 
@@ -360,6 +359,17 @@ type sink struct {
 }
 
 type sinkKey struct{}
+
+type speakerKey struct{}
+
+// Speaker is who posts the answers: the bot, or (RunFor where the bot
+// can't post, e.g. an AI's DM) the AI it runs the command for.
+func (s *Service) Speaker(ctx context.Context) *store.User {
+	if u, ok := ctx.Value(speakerKey{}).(*store.User); ok {
+		return u
+	}
+	return s.bot
+}
 
 // Ran is what a command run for someone produced.
 type Ran struct {
@@ -401,7 +411,10 @@ func (s *Service) RunFor(ctx context.Context, user *store.User, convID, replyTo 
 	if cmd == nil {
 		return nil, apperr.ErrNotFound
 	}
-	// Where the bot can't post (a DM between two others), it answers privately.
+	// Where the bot can't post (a DM between two others): an AI's answers are
+	// posted as the AI itself (its drawing appears in its DM); a person's
+	// come back privately.
+	speakAs := false
 	if show {
 		switch amv1.ConvKind(conv.Kind) {
 		case amv1.ConvKind_CONV_KIND_GROUP:
@@ -412,7 +425,11 @@ func (s *Service) RunFor(ctx context.Context, user *store.User, convID, replyTo 
 			}
 		default:
 			if _, err := s.st.GetMember(ctx, conv.ID, s.bot.ID); err != nil {
-				show = false
+				if user.AccountType != int16(amv1.AccountType_ACCOUNT_TYPE_HUMAN) {
+					speakAs = true
+				} else {
+					show = false
+				}
 			}
 		}
 	}
@@ -433,6 +450,9 @@ func (s *Service) RunFor(ctx context.Context, user *store.User, convID, replyTo 
 	k := &sink{}
 	if !show {
 		ctx = context.WithValue(ctx, sinkKey{}, k)
+	}
+	if speakAs {
+		ctx = context.WithValue(ctx, speakerKey{}, user)
 	}
 	ev := &amv1.Event{ConvId: convID, SenderId: user.ID, Body: &amv1.Event_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: replyTo}}}
 	if err := cmd.Run(ctx, &Call{User: user, Conv: conv, Name: name, Args: args, Event: ev}); err != nil {

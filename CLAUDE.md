@@ -323,13 +323,15 @@ update the docs in the same commit.
   (`lib/ai/page.ts`, pure + tested). Game turns are `silent` replies (tools
   only); one remark after the game. Games: `rematch`, history (`?ended=1`,
   `retention.games_days`).
-- AI drawing (docs/design.md §9 画画, NovelAI only): a NovelAI token is a
-  provider of kind `novelai` (`chatProviders` filters it out of chat
-  pickers); settings in `AISettings.draw`; `/nai …` commands and the
-  `draw_picture` tool (category `draw`) run in the runner (`drawCommand`,
-  `naiDeps`) through `lib/ai/naiRun.ts`; parsing / payload / rules are pure in
-  `lib/ai/nai.ts` (tested); Rust `nai_request` (novelai.net only, proxy).
-  Channels have `conversations.nsfw`, set per channel in the admin panel only
+- Drawing (docs/design.md §10 画画, NovelAI only) is the built-in bot's:
+  `server/internal/draw` (`nai.go` pure + tested: options, rules, payload,
+  answers; `images.go`; `service.go`), one server key in `[draw]`, commands
+  /nai /nai5 /角色参考 /风格迁移 /放大 /查标签 /nai余额, 「用我的头像」 = the
+  asker's avatar as the character reference. AIs draw with `draw_picture`
+  → `drawCommandFor` (agent.ts, pure + tested) → `helper/run` with show; in
+  an AI's DM the bot speaks as the AI (`helper.Speaker`). The client has no
+  NovelAI code any more (old `novelai` providers only load). Channels have
+  `conversations.nsfw`, set per channel in the admin panel only
   (`conv.SetNsfw`, recorded as said by the built-in bot); minors are never drawn.
 - AI memory (docs/design.md §9 一个记忆): `lib/ai/memory.ts` (pure, tested:
   per-person notes by account id, events, known plugins, 28 KB cap) stored as
