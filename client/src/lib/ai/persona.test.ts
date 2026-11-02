@@ -44,6 +44,10 @@ assert.ok(evolvePrompt({ name: '小鱼', owner: 'Weiqi', persona: old, lines: ['
 assert.deepEqual(parseSettings('{}').catchUp, { enabled: true, hours: 12, max: 5 });
 
 // What it knows about AM comes from its tools; memory from elsewhere only when there is any.
+const hp = appPrompt(['use_helper'], [], [{ name: '资讯', usage: '资讯 [关键词]', help: '马上查一次' }], '大管家');
+assert.match(hp, /「大管家」.*use_helper/);
+assert.match(hp, /· \/资讯 \[关键词\]：马上查一次/);
+assert.doesNotMatch(appPrompt([], [], [{ name: '资讯', usage: '资讯', help: 'x' }]), /use_helper/, 'no tool, no list');
 const ap = appPrompt(['list_games', 'set_my_status'], [{ name: '五子棋', kind: '小游戏', detail: '连五个赢' }]);
 assert.ok(ap.includes('· 五子棋（小游戏）：连五个赢') && ap.includes('open_game') && ap.includes('状态') && !ap.includes('个人主页'), ap);
 assert.equal(elsewherePrompt([], []), '');

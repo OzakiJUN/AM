@@ -1273,7 +1273,7 @@ const SETTINGS = [
     { k: 'media.block_distance', label: '相似度容差', help: '0–64，越小越严格。6 能拦住改过尺寸或重新压缩的同一张图。', type: 'int', min: 0, max: 64 },
   ] },
   { title: '内置 bot 和游戏资讯', items: [
-    { k: 'helper.name', label: 'bot 的名字', help: '服务器自带的 bot，在每个频道里，也可以私聊它；发「/指令」看它会什么', type: 'text', max: 32 },
+    { k: 'helper.name', label: 'bot 第一次建号时的名字', help: '服务器自带的 bot，在每个频道里，也可以私聊它；发「/指令」看它会什么。建好以后改名字、头像、签名、主页：站点管理员在客户端里和它私聊，点右上角「小助手的资料」', type: 'text', max: 32 },
     { k: 'helper.autofix', label: '打错指令自动纠正', help: '很像某个指令时直接按对的处理并说一声；删东西、花钱的指令只提示「你是不是想发…」', type: 'bool' },
     { k: 'helper.ai_url', label: '模型地址', help: 'bot 的功能共用：游戏资讯归类打分、电子厕所起名。任何 OpenAI 兼容接口，比如 https://api.deepseek.com/v1。不填也能用，只是简单些', type: 'text', placeholder: 'https://api.deepseek.com/v1' },
     { k: 'helper.ai_model', label: '模型名', type: 'text', placeholder: 'deepseek-chat' },

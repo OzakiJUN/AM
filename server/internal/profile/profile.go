@@ -96,6 +96,10 @@ func (s *Service) rights(ctx context.Context, viewer *store.User, o Owner) (*rig
 		if u != nil && u.OwnerID != 0 && u.OwnerID == viewer.ID {
 			return &rights{layout: true, content: all}, nil
 		}
+		// The server's built-in bot: its page is the site admins'.
+		if u != nil && u.IsServerBot() && viewer.IsSiteAdmin {
+			return &rights{layout: true, content: all}, nil
+		}
 		return &rights{content: none}, nil
 	}
 	if viewer.IsSiteAdmin {

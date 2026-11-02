@@ -817,3 +817,41 @@ message EmojiPin {
 message ListEmojiPinsResponse {
   repeated EmojiPin pins = 1;
 }
+
+// POST /api/v1/helper/run: someone (usually an AI) has the server's built-in
+// bot run a command without posting the command. show = the bot's answers
+// are posted in the conversation as usual; otherwise nothing is posted and
+// the answers come back here.
+message HelperRunRequest {
+  int64 conv_id = 1;
+  // The command with its "/", e.g. "/资讯 dota2".
+  string text = 2;
+  // A message the command is about (e.g. the picture for /投厕).
+  int64 reply_to = 3;
+  bool show = 4;
+}
+
+message HelperRunResponse {
+  // The bot's answers (when not shown: what it would have said).
+  repeated string texts = 1;
+  // Pictures it would have sent (not shown).
+  repeated int64 media_ids = 2;
+  // The answers were posted in the conversation.
+  bool shown = 3;
+}
+
+// One command of the built-in bot (or one an AI answers), for 指令查询 and AIs.
+message HelperCommand {
+  string name = 1;
+  repeated string aliases = 2;
+  string group = 3;
+  string usage = 4;
+  string help = 5;
+  // The bot runs it (false: an AI's drawing command, listed only).
+  bool own = 6;
+}
+
+// GET /api/v1/helper/commands
+message HelperCommandsResponse {
+  repeated HelperCommand commands = 1;
+}

@@ -39,6 +39,8 @@ export interface SelfApi {
   game(tool: string, args: Record<string, unknown>): Promise<string>;
   /** draw_picture: draws with NovelAI into the current chat; the answer for the model. */
   draw(args: Record<string, unknown>): Promise<string>;
+  /** use_helper: has the server's bot run a command here; the answer for the model. */
+  helper(args: Record<string, unknown>): Promise<string>;
 }
 
 interface UINode { id: number; depth: number; role: string; name: string; value: string; enabled: boolean }
@@ -197,6 +199,9 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
     case 'draw_picture':
       if (!ctx.self) return { text: '现在用不了这个工具' };
       return { text: await ctx.self.draw(a) };
+    case 'use_helper':
+      if (!ctx.self) return { text: '现在用不了这个工具' };
+      return { text: await ctx.self.helper(a) };
     case 'start_game':
     case 'view_game':
     case 'game_move':

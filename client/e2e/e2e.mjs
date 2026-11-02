@@ -19,6 +19,7 @@ if (!JOIN || !IMAGE) {
 // A fake model service (OpenAI-compatible, streamed) for the AI scenario.
 const MOCK_PORT = Number(process.env.AM_E2E_MOCK_PORT ?? 8460);
 let seenTools = [];
+let seenHelperPrompt = false;
 const GAME_MOVES = ['I9', 'G9', 'I7', 'G7'];
 let gameMove = 0;
 // A local creative workshop: a signed index (test key = seed 7×32, build the
@@ -107,6 +108,7 @@ const mock = createServer((req, res) => {
     if (req.headers.authorization !== 'Bearer sk-test') return res.writeHead(401, cors).end('{"error":{"message":"bad key"}}');
     const last = j.messages?.at(-1)?.content ?? '';
     if (j.tools) seenTools = j.tools.map((t) => t.function.name);
+    if ((j.messages?.find((m) => m.role === 'system')?.content ?? '').includes('· /投厕')) seenHelperPrompt = true;
     // Translating a drawing description (V4.5): English back.
     if ((j.messages?.find((m) => m.role === 'system')?.content ?? '').startsWith('You are a translator')) {
       res.writeHead(200, { ...cors, 'Content-Type': 'text/event-stream' });
@@ -693,6 +695,19 @@ const pages = [];
   await B.waitForSelector('section div.whitespace-pre-wrap:has-text("📖 指令一览")', { timeout: 15000 });
   await B.waitForSelector('section div.whitespace-pre-wrap:has-text("🚽 电子厕所：投厕")');
   await shot(B, '27j-helper-bot');
+  if (await B.locator('header button[aria-label="小助手的资料"]').count()) throw new Error('a member may edit the bot');
+  // The site admin (A) edits the bot's signature.
+  await A.click('button[aria-label="私信"]');
+  await A.click('button[aria-label="服务器成员"]');
+  await A.click('button[aria-label="私信 小助手"]');
+  await A.click('header button[aria-label="小助手的资料"]');
+  await A.fill('[data-testid="helper-profile"] input >> nth=1', '服务器的小管家');
+  await A.click('[data-testid="helper-profile"] button:has-text("保存资料")');
+  await A.waitForSelector('text=已保存');
+  await shot(A, '27k-helper-profile');
+  await A.keyboard.press('Escape');
+  await A.click('button[aria-label="AI"]');
+  await A.click('aside button:has-text("小鱼"):has-text("我的")');
   await B.click('button[aria-label="频道"]');
 
   // Channels and its day: put it into 「AM 内测」; its routine goes off for the test.
@@ -752,6 +767,8 @@ const pages = [];
   await A.keyboard.press('Escape');
   // 2b tools reach the model: UI automation and its own browser (allowed by default).
   for (const t of ['ui_read', 'ui_act', 'browser_open', 'browser_click']) if (!seenTools.includes(t)) throw new Error(`tool ${t} not offered: ${seenTools}`);
+  // The server bot: its commands are in the AI's prompt, and it may use them.
+  if (!seenTools.includes('use_helper') || !seenHelperPrompt) throw new Error('the AI was not told about the server bot');
 
   // MCP tool servers: add one in the 电脑 tab, saved with the AI's settings.
   await A.click('button[aria-label="AI 设置"]');

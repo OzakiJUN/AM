@@ -290,6 +290,16 @@ const toPlugin = (p: api.AIPlugin): Plugin => ({
   enabled: p.enabled, uploadedAt: Number(p.uploadedAt),
 });
 
+/** A command of the server's built-in bot (own) or one an AI answers. */
+export interface HelperCommand {
+  name: string;
+  aliases: string[];
+  group: string;
+  usage: string;
+  help: string;
+  own: boolean;
+}
+
 /** A work in a channel museum. */
 export interface MuseumArt {
   /** '' = an empty place. */
@@ -657,6 +667,22 @@ export class Session {
     this.view.users = { ...this.view.users, [u.id]: { ...this.view.users[u.id], ...u } };
     this.emit();
     return u;
+  }
+
+  // ---- the server's built-in bot (docs/design.md §10 内置 bot) ----
+
+  /** Its commands (and the AI drawing ones), for AIs' prompts. */
+  async helperCommands(): Promise<HelperCommand[]> {
+    const r = await this.call('GET', '/api/v1/helper/commands', api.HelperCommandsResponseSchema);
+    return r.commands.map((c) => ({ name: c.name, aliases: c.aliases, group: c.group, usage: c.usage, help: c.help, own: c.own }));
+  }
+
+  /** Has the bot run a command here without posting it; show = its answers are posted. */
+  async helperRun(convId: string, text: string, show: boolean, replyTo?: string) {
+    const r = await this.call('POST', '/api/v1/helper/run', api.HelperRunResponseSchema, {
+      schema: api.HelperRunRequestSchema, value: { convId: BigInt(convId), text, show, replyTo: BigInt(replyTo ?? 0) },
+    });
+    return { texts: r.texts, pictures: r.mediaIds.length, shown: r.shown };
   }
 
   // ---- my AI's plugins (docs/plugins.md) ----

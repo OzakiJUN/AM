@@ -5,15 +5,11 @@ import (
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/server/internal/apperr"
-	"github.com/OzakiJUN/am/server/internal/helper"
 	"github.com/OzakiJUN/am/server/internal/museum"
 	"github.com/OzakiJUN/am/server/internal/store"
 )
 
 // Channel museums (docs/design.md §13 博物馆).
-
-// SetHelper connects the built-in bot (its commands go into ServerInfo).
-func (a *API) SetHelper(h *helper.Service) { a.helper = h }
 
 // SetMuseum connects the museum service.
 func (a *API) SetMuseum(m *museum.Service) { a.museum = m }

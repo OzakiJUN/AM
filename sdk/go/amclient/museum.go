@@ -63,3 +63,15 @@ func (c *Conn) SendImageFor(ctx context.Context, convID, mediaID int64, madeWith
 func (c *Conn) Reply(ctx context.Context, convID, replyTo int64, text string) (*amv1.Event, error) {
 	return c.send(ctx, &amv1.SendRequest{ConvId: convID, Body: &amv1.SendRequest_Text{Text: &amv1.TextMsg{Text: text, ReplyTo: replyTo}}})
 }
+
+// HelperRun has the server's built-in bot run a command without posting it (show: post its answers).
+func (c *Client) HelperRun(ctx context.Context, convID int64, text string, replyTo int64, show bool) (*amv1.HelperRunResponse, error) {
+	out := &amv1.HelperRunResponse{}
+	return out, c.call(ctx, http.MethodPost, "/api/v1/helper/run", &amv1.HelperRunRequest{ConvId: convID, Text: text, ReplyTo: replyTo, Show: show}, out)
+}
+
+// HelperCommands lists the built-in bot's commands (and the AI drawing ones).
+func (c *Client) HelperCommands(ctx context.Context) (*amv1.HelperCommandsResponse, error) {
+	out := &amv1.HelperCommandsResponse{}
+	return out, c.call(ctx, http.MethodGet, "/api/v1/helper/commands", nil, out)
+}

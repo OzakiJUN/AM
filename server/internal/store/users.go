@@ -28,6 +28,9 @@ type User struct {
 // not listed, cannot be messaged or added, and cannot log in.
 func (u *User) Gone() bool { return u.Banned || u.LeftAt != 0 }
 
+// IsServerBot: the server's own built-in bot (a bot with no owner).
+func (u *User) IsServerBot() bool { return u.AccountType == 2 && u.OwnerID == 0 }
+
 const userCols = `id, username, display_name, avatar, COALESCE(avatar_media_id, 0), COALESCE(password_hash, ''),
 	account_type, COALESCE(owner_id, 0), is_site_admin, banned, created_at, bio, invisible, activity_kind, activity_text,
 	COALESCE(left_at, 0), portraits_at`
