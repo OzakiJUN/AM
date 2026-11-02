@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	crand "crypto/rand"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
@@ -29,38 +30,42 @@ type FishSpecies struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	Rarity      int     `json:"rarity"`
-	Average     float64 `json:"average_cm"`
-	Value       int64   `json:"base_value"`
+	Average     float64 `json:"average_m"`
+	Value       Money   `json:"base_value"`
 	Colour      string  `json:"colour"`
 	Shape       string  `json:"shape"`
 	Motif       int     `json:"motif"`
 	Description string  `json:"description"`
 }
 type FishingRules struct {
-	Version        int           `json:"version"`
-	WaitMin        int           `json:"wait_min_seconds"`
-	WaitMax        int           `json:"wait_max_seconds"`
-	Bite           int           `json:"bite_seconds"`
-	StartCoins     int64         `json:"start_coins"`
-	PackPrice      int64         `json:"pack_price"`
-	InventoryLimit int           `json:"inventory_limit"`
-	PackLimit      int           `json:"pack_limit"`
-	FishWeights    []int         `json:"fish_weights"`
-	SizeWeights    []int         `json:"size_weights"`
-	SizeDeviation  []float64     `json:"size_deviation"`
-	SizeValue      []float64     `json:"size_value"`
-	CardWeights    []int         `json:"card_weights"`
-	LootWeights    []int         `json:"loot_weights"`
-	MoneyMin       int           `json:"money_min"`
-	MoneyMax       int           `json:"money_max"`
-	ToolPrices     []int64       `json:"tool_prices"`
-	Speed          []int         `json:"speed_percent"`
-	AutoCD         []int         `json:"auto_cd_seconds"`
-	Value          []int         `json:"value_percent"`
-	StealCD        []int         `json:"steal_cd_seconds"`
-	StealChance    []int         `json:"steal_percent"`
-	WardCD         []int         `json:"ward_cd_seconds"`
-	Catalog        []FishSpecies `json:"catalog"`
+	Version          int           `json:"version"`
+	WaitMin          int           `json:"wait_min_seconds"`
+	WaitMax          int           `json:"wait_max_seconds"`
+	Bite             int           `json:"bite_seconds"`
+	StartCoins       Money         `json:"start_coins"`
+	PackPrice        Money         `json:"pack_price"`
+	InventoryLimit   int           `json:"inventory_limit"`
+	PackLimit        int           `json:"pack_limit"`
+	FishWeights      []int         `json:"fish_weights"`
+	LengthSigma      float64       `json:"length_sigma"`
+	LengthValueScale float64       `json:"length_value_scale"`
+	WorkerMS         int           `json:"worker_ms"`
+	CatchupBatch     int           `json:"catchup_batch"`
+	AutoStealDelay   int           `json:"auto_steal_delay_ms"`
+	WardBlock        []int         `json:"ward_block_percent"`
+	GlovePierce      []int         `json:"glove_pierce_percent"`
+	CardWeights      []int         `json:"card_weights"`
+	LootWeights      []int         `json:"loot_weights"`
+	MoneyMin         int           `json:"money_min"`
+	MoneyMax         int           `json:"money_max"`
+	ToolPrices       []Money       `json:"tool_prices"`
+	Speed            []int         `json:"speed_percent"`
+	AutoCD           []int         `json:"auto_cd_seconds"`
+	Value            []int         `json:"value_percent"`
+	StealCD          []int         `json:"steal_cd_seconds"`
+	StealChance      []int         `json:"steal_percent"`
+	WardCD           []int         `json:"ward_cd_seconds"`
+	Catalog          []FishSpecies `json:"catalog"`
 }
 
 func DefaultFishingRules() *FishingRules {
@@ -88,7 +93,7 @@ func (s *Service) LoadFishingRules(file string) error {
 }
 func (r *FishingRules) validate() error {
 	bad := func() error { return errors.New("invalid fishing balance or catalogue") }
-	if r.Version != 1 || r.WaitMin < 1 || r.WaitMax < r.WaitMin || r.WaitMax > 3600 || r.Bite < 1 || r.Bite > 3600 || r.StartCoins < 0 || r.StartCoins > 1e9 || r.PackPrice < 1 || r.PackPrice > 1e9 || r.InventoryLimit < 1 || r.InventoryLimit > 10000 || r.PackLimit < 1 || r.PackLimit > 10000 || r.MoneyMin < 1 || r.MoneyMax < r.MoneyMin || r.MoneyMax > 1e6 || len(r.Catalog) != 100 {
+	if r.Version != 2 || r.WaitMin < 1 || r.WaitMax < r.WaitMin || r.WaitMax > 3600 || r.Bite < 1 || r.Bite > 3600 || r.StartCoins < 0 || r.StartCoins > 1e9 || r.PackPrice < 1 || r.PackPrice > 1e9 || r.InventoryLimit < 1 || r.InventoryLimit > 10000 || r.PackLimit < 1 || r.PackLimit > 10000 || r.MoneyMin < 1 || r.MoneyMax < r.MoneyMin || r.MoneyMax > 1e6 || len(r.Catalog) != 100 {
 		return bad()
 	}
 	for _, v := range [][]int{r.Speed, r.AutoCD, r.Value, r.StealCD, r.StealChance, r.WardCD} {
@@ -101,10 +106,10 @@ func (r *FishingRules) validate() error {
 			}
 		}
 	}
-	if len(r.LootWeights) != 4 || len(r.ToolPrices) != 5 || len(r.SizeDeviation) != 5 || len(r.SizeValue) != 5 {
+	if len(r.LootWeights) != 4 || len(r.ToolPrices) != 5 {
 		return bad()
 	}
-	for _, w := range [][]int{r.FishWeights, r.SizeWeights, r.CardWeights, r.LootWeights} {
+	for _, w := range [][]int{r.FishWeights, r.CardWeights, r.LootWeights} {
 		if len(w) != 5 && len(w) != 4 {
 			return bad()
 		}
@@ -119,11 +124,19 @@ func (r *FishingRules) validate() error {
 			return bad()
 		}
 	}
-	if len(r.FishWeights) != 5 || len(r.SizeWeights) != 5 || len(r.CardWeights) != 5 {
+	if len(r.FishWeights) != 5 || len(r.CardWeights) != 5 {
 		return bad()
 	}
 	for i := 0; i < 5; i++ {
-		if r.ToolPrices[i] < 1 || r.ToolPrices[i] > 1e9 || r.Speed[i] > 90 || r.StealChance[i] > 100 || r.SizeDeviation[i] <= 0 || r.SizeDeviation[i] > 3 || r.SizeValue[i] < 1 || r.SizeValue[i] > 100 {
+		if r.ToolPrices[i] < 1 || r.ToolPrices[i] > 1e9 || r.Speed[i] > 90 || r.StealChance[i] > 100 {
+			return bad()
+		}
+	}
+	if r.LengthSigma <= 0 || r.LengthSigma > 2 || r.LengthValueScale <= 0 || r.LengthValueScale > 1000 || r.WorkerMS < 100 || r.WorkerMS > 60000 || r.CatchupBatch < 1 || r.CatchupBatch > 10000 || r.AutoStealDelay < 1 || len(r.WardBlock) != 5 || len(r.GlovePierce) != 5 {
+		return bad()
+	}
+	for i := 0; i < 5; i++ {
+		if r.WardBlock[i] < 0 || r.WardBlock[i] > 100 || r.GlovePierce[i] < 0 || r.GlovePierce[i] > 100 {
 			return bad()
 		}
 	}
@@ -149,17 +162,25 @@ func (s *Service) FishingRules() *amv1.FishingData {
 }
 
 type CaughtFish struct {
-	ID      string  `json:"id"`
-	Species string  `json:"species"`
-	Length  float64 `json:"length_cm"`
-	Grade   int     `json:"grade"`
-	Value   int64   `json:"value"`
-	By      string  `json:"caught_by"`
-	At      int64   `json:"at"`
+	Average  float64 `json:"average_m"`
+	OwnerKey string  `json:"owner_key"`
+	ID       string  `json:"id"`
+	Species  string  `json:"species"`
+	Length   float64 `json:"length_m"`
+	Value    Money   `json:"value"`
+	By       string  `json:"caught_by"`
+	At       int64   `json:"at"`
 }
 type FishingAccount struct {
+	LocalSlot  string `json:"local_slot"`
+	TransferTo string `json:"transfer_to"`
+	Identity   string `json:"identity"`
+	Revision   uint64 `json:"revision"`
+	Frozen     bool   `json:"frozen"`
+	TransferID string `json:"transfer_id"`
+
 	Version int          `json:"version"`
-	Coins   int64        `json:"coins"`
+	Coins   Money        `json:"coins"`
 	Fish    []CaughtFish `json:"fish"`
 	// Records are the smallest and largest self-caught specimens per species; selling doesn't erase them.
 	Records  map[string]CaughtFish `json:"records"`
@@ -181,12 +202,13 @@ type Angler struct {
 	ExpiresAt int64 `json:"expires_at"`
 }
 type Pond struct {
-	Seats [12]Angler `json:"seats"`
-	Now   int64      `json:"now"`
+	CatchingUp bool       `json:"catching_up"`
+	Seats      [12]Angler `json:"seats"`
+	Now        int64      `json:"now"`
 }
 
 func (r *FishingRules) newAccount() *FishingAccount {
-	return &FishingAccount{Version: 1, Coins: r.StartCoins, Fish: []CaughtFish{}, Records: map[string]CaughtFish{}, Cards: map[string]int{}, Tools: map[string]int{}, Equipped: []string{}}
+	return &FishingAccount{Version: 2, Identity: fishingUUID(), LocalSlot: fishingUUID(), Coins: r.StartCoins, Fish: []CaughtFish{}, Records: map[string]CaughtFish{}, Cards: map[string]int{}, Tools: map[string]int{}, Equipped: []string{}}
 }
 func (s *Service) account(ctx context.Context, q *store.Queries, id int64) (*FishingAccount, error) {
 	initial, _ := json.Marshal(s.fishing.newAccount())
@@ -198,9 +220,73 @@ func (s *Service) account(ctx context.Context, q *store.Queries, id int64) (*Fis
 	if err = json.Unmarshal([]byte(raw), &a); err != nil {
 		return nil, err
 	}
+	if a.Version != 1 && a.Version != 2 {
+		return nil, apperr.ErrBadRequest
+	}
+	upgraded := a.Version < 2 || a.LocalSlot == "" || a.Identity == ""
+	if a.LocalSlot == "" {
+		a.LocalSlot = fishingUUID()
+	}
+	if a.Identity == "" {
+		a.Identity = fishingUUID()
+	}
+	if a.Cards == nil {
+		a.Cards = map[string]int{}
+	}
+	if a.Tools == nil {
+		a.Tools = map[string]int{}
+	}
+	if a.Records == nil {
+		a.Records = map[string]CaughtFish{}
+	}
+	if a.Version < 2 {
+		var legacy struct {
+			Fish []struct {
+				LengthCM float64 `json:"length_cm"`
+			}
+			Records map[string]struct {
+				LengthCM float64 `json:"length_cm"`
+			}
+		}
+		_ = json.Unmarshal([]byte(raw), &legacy)
+		migrate := func(f CaughtFish, cm float64) CaughtFish {
+			if f.Length == 0 {
+				f.Length = math.Max(.01, math.Round(cm)/100)
+			}
+			if f.By == strconv.FormatInt(id, 10) {
+				f.OwnerKey = a.Identity
+			} else {
+				f.OwnerKey = "stolen"
+			}
+			for _, species := range s.fishing.Catalog {
+				if species.ID == f.Species {
+					f.Average = species.Average / 100
+					break
+				}
+			}
+			return f
+		}
+		for i := range a.Fish {
+			cm := 0.0
+			if i < len(legacy.Fish) {
+				cm = legacy.Fish[i].LengthCM
+			}
+			a.Fish[i] = migrate(a.Fish[i], cm)
+		}
+		for k, f := range a.Records {
+			a.Records[k] = migrate(f, legacy.Records[k].LengthCM)
+		}
+		a.Version = 2
+	}
+	if upgraded {
+		if err := saveAccount(ctx, q, id, &a); err != nil {
+			return nil, err
+		}
+	}
 	return &a, nil
 }
 func saveAccount(ctx context.Context, q *store.Queries, id int64, a *FishingAccount) error {
+	a.Revision++
 	b, err := json.Marshal(a)
 	if err != nil {
 		return err
@@ -285,7 +371,7 @@ func (s *Service) FishingShowcase(ctx context.Context, user int64) (*amv1.Fishin
 			}
 		}
 		for _, f := range a.Fish {
-			if wanted[f.ID] && f.By == strconv.FormatInt(user, 10) {
+			if wanted[f.ID] && selfCaught(a, f, user) {
 				visible[f.ID] = f
 			}
 		}
@@ -342,9 +428,9 @@ func (s *Service) reward(a *FishingAccount, user int64, now int64, record bool) 
 	a.Opened = nil
 	switch weighted(s.rnd, r.LootWeights) {
 	case 1:
-		n := int64(r.MoneyMin + s.rnd.Intn(r.MoneyMax-r.MoneyMin+1))
+		n := Coins(float64(r.MoneyMin + s.rnd.Intn(r.MoneyMax-r.MoneyMin+1)))
 		a.Coins += n
-		a.Last = fmt.Sprintf("钓到钱袋，获得 %d 金币", n)
+		a.Last = fmt.Sprintf("钓到钱袋，获得 %s 金币", n)
 		return
 	case 2:
 		key := s.card(a)
@@ -370,21 +456,13 @@ func (s *Service) reward(a *FishingAccount, user int64, now int64, record bool) 
 		}
 	}
 	f := pool[s.rnd.Intn(len(pool))]
-	grade := weighted(s.rnd, r.SizeWeights)
-	deviation := r.SizeDeviation[grade] * (.8 + .2*s.rnd.Float64())
-	// Symmetric deviations keep the advertised species average meaningful.
-	length := f.Average
-	shift := math.Tanh(deviation)
-	if s.rnd.Intn(2) == 0 {
-		length *= 1 - shift
-	} else {
-		length *= 1 + shift
+	length := math.Max(.01, math.Round(f.Average*math.Exp(r.LengthSigma*s.rnd.NormFloat64()-r.LengthSigma*r.LengthSigma/2)*100)/100)
+	value := fishPrice(f, length, r.LengthValueScale, a.quality("value"), r.Value)
+	owner := "stolen"
+	if record {
+		owner = a.Identity
 	}
-	value := float64(f.Value) * r.SizeValue[grade]
-	if q := a.quality("value"); q > 0 {
-		value *= 1 + float64(r.Value[q-1])/100
-	}
-	fish := CaughtFish{ID: strconv.FormatInt(s.ids.Next(), 10), Species: f.ID, Length: math.Round(length*100) / 100, Grade: grade, Value: int64(math.Round(value)), By: strconv.FormatInt(user, 10), At: now}
+	fish := CaughtFish{ID: fishingUUID(), Species: f.ID, Average: f.Average, Length: length, Value: value, OwnerKey: owner, By: strconv.FormatInt(user, 10), At: now}
 	a.Fish = append(a.Fish, fish)
 	if record {
 		for _, extreme := range []string{"min", "max"} {
@@ -395,7 +473,7 @@ func (s *Service) reward(a *FishingAccount, user int64, now int64, record bool) 
 			}
 		}
 	}
-	a.Last = fmt.Sprintf("钓到了 %s，%.2f cm，价值 %d 金币", f.Name, fish.Length, fish.Value)
+	a.Last = fmt.Sprintf("钓到了 %s，%.2f m，价值 %s 金币", f.Name, fish.Length, fish.Value)
 }
 func (s *Service) cast(p *Angler, a *FishingAccount, now int64) {
 	r := s.fishing
@@ -437,7 +515,7 @@ func (s *Service) openPond(ctx context.Context, me *store.User, conv int64) (*am
 		if err != nil {
 			return err
 		}
-		if a.Room != "" {
+		if a.Room != "" || a.Frozen {
 			return ErrGameState
 		}
 		a.Room = strconv.FormatInt(g.ID, 10)
@@ -472,8 +550,10 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 		if err != nil {
 			return err
 		}
-		if err = member(ctx, q, g.ConvID, me.ID); err != nil {
-			return err
+		if me.ID > 0 {
+			if err = member(ctx, q, g.ConvID, me.ID); err != nil {
+				return err
+			}
 		}
 		st, err = load(g)
 		if err != nil {
@@ -488,7 +568,10 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 			}
 			return ErrGameState
 		}
-		ids := []int64{me.ID}
+		var ids []int64
+		if me.ID > 0 {
+			ids = append(ids, me.ID)
+		}
 		for _, p := range st.Pond.Seats {
 			if p.User > 0 && p.User != me.ID {
 				ids = append(ids, p.User)
@@ -496,44 +579,40 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 		}
 		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 		accounts := map[int64]*FishingAccount{}
+		originalAccounts := map[int64]string{}
 		for _, u := range ids {
 			a, err := s.account(ctx, q, u)
 			if err != nil {
 				return err
 			}
 			accounts[u] = a
+			b, _ := json.Marshal(a)
+			originalAccounts[u] = string(b)
 		}
 		now := time.Now().UnixMilli()
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		// A read settles at most one overdue catch per seat. No offline reward backlog.
+		// Evict members that left, and stop copies frozen for client transfer.
 		for i := range st.Pond.Seats {
 			p := &st.Pond.Seats[i]
 			if p.User == 0 {
 				continue
 			}
 			a := accounts[p.User]
-			if err := member(ctx, q, g.ConvID, p.User); err != nil {
-				if !errors.Is(err, apperr.ErrNotMember) {
-					return err
-				}
+			e := member(ctx, q, g.ConvID, p.User)
+			if e != nil && !errors.Is(e, apperr.ErrNotMember) {
+				return e
+			}
+			if e != nil || a.Frozen {
 				if a.Room == strconv.FormatInt(id, 10) {
 					a.Room = ""
 				}
 				*p = Angler{}
 				changed = true
-				continue
 			}
-			if ql := a.quality("auto"); ql > 0 && now >= max(p.BiteAt, a.AutoAt) && max(p.BiteAt, a.AutoAt) <= p.ExpiresAt {
-				s.reward(a, p.User, now, true)
-				a.AutoAt = now + int64(s.fishing.AutoCD[ql-1])*1000
-				s.cast(p, a, now)
-				changed = true
-			} else if now > p.ExpiresAt {
-				s.cast(p, a, now)
-				a.Last = "错过收杆，鱼游走了，已重新抛竿"
-				changed = true
-			}
+		}
+		if s.settlePond(st, accounts, now) {
+			changed = true
 		}
 		mine := -1
 		for i, p := range st.Pond.Seats {
@@ -541,7 +620,13 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 				mine = i
 			}
 		}
+		if st.Pond.CatchingUp && action != "refresh" {
+			return ErrGameState
+		}
 		a := accounts[me.ID]
+		if a != nil && a.Frozen && action != "refresh" && action != "leave" && action != "end" {
+			return ErrGameState
+		}
 		switch action {
 		case "refresh":
 		case "join", "sit":
@@ -594,20 +679,7 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 			if p.User == 0 || now < p.BiteAt || now > p.ExpiresAt {
 				return ErrBadMove
 			}
-			victim := accounts[p.User]
-			a.StealAt = now + int64(s.fishing.StealCD[quality-1])*1000
-			if ward := victim.quality("ward"); ward > 0 && victim.WardAt <= now {
-				victim.WardAt = now + int64(s.fishing.WardCD[ward-1])*1000
-				a.Last = "对方的结界挡住了手套"
-				victim.Last = "结界挡住了一次偷鱼，鱼还在钩上"
-			} else if s.rnd.Intn(100) >= s.fishing.StealChance[quality-1] {
-				a.Last = "手套失手了，对方的鱼还在钩上"
-			} else {
-				s.reward(a, p.User, now, false)
-				a.Last = "偷鱼成功！" + a.Last
-				victim.Last = "钩上的收获被别人偷走了"
-				s.cast(p, victim, now)
-			}
+			s.stealCatch(st, accounts, mine, target, now)
 			changed = true
 		case "leave":
 			if mine < 0 {
@@ -637,6 +709,10 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 			return nil
 		}
 		for _, u := range ids {
+			b, _ := json.Marshal(accounts[u])
+			if string(b) == originalAccounts[u] {
+				continue
+			}
 			if err = saveAccount(ctx, q, u, accounts[u]); err != nil {
 				return err
 			}
@@ -669,6 +745,9 @@ func (s *Service) FishingAction(ctx context.Context, me *store.User, req *amv1.F
 			return err
 		}
 		out = a
+		if a.Frozen {
+			return ErrGameState
+		}
 		seen, err := q.FishingReceipt(ctx, me.ID, req.RequestId, hash)
 		if errors.Is(err, store.ErrFishingRequestReuse) {
 			return apperr.ErrBadRequest
@@ -694,7 +773,7 @@ func (s *Service) FishingAction(ctx context.Context, me *store.User, req *amv1.F
 				return ErrBadMove
 			}
 			var keep []CaughtFish
-			var coins int64
+			var coins Money
 			for _, f := range a.Fish {
 				if wanted[f.ID] {
 					coins += f.Value
@@ -708,7 +787,7 @@ func (s *Service) FishingAction(ctx context.Context, me *store.User, req *amv1.F
 			}
 			a.Fish = keep
 			a.Coins += coins
-			a.Last = fmt.Sprintf("卖鱼获得 %d 金币", coins)
+			a.Last = fmt.Sprintf("卖鱼获得 %s 金币", coins)
 		case "buy_tool":
 			if !toolKind(req.Item) || req.Quality < 1 || req.Quality > 5 || a.Tools[req.Item] >= int(req.Quality) {
 				return ErrBadMove
@@ -777,4 +856,22 @@ func toolKind(k string) bool {
 
 func (s *Service) FishingAccountUser(ctx context.Context, id int64) (*store.User, error) {
 	return s.st.GetUser(ctx, id)
+}
+
+func fishingUUID() string {
+	var b [16]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b[:])
+}
+func selfCaught(a *FishingAccount, f CaughtFish, user int64) bool {
+	return f.OwnerKey == a.Identity || (f.OwnerKey == "" && f.By == strconv.FormatInt(user, 10))
+}
+func fishPrice(f FishSpecies, length, scale float64, quality int, boost []int) Money {
+	factor := 1 + scale*math.Pow(math.Log(length/f.Average), 2)
+	if quality > 0 {
+		factor *= 1 + float64(boost[quality-1])/100
+	}
+	return Money(math.Round(float64(f.Value) * factor))
 }

@@ -49,3 +49,37 @@ func (q *Queries) FishingReceipt(ctx context.Context, user int64, key, hash stri
 	_, err = q.exec(ctx, `INSERT INTO fishing_actions (user_id,request_id,fingerprint) VALUES (?,?,?)`, user, key, hash)
 	return false, err
 }
+
+func (q *Queries) ActiveFishingGames(ctx context.Context) ([]*Game, error) {
+	rows, err := q.query(ctx, `SELECT `+gameCols+` FROM games WHERE kind='fishing' AND status='playing' ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var games []*Game
+	for rows.Next() {
+		g, err := scanGame(rows)
+		if err != nil {
+			return nil, err
+		}
+		games = append(games, g)
+	}
+	return games, rows.Err()
+}
+
+func (q *Queries) FishingReceipts(ctx context.Context, user int64) (map[string]string, error) {
+	rows, err := q.query(ctx, `SELECT request_id,fingerprint FROM fishing_actions WHERE user_id=?`, user)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var key, hash string
+		if err := rows.Scan(&key, &hash); err != nil {
+			return nil, err
+		}
+		out[key] = hash
+	}
+	return out, rows.Err()
+}

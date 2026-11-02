@@ -4,7 +4,7 @@ import { session } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Game } from '@/lib/games';
 import { GAME_INFO } from '@/lib/games';
-import { CARD_RARITY, FISH_RARITY, QUALITY, SIZE_GRADE, TOOLS, TOOL_KEYS, cardParts, collectionProgress, isBiting, toolEffect, type FishingAccount, type FishingAction, type FishingRules, type Species } from '@/lib/fishing';
+import { CARD_RARITY, FISH_RARITY, moneyText, QUALITY, TOOLS, TOOL_KEYS, cardParts, collectionProgress, isBiting, toolEffect, type FishingAccount, type FishingAction, type FishingRules, type Species } from '@/lib/fishing';
 import { Button, Spinner, cx, toastError } from '@/ui';
 import { UserAvatar } from './media';
 import './fishing.css';
@@ -85,7 +85,7 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
   if (!rules || !account || !pond) return <div className="space-y-3 p-8 text-center"><Spinner />{error && <p role="alert">{error}</p>}</div>;
   const serverNow = now + offset; const mine = pond.seats.findIndex((p) => p.user_id === me); const angler = pond.seats[mine];
   const bite = angler && isBiting(angler, serverNow); const countdown = angler ? Math.max(0, Math.ceil((bite ? angler.expires_at : angler.bite_at) - serverNow) / 1000) : 0;
-  const coins = <span className="inline-flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-300"><Coins size={16} />{account.coins.toLocaleString()} <span className="text-xs font-normal">金币</span></span>;
+  const coins = <span className="inline-flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-300"><Coins size={16} />{moneyText(account.coins)} <span className="text-xs font-normal">金币</span></span>;
   return <div className="fishing-game space-y-3" data-testid="fishing-game">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><div className="text-xs uppercase tracking-[.22em] text-cyan-700 dark:text-cyan-300">STELLAR POND · 12 SEATS</div><h3 className="text-xl font-semibold">把星光钓回家</h3></div>{coins}
@@ -93,6 +93,8 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
     <div className="flex gap-2" role="tablist" aria-label="钓鱼界面">
       {([['pond', '鱼塘', Anchor], ['shop', '商店', ShoppingBag], ['catalog', '鱼类图鉴', BookOpen]] as const).map(([id, label, Icon]) => <button key={id} role="tab" aria-selected={page === id} onClick={() => setPage(id)} className={cx('flex items-center gap-1.5 rounded-full px-4 py-2 text-sm', page === id ? 'bg-cyan-800 text-white' : 'bg-black/5 dark:bg-white/5')}><Icon size={15} />{label}</button>)}
     </div>
+    {pond.catching_up && <p className="text-xs text-amber-600">服务器正在补结算离线收益，完成后可迁移存档或离座。</p>}
+    {account.frozen && <p className="text-xs text-ink-soft">当前是跨服同步副本。操作时会接续存档，需能连接最近挂机的服务器。</p>}
     {error && <p role="alert" className="text-sm text-red-500">连接未刷新：{error}</p>}
     {g.status === 'ended' && <p className="rounded-xl bg-black/5 p-3">鱼塘已关闭，账号的鱼、金币、工具和卡片都保留了。</p>}
     {page === 'pond' ? <div className="grid gap-4 md:grid-cols-[1fr_210px]">
@@ -122,7 +124,7 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
         {mine >= 0 && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'leave'))}><LogOut size={14} />离座</Button>}
         {g.hostId === me && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'end'))}>关闭鱼塘</Button>}
       </aside>
-    </div> : page === 'catalog' ? <div className="grid max-h-[55vh] grid-cols-3 gap-2 overflow-auto md:grid-cols-5">{rules.catalog.map((f) => <div key={f.id} className="rounded-xl border border-cyan-500/10 bg-cyan-50/40 p-2 dark:bg-cyan-900/10"><div className="h-20"><FishArt fish={f} /></div><div className="truncate text-sm font-semibold">{f.name}</div><div className="text-[11px] text-ink-soft">{FISH_RARITY[f.rarity]} · 均长 {f.average_cm} cm</div><p className="mt-1 text-[10px] text-ink-soft">{f.description}</p></div>)}</div> : <div className="space-y-3">
+    </div> : page === 'catalog' ? <div className="grid max-h-[55vh] grid-cols-3 gap-2 overflow-auto md:grid-cols-5">{rules.catalog.map((f) => <div key={f.id} className="rounded-xl border border-cyan-500/10 bg-cyan-50/40 p-2 dark:bg-cyan-900/10"><div className="h-20"><FishArt fish={f} /></div><div className="truncate text-sm font-semibold">{f.name}</div><div className="text-[11px] text-ink-soft">{FISH_RARITY[f.rarity]} · 均长 {f.average_m.toFixed(2)} m</div><p className="mt-1 text-[10px] text-ink-soft">{f.description}</p></div>)}</div> : <div className="space-y-3">
       <div className="flex flex-wrap gap-2">{([['sell', '鱼篓 / 卖鱼'], ['tools', '装备商店'], ['cards', '卡包与收藏']] as const).map(([id, text]) => <Button key={id} variant={tab === id ? 'primary' : 'soft'} onClick={() => setTab(id)}>{text}</Button>)}</div>
       <div className="max-h-[52vh] overflow-auto">
         {tab === 'sell' && <FishInventory account={account} rules={rules} busy={busy} sell={(ids) => shop({ action: 'sell', fishIds: ids })} />}
@@ -136,11 +138,11 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
       </div>
     </div>}
     {account.last && <div className="rounded-xl bg-amber-100/60 px-3 py-2 text-sm text-amber-950 dark:bg-amber-300/10 dark:text-amber-100" role="status">{account.last}</div>}
-    <details className="text-xs text-ink-soft"><summary className="cursor-pointer">完整玩法与概率</summary><p className="mt-2 leading-relaxed">{GAME_INFO.fishing.rules}</p><p className="mt-2">等待 {rules.wait_min_seconds}–{rules.wait_max_seconds} 秒，上钩窗口 {rules.bite_seconds} 秒。鱼 / 钱袋 / 卡片 / 卡包概率 {rules.loot_weights.map((n) => `${n / rules.loot_weights.reduce((a, b) => a + b, 0) * 100}%`).join(' / ')}。鱼种稀有度权重 {rules.fish_weights.join(' / ')}，大小变异档权重 {rules.size_weights.join(' / ')}。离线不会累积收获队列，机械竿每次冷却只自动收一次。</p></details>
+    <details className="text-xs text-ink-soft"><summary className="cursor-pointer">完整玩法与概率</summary><p className="mt-2 leading-relaxed">{GAME_INFO.fishing.rules}</p><p className="mt-2">等待 {rules.wait_min_seconds}–{rules.wait_max_seconds} 秒，上钩窗口 {rules.bite_seconds} 秒。鱼 / 钱袋 / 卡片 / 卡包概率 {rules.loot_weights.map((n) => `${n / rules.loot_weights.reduce((a, b) => a + b, 0) * 100}%`).join(' / ')}。鱼种稀有度权重 {rules.fish_weights.join(' / ')}，长度按连续分布抽取，实际长度参与价格计算。服务端持续挂机，手套自动偷鱼，结界自动防御。</p></details>
   </div>;
 }
 function FishInventory({ account, rules, busy, sell }: { account: FishingAccount; rules: FishingRules; busy: boolean; sell: (ids: string[]) => void }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const fish = account.fish ?? []; const ids = fish.filter((f) => selected.has(f.id)).map((f) => f.id);
-  return <div className="space-y-3"><div className="flex flex-wrap items-center gap-2"><Button size="sm" onClick={() => setSelected(new Set(fish.map((f) => f.id)))}>全选 {fish.length}/{rules.inventory_limit}</Button><Button size="sm" onClick={() => setSelected(new Set())}>清空</Button><Button variant="primary" disabled={busy || !ids.length} onClick={() => sell(ids)}>卖出所选 · {fish.filter((f) => selected.has(f.id)).reduce((n, f) => n + f.value, 0)} 币</Button></div>{!fish.length && <p className="py-10 text-center text-ink-soft">鱼篓还是空的，去鱼塘等一圈涟漪吧。</p>}<div className="grid gap-2 sm:grid-cols-3">{fish.map((f) => { const species = rules.catalog.find((s) => s.id === f.species); return <label key={f.id} className={cx('cursor-pointer rounded-xl border p-2', selected.has(f.id) ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20' : 'border-black/10 dark:border-white/10')}><input type="checkbox" checked={selected.has(f.id)} onChange={(e) => setSelected((old) => { const n = new Set(old); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; })} className="accent-cyan-700" /><div className="h-20"><FishArt fish={species} /></div><div className="truncate text-sm font-semibold">{species?.name}</div><div className="text-xs text-ink-soft">{f.length_cm} cm · {SIZE_GRADE[f.grade]} · {f.value} 币</div></label>; })}</div></div>;
+  return <div className="space-y-3"><div className="flex flex-wrap items-center gap-2"><Button size="sm" onClick={() => setSelected(new Set(fish.map((f) => f.id)))}>全选 {fish.length}/{rules.inventory_limit}</Button><Button size="sm" onClick={() => setSelected(new Set())}>清空</Button><Button variant="primary" disabled={busy || !ids.length} onClick={() => sell(ids)}>卖出所选 · {moneyText(fish.filter((f) => selected.has(f.id)).reduce((n, f) => n + f.value, 0))} 币</Button></div>{!fish.length && <p className="py-10 text-center text-ink-soft">鱼篓还是空的，去鱼塘等一圈涟漪吧。</p>}<div className="grid gap-2 sm:grid-cols-3">{fish.map((f) => { const species = rules.catalog.find((s) => s.id === f.species); return <label key={f.id} className={cx('cursor-pointer rounded-xl border p-2', selected.has(f.id) ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20' : 'border-black/10 dark:border-white/10')}><input type="checkbox" checked={selected.has(f.id)} onChange={(e) => setSelected((old) => { const n = new Set(old); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; })} className="accent-cyan-700" /><div className="h-20"><FishArt fish={species} /></div><div className="truncate text-sm font-semibold">{species?.name}</div><div className="text-xs text-ink-soft">{f.length_m.toFixed(2)} m · {moneyText(f.value)} 币</div></label>; })}</div></div>;
 }

@@ -3,7 +3,7 @@ import { cardParts, collectionProgress, exhibitCapacity, isBiting, recordsOf } f
 assert.equal(exhibitCapacity('fishing_fish', 3, 3), 4);
 assert.equal(exhibitCapacity('fishing_cards', 3, 3), 9);
 assert.deepEqual(cardParts('4:f100'), [4, 'f100']);
-const record = { id: '9007199254740993000', species: 'f001', length_cm: 12, grade: 0, value: 12, caught_by: '9007199254740993001', at: 1 };
+const record = { id: '9007199254740993000', species: 'f001', length_m: 12, grade: 0, value: 12, caught_by: '9007199254740993001', at: 1 };
 const c = { records: { 'f001:min': record, 'f001:max': record }, cards: { '0:f001': 9, '0:f002': 1, '4:f100': 1, '2:f003': 0 }, badges: [0, 0, 0, 0, 0] };
 assert.deepEqual(collectionProgress(c), [2, 0, 0, 0, 1]);
 assert.equal(recordsOf(c).length, 1);

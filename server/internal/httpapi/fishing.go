@@ -4,10 +4,22 @@ import (
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/store"
+	"google.golang.org/protobuf/encoding/protojson"
+	"io"
 	"net/http"
 )
 
 func (a *API) registerFishing(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/v1/fishing/sync", a.authed(func(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+		b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 32<<20))
+		req := &amv1.FishingSyncRequest{}
+		if err != nil || protojson.Unmarshal(b, req) != nil {
+			a.fail(w, apperr.ErrBadRequest)
+			return
+		}
+		out, err := a.games.FishingSync(r.Context(), me, req)
+		a.reply(w, out, err)
+	}))
 	mux.HandleFunc("GET /api/v1/fishing/rules", a.authed(func(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 		a.ok(w, a.games.FishingRules())
 	}))

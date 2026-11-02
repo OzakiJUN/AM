@@ -431,6 +431,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
             <span className="flex-1 text-[0.9rem]">自己申请加入</span>
             <Toggle label="自己申请加入桌游" checked={draft.games.join} onChange={(join) => set({ games: { ...draft.games, join } })} />
           </div>
+          <label className="flex items-center gap-3 text-sm">整理鱼获、鱼卡和徽章组件的间隔（分钟，0 关闭）<Input type="number" min={0} max={1440} value={draft.games.exhibitMinutes ?? 60} onChange={(e) => set({ games: { ...draft.games, exhibitMinutes: Math.max(0, Math.min(1440, Number(e.target.value) || 0)) } })} /></label>
           {draft.games.join && (
             <div className="flex items-center gap-3 px-1">
               <span className="shrink-0 text-[0.8rem] whitespace-nowrap text-ink-soft">随缘</span>

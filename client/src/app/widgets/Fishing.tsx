@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { current, session } from '@/lib/store';
 import type { WidgetModel } from '@/lib/widgets';
-import { CARD_RARITY, FISHING_ACCOUNT_EVENT, collectionProgress, exhibitCapacity, type Collection, type FishingRules } from '@/lib/fishing';
+import { CARD_RARITY, fishInfo, ownFish, moneyText, FISHING_ACCOUNT_EVENT, collectionProgress, exhibitCapacity, type Collection, type FishingRules } from '@/lib/fishing';
 import { FishArt, FishCard, FishingBadge } from '../Fishing';
 import type { WidgetCtx } from './Kinds';
 
@@ -15,7 +15,7 @@ export function FishingWidget({ w, ctx }: { w: WidgetModel; ctx: WidgetCtx }) {
       if (!live) return; if (loading) { reload = true; return; } loading = true;
       try {
         const [r, d, own] = await Promise.all([rulePromise, s.fishingShowcase(ctx.target), ctx.target === ctx.v.me?.id ? s.fishingAccount() : Promise.resolve(null)]);
-        if (live) { if (own) { d.records = {}; for (const f of own.fish ?? []) if (f.caught_by === ctx.target) d.records[f.id] = f; } setRules(r); setData(d); setError(''); }
+        if (live) { if (own) { d.records = {}; for (const f of ownFish(own, ctx.target)) d.records[f.id] = f; } setRules(r); setData(d); setError(''); }
       } catch (e) { if (live) setError(e instanceof Error ? e.message : String(e)); }
       finally { loading = false; if (reload && live) { reload = false; void load(); } }
     };
@@ -38,7 +38,7 @@ export function FishingWidget({ w, ctx }: { w: WidgetModel; ctx: WidgetCtx }) {
     {ids.map((id) => {
       if (w.kind === 'fishing_cards') return data.cards[id] > 0 ? <FishCard key={id} card={id} rules={rules} /> : <div key={id} className="text-xs text-ink-soft">未收集</div>;
       const f = data.records[id]; const species = rules.catalog.find((x) => x.id === f?.species);
-      return f ? <div key={id} className="flex min-h-0 flex-col rounded-xl bg-cyan-100/30 p-1 text-center dark:bg-cyan-900/20" title={`${species?.name} · ${f.length_cm} cm · ${id.includes(':') ? (id.endsWith(':min') ? '最短纪录' : '最长纪录') : '鱼获个体'}`}><div className="min-h-0 flex-1"><FishArt fish={species} vertical={verticalFish} /></div><span className="truncate text-[10px]">{species?.name}</span><span className="text-[10px] text-ink-soft">{f.length_cm} cm</span></div> : <div key={id} className="text-xs text-ink-soft">暂无纪录</div>;
+      return f ? <div key={id} className="flex min-h-0 flex-col rounded-xl bg-cyan-100/30 p-1 text-center dark:bg-cyan-900/20" title={fishInfo(f, species)}><div className="min-h-0 flex-1"><FishArt fish={species} vertical={verticalFish} /></div><span className="truncate text-[10px]">{species?.name}</span><span className="text-[10px] text-ink-soft">{f.length_m.toFixed(2)} m</span></div> : <div key={id} className="text-xs text-ink-soft">暂无纪录</div>;
     })}
   </div>;
 }
@@ -47,12 +47,12 @@ export function FishingConfig({ kind, cfg, set, capacity }: { kind: string; cfg:
   const [data, setData] = useState<Collection>(); const [rules, setRules] = useState<FishingRules>(); const [error, setError] = useState('');
   useEffect(() => {
     let live = true; const s = current(); if (!s.view.me) return;
-    void Promise.all([s.fishingRules(), s.fishingShowcase(s.view.me.id), s.fishingAccount()]).then(([r, d, own]) => { if (live) { d.records = {}; for (const f of own.fish ?? []) if (f.caught_by === s.view.me?.id) d.records[f.id] = f; setData(d); setRules(r); } }).catch((e: Error) => { if (live) setError(e.message); });
+    void Promise.all([s.fishingRules(), s.fishingShowcase(s.view.me.id), s.fishingAccount()]).then(([r, d, own]) => { if (live) { d.records = {}; for (const f of ownFish(own, s.view.me!.id)) d.records[f.id] = f; setData(d); setRules(r); } }).catch((e: Error) => { if (live) setError(e.message); });
     return () => { live = false; };
   }, []);
   if (kind === 'fishing_badges') return <p className="text-sm text-ink-soft">自动展示已获得的所有收藏徽章。铁、铜、银、金、镭射，每档收集 25%、50%、75%、100% 解锁四级徽章。</p>;
   const ids = strings(cfg.ids).filter((id) => kind !== 'fishing_fish' || !data || !!data.records[id]); const card = kind === 'fishing_cards';
-  const options = data && rules ? (card ? Object.keys(data.cards).filter((k) => data.cards[k] > 0).sort().map((id) => { const [tier, species] = id.split(':'); return { id, text: `${CARD_RARITY[Number(tier)]} · ${rules.catalog.find((s) => s.id === species)?.name}` }; }) : Object.entries(data.records).filter(([id]) => !id.includes(':')).sort(([a], [b]) => a.localeCompare(b)).map(([id, f]) => ({ id, text: `${rules.catalog.find((s) => s.id === f.species)?.name} · ${f.length_cm} cm · ${f.value} 币` }))) : [];
+  const options = data && rules ? (card ? Object.keys(data.cards).filter((k) => data.cards[k] > 0).sort().map((id) => { const [tier, species] = id.split(':'); return { id, text: `${CARD_RARITY[Number(tier)]} · ${rules.catalog.find((s) => s.id === species)?.name}` }; }) : Object.entries(data.records).filter(([id]) => !id.includes(':')).sort(([a], [b]) => a.localeCompare(b)).map(([id, f]) => ({ id, text: `${rules.catalog.find((s) => s.id === f.species)?.name} · ${f.length_m.toFixed(2)} m · ${moneyText(f.value)} 币` }))) : [];
   return <div className="space-y-3">
     {card && <label className="block text-sm">展示方式<select className="ml-2 rounded border bg-transparent p-2" value={String(cfg.mode ?? 'cards')} onChange={(e) => set({ mode: e.target.value })}><option value="cards">选择鱼卡</option><option value="progress">五档收集进度</option></select></label>}
     {(!card || cfg.mode !== 'progress') && <><p className="text-xs text-ink-soft">{card ? '每格一张卡。' : '每两格一条鱼，横宽时竖放，纵长时横放。只能选择鱼篓里仍持有、且自己钓到的鱼。卖出后不再展示，想留作收藏请保留它。'} 已选 {ids.length}/{capacity}</p><div className="max-h-56 space-y-1 overflow-auto">{options.map((o) => <label key={o.id} className="flex items-center gap-2 rounded-lg bg-black/5 p-2 text-sm dark:bg-white/5"><input type="checkbox" checked={ids.includes(o.id)} disabled={!ids.includes(o.id) && ids.length >= capacity} onChange={(e) => set({ ids: e.target.checked ? [...ids, o.id] : ids.filter((x) => x !== o.id) })} className="accent-cyan-700" />{o.text}</label>)}{!options.length && <p className="text-xs text-ink-soft">{error || '还没有可展示的收藏，先去钓鱼吧。'}</p>}</div></>}

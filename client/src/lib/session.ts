@@ -1,3 +1,4 @@
+import { readFishingSave, withFishingSave } from './fishingSync';
 import { FISHING_ACCOUNT_EVENT } from './fishing';
 import type { FishingAccount, FishingRules, FishingAction, Collection } from './fishing';
 import { mergeEmojiPins } from './chatTools';
@@ -742,12 +743,14 @@ export class Session {
   }
 
   openGame(convId: string, kind: GameKind, autoApprove: boolean) {
-    return this.gameCall('POST', `/api/v1/conversations/${convId}/games`, { schema: api.OpenGameRequestSchema, value: { kind, autoApprove } });
+    const send = () => this.gameCall('POST', `/api/v1/conversations/${convId}/games`, { schema: api.OpenGameRequestSchema, value: { kind, autoApprove } });
+    return kind === 'fishing' ? withFishingSave(this, send) : send();
   }
 
   /** join / start / leave / end, or rematch (a new game with the same players). */
   gameStep(id: string, step: 'join' | 'start' | 'leave' | 'end' | 'rematch') {
-    return this.gameCall('POST', `/api/v1/games/${id}/${step}`);
+    const send = () => this.gameCall('POST', `/api/v1/games/${id}/${step}`);
+    return step === 'join' && this.view.games[id]?.kind === 'fishing' ? withFishingSave(this, send) : send();
   }
 
   /** 对局记录: finished games of a conversation ending before `before` (ms; 0 = now), newest first. */
@@ -770,15 +773,20 @@ export class Session {
   }
 
   actGame(id: string, act: { action: 'move' | 'say' | 'vote' | 'resign' | 'ask' | 'guess' | 'sit' | 'reel' | 'steal'; x?: number; y?: number; text?: string; target?: number }) {
-    return this.gameCall('POST', `/api/v1/games/${id}/act`, { schema: api.GameActRequestSchema, value: act });
+    const send = () => this.gameCall('POST', `/api/v1/games/${id}/act`, { schema: api.GameActRequestSchema, value: act });
+    return this.view.games[id]?.kind === 'fishing' ? withFishingSave(this, send) : send();
   }
 
   refreshGame(id: string) { return this.gameCall('GET', `/api/v1/games/${id}`); }
   async fishingRules(): Promise<FishingRules> { return JSON.parse((await this.call('GET', '/api/v1/fishing/rules', api.FishingDataSchema)).stateJson); }
-  async fishingAccount(): Promise<FishingAccount> { return JSON.parse((await this.call('GET', '/api/v1/fishing/me', api.FishingDataSchema)).stateJson); }
+  fishingAccount(): Promise<FishingAccount> { return readFishingSave(this); }
+  async fishingRawAccount(): Promise<FishingAccount> { return JSON.parse((await this.call('GET', '/api/v1/fishing/me', api.FishingDataSchema)).stateJson); }
+  async fishingSyncRequest(mode: 'export' | 'mirror' | 'activate', stateJson: string, revision: number, transferId = '', destination = ''): Promise<{ account: FishingAccount; receipts?: Record<string, string> }> {
+    return JSON.parse((await this.call('POST', '/api/v1/fishing/sync', api.FishingDataSchema, { schema: api.FishingSyncRequestSchema, value: { mode, stateJson, expectedRevision: BigInt(revision), transferId, destination } })).stateJson);
+  }
   async fishingShowcase(user: string): Promise<Collection> { return JSON.parse((await this.call('GET', `/api/v1/users/${user}/fishing-showcase`, api.FishingDataSchema)).stateJson); }
   async fishingAction(action: FishingAction, requestId: string): Promise<FishingAccount> {
-    const state = JSON.parse((await this.call('POST', '/api/v1/fishing/me', api.FishingDataSchema, { schema: api.FishingActionRequestSchema, value: { ...action, requestId } })).stateJson) as FishingAccount;
+    const state = await withFishingSave(this, async () => JSON.parse((await this.call('POST', '/api/v1/fishing/me', api.FishingDataSchema, { schema: api.FishingActionRequestSchema, value: { ...action, requestId } })).stateJson) as FishingAccount);
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(FISHING_ACCOUNT_EVENT, { detail: this.view.id }));
     return state;
   }

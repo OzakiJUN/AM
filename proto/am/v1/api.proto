@@ -872,3 +872,12 @@ message FishingActionRequest {
   repeated string fish_ids = 4;
   string request_id = 5; // idempotency key, reused on retry
 }
+
+// Client-relayed fishing save. Mirrors are read-only, one active copy earns rewards.
+message FishingSyncRequest {
+ string mode = 1; // export | mirror | activate
+ string state_json = 2;
+ uint64 expected_revision = 3;
+ string transfer_id = 4;
+ string destination = 5; // immutable destination account slot
+}

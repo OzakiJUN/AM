@@ -24,11 +24,13 @@ var ErrGameLimit = apperr.New(http.StatusForbidden, "game_limit", "this conversa
 const ShowEnded = 6 * time.Hour
 
 type Service struct {
-	st      *store.Store
-	ids     *idgen.Generator
-	push    push.Pusher
-	max     int
-	fishing *FishingRules
+	st            *store.Store
+	ids           *idgen.Generator
+	push          push.Pusher
+	max           int
+	fishing       *FishingRules
+	fishingCancel context.CancelFunc
+	fishingDone   chan struct{}
 
 	mu  sync.Mutex
 	rnd *rand.Rand

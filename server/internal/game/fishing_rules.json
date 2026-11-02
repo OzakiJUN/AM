@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "wait_min_seconds": 18,
   "wait_max_seconds": 42,
   "bite_seconds": 30,
@@ -13,27 +13,6 @@
     12,
     6,
     2
-  ],
-  "size_weights": [
-    52,
-    28,
-    13,
-    6,
-    1
-  ],
-  "size_deviation": [
-    0.18,
-    0.35,
-    0.6,
-    0.9,
-    1.5
-  ],
-  "size_value": [
-    1,
-    1.5,
-    2.5,
-    5,
-    12
   ],
   "card_weights": [
     60,
@@ -79,11 +58,11 @@
     150
   ],
   "steal_cd_seconds": [
-    180,
-    145,
-    110,
-    80,
-    50
+    120,
+    85,
+    55,
+    35,
+    20
   ],
   "steal_percent": [
     35,
@@ -93,1112 +72,1131 @@
     95
   ],
   "ward_cd_seconds": [
-    180,
-    145,
-    110,
-    80,
-    50
+    240,
+    200,
+    160,
+    120,
+    90
   ],
   "catalog": [
     {
       "id": "f001",
       "name": "小丑鱼",
       "rarity": 0,
-      "average_cm": 8.0,
       "base_value": 15,
       "colour": "#fb923c",
       "shape": "round",
       "motif": 1,
-      "description": "小丑鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "小丑鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 8.0
     },
     {
       "id": "f002",
       "name": "锦鲤",
       "rarity": 0,
-      "average_cm": 14.0,
       "base_value": 18,
       "colour": "#fb923c",
       "shape": "long",
       "motif": 1,
-      "description": "锦鲤来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "锦鲤来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 14.0
     },
     {
       "id": "f003",
       "name": "玻璃鱼",
       "rarity": 0,
-      "average_cm": 23.0,
       "base_value": 21,
       "colour": "#fb923c",
       "shape": "ray",
       "motif": 2,
-      "description": "玻璃鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "玻璃鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 23.0
     },
     {
       "id": "f004",
       "name": "薄荷鱼",
       "rarity": 0,
-      "average_cm": 35.0,
       "base_value": 24,
       "colour": "#fb923c",
       "shape": "star",
       "motif": 3,
-      "description": "薄荷鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "薄荷鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 35.0
     },
     {
       "id": "f005",
       "name": "奶油鲫",
       "rarity": 0,
-      "average_cm": 49.0,
       "base_value": 27,
       "colour": "#fb923c",
       "shape": "whale",
       "motif": 4,
-      "description": "奶油鲫来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "奶油鲫来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 49.0
     },
     {
       "id": "f006",
       "name": "雨点鱼",
       "rarity": 0,
-      "average_cm": 70.0,
       "base_value": 30,
       "colour": "#fb923c",
       "shape": "round",
       "motif": 5,
-      "description": "雨点鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "雨点鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 70.0
     },
     {
       "id": "f007",
       "name": "西瓜鱼",
       "rarity": 0,
-      "average_cm": 110.0,
       "base_value": 33,
       "colour": "#fb923c",
       "shape": "long",
       "motif": 6,
-      "description": "西瓜鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "西瓜鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 110.0
     },
     {
       "id": "f008",
       "name": "柠檬鳗",
       "rarity": 0,
-      "average_cm": 180.0,
       "base_value": 36,
       "colour": "#fb923c",
       "shape": "long",
       "motif": 7,
-      "description": "柠檬鳗来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "柠檬鳗来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 180.0
     },
     {
       "id": "f009",
       "name": "蒲公英鱼",
       "rarity": 0,
-      "average_cm": 270.0,
       "base_value": 39,
       "colour": "#fb923c",
       "shape": "star",
       "motif": 8,
-      "description": "蒲公英鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "蒲公英鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 270.0
     },
     {
       "id": "f010",
       "name": "红围巾鱼",
       "rarity": 0,
-      "average_cm": 420.0,
       "base_value": 42,
       "colour": "#fb923c",
       "shape": "whale",
       "motif": 9,
-      "description": "红围巾鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "红围巾鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 420.0
     },
     {
       "id": "f011",
       "name": "纽扣鱼",
       "rarity": 0,
-      "average_cm": 8.0,
       "base_value": 45,
       "colour": "#fb923c",
       "shape": "round",
       "motif": 0,
-      "description": "纽扣鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "纽扣鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 8.0
     },
     {
       "id": "f012",
       "name": "邮票鱼",
       "rarity": 0,
-      "average_cm": 14.0,
       "base_value": 48,
       "colour": "#fb923c",
       "shape": "long",
       "motif": 1,
-      "description": "邮票鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "邮票鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 14.0
     },
     {
       "id": "f013",
       "name": "茶杯鱼",
       "rarity": 0,
-      "average_cm": 23.0,
       "base_value": 51,
       "colour": "#fb923c",
       "shape": "ray",
       "motif": 2,
-      "description": "茶杯鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "茶杯鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 23.0
     },
     {
       "id": "f014",
       "name": "棉花糖鱼",
       "rarity": 0,
-      "average_cm": 35.0,
       "base_value": 54,
       "colour": "#fb923c",
       "shape": "star",
       "motif": 3,
-      "description": "棉花糖鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "棉花糖鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 35.0
     },
     {
       "id": "f015",
       "name": "竹叶鱼",
       "rarity": 0,
-      "average_cm": 49.0,
       "base_value": 57,
       "colour": "#fb923c",
       "shape": "whale",
       "motif": 4,
-      "description": "竹叶鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "竹叶鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 49.0
     },
     {
       "id": "f016",
       "name": "软糖鱼",
       "rarity": 0,
-      "average_cm": 70.0,
       "base_value": 60,
       "colour": "#fb923c",
       "shape": "round",
       "motif": 5,
-      "description": "软糖鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "软糖鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 70.0
     },
     {
       "id": "f017",
       "name": "雨靴鱼",
       "rarity": 0,
-      "average_cm": 110.0,
       "base_value": 63,
       "colour": "#fb923c",
       "shape": "long",
       "motif": 6,
-      "description": "雨靴鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "雨靴鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 110.0
     },
     {
       "id": "f018",
       "name": "墨点鱼",
       "rarity": 0,
-      "average_cm": 180.0,
       "base_value": 66,
       "colour": "#fb923c",
       "shape": "ray",
       "motif": 7,
-      "description": "墨点鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "墨点鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 180.0
     },
     {
       "id": "f019",
       "name": "纸飞机鱼",
       "rarity": 0,
-      "average_cm": 270.0,
       "base_value": 69,
       "colour": "#fb923c",
       "shape": "star",
       "motif": 8,
-      "description": "纸飞机鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "纸飞机鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 270.0
     },
     {
       "id": "f020",
       "name": "气泡鱼",
       "rarity": 0,
-      "average_cm": 420.0,
       "base_value": 72,
       "colour": "#fb923c",
       "shape": "whale",
       "motif": 9,
-      "description": "气泡鱼来自岸边的日常幻想。每一条的长度都独一无二。"
+      "description": "气泡鱼来自岸边的日常幻想。每一条的长度都独一无二。",
+      "average_m": 420.0
     },
     {
       "id": "f021",
       "name": "星星鱼",
       "rarity": 1,
-      "average_cm": 29.4,
       "base_value": 99,
       "colour": "#34d399",
       "shape": "star",
       "motif": 0,
-      "description": "星星鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "星星鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 29.4
     },
     {
       "id": "f022",
       "name": "月牙鱼",
       "rarity": 1,
-      "average_cm": 44.8,
       "base_value": 102,
       "colour": "#34d399",
       "shape": "long",
       "motif": 1,
-      "description": "月牙鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "月牙鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 44.8
     },
     {
       "id": "f023",
       "name": "云朵鱼",
       "rarity": 1,
-      "average_cm": 62.7,
       "base_value": 105,
       "colour": "#34d399",
       "shape": "ray",
       "motif": 2,
-      "description": "云朵鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "云朵鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 62.7
     },
     {
       "id": "f024",
       "name": "铃铛鱼",
       "rarity": 1,
-      "average_cm": 89.6,
       "base_value": 108,
       "colour": "#34d399",
       "shape": "star",
       "motif": 3,
-      "description": "铃铛鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "铃铛鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 89.6
     },
     {
       "id": "f025",
       "name": "齿轮鱼",
       "rarity": 1,
-      "average_cm": 140.8,
       "base_value": 111,
       "colour": "#34d399",
       "shape": "whale",
       "motif": 4,
-      "description": "齿轮鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "齿轮鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 140.8
     },
     {
       "id": "f026",
       "name": "蘑菇鱼",
       "rarity": 1,
-      "average_cm": 230.4,
       "base_value": 114,
       "colour": "#34d399",
       "shape": "round",
       "motif": 5,
-      "description": "蘑菇鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "蘑菇鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 230.4
     },
     {
       "id": "f027",
       "name": "夜灯鱼",
       "rarity": 1,
-      "average_cm": 345.6,
       "base_value": 117,
       "colour": "#34d399",
       "shape": "long",
       "motif": 6,
-      "description": "夜灯鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "夜灯鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 345.6
     },
     {
       "id": "f028",
       "name": "风铃鳗",
       "rarity": 1,
-      "average_cm": 537.6,
       "base_value": 120,
       "colour": "#34d399",
       "shape": "long",
       "motif": 7,
-      "description": "风铃鳗来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "风铃鳗来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 537.6
     },
     {
       "id": "f029",
       "name": "枫糖鱼",
       "rarity": 1,
-      "average_cm": 10.2,
       "base_value": 123,
       "colour": "#34d399",
       "shape": "star",
       "motif": 8,
-      "description": "枫糖鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "枫糖鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 10.2
     },
     {
       "id": "f030",
       "name": "折纸鹤鱼",
       "rarity": 1,
-      "average_cm": 17.9,
       "base_value": 126,
       "colour": "#34d399",
       "shape": "whale",
       "motif": 9,
-      "description": "折纸鹤鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "折纸鹤鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 17.9
     },
     {
       "id": "f031",
       "name": "棋盘鱼",
       "rarity": 1,
-      "average_cm": 29.4,
       "base_value": 129,
       "colour": "#34d399",
       "shape": "round",
       "motif": 0,
-      "description": "棋盘鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "棋盘鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 29.4
     },
     {
       "id": "f032",
       "name": "热气球鱼",
       "rarity": 1,
-      "average_cm": 44.8,
       "base_value": 132,
       "colour": "#34d399",
       "shape": "long",
       "motif": 1,
-      "description": "热气球鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "热气球鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 44.8
     },
     {
       "id": "f033",
       "name": "郁金香鱼",
       "rarity": 1,
-      "average_cm": 62.7,
       "base_value": 135,
       "colour": "#34d399",
       "shape": "ray",
       "motif": 2,
-      "description": "郁金香鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "郁金香鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 62.7
     },
     {
       "id": "f034",
       "name": "星屑鱼",
       "rarity": 1,
-      "average_cm": 89.6,
       "base_value": 138,
       "colour": "#34d399",
       "shape": "star",
       "motif": 3,
-      "description": "星屑鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "星屑鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 89.6
     },
     {
       "id": "f035",
       "name": "雪花鱼",
       "rarity": 1,
-      "average_cm": 140.8,
       "base_value": 141,
       "colour": "#34d399",
       "shape": "star",
       "motif": 4,
-      "description": "雪花鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "雪花鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 140.8
     },
     {
       "id": "f036",
       "name": "银河蝌蚪",
       "rarity": 1,
-      "average_cm": 230.4,
       "base_value": 144,
       "colour": "#34d399",
       "shape": "round",
       "motif": 5,
-      "description": "银河蝌蚪来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "银河蝌蚪来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 230.4
     },
     {
       "id": "f037",
       "name": "猫耳鱼",
       "rarity": 1,
-      "average_cm": 345.6,
       "base_value": 147,
       "colour": "#34d399",
       "shape": "long",
       "motif": 6,
-      "description": "猫耳鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "猫耳鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 345.6
     },
     {
       "id": "f038",
       "name": "火车鱼",
       "rarity": 1,
-      "average_cm": 537.6,
       "base_value": 150,
       "colour": "#34d399",
       "shape": "ray",
       "motif": 7,
-      "description": "火车鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "火车鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 537.6
     },
     {
       "id": "f039",
       "name": "彩铅鱼",
       "rarity": 1,
-      "average_cm": 10.2,
       "base_value": 153,
       "colour": "#34d399",
       "shape": "star",
       "motif": 8,
-      "description": "彩铅鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "彩铅鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 10.2
     },
     {
       "id": "f040",
       "name": "指南针鱼",
       "rarity": 1,
-      "average_cm": 17.9,
       "base_value": 156,
       "colour": "#34d399",
       "shape": "whale",
       "motif": 9,
-      "description": "指南针鱼来自微光与童话的水域。每一条的长度都独一无二。"
+      "description": "指南针鱼来自微光与童话的水域。每一条的长度都独一无二。",
+      "average_m": 17.9
     },
     {
       "id": "f041",
       "name": "极光鱼",
       "rarity": 2,
-      "average_cm": 76.4,
       "base_value": 327,
       "colour": "#38bdf8",
       "shape": "round",
       "motif": 0,
-      "description": "极光鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "极光鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 76.4
     },
     {
       "id": "f042",
       "name": "流星鱼",
       "rarity": 2,
-      "average_cm": 109.2,
       "base_value": 330,
       "colour": "#38bdf8",
       "shape": "long",
       "motif": 1,
-      "description": "流星鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "流星鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 109.2
     },
     {
       "id": "f043",
       "name": "海盗船鱼",
       "rarity": 2,
-      "average_cm": 171.6,
       "base_value": 333,
       "colour": "#38bdf8",
       "shape": "ray",
       "motif": 2,
-      "description": "海盗船鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "海盗船鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 171.6
     },
     {
       "id": "f044",
       "name": "水晶鲨",
       "rarity": 2,
-      "average_cm": 280.8,
       "base_value": 336,
       "colour": "#38bdf8",
       "shape": "star",
       "motif": 3,
-      "description": "水晶鲨来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "水晶鲨来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 280.8
     },
     {
       "id": "f045",
       "name": "玫瑰鳐",
       "rarity": 2,
-      "average_cm": 421.2,
       "base_value": 339,
       "colour": "#38bdf8",
       "shape": "ray",
       "motif": 4,
-      "description": "玫瑰鳐来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "玫瑰鳐来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 421.2
     },
     {
       "id": "f046",
       "name": "珊瑚龙鱼",
       "rarity": 2,
-      "average_cm": 655.2,
       "base_value": 342,
       "colour": "#38bdf8",
       "shape": "round",
       "motif": 5,
-      "description": "珊瑚龙鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "珊瑚龙鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 655.2
     },
     {
       "id": "f047",
       "name": "钟表鱼",
       "rarity": 2,
-      "average_cm": 12.5,
       "base_value": 345,
       "colour": "#38bdf8",
       "shape": "long",
       "motif": 6,
-      "description": "钟表鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "钟表鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 12.5
     },
     {
       "id": "f048",
       "name": "黑胶鱼",
       "rarity": 2,
-      "average_cm": 21.8,
       "base_value": 348,
       "colour": "#38bdf8",
       "shape": "ray",
       "motif": 7,
-      "description": "黑胶鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "黑胶鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 21.8
     },
     {
       "id": "f049",
       "name": "蓝焰鱼",
       "rarity": 2,
-      "average_cm": 35.9,
       "base_value": 351,
       "colour": "#38bdf8",
       "shape": "star",
       "motif": 8,
-      "description": "蓝焰鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "蓝焰鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 35.9
     },
     {
       "id": "f050",
       "name": "狐狸尾鳗",
       "rarity": 2,
-      "average_cm": 54.6,
       "base_value": 354,
       "colour": "#38bdf8",
       "shape": "long",
       "motif": 9,
-      "description": "狐狸尾鳗来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "狐狸尾鳗来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 54.6
     },
     {
       "id": "f051",
       "name": "糖果城堡鱼",
       "rarity": 2,
-      "average_cm": 76.4,
       "base_value": 357,
       "colour": "#38bdf8",
       "shape": "round",
       "motif": 0,
-      "description": "糖果城堡鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "糖果城堡鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 76.4
     },
     {
       "id": "f052",
       "name": "旋律鱼",
       "rarity": 2,
-      "average_cm": 109.2,
       "base_value": 360,
       "colour": "#38bdf8",
       "shape": "long",
       "motif": 1,
-      "description": "旋律鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "旋律鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 109.2
     },
     {
       "id": "f053",
       "name": "日落鲸",
       "rarity": 2,
-      "average_cm": 171.6,
       "base_value": 363,
       "colour": "#38bdf8",
       "shape": "whale",
       "motif": 2,
-      "description": "日落鲸来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "日落鲸来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 171.6
     },
     {
       "id": "f054",
       "name": "镜面鱼",
       "rarity": 2,
-      "average_cm": 280.8,
       "base_value": 366,
       "colour": "#38bdf8",
       "shape": "star",
       "motif": 3,
-      "description": "镜面鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "镜面鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 280.8
     },
     {
       "id": "f055",
       "name": "梦游灯笼鱼",
       "rarity": 2,
-      "average_cm": 421.2,
       "base_value": 369,
       "colour": "#38bdf8",
       "shape": "whale",
       "motif": 4,
-      "description": "梦游灯笼鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "梦游灯笼鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 421.2
     },
     {
       "id": "f056",
       "name": "电路鱼",
       "rarity": 2,
-      "average_cm": 655.2,
       "base_value": 372,
       "colour": "#38bdf8",
       "shape": "round",
       "motif": 5,
-      "description": "电路鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "电路鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 655.2
     },
     {
       "id": "f057",
       "name": "小行星鱼",
       "rarity": 2,
-      "average_cm": 12.5,
       "base_value": 375,
       "colour": "#38bdf8",
       "shape": "long",
       "motif": 6,
-      "description": "小行星鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "小行星鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 12.5
     },
     {
       "id": "f058",
       "name": "银河水母鱼",
       "rarity": 2,
-      "average_cm": 21.8,
       "base_value": 378,
       "colour": "#38bdf8",
       "shape": "ray",
       "motif": 7,
-      "description": "银河水母鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "银河水母鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 21.8
     },
     {
       "id": "f059",
       "name": "图书馆鱼",
       "rarity": 2,
-      "average_cm": 35.9,
       "base_value": 381,
       "colour": "#38bdf8",
       "shape": "star",
       "motif": 8,
-      "description": "图书馆鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "图书馆鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 35.9
     },
     {
       "id": "f060",
       "name": "魔法扫帚鱼",
       "rarity": 2,
-      "average_cm": 54.6,
       "base_value": 384,
       "colour": "#38bdf8",
       "shape": "whale",
       "motif": 9,
-      "description": "魔法扫帚鱼来自远方奇妙的群岛。每一条的长度都独一无二。"
+      "description": "魔法扫帚鱼来自远方奇妙的群岛。每一条的长度都独一无二。",
+      "average_m": 54.6
     },
     {
       "id": "f061",
       "name": "星环鲸",
       "rarity": 3,
-      "average_cm": 202.4,
       "base_value": 771,
       "colour": "#c084fc",
       "shape": "whale",
       "motif": 0,
-      "description": "星环鲸来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "星环鲸来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 202.4
     },
     {
       "id": "f062",
       "name": "彗星鳗",
       "rarity": 3,
-      "average_cm": 331.2,
       "base_value": 774,
       "colour": "#c084fc",
       "shape": "long",
       "motif": 1,
-      "description": "彗星鳗来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "彗星鳗来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 331.2
     },
     {
       "id": "f063",
       "name": "棱镜龙鱼",
       "rarity": 3,
-      "average_cm": 496.8,
       "base_value": 777,
       "colour": "#c084fc",
       "shape": "ray",
       "motif": 2,
-      "description": "棱镜龙鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "棱镜龙鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 496.8
     },
     {
       "id": "f064",
       "name": "量子双子鱼",
       "rarity": 3,
-      "average_cm": 772.8,
       "base_value": 780,
       "colour": "#c084fc",
       "shape": "star",
       "motif": 3,
-      "description": "量子双子鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "量子双子鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 772.8
     },
     {
       "id": "f065",
       "name": "时间沙漏鱼",
       "rarity": 3,
-      "average_cm": 14.7,
       "base_value": 783,
       "colour": "#c084fc",
       "shape": "whale",
       "motif": 4,
-      "description": "时间沙漏鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "时间沙漏鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 14.7
     },
     {
       "id": "f066",
       "name": "梦境独角鲸",
       "rarity": 3,
-      "average_cm": 25.8,
       "base_value": 786,
       "colour": "#c084fc",
       "shape": "whale",
       "motif": 5,
-      "description": "梦境独角鲸来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "梦境独角鲸来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 25.8
     },
     {
       "id": "f067",
       "name": "日食鱼",
       "rarity": 3,
-      "average_cm": 42.3,
       "base_value": 789,
       "colour": "#c084fc",
       "shape": "long",
       "motif": 6,
-      "description": "日食鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "日食鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 42.3
     },
     {
       "id": "f068",
       "name": "天空之城鱼",
       "rarity": 3,
-      "average_cm": 64.4,
       "base_value": 792,
       "colour": "#c084fc",
       "shape": "ray",
       "motif": 7,
-      "description": "天空之城鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "天空之城鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 64.4
     },
     {
       "id": "f069",
       "name": "深空灯塔鱼",
       "rarity": 3,
-      "average_cm": 90.2,
       "base_value": 795,
       "colour": "#c084fc",
       "shape": "star",
       "motif": 8,
-      "description": "深空灯塔鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "深空灯塔鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 90.2
     },
     {
       "id": "f070",
       "name": "极夜凤凰鱼",
       "rarity": 3,
-      "average_cm": 128.8,
       "base_value": 798,
       "colour": "#c084fc",
       "shape": "whale",
       "motif": 9,
-      "description": "极夜凤凰鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "极夜凤凰鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 128.8
     },
     {
       "id": "f071",
       "name": "引力鱼",
       "rarity": 3,
-      "average_cm": 202.4,
       "base_value": 801,
       "colour": "#c084fc",
       "shape": "round",
       "motif": 0,
-      "description": "引力鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "引力鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 202.4
     },
     {
       "id": "f072",
       "name": "彩虹桥鳐",
       "rarity": 3,
-      "average_cm": 331.2,
       "base_value": 804,
       "colour": "#c084fc",
       "shape": "ray",
       "motif": 1,
-      "description": "彩虹桥鳐来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "彩虹桥鳐来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 331.2
     },
     {
       "id": "f073",
       "name": "八音盒鲸",
       "rarity": 3,
-      "average_cm": 496.8,
       "base_value": 807,
       "colour": "#c084fc",
       "shape": "whale",
       "motif": 2,
-      "description": "八音盒鲸来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "八音盒鲸来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 496.8
     },
     {
       "id": "f074",
       "name": "次元裂隙鱼",
       "rarity": 3,
-      "average_cm": 772.8,
       "base_value": 810,
       "colour": "#c084fc",
       "shape": "star",
       "motif": 3,
-      "description": "次元裂隙鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "次元裂隙鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 772.8
     },
     {
       "id": "f075",
       "name": "永冻花鱼",
       "rarity": 3,
-      "average_cm": 14.7,
       "base_value": 813,
       "colour": "#c084fc",
       "shape": "whale",
       "motif": 4,
-      "description": "永冻花鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "永冻花鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 14.7
     },
     {
       "id": "f076",
       "name": "太阳帆鱼",
       "rarity": 3,
-      "average_cm": 25.8,
       "base_value": 816,
       "colour": "#c084fc",
       "shape": "round",
       "motif": 5,
-      "description": "太阳帆鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "太阳帆鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 25.8
     },
     {
       "id": "f077",
       "name": "迷宫鱼",
       "rarity": 3,
-      "average_cm": 42.3,
       "base_value": 819,
       "colour": "#c084fc",
       "shape": "long",
       "motif": 6,
-      "description": "迷宫鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "迷宫鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 42.3
     },
     {
       "id": "f078",
       "name": "月背白龙鱼",
       "rarity": 3,
-      "average_cm": 64.4,
       "base_value": 822,
       "colour": "#c084fc",
       "shape": "ray",
       "motif": 7,
-      "description": "月背白龙鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "月背白龙鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 64.4
     },
     {
       "id": "f079",
       "name": "宇宙汽水鱼",
       "rarity": 3,
-      "average_cm": 90.2,
       "base_value": 825,
       "colour": "#c084fc",
       "shape": "star",
       "motif": 8,
-      "description": "宇宙汽水鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "宇宙汽水鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 90.2
     },
     {
       "id": "f080",
       "name": "纸月亮鱼",
       "rarity": 3,
-      "average_cm": 128.8,
       "base_value": 828,
       "colour": "#c084fc",
       "shape": "whale",
       "motif": 9,
-      "description": "纸月亮鱼来自星空深处的秘境。每一条的长度都独一无二。"
+      "description": "纸月亮鱼来自星空深处的秘境。每一条的长度都独一无二。",
+      "average_m": 128.8
     },
     {
       "id": "f081",
       "name": "宇宙尽头鱼",
       "rarity": 4,
-      "average_cm": 572.4,
       "base_value": 1503,
       "colour": "#facc15",
       "shape": "round",
       "motif": 0,
-      "description": "宇宙尽头鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "宇宙尽头鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 572.4
     },
     {
       "id": "f082",
       "name": "创世小银鱼",
       "rarity": 4,
-      "average_cm": 2.5,
       "base_value": 1506,
       "colour": "#facc15",
       "shape": "long",
       "motif": 1,
-      "description": "创世小银鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "创世小银鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 2.5
     },
     {
       "id": "f083",
       "name": "吞星鲲",
       "rarity": 4,
-      "average_cm": 1940,
       "base_value": 1509,
       "colour": "#facc15",
       "shape": "whale",
       "motif": 2,
-      "description": "吞星鲲来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "吞星鲲来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 1940
     },
     {
       "id": "f084",
       "name": "零维鱼",
       "rarity": 4,
-      "average_cm": 0.8,
       "base_value": 1512,
       "colour": "#facc15",
       "shape": "star",
       "motif": 3,
-      "description": "零维鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "零维鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 0.8
     },
     {
       "id": "f085",
       "name": "无限长鳗",
       "rarity": 4,
-      "average_cm": 2080,
       "base_value": 1515,
       "colour": "#facc15",
       "shape": "long",
       "motif": 4,
-      "description": "无限长鳗来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "无限长鳗来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 2080
     },
     {
       "id": "f086",
       "name": "微缩银河鱼",
       "rarity": 4,
-      "average_cm": 4,
       "base_value": 1518,
       "colour": "#facc15",
       "shape": "round",
       "motif": 5,
-      "description": "微缩银河鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "微缩银河鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 4
     },
     {
       "id": "f087",
       "name": "因果倒流鱼",
       "rarity": 4,
-      "average_cm": 103.9,
       "base_value": 1521,
       "colour": "#facc15",
       "shape": "long",
       "motif": 6,
-      "description": "因果倒流鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "因果倒流鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 103.9
     },
     {
       "id": "f088",
       "name": "白洞鲸",
       "rarity": 4,
-      "average_cm": 148.4,
       "base_value": 1524,
       "colour": "#facc15",
       "shape": "whale",
       "motif": 7,
-      "description": "白洞鲸来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "白洞鲸来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 148.4
     },
     {
       "id": "f089",
       "name": "熵之花鱼",
       "rarity": 4,
-      "average_cm": 233.2,
       "base_value": 1527,
       "colour": "#facc15",
       "shape": "star",
       "motif": 8,
-      "description": "熵之花鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "熵之花鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 233.2
     },
     {
       "id": "f090",
       "name": "未命名之鱼",
       "rarity": 4,
-      "average_cm": 381.6,
       "base_value": 1530,
       "colour": "#facc15",
       "shape": "whale",
       "motif": 9,
-      "description": "未命名之鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "未命名之鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 381.6
     },
     {
       "id": "f091",
       "name": "群星合唱鱼",
       "rarity": 4,
-      "average_cm": 572.4,
       "base_value": 1533,
       "colour": "#facc15",
       "shape": "round",
       "motif": 0,
-      "description": "群星合唱鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "群星合唱鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 572.4
     },
     {
       "id": "f092",
       "name": "梦的化石鱼",
       "rarity": 4,
-      "average_cm": 890.4,
       "base_value": 1536,
       "colour": "#facc15",
       "shape": "long",
       "motif": 1,
-      "description": "梦的化石鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "梦的化石鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 890.4
     },
     {
       "id": "f093",
       "name": "时间之外鱼",
       "rarity": 4,
-      "average_cm": 17.0,
       "base_value": 1539,
       "colour": "#facc15",
       "shape": "ray",
       "motif": 2,
-      "description": "时间之外鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "时间之外鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 17.0
     },
     {
       "id": "f094",
       "name": "最后一束光鱼",
       "rarity": 4,
-      "average_cm": 29.7,
       "base_value": 1542,
       "colour": "#facc15",
       "shape": "star",
       "motif": 3,
-      "description": "最后一束光鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "最后一束光鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 29.7
     },
     {
       "id": "f095",
       "name": "第一滴雨鱼",
       "rarity": 4,
-      "average_cm": 48.8,
       "base_value": 1545,
       "colour": "#facc15",
       "shape": "whale",
       "motif": 4,
-      "description": "第一滴雨鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "第一滴雨鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 48.8
     },
     {
       "id": "f096",
       "name": "平行宇宙鱼",
       "rarity": 4,
-      "average_cm": 74.2,
       "base_value": 1548,
       "colour": "#facc15",
       "shape": "round",
       "motif": 5,
-      "description": "平行宇宙鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "平行宇宙鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 74.2
     },
     {
       "id": "f097",
       "name": "透明王冠鱼",
       "rarity": 4,
-      "average_cm": 103.9,
       "base_value": 1551,
       "colour": "#facc15",
       "shape": "long",
       "motif": 6,
-      "description": "透明王冠鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "透明王冠鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 103.9
     },
     {
       "id": "f098",
       "name": "黑洞幼崽",
       "rarity": 4,
-      "average_cm": 148.4,
       "base_value": 1554,
       "colour": "#facc15",
       "shape": "ray",
       "motif": 7,
-      "description": "黑洞幼崽来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "黑洞幼崽来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 148.4
     },
     {
       "id": "f099",
       "name": "万有引力鲸",
       "rarity": 4,
-      "average_cm": 3060,
       "base_value": 1557,
       "colour": "#facc15",
       "shape": "whale",
       "motif": 8,
-      "description": "万有引力鲸来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "万有引力鲸来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 3060
     },
     {
       "id": "f100",
       "name": "终焉与新生鱼",
       "rarity": 4,
-      "average_cm": 381.6,
       "base_value": 1560,
       "colour": "#facc15",
       "shape": "whale",
       "motif": 9,
-      "description": "终焉与新生鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。"
+      "description": "终焉与新生鱼来自无人见过的宇宙边缘。每一条的长度都独一无二。",
+      "average_m": 381.6
     }
+  ],
+  "length_sigma": 0.22,
+  "length_value_scale": 8,
+  "worker_ms": 1000,
+  "catchup_batch": 256,
+  "auto_steal_delay_ms": 2500,
+  "ward_block_percent": [
+    80,
+    85,
+    90,
+    95,
+    97
+  ],
+  "glove_pierce_percent": [
+    0,
+    5,
+    12,
+    22,
+    35
   ]
 }

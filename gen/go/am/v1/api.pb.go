@@ -5829,6 +5829,83 @@ func (x *FishingActionRequest) GetRequestId() string {
 	return ""
 }
 
+// Client-relayed fishing save. Mirrors are read-only, one active copy earns rewards.
+type FishingSyncRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Mode             string                 `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"` // export | mirror | activate
+	StateJson        string                 `protobuf:"bytes,2,opt,name=state_json,json=stateJson,proto3" json:"state_json,omitempty"`
+	ExpectedRevision uint64                 `protobuf:"varint,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	TransferId       string                 `protobuf:"bytes,4,opt,name=transfer_id,json=transferId,proto3" json:"transfer_id,omitempty"`
+	Destination      string                 `protobuf:"bytes,5,opt,name=destination,proto3" json:"destination,omitempty"` // immutable destination account slot
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *FishingSyncRequest) Reset() {
+	*x = FishingSyncRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FishingSyncRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FishingSyncRequest) ProtoMessage() {}
+
+func (x *FishingSyncRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FishingSyncRequest.ProtoReflect.Descriptor instead.
+func (*FishingSyncRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *FishingSyncRequest) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *FishingSyncRequest) GetStateJson() string {
+	if x != nil {
+		return x.StateJson
+	}
+	return ""
+}
+
+func (x *FishingSyncRequest) GetExpectedRevision() uint64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
+func (x *FishingSyncRequest) GetTransferId() string {
+	if x != nil {
+		return x.TransferId
+	}
+	return ""
+}
+
+func (x *FishingSyncRequest) GetDestination() string {
+	if x != nil {
+		return x.Destination
+	}
+	return ""
+}
+
 var File_am_v1_api_proto protoreflect.FileDescriptor
 
 const file_am_v1_api_proto_rawDesc = "" +
@@ -6285,7 +6362,15 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\aquality\x18\x03 \x01(\x05R\aquality\x12\x19\n" +
 	"\bfish_ids\x18\x04 \x03(\tR\afishIds\x12\x1d\n" +
 	"\n" +
-	"request_id\x18\x05 \x01(\tR\trequestId*k\n" +
+	"request_id\x18\x05 \x01(\tR\trequestId\"\xb7\x01\n" +
+	"\x12FishingSyncRequest\x12\x12\n" +
+	"\x04mode\x18\x01 \x01(\tR\x04mode\x12\x1d\n" +
+	"\n" +
+	"state_json\x18\x02 \x01(\tR\tstateJson\x12+\n" +
+	"\x11expected_revision\x18\x03 \x01(\x04R\x10expectedRevision\x12\x1f\n" +
+	"\vtransfer_id\x18\x04 \x01(\tR\n" +
+	"transferId\x12 \n" +
+	"\vdestination\x18\x05 \x01(\tR\vdestination*k\n" +
 	"\x0eProfileEditors\x12\x1f\n" +
 	"\x1bPROFILE_EDITORS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16PROFILE_EDITORS_ADMINS\x10\x01\x12\x1c\n" +
@@ -6304,7 +6389,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 91)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 92)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -6396,39 +6481,40 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*HelperCommandsResponse)(nil),   // 87: am.v1.HelperCommandsResponse
 	(*FishingData)(nil),              // 88: am.v1.FishingData
 	(*FishingActionRequest)(nil),     // 89: am.v1.FishingActionRequest
-	nil,                              // 90: am.v1.LookupStickersResponse.LibraryIdsEntry
-	nil,                              // 91: am.v1.PortraitPack.MediaIdsEntry
-	(*User)(nil),                     // 92: am.v1.User
-	(*Activity)(nil),                 // 93: am.v1.Activity
-	(*Game)(nil),                     // 94: am.v1.Game
+	(*FishingSyncRequest)(nil),       // 90: am.v1.FishingSyncRequest
+	nil,                              // 91: am.v1.LookupStickersResponse.LibraryIdsEntry
+	nil,                              // 92: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 93: am.v1.User
+	(*Activity)(nil),                 // 94: am.v1.Activity
+	(*Game)(nil),                     // 95: am.v1.Game
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	92, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	93, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	92, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	93, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	92, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	92, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	92, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	92, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	92, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	93, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	93, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	93, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	93, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	93, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	93, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	94, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	92, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	92, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	93, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	93, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	92, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	93, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	43, // 18: am.v1.AIAccount.hosting:type_name -> am.v1.AIHosting
 	49, // 19: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
 	54, // 20: am.v1.ListLibraryResponse.items:type_name -> am.v1.LibrarySticker
-	90, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
+	91, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
 	60, // 22: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	91, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
-	92, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
-	94, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
+	92, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	93, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
+	95, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
 	70, // 26: am.v1.AIPlugin.config_items:type_name -> am.v1.PluginConfigItem
 	71, // 27: am.v1.ListPluginsResponse.plugins:type_name -> am.v1.AIPlugin
 	75, // 28: am.v1.MuseumView.hall:type_name -> am.v1.MuseumArt
@@ -6461,7 +6547,7 @@ func file_am_v1_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   91,
+			NumMessages:   92,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

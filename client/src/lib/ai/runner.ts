@@ -1,3 +1,4 @@
+import { arrangeFishingExhibits } from './fishingPage';
 import { isBiting, type FishingAction } from '@/lib/fishing';
 // Runs my AI accounts on this device (docs/design.md §9). Each AI has one
 // device that runs it (settings.runner); that device logs in as the AI
@@ -1199,8 +1200,21 @@ async function tickFishing(run: Run) {
   } finally { run.fishingBusy = false; }
 }
 
+async function tickFishingExhibits(run: Run) {
+ const minutes = run.settings.games.exhibitMinutes ?? 60;
+ if (!minutes || run.settings.computer.levels.games === 'deny') return;
+ const key = `am-ai-fishing-page:${run.serverId}:${run.ai.user.id}`;
+ const last = Number(localStorage.getItem(key) ?? 0);
+ if (Date.now() < last + minutes * MIN) return;
+ const [account, page] = await Promise.all([run.s.fishingAccount(), run.s.getProfile(run.ai.user.id)]);
+ const next = arrangeFishingExhibits(page.layout, account, run.ai.user.id);
+ if (JSON.stringify(next) !== JSON.stringify(page.layout)) await run.s.saveProfile(run.ai.user.id, next, true);
+ localStorage.setItem(key, String(Date.now()));
+}
+
 async function tickRoutine(run: Run) {
   if (run.s.view.status !== 'online') return;
+  await tickFishingExhibits(run).catch(() => {});
   await tickProactive(run).catch(() => {});
   if (run.statusUntil && Date.now() > run.statusUntil) {
     run.statusUntil = 0;

@@ -27,6 +27,8 @@ func TestFishing(t *testing.T) {
 	rules.LootWeights = []int{1, 0, 0, 0}
 	for i := range rules.StealChance {
 		rules.StealChance[i] = 100
+		rules.WardBlock[i] = 100
+		rules.GlovePierce[i] = 0
 	}
 	path := filepath.Join(t.TempDir(), "fishing.json")
 	mustWrite := func() {
@@ -207,7 +209,7 @@ func testFishing(t *testing.T, a *app.App, base string) {
 		t.Fatal("request id accepted with changed payload")
 	}
 	// Two simultaneous pack requests with one id spend once.
-	updateAccount(host, func(a *game.FishingAccount) { a.Coins = 100000 })
+	updateAccount(host, func(a *game.FishingAccount) { a.Coins = game.Coins(100000) })
 	req = &amv1.FishingActionRequest{Action: "buy_pack", RequestId: "parallel-pack-once"}
 	data := must(protojson.Marshal(req))
 	var wg sync.WaitGroup
@@ -224,7 +226,7 @@ func testFishing(t *testing.T, a *app.App, base string) {
 		}
 	}
 	after := account(host)
-	if after.Packs != 1 || after.Coins != 100000-180 {
+	if after.Packs != 1 || after.Coins != game.Coins(100000-180) {
 		t.Fatal("double spend")
 	}
 	if code, opened := shop(host, &amv1.FishingActionRequest{Action: "open_pack", RequestId: "open-just-once"}); code != 200 || len(opened.Opened) != 4 || opened.Packs != 0 {
@@ -274,13 +276,13 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	}
 	setBite(g.Id, host.me.Id, true)
 	must(host.cli.GetGame(ctx, g.Id))
-	if len(account(host).Fish) != 2 {
-		t.Fatal("expired bite rewarded")
+	if len(account(host).Fish) != 3 {
+		t.Fatal("offline托管没有收杆")
 	}
 	must(host.cli.GameStep(ctx, g.Id, "leave"))
 	again := must(host.cli.OpenGame(ctx, second.Id, "fishing", true))
 	kept := account(host)
-	if len(kept.Fish) != 2 || kept.AutoAt != auto.AutoAt || len(kept.Cards) == 0 {
+	if len(kept.Fish) != 3 || kept.AutoAt != auto.AutoAt || len(kept.Cards) == 0 {
 		t.Fatal("state lost across channels")
 	}
 	code, b := call(other, "GET", fmt.Sprintf("/api/v1/users/%d/fishing-showcase", host.me.Id), nil)
@@ -303,7 +305,7 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	}
 	// Old account catches survive a fresh reader of the same persistent store.
 	raw := must(a.Store.FishingAccount(ctx, host.me.Id))
-	if !bytes.Contains([]byte(raw), []byte("length_cm")) {
+	if !bytes.Contains([]byte(raw), []byte("length_m")) {
 		t.Fatal("not stored")
 	}
 }

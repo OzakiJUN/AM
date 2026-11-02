@@ -6,9 +6,12 @@ import { kindInfo } from '../widgetKinds.ts';
 import { GRID, firstFree, fits, placements, type Background, type Cell, type LayoutModel, type WidgetModel } from '../widgets.ts';
 
 /** Kinds it can fill in by itself (no uploads needed; songs come from NetEase links). */
-export const AI_KINDS = ['text', 'links', 'countdown', 'stats', 'guestbook', 'status', 'song', 'playlist'] as const;
+export const AI_KINDS = ['text', 'links', 'countdown', 'stats', 'guestbook', 'status', 'song', 'playlist', 'fishing_fish', 'fishing_cards', 'fishing_badges'] as const;
 
 const HOW: Record<(typeof AI_KINDS)[number], string> = {
+  fishing_fish: '鱼获展示：{ids:[鱼获ID]}，每两格一条，卖掉后不可展示，只能选本人当前持有的钓获',
+  fishing_cards: '鱼卡展示：{ids:[卡ID],mode:cards}，每格一张，或 mode:progress 显示收集进度',
+  fishing_badges: '收藏徽章：{}，自动显示已获得徽章',
   text: 'text 文字卡片：{"title":"标题(40字内)","text":"正文(1000字内)"}，最小 2×1',
   links: 'links 链接：{"items":[{"title":"名字","url":"https://…"}]}（最多 6 个），最小 2×1',
   countdown: 'countdown 倒计时：{"title":"标题","date":"2026-12-25"}，最小 1×1',

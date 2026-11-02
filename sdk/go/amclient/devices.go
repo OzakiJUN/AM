@@ -176,3 +176,7 @@ func (c *Client) FishingAction(ctx context.Context, req *amv1.FishingActionReque
 	out := &amv1.FishingData{}
 	return out, c.call(ctx, http.MethodPost, "/api/v1/fishing/me", req, out)
 }
+func (c *Client) FishingSync(ctx context.Context, req *amv1.FishingSyncRequest) (*amv1.FishingData, error) {
+	out := &amv1.FishingData{}
+	return out, c.call(ctx, http.MethodPost, "/api/v1/fishing/sync", req, out)
+}
