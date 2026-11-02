@@ -1273,10 +1273,13 @@ export class Session {
     return load;
   }
 
+  /** A history page can contain only pin/strike events, with no chat bubble. */
+  private olderBefore = new Map<string, number>();
+
   /** Loads one more page of older messages. */
   async loadOlder(convId: string) {
     const list = this.view.messages[convId] ?? [];
-    const first = list.find((m) => !m.pending)?.seq ?? (this.view.convs[convId]?.lastSeq ?? 0) + 1;
+    const first = this.olderBefore.get(convId) ?? list.find((m) => !m.pending)?.seq ?? (this.view.convs[convId]?.lastSeq ?? 0) + 1;
     if (first <= 1) {
       this.view.hasOlder = { ...this.view.hasOlder, [convId]: false };
       this.emit();
@@ -1287,7 +1290,9 @@ export class Session {
       case: 'sync',
       value: create(gw.SyncRequestSchema, { cursors: [{ convId: BigInt(convId), afterSeq: BigInt(after) }], limit: first - 1 - after }),
     });
-    if (f.msg.case === 'sync') this.applyEvents(f.msg.value.events.filter((e) => Number(e.seq) < first), false);
+    if (f.msg.case !== 'sync') return;
+    this.applyEvents(f.msg.value.events.filter((e) => Number(e.seq) < first), false);
+    this.olderBefore.set(convId, after + 1);
     this.view.hasOlder = { ...this.view.hasOlder, [convId]: after > 0 };
     this.emit();
   }
