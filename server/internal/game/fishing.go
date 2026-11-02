@@ -19,6 +19,7 @@ import (
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/store"
+	"google.golang.org/protobuf/proto"
 )
 
 //go:embed fishing_rules.json
@@ -258,6 +259,53 @@ func (s *Service) FishingShowcase(ctx context.Context, user int64) (*amv1.Fishin
 			return nil, err
 		}
 	}
+	// Resolve only catches selected on the saved profile, scoped to its owner.
+	recordCopies := make([]CaughtFish, 0, len(a.Records))
+	for _, f := range a.Records {
+		recordCopies = append(recordCopies, f)
+	}
+	for _, f := range recordCopies {
+		a.Records[f.ID] = f
+	}
+	_, layoutData, layoutErr := s.st.LatestLayout(ctx, store.ProfileUser, user)
+	if layoutErr != nil && !errors.Is(layoutErr, store.ErrNotFound) {
+		return nil, layoutErr
+	}
+	if layoutErr == nil {
+		var layout amv1.ProfileLayout
+		if err := proto.Unmarshal(layoutData, &layout); err != nil {
+			return nil, err
+		}
+		var ids []int64
+		seen := map[int64]bool{}
+		for _, w := range layout.Widgets {
+			if w.Kind != "fishing_fish" {
+				continue
+			}
+			var cfg struct{ IDs []string }
+			if json.Unmarshal([]byte(w.Config), &cfg) != nil {
+				continue
+			}
+			for _, id := range cfg.IDs {
+				n, e := strconv.ParseInt(id, 10, 64)
+				if e == nil && n > 0 && !seen[n] {
+					ids = append(ids, n)
+					seen[n] = true
+				}
+			}
+		}
+		archived, err := s.st.FishingExhibits(ctx, user, ids)
+		if err != nil {
+			return nil, err
+		}
+		for id, raw := range archived {
+			var fish CaughtFish
+			if err := json.Unmarshal([]byte(raw), &fish); err != nil {
+				return nil, err
+			}
+			a.Records[strconv.FormatInt(id, 10)] = fish
+		}
+	}
 	// No wallet, equipment, pending catch or private inventory leaves this endpoint.
 	b, _ := json.Marshal(struct {
 		Records map[string]CaughtFish `json:"records"`
@@ -464,12 +512,16 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 		}
 		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 		accounts := map[int64]*FishingAccount{}
+		originalFish := map[string]bool{}
 		for _, u := range ids {
 			a, err := s.account(ctx, q, u)
 			if err != nil {
 				return err
 			}
 			accounts[u] = a
+			for _, f := range a.Fish {
+				originalFish[f.ID] = true
+			}
 		}
 		now := time.Now().UnixMilli()
 		s.mu.Lock()
@@ -605,6 +657,15 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 			return nil
 		}
 		for _, u := range ids {
+			for _, f := range accounts[u].Fish {
+				if !originalFish[f.ID] && f.By == strconv.FormatInt(u, 10) {
+					data, _ := json.Marshal(f)
+					fishID, _ := strconv.ParseInt(f.ID, 10, 64)
+					if err = q.ArchiveFishingCatch(ctx, u, fishID, string(data)); err != nil {
+						return err
+					}
+				}
+			}
 			if err = saveAccount(ctx, q, u, accounts[u]); err != nil {
 				return err
 			}

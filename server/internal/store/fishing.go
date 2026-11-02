@@ -49,3 +49,31 @@ func (q *Queries) FishingReceipt(ctx context.Context, user int64, key, hash stri
 	_, err = q.exec(ctx, `INSERT INTO fishing_actions (user_id,request_id,fingerprint) VALUES (?,?,?)`, user, key, hash)
 	return false, err
 }
+
+// ArchiveFishingCatch preserves a self-caught fish for a future exhibit, even after sale.
+func (q *Queries) ArchiveFishingCatch(ctx context.Context, user, fish int64, specimen string) error {
+	_, err := q.exec(ctx, `INSERT INTO fishing_catches (user_id,fish_id,specimen) VALUES (?,?,?) ON CONFLICT (user_id,fish_id) DO NOTHING`, user, fish, specimen)
+	return err
+}
+func (q *Queries) FishingExhibits(ctx context.Context, user int64, fish []int64) (map[int64]string, error) {
+	out := map[int64]string{}
+	if len(fish) == 0 {
+		return out, nil
+	}
+	list, args := inList(fish)
+	args = append([]any{user}, args...)
+	rows, err := q.query(ctx, `SELECT fish_id,specimen FROM fishing_catches WHERE user_id=? AND fish_id IN `+list, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var data string
+		if err := rows.Scan(&id, &data); err != nil {
+			return nil, err
+		}
+		out[id] = data
+	}
+	return out, rows.Err()
+}

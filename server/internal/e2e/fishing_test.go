@@ -19,6 +19,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/game"
 	"github.com/OzakiJUN/am/server/internal/store"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestFishing(t *testing.T) {
@@ -168,6 +169,40 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	if status != 200 || retry.Coins != sold.Coins {
 		t.Fatal("retry paid twice")
 	}
+	// Mount an arbitrary individual by catch id. The archive survives sale,
+	// even if this fish is no longer a size record, and cannot resolve another owner.
+	savedRecords := sold.Records
+	updateAccount(host, func(a *game.FishingAccount) { a.Records = map[string]game.CaughtFish{} })
+	fishID := first.Fish[0].ID
+	outsiderFish := first.Fish[0]
+	outsiderFish.ID = "1234567"
+	outsiderFish.By = strconv.FormatInt(other.me.Id, 10)
+	outsiderData := must(json.Marshal(outsiderFish))
+	mustNoErr := a.Store.ArchiveFishingCatch(ctx, other.me.Id, 1234567, string(outsiderData))
+	if mustNoErr != nil {
+		t.Fatal(mustNoErr)
+	}
+	layout := &amv1.ProfileLayout{Widgets: []*amv1.Widget{{Id: "my-fish", Kind: "fishing_fish", Source: amv1.WidgetSource_WIDGET_SOURCE_BUILTIN, W: 2, H: 2, Config: fmt.Sprintf(`{"ids":["%s","1234567"]}`, fishID), Landscape: &amv1.Cell{}}}}
+	layoutBytes := must(proto.Marshal(layout))
+	if err := a.Store.AddLayout(ctx, store.ProfileUser, host.me.Id, 1, layoutBytes, host.me.Id, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	code, publicBody := call(other, "GET", fmt.Sprintf("/api/v1/users/%d/fishing-showcase", host.me.Id), nil)
+	if code != 200 {
+		t.Fatal("mounted archive unavailable")
+	}
+	var mountedData amv1.FishingData
+	if err := protojson.Unmarshal(publicBody, &mountedData); err != nil {
+		t.Fatal(err)
+	}
+	var mounted struct{ Records map[string]game.CaughtFish }
+	if err := json.Unmarshal([]byte(mountedData.StateJson), &mounted); err != nil {
+		t.Fatal(err)
+	}
+	if len(mounted.Records) != 1 || mounted.Records[fishID].ID != fishID {
+		t.Fatal("sold exhibit vanished or foreign fish leaked")
+	}
+	updateAccount(host, func(a *game.FishingAccount) { a.Records = savedRecords })
 	req.Action = "buy_pack"
 	if code, _ := shop(host, req); code != 400 {
 		t.Fatal("request id accepted with changed payload")

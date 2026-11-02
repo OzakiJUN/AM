@@ -20,7 +20,7 @@ export interface KindInfo {
 }
 
 export const KINDS: KindInfo[] = [
-  { kind: 'fishing_fish', label: '鱼获展示', emoji: '🐟', desc: '每两格一条自己钓的鱼，保留最短和最长纪录', minW: 1, minH: 1, w: 2, h: 2, only: 'user', config: () => ({ ids: [] }) },
+  { kind: 'fishing_fish', label: '鱼获展示', emoji: '🐟', desc: '每两格一条自己钓的鱼，选择鱼篓个体或钓获纪录', minW: 1, minH: 1, w: 2, h: 2, only: 'user', config: () => ({ ids: [] }) },
   { kind: 'fishing_cards', label: '鱼卡收藏', emoji: '🃏', desc: '一格一张鱼卡，或者展示五档收藏进度', minW: 1, minH: 1, w: 2, h: 2, only: 'user', config: () => ({ ids: [], mode: 'cards' }) },
   { kind: 'fishing_badges', label: '钓鱼徽章', emoji: '🏅', desc: '展示各档鱼卡收藏的 I–IV 级徽章', minW: 1, minH: 1, w: 2, h: 2, only: 'user', config: () => ({}) },
   { kind: 'text', label: '文字卡片', emoji: '📝', desc: '标题和一段文字，当公告、自我介绍都行', minW: 2, minH: 1, w: 2, h: 2, config: () => ({ title: '', text: '' }) },

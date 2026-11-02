@@ -56,9 +56,11 @@
 
 | kind | 配置 | 容量 |
 | --- | --- | --- |
-| `fishing_fish` | `ids` 选择图鉴 ID 加 `:min` / `:max` | floor(宽×高 / 2)，横宽竖放、纵长横放。显示自己钓的最短 / 最长纪录，破纪录自动更新 |
+| `fishing_fish` | `ids` 选择鱼获 ID（十进制字符串），也兼容图鉴 ID 加 `:min` / `:max` | floor(宽×高 / 2)，横宽竖放、纵长横放。可选择鱼篓里任意本人钓获或最长/最短纪录个体，已选个体卖掉后仍保留 |
 | `fishing_cards` | `mode: cards` 与 `ids`（`0:f001` 等），或 `mode: progress` | 每格一张，进度模式显示五档各 /100 |
 | `fishing_badges` | `{}` | 全部已解锁的徽章，超出区域可滚动 |
+
+每条本人钓获另存于 `fishing_catches`。公开展示只解析已保存主页选择的个体 ID，并限定原捕获账号，不能展示别人的鱼，未选择的鱼篓个体不会公开。
 
 编辑器提供收藏选择器，缩小组件时截取能展示的数量。服务端检查数量不能超过格数。公开展示接口不会输出钱包、私有鱼篓、装备、冷却和当前鱼塘。
 
@@ -77,7 +79,7 @@
 - 现有 `/conversations/{id}/games` 的 kind 加 `fishing`。`Game.state_json` 加 `pond{seats[12],now}`，空座 `user_id="0"`，非空有 `bite_at/expires_at` 毫秒时间。`/games/{id}/act` 的 action 加 `sit`（target 空座 0–11）/ `reel` / `steal`（target 0–11）。普通 `join/leave/end` 复用现有路由。没有桌游式 start 和 rematch，重开需新开鱼塘。
 - 未授权沿用 `not_member/no_permission`，不合法经济操作或未上钩沿用 `game_bad_move`，同账号已在别处钓鱼沿用 `game_state`，满座 `game_full`。不存在的展示用户沿用 `not_found`。
 
-数据库迁移 `0023_fishing.sql` 在 SQLite/PostgreSQL 各新增 `fishing_accounts`（每账号一份 JSON）和 `fishing_actions`（请求去重账本）。鱼塘依然存在现有 `games` JSON 行。交易锁账号，鱼塘动作先锁局再按账号 ID 升序锁涉及的账号，同事务保存收获、钱包和鱼塘，防止两个客户端同时领、卖、偷。SQL 仅在 store 包。
+数据库迁移 `0023_fishing.sql` 在 SQLite/PostgreSQL 各新增 `fishing_accounts`（每账号一份 JSON）、`fishing_actions`（请求去重账本）和 `fishing_catches`（本人钓获个体档案）。鱼塘依然存在现有 `games` JSON 行。交易锁账号，鱼塘动作先锁局再按账号 ID 升序锁涉及的账号，同事务保存收获、钱包和鱼塘，防止两个客户端同时领、卖、偷。SQL 仅在 store 包。
 
 ## 平衡配置
 
