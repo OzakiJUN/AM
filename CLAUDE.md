@@ -369,10 +369,22 @@ schema. Never point it at a real database.
   clients by address/domain or a connection code. Only the official creative
   workshop (separate service, later) talks to the owner's servers; approved
   workshop items are signed, sideloading is allowed with warnings.
-- Updates (docs/design.md §3, not built yet): the server updates itself first
-  (GitHub Releases, signature checked), then tells clients; clients download
-  from GitHub, or from the copy their server keeps, and always verify the
-  signature with the built-in public key; clients also check GitHub themselves.
+- Updates (docs/release.md, docs/design.md §3): every GitHub release has a
+  signed `release.json` (Ed25519; `internal/release` + `client/src/lib/release.ts`,
+  both pure + tested — change together; key from `am-server release-keygen`,
+  private key only in the Secret RELEASE_SIGNING_KEY). Releases come from the
+  `release` workflow (workflow_dispatch, version checked in package.json /
+  tauri.conf.json / Cargo.toml / CHANGELOG, builds via `build.yml`, signs with
+  `tools/release`). Weiqi says 「发版」 → bump the versions + CHANGELOG in a PR,
+  merge, run `release`. The server updates itself (`server/internal/update`,
+  beside the supervisor: check, panel 更新 page, `update.auto` at night,
+  replace exe + relaunch in `main.go`), keeps the client installer
+  (`/api/v1/update/*`, `ServerInfo.client_version`, push `client_update`);
+  the client checks GitHub too (`lib/update.ts`, Rust `update.rs` downloads +
+  checks SHA-256; installed AM (uninstall.exe beside it) runs
+  `AM-setup.exe /P /UPDATE /R`, the portable AM.exe swaps itself:
+  AM.exe → AM.exe.old, new copy in place, relaunch waits for the old pid).
+  No UI hot update.
 - The owner's own server runs on his Windows PC (i5-13600) behind CGNAT,
   exposed through frp on an Alibaba Cloud 5 Mbps relay; frp sends proxy
   protocol v2, `server.proxy_protocol = true` (trusted from localhost only).

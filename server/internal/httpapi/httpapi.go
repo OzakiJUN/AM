@@ -55,6 +55,7 @@ type API struct {
 	hosting   *hosting.Service
 	museum    *museum.Service
 	helper    *helper.Service
+	update    UpdateSource
 	log       *slog.Logger
 	limiter   *ipLimiter
 	syncRate  *uploadPacer
@@ -123,6 +124,7 @@ func (a *API) Register(mux *http.ServeMux) {
 		info := a.acct.ServerInfo()
 		info.Plugins = a.plugins != nil && a.plugins.Enabled()
 		info.Hosting = a.hosting != nil && a.hosting.Enabled()
+		info.ClientVersion = a.clientVersion()
 		if a.helper != nil {
 			info.Commands = a.helper.Names()
 			info.HelperId = a.helper.Bot().ID
@@ -130,6 +132,9 @@ func (a *API) Register(mux *http.ServeMux) {
 		a.ok(w, info)
 	})
 	mux.HandleFunc("GET /api/v1/server/icon", a.serverIcon)
+	mux.HandleFunc("GET /api/v1/update/release.json", a.authed(a.updateFile("manifest")))
+	mux.HandleFunc("GET /api/v1/update/release.json.sig", a.authed(a.updateFile("sig")))
+	mux.HandleFunc("GET /api/v1/update/client", a.authed(a.updateFile("installer")))
 	mux.HandleFunc("GET /api/v1/server/profile", a.authed(a.serverProfile))
 	mux.HandleFunc("GET /api/v1/invites", a.authed(a.listInvites))
 	mux.HandleFunc("POST /api/v1/invites", a.authed(a.createInvite))

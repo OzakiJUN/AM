@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/internal/connectcode"
 	"github.com/OzakiJUN/am/server/internal/account"
 	"github.com/OzakiJUN/am/server/internal/admin"
@@ -29,6 +30,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/logx"
 	"github.com/OzakiJUN/am/server/internal/tlsutil"
+	"github.com/OzakiJUN/am/server/internal/update"
 )
 
 // Options configure a Supervisor.
@@ -44,6 +46,8 @@ type Options struct {
 	// OnAdminReady is called once the admin panel accepts connections,
 	// with its one-click login URL.
 	OnAdminReady func(url string)
+	// Updater keeps am-server up to date (nil = no updates).
+	Updater *update.Updater
 }
 
 // Supervisor owns the admin panel listener and the (re)startable chat server.
@@ -169,6 +173,10 @@ func (s *Supervisor) Run(ctx context.Context, boot *config.Config) error {
 		_ = adminSrv.Shutdown(c)
 	}()
 
+	if u := s.opts.Updater; u != nil {
+		u.Configure(boot.Update, boot.Server.DataDir)
+		go u.Run(ctx)
+	}
 	for {
 		stop := s.startServer(ctx)
 		select {
@@ -253,6 +261,10 @@ func (s *Supervisor) startServer(ctx context.Context) (stop func()) {
 		}
 	}
 	a.Account.SetServer(ServerMeta(cfg, s.opts.Version, fp))
+	if u := s.opts.Updater; u != nil {
+		u.Configure(cfg.Update, cfg.Server.DataDir)
+		a.API.SetUpdate(u)
+	}
 
 	ln, err := app.Listen(cfg.Server.Listen, cfg.Server.ProxyProtocol)
 	if err != nil {
@@ -376,6 +388,7 @@ func (s *Supervisor) Snapshot() admin.Snapshot {
 		StartedAt:       s.started,
 		BootstrapInvite: s.boot,
 		Logs:            s.opts.Sink.Ring(),
+		Updater:         s.opts.Updater,
 	}
 }
 
@@ -392,6 +405,17 @@ func (s *Supervisor) SetPublicAddress(addr string) {
 	s.cfg = &cfg
 	if s.app != nil {
 		s.app.Account.SetServer(ServerMeta(&cfg, s.opts.Version, s.fp))
+	}
+}
+
+// ClientUpdate tells everyone online that this server keeps a newer client
+// installer (the updater calls it).
+func (s *Supervisor) ClientUpdate(version string) {
+	s.mu.Lock()
+	a := s.app
+	s.mu.Unlock()
+	if a != nil {
+		a.Hub.Broadcast(&amv1.ServerFrame{Msg: &amv1.ServerFrame_ClientUpdate{ClientUpdate: &amv1.ClientUpdatePush{Version: version}}})
 	}
 }
 

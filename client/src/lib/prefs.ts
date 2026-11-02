@@ -27,7 +27,9 @@ interface Prefs {
   workshopMirror: string;
   /** Desktop: the close button hides the window to the tray (AIs run by this device stay online) instead of quitting. */
   closeToTray: boolean;
-  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'workshopMirror' | 'closeToTray'>>) => void;
+  /** Check GitHub for a new AM version (lib/update.ts). */
+  updateCheck: boolean;
+  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'workshopMirror' | 'closeToTray' | 'updateCheck'>>) => void;
 }
 
 export const usePrefs = create<Prefs>()(
@@ -44,6 +46,7 @@ export const usePrefs = create<Prefs>()(
       musicVolume: 30,
       workshopMirror: '',
       closeToTray: true,
+      updateCheck: true,
       set: (p) => set(p),
     }),
     { name: 'am-prefs' },

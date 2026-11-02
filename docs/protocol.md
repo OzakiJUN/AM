@@ -58,7 +58,10 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | — | `{"ok":true}`（无需登录） |
-| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（这个服务器开没开插件：插件挂在内置 bot 上，管理员在管理面板里传，docs/plugins.md）、`hosting`（能不能把 AI 托管到服务器）、`commands`（内置 bot 的指令名和别名，包括它的插件的命令，不带 `/`；AI 不接这些话）、`helper_id`（内置 bot 的账号）（无需登录） |
+| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（这个服务器开没开插件：插件挂在内置 bot 上，管理员在管理面板里传，docs/plugins.md）、`hosting`（能不能把 AI 托管到服务器）、`commands`（内置 bot 的指令名和别名，包括它的插件的命令，不带 `/`；AI 不接这些话）、`helper_id`（内置 bot 的账号）、`client_version`（这个服务器存着哪个版本的客户端安装包，"" = 没有；docs/release.md）（无需登录） |
+| GET | `/api/v1/update/release.json` | — | 服务器存的那份客户端版本的发布清单（原样，和 GitHub 上的一样；没有时 `not_found`）。客户端用内置公钥验签 |
+| GET | `/api/v1/update/release.json.sig` | — | 上面清单的签名（Ed25519，base64） |
+| GET | `/api/v1/update/client` | — | 客户端安装包 `AM-setup.exe`（支持 Range）。客户端按清单里的大小和 SHA-256 检查，对不上不装 |
 | GET | `/api/v1/server/icon` | — | 服务器图标 PNG（无需登录；没设置时 `media_not_found`）。`ServerInfo.icon` 带 `?v=` 版本号，换图标地址就变 |
 | GET | `/api/v1/server/profile` | — | `ServerProfile`：服务器主页（名字、简介、图标、成员数、在线人数、谁能改布局、成员能否改小组件内容）。由站点管理员在管理面板里设置 |
 | POST | `/api/v1/register` | `RegisterRequest` | `SessionResponse`（无需登录） |
@@ -255,6 +258,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
    - `presence`：某人上线 / 下线 / 改了隐身或状态（发给服务器上所有在线的人，每人看到的是自己该看到的样子，见"在线状态"）。
    - `client_state`：我的另一台设备存了共享数据（`PUT /api/v1/me/client-state`），重新取一次。
    - `server_moved`：服务器换了公网地址（管理员换了中转）。客户端用同一个证书指纹连新地址，连上了再切过去。
+   - `client_update`：服务器更新完，存好了新版客户端的安装包（`version`，同 `ServerInfo.client_version`）。客户端比自己新就去读 `/api/v1/update/release.json`，验签后提示更新。
    - `ai_share_request{ai_id, user}`：有人申请和我的 AI 聊（发给主人的所有设备）。
    - `game`：我所在的会话里一局桌游变了（我看到的样子，见「桌游」）。
 5. 请求带客户端自定的 `req_id`，响应带同一个 `req_id`。

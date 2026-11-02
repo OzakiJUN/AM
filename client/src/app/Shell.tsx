@@ -17,6 +17,7 @@ import { ProfilePage } from './Profile';
 import { ServerProfilePage } from './ServerProfile';
 import { SettingsPage } from './Settings';
 import { unread } from './unread';
+import { updateAvailable, useUpdate } from '@/lib/update';
 import logo from '@/assets/logo.png';
 
 /** Main window: nav bar | page. 频道 and 私信 are list + chat; AI has its own list. */
@@ -54,6 +55,7 @@ export function Shell() {
 }
 
 function NavBar({ v }: { v?: SessionView }) {
+  const newVersion = useUpdate(updateAvailable);
   const page = useApp((s) => s.page);
   const set = useApp((s) => s.set);
   const item = (p: Page, label: string, Icon: typeof MessageCircle, badge?: number) => (
@@ -94,7 +96,7 @@ function NavBar({ v }: { v?: SessionView }) {
       {item('workshop', '创意工坊', Store)}
       <div className="flex-1" />
       {item('account', '账号设置', UserRound)}
-      {item('settings', '设置', Settings)}
+      {item('settings', '设置', Settings, newVersion ? 1 : 0)}
       <button
         onClick={() => openProfile(null)}
         aria-label="个人主页"

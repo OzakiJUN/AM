@@ -28,6 +28,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -39,6 +40,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/desktop"
 	"github.com/OzakiJUN/am/server/internal/logx"
 	"github.com/OzakiJUN/am/server/internal/supervisor"
+	"github.com/OzakiJUN/am/server/internal/update"
 )
 
 // Set at build time with -ldflags "-X main.version=...".
@@ -62,18 +64,31 @@ func main() {
 			fmt.Println(version)
 		case "workshop-keygen":
 			err = workshopKeygen(args)
+		case "release-keygen":
+			err = releaseKeygen(args)
 		default:
-			err = fmt.Errorf("unknown command %q (use: panel, setup-db, version, workshop-keygen)", cmd)
+			err = fmt.Errorf("unknown command %q (use: panel, setup-db, version, workshop-keygen, release-keygen)", cmd)
 		}
 		if err != nil {
 			fatal(err)
 		}
 		return
 	}
-	if err := run(os.Args[1:]); err != nil {
+	err := run(os.Args[1:])
+	if errors.Is(err, errRelaunch) {
+		err = relaunch(os.Args[1:])
+	}
+	if err != nil {
 		fatal(err)
 	}
 }
+
+// errRelaunch: an update replaced am-server; start the new one.
+var errRelaunch = errors.New("relaunch")
+
+// exePath is the running am-server, taken at start (on Linux the path of
+// a replaced binary reads "... (deleted)" afterwards).
+var exePath, _ = os.Executable()
 
 // fatal reports an error where the user can see it: the terminal, or a
 // message box when started by double-click on Windows.
@@ -164,7 +179,18 @@ func run(args []string) error {
 	defer stop()
 
 	wantTray := desktopMode && boot.Admin.Tray && desktop.TraySupported()
-	sup := supervisor.New(supervisor.Options{
+	var sup *supervisor.Supervisor
+	var relaunching atomic.Bool
+	updater := update.New(update.Options{
+		Version: version,
+		Exe:     exePath,
+		Log:     log,
+		// The new am-server is in place: stop everything, then start it (main).
+		Relaunch: func() { relaunching.Store(true); stop() },
+		OnClient: func(v string) { sup.ClientUpdate(v) },
+	})
+	sup = supervisor.New(supervisor.Options{
+		Updater:    updater,
 		ConfigPath: cfgPath,
 		Version:    version,
 		Sink:       sink,
@@ -199,7 +225,12 @@ func run(args []string) error {
 			OnQuit:    stop,
 		}, nil)
 	}
-	return <-done
+	err = <-done
+	if err == nil && relaunching.Load() {
+		panel.detach() // the panel window stays open and reconnects to the new am-server
+		return errRelaunch
+	}
+	return err
 }
 
 // panelOpener opens the admin panel: in its own window (a child am-server

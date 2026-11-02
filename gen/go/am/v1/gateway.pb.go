@@ -320,6 +320,7 @@ type ServerFrame struct {
 	//	*ServerFrame_RemoteToolResult
 	//	*ServerFrame_AiShareRequest
 	//	*ServerFrame_Game
+	//	*ServerFrame_ClientUpdate
 	Msg           isServerFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -540,6 +541,15 @@ func (x *ServerFrame) GetGame() *Game {
 	return nil
 }
 
+func (x *ServerFrame) GetClientUpdate() *ClientUpdatePush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_ClientUpdate); ok {
+			return x.ClientUpdate
+		}
+	}
+	return nil
+}
+
 type isServerFrame_Msg interface {
 	isServerFrame_Msg()
 }
@@ -624,6 +634,11 @@ type ServerFrame_Game struct {
 	Game *Game `protobuf:"bytes,41,opt,name=game,proto3,oneof"`
 }
 
+type ServerFrame_ClientUpdate struct {
+	// The server now keeps a newer client installer (ServerInfo.client_version).
+	ClientUpdate *ClientUpdatePush `protobuf:"bytes,42,opt,name=client_update,json=clientUpdate,proto3,oneof"`
+}
+
 func (*ServerFrame_Error) isServerFrame_Msg() {}
 
 func (*ServerFrame_Auth) isServerFrame_Msg() {}
@@ -661,6 +676,8 @@ func (*ServerFrame_RemoteToolResult) isServerFrame_Msg() {}
 func (*ServerFrame_AiShareRequest) isServerFrame_Msg() {}
 
 func (*ServerFrame_Game) isServerFrame_Msg() {}
+
+func (*ServerFrame_ClientUpdate) isServerFrame_Msg() {}
 
 type AuthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1730,6 +1747,52 @@ func (x *ServerMovedPush) GetAddress() string {
 	return ""
 }
 
+// The server updated and keeps the matching client installer: clients
+// newer-checking themselves fetch the signed manifest from it (or GitHub).
+type ClientUpdatePush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Version       string                 `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientUpdatePush) Reset() {
+	*x = ClientUpdatePush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientUpdatePush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientUpdatePush) ProtoMessage() {}
+
+func (x *ClientUpdatePush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientUpdatePush.ProtoReflect.Descriptor instead.
+func (*ClientUpdatePush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ClientUpdatePush) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
 type Ack struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1738,7 +1801,7 @@ type Ack struct {
 
 func (x *Ack) Reset() {
 	*x = Ack{}
-	mi := &file_am_v1_gateway_proto_msgTypes[21]
+	mi := &file_am_v1_gateway_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1750,7 +1813,7 @@ func (x *Ack) String() string {
 func (*Ack) ProtoMessage() {}
 
 func (x *Ack) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[21]
+	mi := &file_am_v1_gateway_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1763,7 +1826,7 @@ func (x *Ack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ack.ProtoReflect.Descriptor instead.
 func (*Ack) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{21}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{22}
 }
 
 // From an AI (bot / ai account) to a person. request_id ≤ 64 characters,
@@ -1781,7 +1844,7 @@ type RemoteToolRequest struct {
 
 func (x *RemoteToolRequest) Reset() {
 	*x = RemoteToolRequest{}
-	mi := &file_am_v1_gateway_proto_msgTypes[22]
+	mi := &file_am_v1_gateway_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1793,7 +1856,7 @@ func (x *RemoteToolRequest) String() string {
 func (*RemoteToolRequest) ProtoMessage() {}
 
 func (x *RemoteToolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[22]
+	mi := &file_am_v1_gateway_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1806,7 +1869,7 @@ func (x *RemoteToolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteToolRequest.ProtoReflect.Descriptor instead.
 func (*RemoteToolRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{22}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RemoteToolRequest) GetRequestId() string {
@@ -1849,7 +1912,7 @@ type RemoteToolPush struct {
 
 func (x *RemoteToolPush) Reset() {
 	*x = RemoteToolPush{}
-	mi := &file_am_v1_gateway_proto_msgTypes[23]
+	mi := &file_am_v1_gateway_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1861,7 +1924,7 @@ func (x *RemoteToolPush) String() string {
 func (*RemoteToolPush) ProtoMessage() {}
 
 func (x *RemoteToolPush) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[23]
+	mi := &file_am_v1_gateway_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1874,7 +1937,7 @@ func (x *RemoteToolPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteToolPush.ProtoReflect.Descriptor instead.
 func (*RemoteToolPush) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{23}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RemoteToolPush) GetRequestId() string {
@@ -1920,7 +1983,7 @@ type RemoteToolResult struct {
 
 func (x *RemoteToolResult) Reset() {
 	*x = RemoteToolResult{}
-	mi := &file_am_v1_gateway_proto_msgTypes[24]
+	mi := &file_am_v1_gateway_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1932,7 +1995,7 @@ func (x *RemoteToolResult) String() string {
 func (*RemoteToolResult) ProtoMessage() {}
 
 func (x *RemoteToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[24]
+	mi := &file_am_v1_gateway_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1945,7 +2008,7 @@ func (x *RemoteToolResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteToolResult.ProtoReflect.Descriptor instead.
 func (*RemoteToolResult) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{24}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *RemoteToolResult) GetRequestId() string {
@@ -1997,7 +2060,7 @@ type RemoteToolResultPush struct {
 
 func (x *RemoteToolResultPush) Reset() {
 	*x = RemoteToolResultPush{}
-	mi := &file_am_v1_gateway_proto_msgTypes[25]
+	mi := &file_am_v1_gateway_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2009,7 +2072,7 @@ func (x *RemoteToolResultPush) String() string {
 func (*RemoteToolResultPush) ProtoMessage() {}
 
 func (x *RemoteToolResultPush) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[25]
+	mi := &file_am_v1_gateway_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2022,7 +2085,7 @@ func (x *RemoteToolResultPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteToolResultPush.ProtoReflect.Descriptor instead.
 func (*RemoteToolResultPush) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{25}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RemoteToolResultPush) GetRequestId() string {
@@ -2071,7 +2134,7 @@ type AIShareRequestPush struct {
 
 func (x *AIShareRequestPush) Reset() {
 	*x = AIShareRequestPush{}
-	mi := &file_am_v1_gateway_proto_msgTypes[26]
+	mi := &file_am_v1_gateway_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2083,7 +2146,7 @@ func (x *AIShareRequestPush) String() string {
 func (*AIShareRequestPush) ProtoMessage() {}
 
 func (x *AIShareRequestPush) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[26]
+	mi := &file_am_v1_gateway_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2096,7 +2159,7 @@ func (x *AIShareRequestPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIShareRequestPush.ProtoReflect.Descriptor instead.
 func (*AIShareRequestPush) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{26}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *AIShareRequestPush) GetAiId() int64 {
@@ -2123,7 +2186,7 @@ type ForwardRequest struct {
 
 func (x *ForwardRequest) Reset() {
 	*x = ForwardRequest{}
-	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	mi := &file_am_v1_gateway_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2135,7 +2198,7 @@ func (x *ForwardRequest) String() string {
 func (*ForwardRequest) ProtoMessage() {}
 
 func (x *ForwardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	mi := &file_am_v1_gateway_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2148,7 +2211,7 @@ func (x *ForwardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForwardRequest.ProtoReflect.Descriptor instead.
 func (*ForwardRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{27}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ForwardRequest) GetSourceConvId() int64 {
@@ -2181,7 +2244,7 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\vremote_tool\x18\x0f \x01(\v2\x18.am.v1.RemoteToolRequestH\x00R\n" +
 	"remoteTool\x12G\n" +
 	"\x12remote_tool_result\x18\x10 \x01(\v2\x17.am.v1.RemoteToolResultH\x00R\x10remoteToolResultB\x05\n" +
-	"\x03msg\"\xe3\a\n" +
+	"\x03msg\"\xa3\b\n" +
 	"\vServerFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12$\n" +
 	"\x05error\x18\n" +
@@ -2205,7 +2268,8 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"remoteTool\x12K\n" +
 	"\x12remote_tool_result\x18' \x01(\v2\x1b.am.v1.RemoteToolResultPushH\x00R\x10remoteToolResult\x12E\n" +
 	"\x10ai_share_request\x18( \x01(\v2\x19.am.v1.AIShareRequestPushH\x00R\x0eaiShareRequest\x12!\n" +
-	"\x04game\x18) \x01(\v2\v.am.v1.GameH\x00R\x04gameB\x05\n" +
+	"\x04game\x18) \x01(\v2\v.am.v1.GameH\x00R\x04game\x12>\n" +
+	"\rclient_update\x18* \x01(\v2\x17.am.v1.ClientUpdatePushH\x00R\fclientUpdateB\x05\n" +
 	"\x03msg\"=\n" +
 	"\vAuthRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
@@ -2275,7 +2339,9 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x01 \x01(\x03R\tupdatedAt\"+\n" +
 	"\x0fServerMovedPush\x12\x18\n" +
-	"\aaddress\x18\x01 \x01(\tR\aaddress\"\x05\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\",\n" +
+	"\x10ClientUpdatePush\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\tR\aversion\"\x05\n" +
 	"\x03Ack\"\x81\x01\n" +
 	"\x11RemoteToolRequest\x12\x1d\n" +
 	"\n" +
@@ -2325,7 +2391,7 @@ func file_am_v1_gateway_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_am_v1_gateway_proto_goTypes = []any{
 	(FriendPush_Kind)(0),         // 0: am.v1.FriendPush.Kind
 	(ConvRemovedPush_Reason)(0),  // 1: am.v1.ConvRemovedPush.Reason
@@ -2350,24 +2416,25 @@ var file_am_v1_gateway_proto_goTypes = []any{
 	(*PresencePush)(nil),         // 20: am.v1.PresencePush
 	(*ClientStatePush)(nil),      // 21: am.v1.ClientStatePush
 	(*ServerMovedPush)(nil),      // 22: am.v1.ServerMovedPush
-	(*Ack)(nil),                  // 23: am.v1.Ack
-	(*RemoteToolRequest)(nil),    // 24: am.v1.RemoteToolRequest
-	(*RemoteToolPush)(nil),       // 25: am.v1.RemoteToolPush
-	(*RemoteToolResult)(nil),     // 26: am.v1.RemoteToolResult
-	(*RemoteToolResultPush)(nil), // 27: am.v1.RemoteToolResultPush
-	(*AIShareRequestPush)(nil),   // 28: am.v1.AIShareRequestPush
-	(*ForwardRequest)(nil),       // 29: am.v1.ForwardRequest
-	(*Error)(nil),                // 30: am.v1.Error
-	(*Game)(nil),                 // 31: am.v1.Game
-	(*User)(nil),                 // 32: am.v1.User
-	(*Conversation)(nil),         // 33: am.v1.Conversation
-	(*Presence)(nil),             // 34: am.v1.Presence
-	(*TextMsg)(nil),              // 35: am.v1.TextMsg
-	(*ImageMsg)(nil),             // 36: am.v1.ImageMsg
-	(*FileMsg)(nil),              // 37: am.v1.FileMsg
-	(*EmojiPinAct)(nil),          // 38: am.v1.EmojiPinAct
-	(*StrikeAct)(nil),            // 39: am.v1.StrikeAct
-	(*Event)(nil),                // 40: am.v1.Event
+	(*ClientUpdatePush)(nil),     // 23: am.v1.ClientUpdatePush
+	(*Ack)(nil),                  // 24: am.v1.Ack
+	(*RemoteToolRequest)(nil),    // 25: am.v1.RemoteToolRequest
+	(*RemoteToolPush)(nil),       // 26: am.v1.RemoteToolPush
+	(*RemoteToolResult)(nil),     // 27: am.v1.RemoteToolResult
+	(*RemoteToolResultPush)(nil), // 28: am.v1.RemoteToolResultPush
+	(*AIShareRequestPush)(nil),   // 29: am.v1.AIShareRequestPush
+	(*ForwardRequest)(nil),       // 30: am.v1.ForwardRequest
+	(*Error)(nil),                // 31: am.v1.Error
+	(*Game)(nil),                 // 32: am.v1.Game
+	(*User)(nil),                 // 33: am.v1.User
+	(*Conversation)(nil),         // 34: am.v1.Conversation
+	(*Presence)(nil),             // 35: am.v1.Presence
+	(*TextMsg)(nil),              // 36: am.v1.TextMsg
+	(*ImageMsg)(nil),             // 37: am.v1.ImageMsg
+	(*FileMsg)(nil),              // 38: am.v1.FileMsg
+	(*EmojiPinAct)(nil),          // 39: am.v1.EmojiPinAct
+	(*StrikeAct)(nil),            // 40: am.v1.StrikeAct
+	(*Event)(nil),                // 41: am.v1.Event
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
 	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
@@ -2375,15 +2442,15 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	8,  // 2: am.v1.ClientFrame.sync:type_name -> am.v1.SyncRequest
 	11, // 3: am.v1.ClientFrame.mark_read:type_name -> am.v1.MarkReadRequest
 	13, // 4: am.v1.ClientFrame.ping:type_name -> am.v1.Ping
-	24, // 5: am.v1.ClientFrame.remote_tool:type_name -> am.v1.RemoteToolRequest
-	26, // 6: am.v1.ClientFrame.remote_tool_result:type_name -> am.v1.RemoteToolResult
-	30, // 7: am.v1.ServerFrame.error:type_name -> am.v1.Error
+	25, // 5: am.v1.ClientFrame.remote_tool:type_name -> am.v1.RemoteToolRequest
+	27, // 6: am.v1.ClientFrame.remote_tool_result:type_name -> am.v1.RemoteToolResult
+	31, // 7: am.v1.ServerFrame.error:type_name -> am.v1.Error
 	5,  // 8: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
 	7,  // 9: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
 	10, // 10: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
 	12, // 11: am.v1.ServerFrame.mark_read:type_name -> am.v1.MarkReadResponse
 	14, // 12: am.v1.ServerFrame.pong:type_name -> am.v1.Pong
-	23, // 13: am.v1.ServerFrame.ack:type_name -> am.v1.Ack
+	24, // 13: am.v1.ServerFrame.ack:type_name -> am.v1.Ack
 	15, // 14: am.v1.ServerFrame.event:type_name -> am.v1.EventPush
 	16, // 15: am.v1.ServerFrame.conv:type_name -> am.v1.ConvPush
 	17, // 16: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
@@ -2392,37 +2459,38 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	20, // 19: am.v1.ServerFrame.presence:type_name -> am.v1.PresencePush
 	21, // 20: am.v1.ServerFrame.client_state:type_name -> am.v1.ClientStatePush
 	22, // 21: am.v1.ServerFrame.server_moved:type_name -> am.v1.ServerMovedPush
-	25, // 22: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
-	27, // 23: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
-	28, // 24: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
-	31, // 25: am.v1.ServerFrame.game:type_name -> am.v1.Game
-	32, // 26: am.v1.AuthResponse.me:type_name -> am.v1.User
-	33, // 27: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
-	34, // 28: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
-	35, // 29: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
-	36, // 30: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
-	37, // 31: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
-	29, // 32: am.v1.SendRequest.forward:type_name -> am.v1.ForwardRequest
-	38, // 33: am.v1.SendRequest.emoji_pin:type_name -> am.v1.EmojiPinAct
-	39, // 34: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
-	40, // 35: am.v1.SendResponse.event:type_name -> am.v1.Event
-	9,  // 36: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
-	40, // 37: am.v1.SyncResponse.events:type_name -> am.v1.Event
-	40, // 38: am.v1.EventPush.event:type_name -> am.v1.Event
-	33, // 39: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
-	0,  // 40: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
-	32, // 41: am.v1.FriendPush.user:type_name -> am.v1.User
-	1,  // 42: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
-	32, // 43: am.v1.JoinRequestPush.user:type_name -> am.v1.User
-	32, // 44: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
-	34, // 45: am.v1.PresencePush.presence:type_name -> am.v1.Presence
-	32, // 46: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
-	32, // 47: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
-	48, // [48:48] is the sub-list for method output_type
-	48, // [48:48] is the sub-list for method input_type
-	48, // [48:48] is the sub-list for extension type_name
-	48, // [48:48] is the sub-list for extension extendee
-	0,  // [0:48] is the sub-list for field type_name
+	26, // 22: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
+	28, // 23: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
+	29, // 24: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
+	32, // 25: am.v1.ServerFrame.game:type_name -> am.v1.Game
+	23, // 26: am.v1.ServerFrame.client_update:type_name -> am.v1.ClientUpdatePush
+	33, // 27: am.v1.AuthResponse.me:type_name -> am.v1.User
+	34, // 28: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
+	35, // 29: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
+	36, // 30: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
+	37, // 31: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
+	38, // 32: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
+	30, // 33: am.v1.SendRequest.forward:type_name -> am.v1.ForwardRequest
+	39, // 34: am.v1.SendRequest.emoji_pin:type_name -> am.v1.EmojiPinAct
+	40, // 35: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
+	41, // 36: am.v1.SendResponse.event:type_name -> am.v1.Event
+	9,  // 37: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
+	41, // 38: am.v1.SyncResponse.events:type_name -> am.v1.Event
+	41, // 39: am.v1.EventPush.event:type_name -> am.v1.Event
+	34, // 40: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
+	0,  // 41: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
+	33, // 42: am.v1.FriendPush.user:type_name -> am.v1.User
+	1,  // 43: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
+	33, // 44: am.v1.JoinRequestPush.user:type_name -> am.v1.User
+	33, // 45: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
+	35, // 46: am.v1.PresencePush.presence:type_name -> am.v1.Presence
+	33, // 47: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
+	33, // 48: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
+	49, // [49:49] is the sub-list for method output_type
+	49, // [49:49] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }
@@ -2461,6 +2529,7 @@ func file_am_v1_gateway_proto_init() {
 		(*ServerFrame_RemoteToolResult)(nil),
 		(*ServerFrame_AiShareRequest)(nil),
 		(*ServerFrame_Game)(nil),
+		(*ServerFrame_ClientUpdate)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[4].OneofWrappers = []any{
 		(*SendRequest_Text)(nil),
@@ -2476,7 +2545,7 @@ func file_am_v1_gateway_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_gateway_proto_rawDesc), len(file_am_v1_gateway_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   28,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
