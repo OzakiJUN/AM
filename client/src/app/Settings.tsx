@@ -8,7 +8,8 @@ import { inTauri, notify, openUrl } from '@/lib/platform';
 import { CATEGORY_LABEL, REMOTE_CATEGORIES } from '@/lib/ai/agent';
 import type { Level, ToolCategory } from '@/lib/ai/persona';
 import { newAllow, useRemote, type RemoteAllow } from '@/lib/ai/remote';
-import { Button, ColorButton, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring } from '@/ui';
+import { Button, ColorButton, Empty, IdentityChip, Segmented, Slider, Toggle, ask, cx, spring, toastError } from '@/ui';
+import { APP_VERSION, cannotUpdate, checkGitHub, installUpdate, updateAvailable, useUpdate } from '@/lib/update';
 import { ServerAvatar, UserAvatar } from './media';
 
 type Tab = 'appearance' | 'sound' | 'servers' | 'privacy' | 'notify' | 'about';
@@ -21,7 +22,7 @@ export function SettingsPage() {
     { id: 'servers', label: '服务器', Icon: Server },
     { id: 'privacy', label: '隐私', Icon: Shield },
     { id: 'notify', label: '通知与窗口', Icon: Bell },
-    { id: 'about', label: '关于', Icon: Info },
+    { id: 'about', label: '关于与更新', Icon: Info },
   ];
   return (
     <>
@@ -442,8 +443,55 @@ function About() {
   return (
     <div className="max-w-3xl">
       <h2 className="text-[1.4rem] font-semibold">关于 AM</h2>
-      <p className="mt-2 text-ink-soft dark:text-white/60">AM (AI Message) 是我和小克一起打造的新一代 AI 集成聊天工具。版本 {__APP_VERSION__}</p>
+      <p className="mt-2 text-ink-soft dark:text-white/60">AM (AI Message) 是我和小克一起打造的新一代 AI 集成聊天工具。版本 {APP_VERSION}</p>
       <Button className="mt-5" variant="soft" onClick={() => openUrl('https://github.com/OzakiJUN/AM')}><ExternalLink size={16} /> GitHub</Button>
+      <UpdateBox />
+    </div>
+  );
+}
+
+/** Updates (lib/update.ts): the newest verified release, check now, install. */
+function UpdateBox() {
+  const u = useUpdate();
+  const newer = updateAvailable(u);
+  const why = cannotUpdate();
+  const auto = usePrefs((p) => p.updateCheck);
+  const setPrefs = usePrefs((p) => p.set);
+  const busy = u.status === 'checking' || u.status === 'downloading' || u.status === 'installing';
+  return (
+    <div className="mt-8" data-testid="update">
+      <h3 className="text-[1.15rem] font-semibold">更新</h3>
+      {why ? (
+        <p className="mt-2 text-ink-soft dark:text-white/60">{why}</p>
+      ) : (
+        <>
+          <Row title={newer ? `有新版本 ${u.latest!.version}` : u.latest ? '已经是最新版' : '还没检查过'} desc={
+            (u.checkedAt ? `上次检查：${new Date(u.checkedAt).toLocaleString()}。` : '') + '新版本先验签（内置公钥）再换上：免安装版直接换掉 AM.exe（位置和名字不变），安装版运行安装程序。从 GitHub 下载，下不动时走镜像或你连着的服务器存的那份。'
+          }>
+            <Button size="sm" variant="soft" disabled={busy} onClick={() => checkGitHub()}>检查更新</Button>
+            {newer && <Button size="sm" disabled={busy} onClick={() => installUpdate().catch(toastError)}>下载并安装</Button>}
+          </Row>
+          {u.status === 'downloading' && u.total > 0 && (
+            <div className="py-2">
+              <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                <motion.div className="h-full rounded-full bg-accent" animate={{ width: `${Math.round((u.done / u.total) * 100)}%` }} transition={spring} />
+              </div>
+              <div className="mt-1 text-[0.85rem] text-ink-soft">{(u.done / 1048576).toFixed(1)} / {(u.total / 1048576).toFixed(1)} MB</div>
+            </div>
+          )}
+          {u.status === 'installing' && <p className="text-ink-soft">正在换成新版，AM 会自己关掉再打开…</p>}
+          {u.status === 'error' && <p role="alert" className="text-rose-600">{u.error}</p>}
+          <Row title="自动检查新版本" desc="打开 AM 时和之后每 6 小时查一次 GitHub；有新版在左边「设置」上提示">
+            <Toggle label="自动检查新版本" checked={auto} onChange={(v) => setPrefs({ updateCheck: v })} />
+          </Row>
+          {newer && u.latest!.notes && (
+            <div className="mt-4 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/5">
+              <div className="mb-2 font-medium">{u.latest!.version} 更新了什么{u.latest!.date ? `（${u.latest!.date}）` : ''}</div>
+              <pre className="max-h-80 overflow-y-auto font-sans text-[0.9rem] whitespace-pre-wrap text-ink-soft dark:text-white/70">{u.latest!.notes}</pre>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

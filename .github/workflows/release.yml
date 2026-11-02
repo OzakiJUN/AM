@@ -1,0 +1,81 @@
+name: release
+
+# Publishes a release (docs/release.md): run it from the Actions page (or
+# let Claude run it) with the version, e.g. 0.2.0, after the version bump is
+# merged into main. It checks the version everywhere, builds, writes and
+# signs release.json (secret RELEASE_SIGNING_KEY), then creates the tag
+# v<version> and the GitHub release with every file. Servers and clients
+# update from there.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: version to release, like 0.2.0 (no v)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Version everywhere, changelog, public key, tag not taken
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -e
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "bad version $VERSION"; exit 1; }
+          [ "$GITHUB_REF_NAME" = "main" ] || { echo "release from main only"; exit 1; }
+          grep -q "\"version\": \"$VERSION\"" client/package.json || { echo "client/package.json is not $VERSION"; exit 1; }
+          grep -q "\"version\": \"$VERSION\"" client/src-tauri/tauri.conf.json || { echo "tauri.conf.json is not $VERSION"; exit 1; }
+          grep -q "^version = \"$VERSION\"" client/src-tauri/Cargo.toml || { echo "Cargo.toml is not $VERSION"; exit 1; }
+          grep -q "^## $VERSION" CHANGELOG.md || { echo "CHANGELOG.md has no ## $VERSION section"; exit 1; }
+          ! grep -q '^var PublicKey = ""' internal/release/release.go || { echo "internal/release.PublicKey is empty"; exit 1; }
+          ! git rev-parse -q --verify "refs/tags/v$VERSION" || { echo "tag v$VERSION exists"; exit 1; }
+
+  build:
+    needs: check
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ inputs.version }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Sign release.json
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          ls -l dist
+          go run ./tools/release -version "${{ inputs.version }}" -dir dist -changelog CHANGELOG.md
+      - name: Notes
+        run: go run ./tools/release -notes -version "${{ inputs.version }}" -changelog CHANGELOG.md > notes.md
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ inputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: AM ${{ inputs.version }}
+          body_path: notes.md
+          prerelease: ${{ contains(inputs.version, '-') }}
+          files: dist/*

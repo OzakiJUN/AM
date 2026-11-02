@@ -24,6 +24,7 @@ import (
 	"github.com/OzakiJUN/am/server/internal/apperr"
 	"github.com/OzakiJUN/am/server/internal/config"
 	"github.com/OzakiJUN/am/server/internal/logx"
+	"github.com/OzakiJUN/am/server/internal/update"
 )
 
 //go:embed web
@@ -52,6 +53,7 @@ type Snapshot struct {
 	StartedAt       time.Time
 	BootstrapInvite string
 	Logs            *logx.Ring
+	Updater         *update.Updater // nil = no updates
 }
 
 // Runtime is implemented by the supervisor.
@@ -172,6 +174,9 @@ func (h *handler) routes() {
 	api("PUT /api/config", h.putConfig)
 	api("PUT /api/autostart", h.putAutostart)
 	api("GET /api/relay", h.getRelay)
+	api("GET /api/update", h.updateStatus)
+	api("POST /api/update/check", h.updateCheck)
+	api("POST /api/update/apply", h.updateApply)
 	api("POST /api/relay/test", h.testRelay)
 	api("POST /api/relay/move", h.moveRelay)
 	api("POST /api/restart", h.restart)

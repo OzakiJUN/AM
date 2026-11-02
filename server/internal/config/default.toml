@@ -278,6 +278,27 @@ nga_cookie = ""
 bili_cookie = ""
 steam_cookie = ""
 
+[update]
+# Updates (docs/release.md): am-server checks GitHub Releases, verifies the
+# signature with the key built into it, and the admin panel offers a
+# one-click update (download, replace am-server, restart). After updating,
+# it keeps a copy of the new client installer and tells clients.
+check = true
+# Hours between checks.
+check_hours = 6
+# Update by itself at auto_at (this computer's time) when there is a new version.
+auto = false
+auto_at = "04:00"
+# GitHub repository the releases come from.
+repo = "OzakiJUN/AM"
+# Download mirrors, tried after GitHub itself: each is put in front of the
+# GitHub address (the signature check makes any mirror safe to use).
+mirrors = ["https://ghfast.top/"]
+# Proxy for GitHub, e.g. "http://127.0.0.1:7890" ("" = the system's).
+proxy = ""
+# Keep the new client installer so clients can download it from this server.
+keep_client = true
+
 [admin]
 # The admin panel is a web page served by am-server. Keep it on 127.0.0.1 so
 # only this computer can open it. On a headless Linux server, reach it through

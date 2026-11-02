@@ -53,6 +53,8 @@ type App struct {
 	News    *news.Service
 	Janitor *janitor.Janitor
 	Handler http.Handler
+	// API: the client API (the supervisor hands it the updater).
+	API *httpapi.API
 }
 
 // New opens the database, applies migrations and builds the HTTP handler.
@@ -215,6 +217,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 		News:     nw,
 		Janitor:  janitor.New(st, md, cfg.Retention, log),
 		Handler:  mux,
+		API:      api,
 	}, nil
 }
 

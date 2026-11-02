@@ -54,6 +54,11 @@ pub async fn get(url: String, headers: Vec<(String, String)>) -> Result<(u16, St
 /// GET a whole file (workshop index and packages, docs/design.md §13): https
 /// only, follows redirects (GitHub release downloads), at most `max` bytes.
 /// Errors on a status other than 200.
+/// A plain GET with the public (CA-checked) client; the caller reads the body.
+pub async fn public_get(url: &str) -> Result<reqwest::Response, String> {
+    client()?.get(url).send().await.map_err(|e| format!("连不上：{e}"))
+}
+
 pub async fn get_bytes(url: String, max: u64) -> Result<Vec<u8>, String> {
     let ok = reqwest::Url::parse(&url).map(|u| u.scheme() == "https").unwrap_or(false);
     if !ok {

@@ -893,7 +893,11 @@ type ServerInfo struct {
 	// leading "/"); AIs leave messages starting with these alone.
 	Commands []string `protobuf:"bytes,8,rep,name=commands,proto3" json:"commands,omitempty"`
 	// The built-in bot's account (0 = none).
-	HelperId      int64 `protobuf:"varint,9,opt,name=helper_id,json=helperId,proto3" json:"helper_id,omitempty"`
+	HelperId int64 `protobuf:"varint,9,opt,name=helper_id,json=helperId,proto3" json:"helper_id,omitempty"`
+	// Newest client version this server keeps a verified installer of ("" =
+	// none). The signed manifest is GET /api/v1/update/release.json (+ .sig),
+	// the installer GET /api/v1/update/client (docs/release.md).
+	ClientVersion string `protobuf:"bytes,10,opt,name=client_version,json=clientVersion,proto3" json:"client_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -989,6 +993,13 @@ func (x *ServerInfo) GetHelperId() int64 {
 		return x.HelperId
 	}
 	return 0
+}
+
+func (x *ServerInfo) GetClientVersion() string {
+	if x != nil {
+		return x.ClientVersion
+	}
+	return ""
 }
 
 // GET /api/v1/server/profile: the server's profile page. Set up by the site
@@ -5886,7 +5897,7 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fused_by_name\x18\x04 \x01(\tR\n" +
 	"usedByName\x12\x1b\n" +
 	"\tjoin_code\x18\x05 \x01(\tR\bjoinCode\x12\x19\n" +
-	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\xff\x01\n" +
+	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\xa6\x02\n" +
 	"\n" +
 	"ServerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
@@ -5898,7 +5909,9 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\aplugins\x18\x06 \x01(\bR\aplugins\x12\x18\n" +
 	"\ahosting\x18\a \x01(\bR\ahosting\x12\x1a\n" +
 	"\bcommands\x18\b \x03(\tR\bcommands\x12\x1b\n" +
-	"\thelper_id\x18\t \x01(\x03R\bhelperId\"\x95\x02\n" +
+	"\thelper_id\x18\t \x01(\x03R\bhelperId\x12%\n" +
+	"\x0eclient_version\x18\n" +
+	" \x01(\tR\rclientVersion\"\x95\x02\n" +
 	"\rServerProfile\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +

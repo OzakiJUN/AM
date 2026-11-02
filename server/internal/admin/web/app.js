@@ -192,6 +192,7 @@ const PAGES = [
   { id: 'hosting', name: 'AI 托管', render: renderHosting },
   { id: 'audit', name: '操作记录', render: renderAudit },
   { id: 'logs', name: '运行日志', render: renderLogs },
+  { id: 'update', name: '更新', render: renderUpdate },
   { id: 'settings', name: '设置', render: renderSettings },
 ];
 
@@ -267,6 +268,8 @@ function updateChrome() {
   if (evCount) evCount.textContent = s.stats && s.stats.evidence ? s.stats.evidence : '';
   const hoCount = document.querySelector('[data-page=hosting] .count');
   if (hoCount) hoCount.textContent = s.stats && s.stats.hosting_pending ? s.stats.hosting_pending + ' 待审' : '';
+  const upCount = document.querySelector('[data-page=update] .count');
+  if (upCount) upCount.textContent = s.update ? '有新版' : '';
   document.title = (s.server_name || 'AM 服务器') + ' - 管理面板';
 }
 
@@ -1283,6 +1286,80 @@ function auditDetail(x) {
   return x.detail;
 }
 
+// ---------- updates ----------
+
+// Updates (docs/release.md): the running and the latest version, the
+// release notes, check now, update in one click. While it downloads and
+// restarts the page polls; when am-server is back it reloads.
+async function renderUpdate(root, page) {
+  root.append(head('更新', '新版本从 GitHub 下载（下不动时走镜像），用 am-server 里内置的公钥验签，对不上就不装。更新时会替换 am-server 并重启，在线的人会断开几秒，然后自动连回来。'));
+  const box = el('div');
+  root.append(box);
+  let timer = null;
+  let from = null; // the version being updated from
+  const STATE = { idle: '', checking: '检查中…', downloading: '下载中…', restarting: '重启中…', error: '出错了' };
+
+  async function load() {
+    let data;
+    try { data = await api('GET', 'update'); } catch (e) {
+      if (timer) { box.replaceChildren(el('div', { class: 'panel' }, el('p', {}, '服务器正在重启…'))); return; }
+      fail(e); return;
+    }
+    if (currentPage !== page) return;
+    if (!data.enabled) { box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, '这个版本没有更新功能。'))); return; }
+    const st = data.status;
+    if (from && st.current !== from) { from = null; clearInterval(timer); timer = null; toast('更新好了：' + st.current); }
+    const busy = st.state === 'checking' || st.state === 'downloading' || st.state === 'restarting';
+    const check = el('button', { class: 'btn', type: 'button', disabled: busy, onclick: () => doCheck(check) }, '检查更新');
+    const apply = st.newer && st.can_update
+      ? el('button', { class: 'btn primary', type: 'button', disabled: busy, onclick: () => doApply(st) }, '更新到 ' + st.latest) : '';
+    const lines = [
+      el('div', { class: 'row' }, el('strong', {}, '现在的版本：' + st.current),
+        st.latest ? el('span', { class: 'tag ' + (st.newer ? 'warn' : 'good') }, st.newer ? '有新版 ' + st.latest : '已经是最新版') : '',
+        STATE[st.state] ? el('span', { class: 'muted' }, STATE[st.state]) : ''),
+      el('div', { class: 'meta' }, (st.checked_at ? '上次检查：' + fmtTime(st.checked_at) : '还没检查过') +
+        (st.auto ? ' · 夜里 ' + st.auto_at + ' 自己更新' : ' · 不自己更新（设置 → 更新）') +
+        (st.client ? ' · 存着客户端安装包 ' + st.client : '')),
+    ];
+    if (st.state === 'downloading' && st.total) {
+      lines.push(el('progress', { max: st.total, value: st.done }), el('div', { class: 'meta' }, fmtBytes(st.done) + ' / ' + fmtBytes(st.total)));
+    }
+    if (st.error) lines.push(el('div', { class: 'meta bad' }, st.error));
+    if (!st.can_update) lines.push(el('div', { class: 'meta' }, '不能一键更新：' + st.why));
+    lines.push(el('div', { class: 'row' }, check, apply));
+    const parts = [el('section', { class: 'panel' }, lines)];
+    if (st.latest && st.notes) {
+      parts.push(el('section', { class: 'panel' }, el('h2', {}, st.latest + ' 更新了什么' + (st.date ? '（' + st.date + '）' : '')), el('pre', { class: 'code notes' }, st.notes)));
+    }
+    box.replaceChildren(...parts);
+    if (busy && !timer) poll();
+    if (!busy && !from && timer) { clearInterval(timer); timer = null; }
+  }
+
+  function poll() {
+    timer = setInterval(() => { if (currentPage !== page) { clearInterval(timer); return; } load(); }, 1500);
+  }
+
+  async function doCheck(btn) {
+    btn.disabled = true;
+    try { await api('POST', 'update/check'); toast('检查完了'); } catch (e) { fail(e); }
+    load();
+  }
+
+  async function doApply(st) {
+    if (!await confirmDialog({ title: '更新到 ' + st.latest, text: '会下载新的 am-server、验签、替换，然后重启。在线的人会断开几秒再自动连回来。', ok: '更新' })) return;
+    try {
+      await api('POST', 'update/apply');
+      from = st.current;
+      toast('开始更新');
+      if (!timer) poll();
+      load();
+    } catch (e) { fail(e); }
+  }
+
+  load();
+}
+
 // ---------- logs ----------
 
 async function renderLogs(root, page) {
@@ -1350,6 +1427,13 @@ const SETTINGS = [
   ] },
   { title: '图片黑名单', items: [
     { k: 'media.block_distance', label: '相似度容差', help: '0–64，越小越严格。6 能拦住改过尺寸或重新压缩的同一张图。', type: 'int', min: 0, max: 64 },
+  ] },
+  { title: '更新', items: [
+    { k: 'update.check', label: '自动检查新版本', help: '每几个小时查一次 GitHub（下不动时走镜像），有新版在「更新」页提示', type: 'bool' },
+    { k: 'update.auto', label: '夜里自己更新', help: '有新版时在下面的时间自己下载、替换、重启（在线的人会断开几秒）', type: 'bool' },
+    { k: 'update.auto_at', label: '自己更新的时间', help: '这台电脑的时间，比如 04:00；那之后一小时内会更新', type: 'text', placeholder: '04:00' },
+    { k: 'update.proxy', label: '代理', help: '访问 GitHub 用，比如 http://127.0.0.1:7890。不填 = 系统的', type: 'text' },
+    { k: 'update.keep_client', label: '存一份客户端安装包', help: '更新后把新客户端的安装包存在服务器上，GitHub 下不动的朋友从这里下（都会验签）', type: 'bool' },
   ] },
   { title: '画画（小助手，NovelAI）', items: [
     { k: 'draw.enabled', label: '画画', help: '大家（和 AI）发 /nai、/nai5 等指令让小助手画；AI 想画时也是叫小助手画，还能用自己的头像当角色参考', type: 'bool' },

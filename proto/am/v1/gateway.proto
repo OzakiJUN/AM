@@ -58,6 +58,8 @@ message ServerFrame {
     AIShareRequestPush ai_share_request = 40;
     // A board game in one of my conversations changed (my own view of it).
     Game game = 41;
+    // The server now keeps a newer client installer (ServerInfo.client_version).
+    ClientUpdatePush client_update = 42;
   }
 }
 
@@ -197,6 +199,12 @@ message ClientStatePush {
 // same certificate pin and switches only when that works.
 message ServerMovedPush {
   string address = 1;
+}
+
+// The server updated and keeps the matching client installer: clients
+// newer-checking themselves fetch the signed manifest from it (or GitHub).
+message ClientUpdatePush {
+  string version = 1;
 }
 
 message Ack {}
