@@ -1110,6 +1110,9 @@ type ForwardEntry struct {
 	SenderName    string                 `protobuf:"bytes,5,opt,name=sender_name,json=senderName,proto3" json:"sender_name,omitempty"`
 	SentAt        int64                  `protobuf:"varint,6,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
 	Struck        bool                   `protobuf:"varint,7,opt,name=struck,proto3" json:"struck,omitempty"`
+	// Foreign-server identity namespace; imported provenance is provided by the forwarder.
+	SourceServer string `protobuf:"bytes,8,opt,name=source_server,json=sourceServer,proto3" json:"source_server,omitempty"`
+	Imported     bool   `protobuf:"varint,9,opt,name=imported,proto3" json:"imported,omitempty"`
 	// Types that are valid to be assigned to Body:
 	//
 	//	*ForwardEntry_Text
@@ -1195,6 +1198,20 @@ func (x *ForwardEntry) GetSentAt() int64 {
 func (x *ForwardEntry) GetStruck() bool {
 	if x != nil {
 		return x.Struck
+	}
+	return false
+}
+
+func (x *ForwardEntry) GetSourceServer() string {
+	if x != nil {
+		return x.SourceServer
+	}
+	return ""
+}
+
+func (x *ForwardEntry) GetImported() bool {
+	if x != nil {
+		return x.Imported
 	}
 	return false
 }
@@ -1442,7 +1459,7 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\x02no\x18\t \x01(\x05R\x02no\";\n" +
 	"\n" +
 	"ForwardMsg\x12-\n" +
-	"\aentries\x18\x01 \x03(\v2\x13.am.v1.ForwardEntryR\aentries\"\xe9\x02\n" +
+	"\aentries\x18\x01 \x03(\v2\x13.am.v1.ForwardEntryR\aentries\"\xaa\x03\n" +
 	"\fForwardEntry\x12$\n" +
 	"\x0esource_conv_id\x18\x01 \x01(\x03R\fsourceConvId\x12\x1f\n" +
 	"\vsource_name\x18\x02 \x01(\tR\n" +
@@ -1452,7 +1469,9 @@ const file_am_v1_event_proto_rawDesc = "" +
 	"\vsender_name\x18\x05 \x01(\tR\n" +
 	"senderName\x12\x17\n" +
 	"\asent_at\x18\x06 \x01(\x03R\x06sentAt\x12\x16\n" +
-	"\x06struck\x18\a \x01(\bR\x06struck\x12$\n" +
+	"\x06struck\x18\a \x01(\bR\x06struck\x12#\n" +
+	"\rsource_server\x18\b \x01(\tR\fsourceServer\x12\x1a\n" +
+	"\bimported\x18\t \x01(\bR\bimported\x12$\n" +
 	"\x04text\x18\n" +
 	" \x01(\v2\x0e.am.v1.TextMsgH\x00R\x04text\x12'\n" +
 	"\x05image\x18\v \x01(\v2\x0f.am.v1.ImageMsgH\x00R\x05image\x12$\n" +

@@ -69,6 +69,8 @@ func New(acct *account.Service, cs *conv.Service, ms *message.Service, md *media
 
 // Register adds the API routes to mux.
 func (a *API) Register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/v1/conversations/{id}/forward-import", a.authed(a.importForward))
+	mux.HandleFunc("POST /api/v1/conversations/{id}/forward-export", a.authed(a.exportForward))
 	mux.HandleFunc("GET /api/v1/conversations/{id}/emoji-pins", a.authed(a.listEmojiPins))
 	mux.HandleFunc("GET /api/v1/conversations/{id}/messages/{event}", a.authed(a.getMessage))
 	mux.HandleFunc("GET /api/v1/health", func(w http.ResponseWriter, r *http.Request) {
@@ -210,8 +212,12 @@ func clientIP(r *http.Request) string {
 }
 
 func (a *API) read(w http.ResponseWriter, r *http.Request, m proto.Message) bool {
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxBody+1))
-	if err != nil || len(body) > maxBody {
+	return a.readLimit(w, r, m, maxBody)
+}
+
+func (a *API) readLimit(w http.ResponseWriter, r *http.Request, m proto.Message, limit int64) bool {
+	body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
+	if err != nil || int64(len(body)) > limit {
 		a.fail(w, apperr.ErrBadRequest)
 		return false
 	}

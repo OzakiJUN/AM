@@ -7,7 +7,7 @@ import {
 import { chatTime, fileSize } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
 import { activityText } from '@/lib/presence';
-import { closeConv, current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
+import { closeConv, current, openProfile, session, useApp, useOpenConv, type ConvPage } from '@/lib/store';
 import { replyPreview, replyTarget } from '@/lib/replies';
 import { memberCount, systemText, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole, Message, User } from '@/lib/types';
@@ -24,6 +24,7 @@ import { HangDialog, MuseumButton, askHang, openMuseum } from './Museum';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait, usePortraitPack } from './Portrait';
 import { AISettingsDialog, HelperProfileDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
+import { forwardAcrossServers, type ForwardTransfer } from '@/lib/crossForward';
 import { CHAT_EMOJI } from '@/lib/chatTools';
 import { ImageEditor } from './ImageEditor';
 import type { ForwardEntry } from '@/lib/types';
@@ -863,13 +864,32 @@ function addBotMenu(e: React.MouseEvent, v: SessionView, conv: Conversation) {
 
 function ForwardDialog({ v, conv, selected, onClose, onSent }: { v: SessionView; conv: Conversation; selected: Set<string>; onClose: () => void; onSent: () => void }) {
   const [target, setTarget] = useState('');
+  const [serverId, setServerId] = useState(v.id);
+  const servers = useApp((s) => s.servers);
+  const views = useApp((s) => s.sessions);
+  const [progress, setProgress] = useState('');
+  const uploads = useRef(new Map<string, bigint>());
+  const transfers = useRef(new Map<string, ForwardTransfer>());
   const [busy, setBusy] = useState(false);
   const messages = (v.messages[conv.id] ?? []).filter((m) => selected.has(m.id) && !m.pending && !m.failed && m.body.kind !== 'deleted' && m.body.kind !== 'system');
-  const targets = Object.values(v.convs).filter((c) => !c.left && c.mutedUntil <= Date.now());
+  const targetView = serverId === v.id ? v : views[serverId];
+  const targets = Object.values(targetView?.convs ?? {}).filter((c) => !c.left && c.mutedUntil <= Date.now());
   const send = async () => {
     if (!target || !messages.length || busy) return;
     setBusy(true);
-    try { await current().forwardMessages(target, conv.id, messages); toast('聊天记录已转发'); onSent(); }
+    try {
+      const source = session(v.id), destination = session(serverId);
+      if (!source || !destination || source.view.status !== 'online' || destination.view.status !== 'online') throw new Error('原服务器或目标服务器未连接');
+      if (source === destination) await source.forwardMessages(target, conv.id, messages);
+      else {
+        const ids = messages.map((m) => m.id);
+        const key = JSON.stringify([serverId, target, conv.id, ids]);
+        let transfer = transfers.current.get(key);
+        if (!transfer) { transfer = { clientMsgId: crypto.randomUUID(), uploads: uploads.current }; transfers.current.set(key, transfer); }
+        await forwardAcrossServers(source, destination, conv.id, target, ids, transfer, setProgress);
+      }
+      toast('聊天记录已转发'); onSent();
+    }
     catch (e) { toastError(e); }
     finally { setBusy(false); }
   };
@@ -879,12 +899,18 @@ function ForwardDialog({ v, conv, selected, onClose, onSent }: { v: SessionView;
       {messages.slice(0, 5).map((m) => <div key={m.id} className="truncate">{current().nameOf(m.senderId)}：{replyPreview(m)}</div>)}
       {messages.length > 5 && <div>…</div>}
     </div>
+    <label className="mb-1 block text-sm" htmlFor="forward-server">目标服务器</label>
+    <select id="forward-server" className="mb-3 w-full rounded-xl border border-black/10 bg-white p-2 dark:bg-[#221f3c]" value={serverId} disabled={busy} onChange={(e) => { setServerId(e.target.value); setTarget(''); setProgress(''); }}>
+      {servers.map((server) => <option key={server.id} value={server.id} disabled={(server.id === v.id ? v : views[server.id])?.status !== 'online'}>{server.name} · {server.endpoint.address}{views[server.id]?.status !== 'online' ? '（未连接）' : ''}</option>)}
+    </select>
     <label className="mb-1 block text-sm" htmlFor="forward-target">发送到</label>
     <select id="forward-target" className="mb-4 w-full rounded-xl border border-black/10 bg-white p-2 dark:bg-[#221f3c]" value={target} onChange={(e) => setTarget(e.target.value)} disabled={busy}>
       <option value="">选择频道或私聊</option>
       {targets.map((c) => <option key={c.id} value={c.id}>{c.kind === 'group' ? '#' : '私聊 · '}{c.name}</option>)}
     </select>
-    <div className="flex justify-end"><Button variant="primary" disabled={!target || !messages.length || busy} onClick={send}><Forward size={16} />转发</Button></div>
+    {serverId !== v.id && <p className="mb-3 text-xs text-ink-soft">图片和文件会上传到目标服务器，记录会标注为跨服导入。</p>}
+    {busy && progress && <p role="status" className="mb-3 text-sm text-ink-soft">{progress}</p>}
+    <div className="flex justify-end"><Button variant="primary" disabled={!target || !messages.length || busy || targetView?.status !== 'online'} onClick={send}><Forward size={16} />转发</Button></div>
   </Dialog>;
 }
 
@@ -894,12 +920,13 @@ function ForwardHistory({ entries, onView }: { entries: ForwardEntry[]; onView: 
     <button className="card w-72 rounded-2xl bg-white/90 p-3 text-left dark:bg-white/10" onClick={() => setOpen(true)}>
       <div className="mb-2 flex items-center gap-2 font-medium"><Forward size={16} />聊天记录 · {entries.length} 条</div>
       {entries.slice(0, 3).map((e, i) => <div key={i} className="truncate text-sm text-ink-soft">{e.senderName}：{replyPreview({ id: '', seq: 0, senderId: e.senderId, time: e.time, body: e.body })}</div>)}
-      <div className="mt-2 border-t border-black/5 pt-1 text-xs text-ink-soft">来自 {Array.from(new Set(entries.map((e) => e.sourceName))).join('、')}</div>
+      <div className="mt-2 border-t border-black/5 pt-1 text-xs text-ink-soft">来自 {Array.from(new Set(entries.map((e) => [e.sourceServer, e.sourceName].filter(Boolean).join(' · ')))).join('、')}</div>
     </button>
     <Dialog open={open} onClose={() => setOpen(false)} title="转发的聊天记录" width={720}>
+      {entries.some((entry) => entry.imported) && <p className="mb-3 rounded-xl bg-amber-500/10 p-2 text-xs text-ink-soft">跨服务器导入，来源和作者信息由转发者带入，属于外服账号。</p>}
       <div className="max-h-[65vh] space-y-5 overflow-auto pr-2">
         {entries.map((e, i) => <div key={i}>
-          <div className="mb-1 text-xs text-ink-soft">{e.senderName} · {chatTime(e.time)} · 来自「{e.sourceName}」</div>
+          <div className="mb-1 text-xs text-ink-soft">{e.senderName} · {chatTime(e.time)} · 来自「{[e.sourceServer, e.sourceName].filter(Boolean).join(' · ')}」</div>
           <Body msg={{ id: e.sourceEventId, seq: 0, senderId: e.senderId, time: e.time, body: e.body, struck: e.struck }} mine={false} onView={onView} />
         </div>)}
       </div>

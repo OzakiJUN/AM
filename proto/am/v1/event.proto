@@ -161,6 +161,9 @@ message ForwardEntry {
   string sender_name = 5;
   int64 sent_at = 6;
   bool struck = 7;
+  // Foreign-server identity namespace; imported provenance is provided by the forwarder.
+  string source_server = 8;
+  bool imported = 9;
   oneof body {
     TextMsg text = 10;
     ImageMsg image = 11;
