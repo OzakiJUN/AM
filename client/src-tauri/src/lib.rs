@@ -248,8 +248,14 @@ fn host_config() -> Option<String> {
 /// again with a new one. Does nothing outside host mode.
 /// Downloads the client installer of a verified release (update.rs).
 #[tauri::command]
-async fn update_download(net: State<'_, Net>, sources: Vec<update::Source>, version: String, size: u64, sha256: String, on_progress: Channel<u64>) -> Res<String> {
-    update::download(&net, sources, version, size, sha256, on_progress).await
+async fn update_download(net: State<'_, Net>, sources: Vec<update::Source>, version: String, portable: bool, size: u64, sha256: String, on_progress: Channel<u64>) -> Res<String> {
+    update::download(&net, sources, version, portable, size, sha256, on_progress).await
+}
+
+/// "installed" or "portable" (which file an update needs).
+#[tauri::command]
+fn update_mode() -> &'static str {
+    update::mode()
 }
 
 /// Runs the downloaded installer and quits.
@@ -418,6 +424,9 @@ mod tests {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let host = host_file().is_some();
+    if !host {
+        update::after_update();
+    }
     let mut builder = tauri::Builder::default().setup(move |app| {
         // The main window is made here (tauri.conf: create = false): in host
         // mode hidden, with its own browser data (localStorage) so it never
@@ -506,7 +515,7 @@ pub fn run() {
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
             agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
-            update_download, update_install
+            update_download, update_install, update_mode
         ])
         .run(tauri::generate_context!())
         .expect("error while running AM");

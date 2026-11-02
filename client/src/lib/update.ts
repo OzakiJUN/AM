@@ -4,15 +4,16 @@
 // client_version, ClientUpdatePush): it reads that server's copy of
 // release.json. Either way the manifest is verified with the built-in key
 // (lib/release.ts) before anything is offered. Installing downloads the
-// installer (GitHub, mirrors, then a server that keeps it; Rust checks the
-// size + SHA-256), runs it and quits; it starts AM again when done.
+// new version — the installer for an installed AM, AM.exe for the portable
+// one (GitHub, mirrors, then a server that keeps the installer; Rust checks
+// the size + SHA-256) — puts it in place and quits; AM starts again.
 // Browser dev mode and host mode don't update.
 
 import { create } from 'zustand';
 import { inTauri } from './platform';
 import { usePrefs } from './prefs';
 import { session, useApp } from './store';
-import { compareVersions, installerOf, isRelease, loadManifest, MANIFEST, type Manifest, RELEASE_PUBLIC_KEY, releaseUrls, SIGNATURE } from './release';
+import { compareVersions, isRelease, loadManifest, MANIFEST, type Manifest, RELEASE_PUBLIC_KEY, releaseUrls, SIGNATURE, updateFileOf } from './release';
 
 export const APP_VERSION = __APP_VERSION__;
 
@@ -112,18 +113,20 @@ export async function installUpdate(): Promise<void> {
   const why = cannotUpdate();
   if (why) throw new Error(why);
   if (!m || !updateAvailable(st)) throw new Error('已经是最新版了');
-  const f = installerOf(m);
-  if (!f) throw new Error(`${m.version} 没有 Windows 安装包`);
-  // GitHub, the mirrors, then every server that keeps this version.
+  const { invoke, Channel } = await import('@tauri-apps/api/core');
+  // An installed AM runs the installer; the portable AM.exe swaps itself (update.rs).
+  const portable = (await invoke<string>('update_mode')) === 'portable';
+  const f = updateFileOf(m, portable);
+  if (!f) throw new Error(`${m.version} 没有 Windows 的${portable ? '免安装版' : '安装包'}`);
+  // GitHub, the mirrors, then every server that keeps this version (installer only).
   const holders = new Set(st.servers);
   for (const r of useApp.getState().servers) if (useApp.getState().sessions[r.id]?.clientVersion === m.version) holders.add(r.id);
-  const sources = [...releaseUrls(f.name, 'v' + m.version).map((url) => ({ url })), ...[...holders].map((server) => ({ server }))];
+  const sources = [...releaseUrls(f.name, 'v' + m.version).map((url) => ({ url })), ...(portable ? [] : [...holders].map((server) => ({ server })))];
   useUpdate.setState({ status: 'downloading', error: '', done: 0, total: f.size });
   try {
-    const { invoke, Channel } = await import('@tauri-apps/api/core');
     const on = new Channel<number>();
     on.onmessage = (done) => useUpdate.setState({ done });
-    const path = await invoke<string>('update_download', { sources, version: m.version, size: f.size, sha256: f.sha256, onProgress: on });
+    const path = await invoke<string>('update_download', { sources, version: m.version, portable, size: f.size, sha256: f.sha256, onProgress: on });
     useUpdate.setState({ status: 'installing' });
     await invoke('update_install', { path });
   } catch (e) {

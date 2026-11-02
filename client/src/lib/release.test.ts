@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { compareVersions, installerOf, isRelease, loadManifest, parseManifest, releaseUrls } from './release.ts';
+import { compareVersions, installerOf, isRelease, loadManifest, parseManifest, releaseUrls, updateFileOf } from './release.ts';
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const b64 = (b: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(b)));
@@ -17,6 +17,8 @@ const sig = b64(await crypto.subtle.sign('Ed25519', keys.privateKey, data));
 const m = await loadManifest(data, sig + '\n', pub);
 assert.equal(m?.version, '0.2.0');
 assert.equal(installerOf(m!)?.size, 3);
+assert.equal(updateFileOf(m!, false)?.name, 'AM-setup.exe');
+assert.equal(updateFileOf(m!, true), null, 'no portable AM.exe in this release');
 assert.equal(await loadManifest(manifest('0.2.1'), sig, pub), null, 'changed manifest');
 const other = (await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify'])) as CryptoKeyPair;
 assert.equal(await loadManifest(data, sig, b64(await crypto.subtle.exportKey('raw', other.publicKey))), null, 'other key');

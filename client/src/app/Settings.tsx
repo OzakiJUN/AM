@@ -466,7 +466,7 @@ function UpdateBox() {
       ) : (
         <>
           <Row title={newer ? `有新版本 ${u.latest!.version}` : u.latest ? '已经是最新版' : '还没检查过'} desc={
-            (u.checkedAt ? `上次检查：${new Date(u.checkedAt).toLocaleString()}。` : '') + '新版本先验签（内置公钥）再安装，从 GitHub 下载，下不动时走镜像或你连着的服务器存的那份。'
+            (u.checkedAt ? `上次检查：${new Date(u.checkedAt).toLocaleString()}。` : '') + '新版本先验签（内置公钥）再换上：免安装版直接换掉 AM.exe（位置和名字不变），安装版运行安装程序。从 GitHub 下载，下不动时走镜像或你连着的服务器存的那份。'
           }>
             <Button size="sm" variant="soft" disabled={busy} onClick={() => checkGitHub()}>检查更新</Button>
             {newer && <Button size="sm" disabled={busy} onClick={() => installUpdate().catch(toastError)}>下载并安装</Button>}
@@ -479,7 +479,7 @@ function UpdateBox() {
               <div className="mt-1 text-[0.85rem] text-ink-soft">{(u.done / 1048576).toFixed(1)} / {(u.total / 1048576).toFixed(1)} MB</div>
             </div>
           )}
-          {u.status === 'installing' && <p className="text-ink-soft">正在打开安装程序，AM 会自己关掉再打开…</p>}
+          {u.status === 'installing' && <p className="text-ink-soft">正在换成新版，AM 会自己关掉再打开…</p>}
           {u.status === 'error' && <p role="alert" className="text-rose-600">{u.error}</p>}
           <Row title="自动检查新版本" desc="打开 AM 时和之后每 6 小时查一次 GitHub；有新版在左边「设置」上提示">
             <Toggle label="自动检查新版本" checked={auto} onChange={(v) => setPrefs({ updateCheck: v })} />

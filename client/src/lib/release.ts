@@ -13,6 +13,8 @@ export const RELEASE_REPO = 'OzakiJUN/AM';
 export const MANIFEST = 'release.json';
 export const SIGNATURE = 'release.json.sig';
 export const INSTALLER = 'AM-setup.exe';
+/** The portable client (run from any folder; an update swaps the exe itself). */
+export const PORTABLE = 'AM.exe';
 /** Download mirrors tried after GitHub (each goes in front of the GitHub address). */
 export const MIRRORS = ['https://ghfast.top/'];
 
@@ -97,3 +99,6 @@ export function releaseUrls(name: string, tag = '', repo = RELEASE_REPO, mirrors
 }
 
 export const installerOf = (m: Manifest) => m.files.find((f) => f.name === INSTALLER) ?? null;
+
+/** The file an update needs: the installer for an installed AM, AM.exe for the portable one. */
+export const updateFileOf = (m: Manifest, portable: boolean) => m.files.find((f) => f.name === (portable ? PORTABLE : INSTALLER)) ?? null;

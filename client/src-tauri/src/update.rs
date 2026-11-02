@@ -1,8 +1,14 @@
 //! Client updates (docs/release.md): the UI has already verified release.json
-//! with the built-in release key (lib/release.ts); this downloads the
-//! installer from GitHub, a mirror or the server's copy (pinned
-//! connection), keeps it only if its size and SHA-256 match the manifest,
-//! and runs it (NSIS: /P = progress only, /UPDATE, /R = start AM again).
+//! with the built-in release key (lib/release.ts); this downloads the new
+//! version from GitHub, a mirror or the server's copy (pinned connection),
+//! keeps it only if its size and SHA-256 match the manifest, and puts it in
+//! place. Two kinds of AM (`mode`):
+//! - installed (NSIS put uninstall.exe beside it): run AM-setup.exe
+//!   (/P = progress only, /UPDATE, /R = start AM again);
+//! - portable (AM.exe run from any folder): swap the exe itself — the
+//!   running one is renamed to AM.exe.old (Windows allows renaming a running
+//!   exe, not deleting it), the new one takes its name and place, starts
+//!   after this one has quit, and deletes the .old file.
 
 use crate::net::Net;
 use serde::Deserialize;
@@ -23,15 +29,52 @@ fn dir() -> PathBuf {
     std::env::temp_dir().join("AM-update")
 }
 
+/// "installed" when the NSIS installer put this AM there, else "portable".
+pub fn mode() -> &'static str {
+    let installed = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("uninstall.exe").is_file()))
+        .unwrap_or(false);
+    if installed {
+        "installed"
+    } else {
+        "portable"
+    }
+}
+
+const WAIT_PID: &str = "AM_UPDATE_WAIT_PID";
+
+/// At start: after a portable update, wait for the old AM to quit (so the
+/// single-instance check doesn't hand over to it) and delete AM.exe.old.
+pub fn after_update() {
+    #[cfg(windows)]
+    if let Some(pid) = std::env::var(WAIT_PID).ok().and_then(|v| v.parse::<u32>().ok()) {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE};
+        // SAFETY: plain Win32 calls on a handle we own and close.
+        unsafe {
+            let h = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
+            if !h.is_null() {
+                WaitForSingleObject(h, 15_000);
+                CloseHandle(h);
+            }
+        }
+        std::env::remove_var(WAIT_PID);
+    }
+    if let Ok(cur) = std::env::current_exe() {
+        let _ = std::fs::remove_file(cur.with_extension("exe.old"));
+    }
+}
+
 /// Downloads the installer; returns its path. Progress (bytes so far) goes
 /// to `on`. A source that fails or sends the wrong bytes is skipped.
-pub async fn download(net: &Net, sources: Vec<Source>, version: String, size: u64, sha256: String, on: Channel<u64>) -> Result<String, String> {
+pub async fn download(net: &Net, sources: Vec<Source>, version: String, portable: bool, size: u64, sha256: String, on: Channel<u64>) -> Result<String, String> {
     if version.is_empty() || !version.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
         return Err("bad version".into());
     }
     let dir = dir();
     tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
-    let path = dir.join(format!("AM-setup-{version}.exe"));
+    let path = dir.join(if portable { format!("AM-{version}.exe") } else { format!("AM-setup-{version}.exe") });
     let mut errs = Vec::new();
     for src in sources {
         let resp = match (&src.url, &src.server) {
@@ -42,7 +85,7 @@ pub async fn download(net: &Net, sources: Vec<Source>, version: String, size: u6
                 }
                 crate::ai_http::public_get(url).await
             }
-            (None, Some(id)) => net.update_installer(id).await.map_err(|e| e.0),
+            (None, Some(id)) if !portable => net.update_installer(id).await.map_err(|e| e.0),
             _ => continue,
         };
         let from = src.url.clone().unwrap_or_else(|| "服务器".into());
@@ -89,16 +132,66 @@ async fn save(mut resp: reqwest::Response, path: &PathBuf, size: u64, sha256: &s
     Ok(())
 }
 
-/// Runs a downloaded installer and quits AM (the installer starts it again).
+/// Puts the downloaded version in place and quits AM; the installer (or
+/// the new AM.exe) starts it again.
 pub fn install(app: &tauri::AppHandle, path: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
     if p.parent() != Some(dir().as_path()) || !path.ends_with(".exe") {
-        return Err("不是下载好的安装包".into());
+        return Err("不是下载好的新版本".into());
     }
     if !cfg!(windows) {
-        return Err("只有 Windows 版能自动安装".into());
+        return Err("只有 Windows 版能自动更新".into());
     }
-    std::process::Command::new(&p).args(["/P", "/UPDATE", "/R"]).spawn().map_err(|e| format!("启动安装程序失败：{e}"))?;
+    if mode() == "installed" {
+        std::process::Command::new(&p).args(["/P", "/UPDATE", "/R"]).spawn().map_err(|e| format!("启动安装程序失败：{e}"))?;
+    } else {
+        let cur = std::env::current_exe().map_err(|e| e.to_string())?;
+        swap(&cur, &p)?;
+        std::process::Command::new(&cur)
+            .env(WAIT_PID, std::process::id().to_string())
+            .spawn()
+            .map_err(|e| format!("启动新版本失败：{e}"))?;
+    }
     app.exit(0);
     Ok(())
+}
+
+/// Swaps the running exe for `new`: cur -> cur.old, copy new -> cur (a copy:
+/// the download folder may be on another drive). Puts the old one back if
+/// that fails.
+fn swap(cur: &std::path::Path, new: &std::path::Path) -> Result<(), String> {
+    let old = cur.with_extension("exe.old");
+    let _ = std::fs::remove_file(&old);
+    std::fs::rename(cur, &old).map_err(|e| format!("换不了 {}（这个文件夹不能写？请手动换成新版）：{e}", cur.display()))?;
+    if let Err(e) = std::fs::copy(new, cur) {
+        let _ = std::fs::remove_file(cur);
+        let _ = std::fs::rename(&old, cur);
+        return Err(format!("放不进新版本：{e}"));
+    }
+    let _ = std::fs::remove_file(new);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::swap;
+
+    #[test]
+    fn swap_keeps_the_name_and_the_old_copy() {
+        let d = std::env::temp_dir().join(format!("am-swap-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let cur = d.join("AM.exe");
+        let new = d.join("AM-0.2.0.exe");
+        std::fs::write(&cur, b"old").unwrap();
+        std::fs::write(&new, b"new").unwrap();
+        swap(&cur, &new).unwrap();
+        assert_eq!(std::fs::read(&cur).unwrap(), b"new");
+        assert_eq!(std::fs::read(d.join("AM.exe.old")).unwrap(), b"old");
+        assert!(!new.exists());
+        // A missing download: the old one comes back.
+        assert!(swap(&cur, &d.join("nope.exe")).is_err());
+        assert_eq!(std::fs::read(&cur).unwrap(), b"new");
+        let _ = std::fs::remove_dir_all(&d);
+    }
 }
