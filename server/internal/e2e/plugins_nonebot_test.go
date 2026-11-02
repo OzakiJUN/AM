@@ -1,9 +1,10 @@
 package e2e
 
 import (
-	"bytes"
+	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,8 +34,9 @@ func TestPluginsRealNoneBot(t *testing.T) {
 	})
 	ctx := ctxT(t)
 	us := newServerUsers(t, a, base, "admin", "bob")
-	admin, bob := us[0], us[1]
-	ai := must(admin.cli.CreateAI(ctx, "回声机")).User
+	bob := us[1]
+	botID := a.Helper.Bot().ID
+	pc := panelFor(t, a)
 
 	const echo = `
 from nonebot import get_driver, on_command
@@ -55,37 +57,49 @@ async def _(event: MessageEvent):
     where = "群" if isinstance(event, GroupMessageEvent) else "私聊"
     await echo.finish(MessageSegment.reply(event.message_id) + f"{PREFIX}{text}（{where}）")
 `
-	up := must(admin.cli.Upload(ctx, "echo.zip", bytes.NewReader(pluginZip(t, map[string]string{"echo/__init__.py": echo}))))
-	p := must(admin.cli.UploadPlugins(ctx, ai.Id, up.Id)).Plugins[0]
-	must(admin.cli.UpdatePlugin(ctx, ai.Id, p.Id, nil, `{"echo_prefix":"你 \"说\" #："}`))
+	var up panelPlugins
+	pc.do("POST", "/api/plugins/upload", map[string]any{"data": base64.StdEncoding.EncodeToString(pluginZip(t, map[string]string{"echo/__init__.py": echo}))}, &up)
+	if len(up.Items) != 1 {
+		t.Fatalf("upload %+v", up)
+	}
+	pc.do("PUT", "/api/plugins/"+up.Items[0].ID, map[string]any{"config_patch": `{"echo_prefix":"你 \"说\" #："}`}, nil)
+	status := func() string {
+		var l struct {
+			HostState string   `json:"host_state"`
+			HostError string   `json:"host_error"`
+			Log       []string `json:"log"`
+		}
+		pc.do("GET", "/api/plugins", nil, &l)
+		return l.HostState + " " + l.HostError + "\n" + strings.Join(l.Log, "\n")
+	}
 
 	// Installing NoneBot the first time takes a while.
 	deadline := time.Now().Add(5 * time.Minute)
 	for {
-		l := must(admin.cli.ListPlugins(ctx, ai.Id))
-		if l.HostState == "running" {
+		st := status()
+		if strings.HasPrefix(st, "running ") {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("NoneBot did not connect: %s %s\n%v", l.HostState, l.HostError, l.Log)
+			t.Fatalf("NoneBot did not connect: %s", st)
 		}
 		time.Sleep(time.Second)
 	}
 
 	bobWS := must(bob.cli.Connect(ctx))
 	defer bobWS.Close()
-	ch := must(bob.cli.CreateGroup(ctx, "测试", ai.Id))
+	ch := must(bob.cli.CreateGroup(ctx, "测试"))
 	sent := must(bobWS.SendText(ctx, ch.Id, "/echo 你好"))
 	got := waitPushLong(t, bobWS, "NoneBot's reply", 20*time.Second, func(f *amv1.ServerFrame) bool {
-		return f.GetEvent().GetEvent().GetSenderId() == ai.Id
+		return f.GetEvent().GetEvent().GetSenderId() == botID
 	}).GetEvent().GetEvent()
 	if got.GetText().GetText() != `你 "说" #：你好（群）` || got.GetText().GetReplyTo() != sent.EventId {
-		t.Fatalf("reply %+v\n%v", got, must(admin.cli.ListPlugins(ctx, ai.Id)).Log)
+		t.Fatalf("reply %+v\n%v", got, status())
 	}
-	dm := must(bob.cli.OpenDM(ctx, ai.Id))
+	dm := must(bob.cli.OpenDM(ctx, botID))
 	must(bobWS.SendText(ctx, dm.Id, "/echo 悄悄话"))
 	got = waitPushLong(t, bobWS, "NoneBot's DM reply", 20*time.Second, func(f *amv1.ServerFrame) bool {
-		return f.GetEvent().GetEvent().GetSenderId() == ai.Id && f.GetEvent().GetEvent().GetConvId() == dm.Id
+		return f.GetEvent().GetEvent().GetSenderId() == botID && f.GetEvent().GetEvent().GetConvId() == dm.Id
 	}).GetEvent().GetEvent()
 	if got.GetText().GetText() != `你 "说" #：悄悄话（私聊）` {
 		t.Fatalf("dm reply %+v", got)

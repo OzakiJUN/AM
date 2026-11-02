@@ -65,6 +65,8 @@ type Service struct {
 	timeout time.Duration
 	autofix bool
 	model   Model
+	// external: commands something else answers (plugins), listed and known.
+	external func() []Entry
 
 	mu   sync.RWMutex
 	cmds []*Command
@@ -88,13 +90,13 @@ func New(ctx context.Context, st *store.Store, ids *idgen.Generator, ms *message
 	return s, nil
 }
 
-// Entries are the bot's commands, for 指令查询.
+// Entries are the bot's commands (and plugins'), for 指令查询.
 func (s *Service) Entries() []Entry {
 	var out []Entry
 	for _, c := range s.Commands() {
 		out = append(out, Entry{Name: c.Name, Aliases: c.Aliases, Group: c.Group, Usage: c.Usage, Help: c.Help, Safe: c.Safe, Own: true})
 	}
-	return out
+	return append(out, s.externals()...)
 }
 
 func ensureBot(ctx context.Context, st *store.Store, ids *idgen.Generator, name string) (*store.User, error) {
@@ -151,12 +153,33 @@ func (s *Service) Commands() []*Command {
 	return slices.Clone(s.cmds)
 }
 
-// Names are all command names and aliases (ServerInfo.commands).
-func (s *Service) Names() []string {
+// SetExternal adds commands something else answers (plugins): listed in
+// 指令查询 and ServerInfo.commands, never fixed as typos (at startup).
+func (s *Service) SetExternal(f func() []Entry) { s.external = f }
+
+func (s *Service) externals() []Entry {
+	if s.external == nil {
+		return nil
+	}
+	return s.external()
+}
+
+// ownNames are the bot's own command names and aliases.
+func (s *Service) ownNames() []string {
 	var out []string
 	for _, c := range s.Commands() {
 		out = append(out, c.Name)
 		out = append(out, c.Aliases...)
+	}
+	return out
+}
+
+// Names are all command names and aliases, plugins' too (ServerInfo.commands).
+func (s *Service) Names() []string {
+	out := s.ownNames()
+	for _, e := range s.externals() {
+		out = append(out, e.Name)
+		out = append(out, e.Aliases...)
 	}
 	return out
 }
@@ -175,7 +198,12 @@ func (s *Service) hear(sender *store.User, ev *amv1.Event) {
 	if sender.ID == s.bot.ID || ev.GetText() == nil {
 		return
 	}
-	name, args, ok := Match(ev.GetText().GetText(), s.Names())
+	if _, _, plug := Match(ev.GetText().GetText(), s.Names()); plug {
+		if _, _, own := Match(ev.GetText().GetText(), s.ownNames()); !own {
+			return // a plugin's command: the plugin answers
+		}
+	}
+	name, args, ok := Match(ev.GetText().GetText(), s.ownNames())
 	if !ok {
 		s.typo(sender, ev)
 		return
@@ -395,7 +423,7 @@ func (s *Service) RunFor(ctx context.Context, user *store.User, convID, replyTo 
 	} else if err != nil {
 		return nil, err
 	}
-	name, args, ok := Match(text, s.Names())
+	name, args, ok := Match(text, s.ownNames())
 	if !ok {
 		body := strings.TrimLeft(strings.TrimSpace(text), "/／")
 		if sug := Suggest(body, s.Entries(), 3); len(sug) > 0 {

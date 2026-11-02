@@ -111,9 +111,6 @@ func testHosting(t *testing.T, a *app.App, base string) {
 	wantCode(t, err, "state_conflict")
 	_, err = bob.cli.MyAI(ctx)
 	wantCode(t, err, "no_permission")
-	if l := must(host.ListPlugins(ctx, ai.Id)); l == nil {
-		t.Fatal("the AI can't list its own plugins")
-	}
 	// Online = running.
 	ws := must(host.Connect(ctx))
 	waitFor(t, "running", func() bool {

@@ -212,6 +212,25 @@ func (q *Queries) CountSiteAdmins(ctx context.Context) (int64, error) {
 	return n, err
 }
 
+// SiteAdminIDs lists site admins that are not banned (the built-in bot's
+// plugins treat them as NoneBot SUPERUSERS).
+func (q *Queries) SiteAdminIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.query(ctx, `SELECT id FROM users WHERE is_site_admin AND NOT banned AND left_at IS NULL ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 func toLower(s string) string {
 	// ASCII-only lowering matches SQL lower() on both databases for the
 	// characters usernames may contain; other characters pass through.

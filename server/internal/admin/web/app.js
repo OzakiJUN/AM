@@ -265,8 +265,6 @@ function updateChrome() {
   if (userCount) userCount.textContent = s.stats ? s.stats.users : '';
   const evCount = document.querySelector('[data-page=evidence] .count');
   if (evCount) evCount.textContent = s.stats && s.stats.evidence ? s.stats.evidence : '';
-  const plCount = document.querySelector('[data-page=plugins] .count');
-  if (plCount) plCount.textContent = s.stats && s.stats.plugins_pending ? s.stats.plugins_pending + ' 待审' : '';
   const hoCount = document.querySelector('[data-page=hosting] .count');
   if (hoCount) hoCount.textContent = s.stats && s.stats.hosting_pending ? s.stats.hosting_pending + ' 待审' : '';
   document.title = (s.server_name || 'AM 服务器') + ' - 管理面板';
@@ -947,58 +945,165 @@ async function renderStickers(root, page) {
   load();
 }
 
-// ---------- AI plugins ----------
+// ---------- Plugins (on the built-in bot) ----------
 
-let pluginStatus = 'pending';
-
-// AI plugins (docs/plugins.md): NoneBot plugins people upload for their AIs.
-// They are programs with full access to this computer, so each upload waits
-// here until an admin has read it. Rejecting an approved one stops it.
+// Plugins (docs/plugins.md): NoneBot plugins run as the server's built-in
+// bot, and only site admins upload them, here. They are programs with full
+// access to this computer, so read the code before uploading.
 async function renderPlugins(root, page) {
   root.append(stateBanner() || '');
-  const status = el('select', { 'aria-label': '显示哪些', onchange: () => { pluginStatus = status.value; load(); } },
-    [['pending', '待审核'], ['approved', '已批准'], ['rejected', '已拒绝'], ['', '全部']].map(([v, n]) => el('option', { value: v, selected: v === pluginStatus }, n)));
+  const file = el('input', { type: 'file', accept: '.zip,application/zip', hidden: true, onchange: () => { if (file.files[0]) upload(file.files[0]); file.value = ''; } });
+  const upBtn = el('button', { class: 'btn primary', type: 'button', onclick: () => file.click() }, '上传插件');
   const box = el('div');
-  root.append(head('插件', '大家给自己的 AI 上传的 NoneBot 插件。插件是程序，能读写这台电脑上的文件、联网，所以每个插件（包括更新的版本）都要你先看过代码、批准以后才会运行。站点管理员自己上传的直接算批准。已批准的也可以随时拒绝，插件会马上停下。',
-    el('div', { class: 'sticker-filters' }, status)), box);
+  root.append(head('插件', '给小助手装 NoneBot2 插件：上传一个 zip（里面是插件文件夹，一个或几个都行），马上以小助手的身份运行，大家在频道和私信里用它的命令。同名文件夹再传一次 = 更新（设置保留）。插件是程序，能读写这台电脑上的文件、联网，上传前先看过代码。',
+    upBtn, file), box);
+
+  const HOST = { running: '运行中', starting: '启动中', preparing: '安装依赖中', error: '出错了', off: '没在运行' };
+  let botName = '小助手';
 
   async function load() {
     let data;
     try {
-      data = await api('GET', 'plugins?status=' + pluginStatus);
+      data = await api('GET', 'plugins');
     } catch (e) { fail(e); return; }
     if (currentPage !== page) return;
     if (!data.enabled) {
+      upBtn.disabled = true;
       box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, '插件功能已关闭（设置 → config.toml 里的 [plugins] enabled）。')));
       return;
     }
+    botName = data.bot_name || botName;
+    const state = el('div', { class: 'panel' },
+      el('div', { class: 'row' }, el('strong', {}, botName + ' 的插件进程'),
+        el('span', { class: 'tag ' + (data.host_state === 'running' ? 'good' : data.host_state === 'error' ? 'bad' : '') }, HOST[data.host_state] || data.host_state || '没在运行')),
+      data.host_error ? el('div', { class: 'meta bad' }, data.host_error) : '',
+      data.log && data.log.length ? el('details', {}, el('summary', {}, '最近的输出'), el('pre', { class: 'code' }, data.log.join('\n'))) : '');
     if (!data.items.length) {
-      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, pluginStatus === 'pending' ? '没有等待审核的插件。' : '这里还没有插件。')));
+      box.replaceChildren(state, el('div', { class: 'panel' }, el('p', { class: 'empty' }, '还没有插件。')));
       return;
     }
-    box.replaceChildren(...data.items.map(card));
+    box.replaceChildren(state, ...data.items.map(card));
   }
 
-  const STATUS = { pending: ['待审核', 'warn'], approved: ['已批准', 'good'], rejected: ['已拒绝', 'bad'] };
-  const HOST = { running: '运行中', starting: '启动中', preparing: '安装依赖中', error: '出错了', off: '没在运行' };
+  async function upload(f) {
+    const data = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(f);
+    });
+    upBtn.disabled = true;
+    try {
+      const r = await api('POST', 'plugins/upload', { data });
+      toast('已装好：' + r.items.map((x) => x.name || x.dir).join('、'));
+      load();
+    } catch (e) { fail(e); } finally { upBtn.disabled = false; }
+  }
 
   function card(x) {
-    const [stText, stClass] = STATUS[x.status] || [x.status, ''];
     const lines = [
-      el('div', { class: 'row' }, el('strong', {}, x.name || x.dir), el('span', { class: 'muted' }, x.dir), el('span', { class: 'tag ' + stClass }, stText),
-        x.status === 'approved' ? el('span', { class: 'muted' }, (x.enabled ? HOST[x.host_state] || x.host_state : '主人关掉了')) : ''),
-      el('div', { class: 'meta' }, 'AI：' + (x.ai_name || '(已删除)') + ' · 主人：' + (x.owner_name || '?') + ' · 上传于 ' + fmtTime(x.uploaded_at)),
+      el('div', { class: 'row' }, el('strong', {}, x.name || x.dir), el('span', { class: 'muted' }, x.dir),
+        el('span', { class: 'tag ' + (x.enabled ? 'good' : '') }, x.enabled ? '启用' : '已停用')),
+      el('div', { class: 'meta' }, '上传于 ' + fmtTime(x.uploaded_at)),
     ];
     if (x.description) lines.push(el('p', {}, x.description));
-    if (x.commands && x.commands.length) lines.push(el('div', { class: 'meta' }, '命令：' + x.commands.join('、')));
-    lines.push(el('div', { class: 'meta' }, '需要安装：' + (x.requires && x.requires.length ? x.requires.join('、') : '无（只用 NoneBot 自带的）') + ' · ' + x.settings + ' 项设置'));
-    if (x.reject_reason) lines.push(el('div', { class: 'meta' }, '拒绝原因：' + x.reject_reason));
-    if (x.host_error) lines.push(el('div', { class: 'meta bad' }, x.host_error));
+    if (x.commands && x.commands.length) lines.push(el('div', { class: 'meta' }, '命令：' + x.commands.map((c) => '/' + c).join('、')));
+    if (x.usage) lines.push(el('div', { class: 'meta' }, '用法：' + x.usage));
+    lines.push(el('div', { class: 'meta' }, '需要安装：' + (x.requires && x.requires.length ? x.requires.join('、') : '无（只用 NoneBot 自带的）') + ' · ' + x.config_items.length + ' 项设置'));
     lines.push(el('div', { class: 'row' },
       el('button', { class: 'btn small ghost', type: 'button', onclick: () => files(x) }, '看代码'),
-      x.status !== 'approved' ? el('button', { class: 'btn small primary', type: 'button', onclick: () => decide(x, true) }, '批准') : '',
-      x.status !== 'rejected' ? el('button', { class: 'btn small danger', type: 'button', onclick: () => decide(x, false) }, x.status === 'approved' ? '停用' : '拒绝') : ''));
+      x.config_items.length ? el('button', { class: 'btn small', type: 'button', onclick: () => settings(x) }, '设置') : '',
+      el('button', { class: 'btn small', type: 'button', onclick: (e) => toggle(x, e.currentTarget) }, x.enabled ? '停用' : '启用'),
+      el('button', { class: 'btn small danger', type: 'button', onclick: () => remove(x) }, '删除')));
     return el('article', { class: 'panel' }, lines);
+  }
+
+  async function toggle(x, btn) {
+    btn.disabled = true;
+    try {
+      await api('PUT', 'plugins/' + x.id, { enabled: !x.enabled });
+      toast(x.enabled ? '已停用' : '已启用');
+      load();
+    } catch (e) { fail(e); btn.disabled = false; }
+  }
+
+  async function remove(x) {
+    if (!await confirmDialog({ title: '删除「' + (x.name || x.dir) + '」', text: '插件文件会删掉（它自己存的数据留着）。', ok: '删除', danger: true })) return;
+    try {
+      await api('DELETE', 'plugins/' + x.id);
+      toast('已删除');
+      load();
+    } catch (e) { fail(e); }
+  }
+
+  // settings: one field per setting the plugin reads. Empty = its default;
+  // secrets are never shown (empty = keep what is set).
+  async function settings(x) {
+    const fields = x.config_items.map((c) => {
+      const has = Object.prototype.hasOwnProperty.call(x.values || {}, c.key);
+      const v = has ? x.values[c.key] : undefined;
+      const def = c.default === undefined || c.default === null ? '' : typeof c.default === 'string' ? c.default : JSON.stringify(c.default);
+      let input;
+      if (c.secret) {
+        const set = (x.secrets_set || []).includes(c.key);
+        input = el('input', { type: 'password', autocomplete: 'off', placeholder: set ? '已设置（留空不改）' : '没设置' });
+      } else if (c.type === 'bool') {
+        input = el('input', { type: 'checkbox', checked: has ? v === true : c.default === true });
+      } else if (c.type === 'select' && c.options && c.options.length) {
+        input = el('select', {}, el('option', { value: '' }, '默认' + (def ? '（' + def + '）' : '')),
+          c.options.map((o) => el('option', { value: o, selected: has && v === o }, o)));
+      } else if (c.type === 'text') {
+        input = el('textarea', { rows: 4, placeholder: def }, has ? String(v) : '');
+      } else {
+        const num = c.type === 'int' || c.type === 'float';
+        input = el('input', { type: num ? 'number' : 'text', step: c.type === 'int' ? 1 : num ? 'any' : null, min: c.min, max: c.max, placeholder: def,
+          value: has ? (typeof v === 'string' ? v : JSON.stringify(v)) : '' });
+      }
+      return { c, input, has, v };
+    });
+    const res = await dialog((close) => {
+      const submit = (e) => {
+        e.preventDefault();
+        const patch = {};
+        for (const { c, input, has, v } of fields) {
+          if (c.secret) { if (input.value !== '') patch[c.key] = input.value; continue; }
+          if (c.type === 'bool') {
+            if (input.checked !== (has ? v === true : c.default === true)) patch[c.key] = input.checked;
+            continue;
+          }
+          const t = input.value.trim();
+          if (t === '') { if (has) patch[c.key] = null; continue; }
+          let val = t;
+          if (c.type === 'int' || c.type === 'float') val = Number(t);
+          else if (c.type === 'list') {
+            try { val = JSON.parse(t); } catch { val = t.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean); }
+          }
+          if (!has || JSON.stringify(val) !== JSON.stringify(v)) patch[c.key] = val;
+        }
+        close({ patch });
+      };
+      const rows = fields.map(({ c, input }, i) => {
+        input.id = 'plugin-set-' + i;
+        const ctl = c.type === 'bool' && !c.secret ? el('label', { class: 'check' }, input, el('span', {}, '开启')) : input;
+        const help = [c.help, c.type === 'list' ? '列表：用逗号隔开，或写 JSON' : ''].filter(Boolean).join(' · ');
+        return el('div', { class: 'setting' },
+          el('div', { class: 'lbl' }, el('label', { for: input.id }, el('b', {}, c.label || c.key)), el('span', {}, (c.label ? c.key + (help ? ' · ' : '') : '') + help)),
+          el('div', { class: 'ctl' }, ctl));
+      });
+      return [el('form', { onsubmit: submit },
+        el('h2', {}, (x.name || x.dir) + ' 的设置'),
+        el('div', { class: 'body settings' }, rows),
+        el('div', { class: 'foot' },
+          el('button', { class: 'btn', type: 'button', onclick: () => close(null) }, '取消'),
+          el('button', { class: 'btn primary', type: 'submit' }, '保存')))];
+    }, 'wide');
+    if (!res) return;
+    if (!Object.keys(res.patch).length) { toast('没有改动'); return; }
+    try {
+      await api('PUT', 'plugins/' + x.id, { config_patch: JSON.stringify(res.patch) });
+      toast('设置已保存，插件会重新启动');
+      load();
+    } catch (e) { fail(e); }
   }
 
   async function files(x) {
@@ -1027,32 +1132,6 @@ async function renderPlugins(root, page) {
         el('div', { class: 'body plugin-files' }, names, code),
         el('div', { class: 'foot' }, el('button', { class: 'btn', type: 'button', onclick: () => close(null) }, '关闭'))];
     }, 'wide');
-  }
-
-  async function decide(x, approve) {
-    let reason = '';
-    if (approve) {
-      if (!await confirmDialog({ title: '批准「' + (x.name || x.dir) + '」', text: '批准后它会在这台电脑上以 ' + (x.ai_name || 'AI') + ' 的身份运行，能读写文件、联网。确定看过代码了吗？', ok: '批准' })) return;
-    } else {
-      const res = await dialog((close) => {
-        const input = el('input', { type: 'text', maxlength: 200, placeholder: '比如：会删文件 / 要的权限太多' });
-        const submit = (e) => { e.preventDefault(); close({ reason: input.value.trim() }); };
-        return [el('form', { onsubmit: submit },
-          el('h2', {}, (x.status === 'approved' ? '停用「' : '拒绝「') + (x.name || x.dir) + '」'),
-          el('div', { class: 'body' }, el('label', {}, el('div', { class: 'field-label' }, '原因（主人能看到，也记入操作记录）'), input)),
-          el('div', { class: 'foot' },
-            el('button', { class: 'btn', type: 'button', onclick: () => close(null) }, '取消'),
-            el('button', { class: 'btn primary danger-fill', type: 'submit' }, x.status === 'approved' ? '停用' : '拒绝')))];
-      });
-      if (!res) return;
-      reason = res.reason;
-    }
-    try {
-      await api('POST', 'plugins/' + x.id + '/decide', { approve, reason });
-      toast(approve ? '已批准，插件马上开始运行' : '已拒绝');
-      refreshStatus();
-      load();
-    } catch (e) { fail(e); }
   }
 
   load();
@@ -1150,7 +1229,7 @@ const AUDIT_TEXT = {
   invite_delete: '作废了邀请码', channel_view: '在管理面板查看了聊天记录', server_profile: '修改了服务器主页设置',
   server_layout: '修改了服务器主页的小组件', profile_clear: '清空了个人主页：', guestbook_delete: '删除了一条留言',
   sticker_hide: '在表情库里隐藏了一张表情', sticker_unhide: '在表情库里恢复显示了一张表情',
-  plugin_approve: '批准了 AI 插件：', plugin_reject: '拒绝 / 停用了 AI 插件：',
+  plugin_upload: '上传了插件：', plugin_approve: '批准了 AI 插件：', plugin_reject: '拒绝 / 停用了 AI 插件：',
   hosting_approve: '批准了 AI 托管', hosting_reject: '拒绝 / 停止了 AI 托管',
   sticker_delete: '从表情库删除了一张表情', sticker_tag_remove: '删掉了表情库里的一个标签：',
 };

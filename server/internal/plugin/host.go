@@ -395,7 +395,7 @@ if __name__ == "__main__":
 `
 
 // prepare writes the AI's folder: plugins/<dir> (copies of the approved
-// packages), bot.py and .env (connection, the AI's name and owner, every
+// packages), bot.py and .env (connection, the bot's name and superusers, every
 // plugin's settings).
 func (h *Host) prepare(ctx context.Context, b *bot) (string, error) {
 	dir := h.AIDir(b.ai)
@@ -418,13 +418,25 @@ func (h *Host) prepare(ctx context.Context, b *bot) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// SUPERUSER = the owner; for the built-in bot (no owner) the site admins.
+	supers := []string{strconv.FormatInt(ai.OwnerID, 10)}
+	if ai.OwnerID == 0 {
+		ids, err := h.st.SiteAdminIDs(ctx)
+		if err != nil {
+			return "", err
+		}
+		supers = supers[:0]
+		for _, id := range ids {
+			supers = append(supers, strconv.FormatInt(id, 10))
+		}
+	}
 	env := map[string]any{
 		"DRIVER":                     "~websockets",
 		"ONEBOT_WS_URLS":             []string{"ws://" + h.Addr() + "/onebot/" + strconv.FormatInt(b.ai, 10)},
 		"ONEBOT_ACCESS_TOKEN":        b.token,
 		"COMMAND_START":              h.cfg.CommandStart,
 		"NICKNAME":                   []string{ai.DisplayName},
-		"SUPERUSERS":                 []string{strconv.FormatInt(ai.OwnerID, 10)},
+		"SUPERUSERS":                 supers,
 		"LOG_LEVEL":                  "INFO",
 		"LOCALSTORE_DATA_DIR":        filepath.Join(dir, "data"),
 		"LOCALSTORE_CACHE_DIR":       filepath.Join(dir, "cache"),

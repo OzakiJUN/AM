@@ -58,7 +58,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | — | `{"ok":true}`（无需登录） |
-| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（能不能给 AI 上传插件）、`hosting`（能不能把 AI 托管到服务器）、`commands`（内置 bot 的指令名和别名，不带 `/`；AI 不接这些话）、`helper_id`（内置 bot 的账号）（无需登录） |
+| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（这个服务器开没开插件：插件挂在内置 bot 上，管理员在管理面板里传，docs/plugins.md）、`hosting`（能不能把 AI 托管到服务器）、`commands`（内置 bot 的指令名和别名，包括它的插件的命令，不带 `/`；AI 不接这些话）、`helper_id`（内置 bot 的账号）（无需登录） |
 | GET | `/api/v1/server/icon` | — | 服务器图标 PNG（无需登录；没设置时 `media_not_found`）。`ServerInfo.icon` 带 `?v=` 版本号，换图标地址就变 |
 | GET | `/api/v1/server/profile` | — | `ServerProfile`：服务器主页（名字、简介、图标、成员数、在线人数、谁能改布局、成员能否改小组件内容）。由站点管理员在管理面板里设置 |
 | POST | `/api/v1/register` | `RegisterRequest` | `SessionResponse`（无需登录） |
@@ -159,10 +159,6 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | PUT | `/api/v1/ai/{id}/portraits` | `PortraitPack` | `PortraitPack`：整套换掉 AI 的形象包（情绪名 → 图片 media id；情绪名是 1–16 个小写字母或下划线，最多 24 个；新加的图必须是我自己上传的图片，否则 `media_not_found` / `not_image`）。空的 = 用默认形象。更新 `User.portraits_at` |
 | GET | `/api/v1/ai/{id}/share-requests` | — | `ShareRequests`：谁申请和我的 AI 聊（`users`） |
 | POST | `/api/v1/ai/{id}/share-requests/{user}` | `DecideShareRequest` | 同意（`approve = true`）：`Conversation`，把那个人拉进 AI 的共享聊天，没有就先建一个；拒绝：`Empty`。没有这条申请 `not_found` |
-| GET | `/api/v1/ai/{id}/plugins` | — | `ListPluginsResponse`：AI 的插件（docs/plugins.md）、插件进程的状态（`host_state`：off / preparing / starting / running / error）、最近的日志、命令前缀 `command_start` |
-| POST | `/api/v1/ai/{id}/plugins` | `UploadPluginsRequest` | `ListPluginsResponse`（只有 `plugins`：这个 zip 里的插件）：`media_id` 是先上传的 zip。同名的插件换成新文件、设置保留、重新等审核；站点管理员传的直接算批准。zip 不对 `bad_plugin`（`message` 是给人看的原因），超过 `plugins.max_per_ai` 个 `plugin_limit`，太大 `too_large`，插件关着 `plugins_off` |
-| PATCH | `/api/v1/ai/{id}/plugins/{plugin}` | `UpdatePluginRequest` | `AIPlugin`：开关（`enabled`）、改设置（`config_json` 是 JSON 对象：键 → 值是设成这个值，键 → `null` 是回到默认，没写的键不变）。值和插件声明的类型 / 范围 / 选项对不上、或者是 NoneBot 自己的配置（`command_start`、`superusers`……）：`invalid_plugin_config` |
-| DELETE | `/api/v1/ai/{id}/plugins/{plugin}` | — | `Empty`：删掉插件和它的文件（它存的数据留着） |
 | POST | `/api/v1/ai/{id}/host` | `HostAIRequest` | `AIHosting`：申请把 AI 托管到服务器（docs/design.md §10），`providers_json` 是它用的模型服务商（含 key，服务器加密保存）。等站点管理员批准（`status`：pending / approved / rejected）；站点管理员自己申请直接批准；再申请 = 换 key。每人最多 `hosting.max_per_user` 个（`hosting_limit`），关着 `hosting_off`，不是 JSON `bad_request` |
 | DELETE | `/api/v1/ai/{id}/host` | — | `Empty`：停止托管 / 撤回申请：服务器上的客户端停下，`settings.runner` 清空，AI 的登录全部结束 |
 
@@ -181,9 +177,8 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | --- | --- | --- | --- |
 | GET | `/api/v1/me/ai` | — | `AIAccount`：自己的设置（只有 bot / AI 账号，否则 `no_permission`） |
 | PUT | `/api/v1/me/ai/settings` | `PutAISettingsRequest` | `AIAccount`：存自己的设置（人格自己改的时候），和主人存一样检查 `base_updated_at`（`state_conflict`） |
-| GET | `/api/v1/ai/{id}/plugins` | — | 主人以外，AI 自己也能读自己的插件（读命令） |
 
-插件的密钥设置（`PluginConfigItem.secret`）不会发回来：`config_json` 里没有，`secrets_set` 列出已经填了的。插件只有站点管理员在管理面板里批准后才运行；运行时以 AI 的身份发消息（`client_msg_id` 以 `plugin-` 开头）。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
+插件挂在内置 bot 上，只在管理面板里管（面板接口是内部的，不在这里）；插件发的消息是内置 bot 发的（`client_msg_id` 以 `plugin-` 开头）。`AIPlugin`、`ListPluginsResponse`、`UploadPluginsRequest`、`UpdatePluginRequest` 这些消息留在 proto 里不再用（编号不复用）。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
 
 ### 主页小组件
 
@@ -400,12 +395,8 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | `invalid_widget` | 400 | 小组件类型不认识、大小或位置不对（出界、重叠、第 4 页）、或设置内容不对 |
 | `layout_conflict` | 409 | 主页在你编辑期间被别人存过了，刷新后再改 |
 | `ai_limit` | 403 | AI 账号已经建到 `limits.max_ai_per_user` 个 |
-| `plugins_off` | 403 | 这个服务器关掉了 AI 插件（`plugins.enabled = false`） |
-| `plugin_limit` | 403 | 这个 AI 的插件已经有 `plugins.max_per_ai` 个 |
-| `bad_plugin` | 400 | 插件 zip 不能用（`message` 里写了原因：不是 zip、没找到插件、名字不对、路径不安全、太大……） |
 | `hosting_off` | 403 | 这个服务器关掉了 AI 托管（`hosting.enabled = false` 或 `max_per_user = 0`） |
 | `hosting_limit` | 403 | 你托管（或申请托管）的 AI 已经有 `hosting.max_per_user` 个 |
-| `invalid_plugin_config` | 400 | 插件设置的值类型 / 范围不对，或者改的是不能改的配置 |
 | `sticker_limit` | 403 | 表情已经存到 `limits.max_stickers` 个 |
 | `sticker_tags_full` | 409 | 这张表情的标签已经有 20 个了 |
 | `sticker_library_off` | 403 | 这个服务器关掉了公共表情库（`stickers.library = false`） |

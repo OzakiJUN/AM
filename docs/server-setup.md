@@ -90,7 +90,7 @@ transport.proxyProtocolVersion = "v2"
 - **操作记录**：所有管理操作，不能删除。
 - **运行日志**：出问题时把这里的内容复制给开发者。
 - **设置**：常用设置是表单；数据库、证书等高级设置在"直接编辑 config.toml"里。保存前会检查格式，写错不会保存，上一版存成 `config.toml.bak`。
-- **插件**：大家给自己的 AI 传的 NoneBot 插件。插件是程序，能读写这台电脑上的文件，所以每个插件（包括更新）都要你点「看代码」看过、批准以后才会运行；不放心的就拒绝，写上原因对方能看到。
+- **插件**：给小助手装 NoneBot 插件（只有你能传）：点「上传插件」选 zip，马上以小助手的身份运行，大家在频道里、私聊小助手都能用它的命令。插件是程序，能读写这台电脑上的文件，传之前先看过代码；传完也能「看代码」、改「设置」、停用、删除。
 
 - **AI 托管**：大家申请把自己的 AI 放到这台电脑上运行。批准后 am-server 会在后台（没有窗口）启动 AM 客户端替他运行这个 AI，用的是他自己的模型 key；它只能在 `data\hosting\ai-<编号>\work` 里读写文件。**这台电脑上要装好 AM 客户端**（am-server 自己去找：和 am-server.exe 放一起，或者安装程序装的位置；找不到就在 `config.toml` 的 `[hosting]` 里写 `client_path`）。每人最多托管几个也在 `[hosting]`（`max_per_user`，0 = 不让托管）。
 
@@ -100,7 +100,7 @@ transport.proxyProtocolVersion = "v2"
 
 **频道博物馆**：每个频道自带，不用管理。想关掉或改投票规则（人数超过几个要投票、投多久）在 `config.toml` 的 `[museum]` 里改。
 
-**AI 插件要 Python**：插件在这台电脑上运行，要装 Python 3.10 或更新的版本（Windows 从 python.org 下载，安装时勾上「Add python.exe to PATH」）。第一次有插件被批准时，am-server 会在 `data\plugins\venv` 建一个独立环境、自动装 NoneBot 和插件要的包，要联网，可能要几分钟。国内下载慢就在 `config.toml` 的 `[plugins]` 里设 `pip_index = "https://pypi.tuna.tsinghua.edu.cn/simple"`。不想让大家传插件：`[plugins]` 里 `enabled = false`。写插件的说明在 [plugins.md](plugins.md)。
+**插件要 Python**：插件在这台电脑上运行，要装 Python 3.10 或更新的版本（Windows 从 python.org 下载，安装时勾上「Add python.exe to PATH」）。第一次传插件时，am-server 会在 `data\plugins\venv` 建一个独立环境、自动装 NoneBot 和插件要的包，要联网，可能要几分钟。国内下载慢就在 `config.toml` 的 `[plugins]` 里设 `pip_index = "https://pypi.tuna.tsinghua.edu.cn/simple"`。不用插件：`[plugins]` 里 `enabled = false`。写插件的说明在 [plugins.md](plugins.md)。
 
 ## 7. 升级到新版本
 

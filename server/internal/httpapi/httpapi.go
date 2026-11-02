@@ -165,7 +165,6 @@ func (a *API) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /api/v1/events/{id}/delete", a.authed(a.adminDelete))
 	a.registerProfiles(mux)
-	a.registerPlugins(mux)
 	a.registerHosting(mux)
 	a.registerMuseum(mux)
 	a.registerHelper(mux)

@@ -142,10 +142,3 @@ func (q *Queries) ListPluginsAdmin(ctx context.Context, status string) ([]*AIPlu
 	}
 	return out, rows.Err()
 }
-
-// CountPendingPlugins is the panel's badge.
-func (q *Queries) CountPendingPlugins(ctx context.Context) (int, error) {
-	var n int
-	err := q.queryRow(ctx, `SELECT count(*) FROM ai_plugins WHERE status='pending'`).Scan(&n)
-	return n, err
-}

@@ -104,16 +104,18 @@ update the docs in the same commit.
   The panel can read every channel's history (read-only, `channel_view` in the
   audit log) but never DMs, and serves media only from channels, avatars and
   evidence (`store.PanelCanSeeMedia`).
-- AI plugins (docs/plugins.md, docs/design.md §10): NoneBot2 plugins run on the
-  server, one process per AI (`server/internal/plugin`: `host.go` runs them and
-  serves OneBot v11 forward WebSocket on loopback, `onebot.go` translates,
-  `scan.go` reads settings / commands / requirements from source, `unpack.go`
-  reads zips — the last three pure + tested; `service.go` upload / settings /
-  approval). A plugin runs only after a site admin approved it (panel
-  `admin/plugins.go`); every new version is pending again. New messages reach
-  plugins through `plugin.Tap` (wraps the pusher of `message.Service`).
-  Secret settings never go back to clients. Client: `app/PluginsTab.tsx`,
-  `lib/plugins.ts` (pure, tested); the runner leaves plugin commands alone.
+- Plugins (docs/plugins.md, docs/design.md §10): NoneBot2 plugins run on the
+  server as the built-in bot, one process (`server/internal/plugin`: `host.go`
+  runs it and serves OneBot v11 forward WebSocket on loopback, `onebot.go`
+  translates, `scan.go` reads settings / commands / requirements from source,
+  `unpack.go` reads zips — the last three pure + tested; `service.go` upload /
+  settings for the bot only, `RetireAIPlugins` drops AIs' old plugins once).
+  Only site admins upload, in the panel (`admin/plugins.go`; runs at once).
+  Their commands are the bot's (`helper.SetExternal`: in `ServerInfo.commands`
+  and 指令查询; the bot stays quiet on them). New messages reach plugins
+  through `plugin.Tap` (wraps the pusher of `message.Service`). Secret
+  settings never go back. Client: no plugin UI; `lib/plugins.ts`
+  `isPluginCommand` (pure, tested) keeps the runner off bot commands.
   Real NoneBot test: `AM_TEST_NONEBOT=1 go test -run TestPluginsRealNoneBot ./server/internal/e2e`.
 - AI hosting (docs/design.md §10 托管): `server/internal/hosting` keeps
   requests (`ai_hosting`, providers encrypted with `data/hosting/key`), the
