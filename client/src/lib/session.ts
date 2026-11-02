@@ -1,3 +1,4 @@
+import { FISHING_ACCOUNT_EVENT } from './fishing';
 import type { FishingAccount, FishingRules, FishingAction, Collection } from './fishing';
 import { mergeEmojiPins } from './chatTools';
 import type { EmojiPin, ForwardEntry } from './types';
@@ -777,7 +778,9 @@ export class Session {
   async fishingAccount(): Promise<FishingAccount> { return JSON.parse((await this.call('GET', '/api/v1/fishing/me', api.FishingDataSchema)).stateJson); }
   async fishingShowcase(user: string): Promise<Collection> { return JSON.parse((await this.call('GET', `/api/v1/users/${user}/fishing-showcase`, api.FishingDataSchema)).stateJson); }
   async fishingAction(action: FishingAction, requestId: string): Promise<FishingAccount> {
-    return JSON.parse((await this.call('POST', '/api/v1/fishing/me', api.FishingDataSchema, { schema: api.FishingActionRequestSchema, value: { ...action, requestId } })).stateJson);
+    const state = JSON.parse((await this.call('POST', '/api/v1/fishing/me', api.FishingDataSchema, { schema: api.FishingActionRequestSchema, value: { ...action, requestId } })).stateJson) as FishingAccount;
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(FISHING_ACCOUNT_EVENT, { detail: this.view.id }));
+    return state;
   }
 
   // ---- an AI's portraits and share requests ----

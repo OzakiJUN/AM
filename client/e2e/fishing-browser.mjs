@@ -24,8 +24,8 @@ const g={id:'888',convId:'777',kind:'fishing',hostId:'1',status:'playing',player
 s.view={...s.view,id:s.record.id,status:'online',me:users['1'],users,games:{[g.id]:g}};
 s.fishingRules=async()=>rules;s.fishingAccount=async()=>structuredClone(account);s.fishingShowcase=async()=>structuredClone(account);
 s.refreshGame=async()=>({...g,state:{...g.state,pond:{...g.state.pond,now:Date.now()}}});
-s.fishingAction=async(req)=>{window.shopCalls=(window.shopCalls||0)+1;if(req.action==='buy_pack'){account.coins-=rules.pack_price;account.packs++}return structuredClone(account)};s.actGame=async()=>g;
-function Preview(){return <main className="mx-auto max-w-5xl space-y-8 bg-white p-5 text-slate-800"><FishingWindow v={s.view} g={g}/><section className="grid grid-cols-3 gap-4" aria-label="主页收藏组件">{['fishing_fish','fishing_cards','fishing_badges'].map(kind=><div key={kind} className="h-64 rounded-2xl border" data-testid={kind}><FishingWidget w={{kind,w:2,h:2,config:{ids:kind==='fishing_fish'?Object.keys(account.records).slice(0,2):Object.keys(account.cards).slice(0,4),mode:'cards'}}} ctx={{v:s.view,target:'1'}}/></div>)}</section></main>}
+s.fishingAction=async(req)=>{window.shopCalls=(window.shopCalls||0)+1;if(req.action==='buy_pack'){account.coins-=rules.pack_price;account.packs++}if(req.action==='sell')account.fish=account.fish.filter(f=>!req.fishIds.includes(f.id));window.dispatchEvent(new CustomEvent('am-fishing-account',{detail:s.view.id}));return structuredClone(account)};s.actGame=async()=>g;
+function Preview(){return <main className="mx-auto max-w-5xl space-y-8 bg-white p-5 text-slate-800"><FishingWindow v={s.view} g={g}/><section className="grid grid-cols-3 gap-4" aria-label="主页收藏组件">{['fishing_fish','fishing_cards','fishing_badges'].map(kind=><div key={kind} className="h-64 rounded-2xl border" data-testid={kind}><FishingWidget w={{kind,w:2,h:2,config:{ids:kind==='fishing_fish'?account.fish.slice(0,2).map(f=>f.id):Object.keys(account.cards).slice(0,4),mode:'cards'}}} ctx={{v:s.view,target:'1'}}/></div>)}</section></main>}
 createRoot(document.getElementById('root')).render(<Preview/>);window.fixture={g,account};
 `);
 let server, browser;
@@ -46,9 +46,12 @@ try {
  await page.getByRole('button', { name: '卡包与收藏', exact: true }).click(); await page.getByRole('button', { name: /买卡包/ }).click();
  await page.waitForFunction(() => window.shopCalls === 1); assert.equal(await page.evaluate(() => window.fixture.account.packs), 4);
  await page.screenshot({ path: '/tmp/fishing-cards.png', fullPage: true });
+ await page.getByRole('button', { name: '鱼篓 / 卖鱼', exact: true }).click();
+ await root.getByRole('checkbox').first().check(); await root.getByRole('button', { name: /卖出所选/ }).click();
+ await page.waitForFunction(() => document.querySelector('[data-testid="fishing_fish"]').querySelectorAll('svg[role="img"]').length === 1);
  await page.getByRole('tab', { name: '鱼类图鉴' }).click(); assert.equal(await page.getByRole('img').count() >= 100, true);
  await page.setViewportSize({ width: 390, height: 900 }); await page.getByRole('tab', { name: '鱼塘', exact: true }).click();
  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
  await page.screenshot({ path: '/tmp/fishing-mobile.png', fullPage: true }); assert.deepEqual(errors, []);
- console.log('fishing UI: twelve seats, local shop, one purchase, 100 species, widgets and mobile width ok');
+ console.log('fishing UI: twelve seats, local shop, one purchase, sold fish disappears, 100 species, widgets and mobile width ok');
 } finally { await browser?.close(); await server?.close(); rmSync(dir, { recursive: true, force: true }); }

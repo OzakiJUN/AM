@@ -259,14 +259,9 @@ func (s *Service) FishingShowcase(ctx context.Context, user int64) (*amv1.Fishin
 			return nil, err
 		}
 	}
-	// Resolve only catches selected on the saved profile, scoped to its owner.
-	recordCopies := make([]CaughtFish, 0, len(a.Records))
-	for _, f := range a.Records {
-		recordCopies = append(recordCopies, f)
-	}
-	for _, f := range recordCopies {
-		a.Records[f.ID] = f
-	}
+	// A showcase is a live view of the owner's current inventory, never a
+	// historical record. Selling a specimen immediately removes its public data.
+	visible := map[string]CaughtFish{}
 	_, layoutData, layoutErr := s.st.LatestLayout(ctx, store.ProfileUser, user)
 	if layoutErr != nil && !errors.Is(layoutErr, store.ErrNotFound) {
 		return nil, layoutErr
@@ -276,8 +271,7 @@ func (s *Service) FishingShowcase(ctx context.Context, user int64) (*amv1.Fishin
 		if err := proto.Unmarshal(layoutData, &layout); err != nil {
 			return nil, err
 		}
-		var ids []int64
-		seen := map[int64]bool{}
+		wanted := map[string]bool{}
 		for _, w := range layout.Widgets {
 			if w.Kind != "fishing_fish" {
 				continue
@@ -287,23 +281,13 @@ func (s *Service) FishingShowcase(ctx context.Context, user int64) (*amv1.Fishin
 				continue
 			}
 			for _, id := range cfg.IDs {
-				n, e := strconv.ParseInt(id, 10, 64)
-				if e == nil && n > 0 && !seen[n] {
-					ids = append(ids, n)
-					seen[n] = true
-				}
+				wanted[id] = true
 			}
 		}
-		archived, err := s.st.FishingExhibits(ctx, user, ids)
-		if err != nil {
-			return nil, err
-		}
-		for id, raw := range archived {
-			var fish CaughtFish
-			if err := json.Unmarshal([]byte(raw), &fish); err != nil {
-				return nil, err
+		for _, f := range a.Fish {
+			if wanted[f.ID] && f.By == strconv.FormatInt(user, 10) {
+				visible[f.ID] = f
 			}
-			a.Records[strconv.FormatInt(id, 10)] = fish
 		}
 	}
 	// No wallet, equipment, pending catch or private inventory leaves this endpoint.
@@ -311,7 +295,7 @@ func (s *Service) FishingShowcase(ctx context.Context, user int64) (*amv1.Fishin
 		Records map[string]CaughtFish `json:"records"`
 		Cards   map[string]int        `json:"cards"`
 		Badges  [5]int                `json:"badges"`
-	}{a.Records, a.Cards, a.Badges})
+	}{visible, a.Cards, a.Badges})
 	return &amv1.FishingData{StateJson: string(b)}, nil
 }
 func weighted(r *rand.Rand, w []int) int {
@@ -512,16 +496,12 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 		}
 		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 		accounts := map[int64]*FishingAccount{}
-		originalFish := map[string]bool{}
 		for _, u := range ids {
 			a, err := s.account(ctx, q, u)
 			if err != nil {
 				return err
 			}
 			accounts[u] = a
-			for _, f := range a.Fish {
-				originalFish[f.ID] = true
-			}
 		}
 		now := time.Now().UnixMilli()
 		s.mu.Lock()
@@ -657,15 +637,6 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 			return nil
 		}
 		for _, u := range ids {
-			for _, f := range accounts[u].Fish {
-				if !originalFish[f.ID] && f.By == strconv.FormatInt(u, 10) {
-					data, _ := json.Marshal(f)
-					fishID, _ := strconv.ParseInt(f.ID, 10, 64)
-					if err = q.ArchiveFishingCatch(ctx, u, fishID, string(data)); err != nil {
-						return err
-					}
-				}
-			}
 			if err = saveAccount(ctx, q, u, accounts[u]); err != nil {
 				return err
 			}

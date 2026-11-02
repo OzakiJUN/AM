@@ -20,3 +20,5 @@ export function collectionProgress(c: Collection): number[] { return CARD_RARITY
 export function recordsOf(c: Collection): Specimen[] { return [...new Map(Object.values(c.records).map((f) => [f.id, f])).values()]; }
 export function exhibitCapacity(kind: string, w: number, h: number) { return kind === 'fishing_fish' ? Math.floor(w * h / 2) : w * h; }
 export function isBiting(p: Angler, now: number) { return p.user_id !== '0' && now >= p.bite_at && now <= p.expires_at; }
+
+export const FISHING_ACCOUNT_EVENT = 'am-fishing-account';

@@ -160,49 +160,48 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	}
 	_, err = host.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "reel"})
 	wantCode(t, err, "game_bad_move")
-	req := &amv1.FishingActionRequest{Action: "sell", FishIds: []string{first.Fish[0].ID}, RequestId: "sell-once-only"}
-	status, sold := shop(host, req)
-	if status != 200 || len(sold.Fish) != 0 || sold.Coins != first.Coins+first.Fish[0].Value || len(sold.Records) != 2 {
-		t.Fatal("sale or records")
-	}
-	status, retry := shop(host, req)
-	if status != 200 || retry.Coins != sold.Coins {
-		t.Fatal("retry paid twice")
-	}
-	// Mount an arbitrary individual by catch id. The archive survives sale,
-	// even if this fish is no longer a size record, and cannot resolve another owner.
-	savedRecords := sold.Records
-	updateAccount(host, func(a *game.FishingAccount) { a.Records = map[string]game.CaughtFish{} })
+	// Only a currently held, self-caught specimen can be displayed.
 	fishID := first.Fish[0].ID
-	outsiderFish := first.Fish[0]
-	outsiderFish.ID = "1234567"
-	outsiderFish.By = strconv.FormatInt(other.me.Id, 10)
-	outsiderData := must(json.Marshal(outsiderFish))
-	mustNoErr := a.Store.ArchiveFishingCatch(ctx, other.me.Id, 1234567, string(outsiderData))
-	if mustNoErr != nil {
-		t.Fatal(mustNoErr)
-	}
+	foreign := first.Fish[0]
+	foreign.ID = "1234567"
+	foreign.By = strconv.FormatInt(other.me.Id, 10)
+	updateAccount(other, func(a *game.FishingAccount) { a.Fish = append(a.Fish, foreign) })
 	layout := &amv1.ProfileLayout{Widgets: []*amv1.Widget{{Id: "my-fish", Kind: "fishing_fish", Source: amv1.WidgetSource_WIDGET_SOURCE_BUILTIN, W: 2, H: 2, Config: fmt.Sprintf(`{"ids":["%s","1234567"]}`, fishID), Landscape: &amv1.Cell{}}}}
 	layoutBytes := must(proto.Marshal(layout))
 	if err := a.Store.AddLayout(ctx, store.ProfileUser, host.me.Id, 1, layoutBytes, host.me.Id, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	code, publicBody := call(other, "GET", fmt.Sprintf("/api/v1/users/%d/fishing-showcase", host.me.Id), nil)
-	if code != 200 {
-		t.Fatal("mounted archive unavailable")
+	displayed := func() map[string]game.CaughtFish {
+		t.Helper()
+		code, b := call(other, "GET", fmt.Sprintf("/api/v1/users/%d/fishing-showcase", host.me.Id), nil)
+		if code != 200 {
+			t.Fatal("showcase unavailable")
+		}
+		var result amv1.FishingData
+		if err := protojson.Unmarshal(b, &result); err != nil {
+			t.Fatal(err)
+		}
+		var data struct{ Records map[string]game.CaughtFish }
+		if err := json.Unmarshal([]byte(result.StateJson), &data); err != nil {
+			t.Fatal(err)
+		}
+		return data.Records
 	}
-	var mountedData amv1.FishingData
-	if err := protojson.Unmarshal(publicBody, &mountedData); err != nil {
-		t.Fatal(err)
+	if visible := displayed(); len(visible) != 1 || visible[fishID].ID != fishID {
+		t.Fatal("held fish missing or another account's fish leaked")
 	}
-	var mounted struct{ Records map[string]game.CaughtFish }
-	if err := json.Unmarshal([]byte(mountedData.StateJson), &mounted); err != nil {
-		t.Fatal(err)
+	req := &amv1.FishingActionRequest{Action: "sell", FishIds: []string{first.Fish[0].ID}, RequestId: "sell-once-only"}
+	status, sold := shop(host, req)
+	if status != 200 || len(sold.Fish) != 0 || sold.Coins != first.Coins+first.Fish[0].Value || len(sold.Records) != 2 {
+		t.Fatal("sale or records")
 	}
-	if len(mounted.Records) != 1 || mounted.Records[fishID].ID != fishID {
-		t.Fatal("sold exhibit vanished or foreign fish leaked")
+	if len(displayed()) != 0 {
+		t.Fatal("sold fish still displayed through record or saved config")
 	}
-	updateAccount(host, func(a *game.FishingAccount) { a.Records = savedRecords })
+	status, retry := shop(host, req)
+	if status != 200 || retry.Coins != sold.Coins {
+		t.Fatal("retry paid twice")
+	}
 	req.Action = "buy_pack"
 	if code, _ := shop(host, req); code != 400 {
 		t.Fatal("request id accepted with changed payload")
@@ -240,6 +239,7 @@ func testFishing(t *testing.T, a *app.App, base string) {
 			t.Fatal("two tool limit")
 		}
 	}
+	updateAccount(other, func(a *game.FishingAccount) { a.Fish = nil })
 	// Ward protects a pending catch, then its persistent cooldown permits a later theft.
 	updateAccount(other, func(a *game.FishingAccount) { a.Tools["ward"] = 1; a.Equipped = []string{"ward"} })
 	setBite(g.Id, other.me.Id, false)
