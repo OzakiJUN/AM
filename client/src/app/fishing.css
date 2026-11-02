@@ -1,0 +1,17 @@
+.fish-pond { background: radial-gradient(ellipse at 20% 20%,#e0f2c8,transparent 55%),linear-gradient(145deg,#d7eee2,#a8cfc6); box-shadow:inset 0 0 40px #327b6a22; }
+.fish-water { background: radial-gradient(ellipse at 30% 20%,#40bab6aa,transparent 60%),linear-gradient(155deg,#237e90,#163e68); box-shadow:inset 0 0 35px #092f5b88,0 10px 24px #133c4822; }
+.fish-water:before { content:''; position:absolute; inset:-50%; background:repeating-radial-gradient(ellipse at center,transparent 0 28px,#b7e9e70c 29px 31px,transparent 32px 50px); transform:rotate(-20deg); }
+.fish-float { position:absolute; width:10px; height:10px; }
+.fish-float b { display:block; width:5px; height:13px; background:linear-gradient(#ff735f 50%,white 50%); border-radius:50%; transform:rotate(15deg); }
+.fish-biting i,.fish-biting:after { content:''; position:absolute; inset:-14px; border:2px solid #e5faf3; border-radius:50%; animation:fish-ripple 1.5s ease-out infinite; }
+.fish-biting:after { animation-delay:.75s; }
+.fish-card { min-height:120px; height:100%; display:flex; flex-direction:column; border:2px solid #cbd5e1; border-radius:12px; padding:8px; color:#203345; background:linear-gradient(135deg,#e2e8f0,#f8fafc,#a8b5c6); box-shadow:inset 0 0 0 3px #ffffff55; }
+.fish-metal-1 { border-color:#bb8258;background:linear-gradient(135deg,#eac6a8,#fff1e2,#b87742); }
+.fish-metal-2 { border-color:#b8cbdc;background:linear-gradient(135deg,#93abc1,#f8fdff,#c6d9e8,#fff); }
+.fish-metal-3 { border-color:#e9ba40;background:linear-gradient(135deg,#e8b533,#fff3b0,#e6b63f,#fff1aa); }
+.fish-metal-4 { border-color:#a78bfa;background:linear-gradient(125deg,#d5ceff,#b5f5e9,#fce4ff,#fdf2ab,#b2e8ff,#dfb6ff); background-size:300% 300%;animation:fish-holo 8s ease infinite; }
+@keyframes fish-ripple { from {transform:scale(.4);opacity:1} to {transform:scale(2);opacity:0} }
+@keyframes fish-holo { 0%,100% {background-position:0 50%} 50% {background-position:100% 50%} }
+@media(prefers-reduced-motion:reduce) { .fish-biting i,.fish-biting:after,.fish-metal-4 {animation:none} }
+
+.fishing-exhibit .fish-card { min-height:0; padding:4px; border-radius:8px; }

@@ -189,6 +189,7 @@ export function appPrompt(tools: string[], plugins: { name: string; kind: string
     lines.push('- 工坊里装好的东西（插件，你都会）：\n' + plugins.map((p) => `  · ${p.name}（${p.kind}）：${p.detail}`).join('\n'));
   }
   if (has('list_games')) {
+    lines.push('- 星屿鱼塘 fishing 可以在频道开局，不限时、12 座、坐下就钓。你和真人遵守同样规则，用 fishing_state 读取完整规则、100 鱼图鉴、金币装备和收藏，fishing_act 收杆/偷鱼，fishing_shop 卖鱼买工具开卡包。你在鱼塘坐着时会自动关注上钩并收杆，不用每次在聊天报鱼获，不要刷屏。商店界面只属于你。');
     lines.push('- 小游戏在频道或共享聊天里玩：开局 open_game，看有什么局、申请加入 list_games / join_game，轮到你时会提醒你用 game_move / game_say / game_vote / game_ask / game_guess。');
   }
   if (has('edit_my_page')) lines.push('- 你自己的个人主页：可以看（view_my_page）、自己摆小组件（edit_my_page：便签、倒计时、链接、统计、留言板、状态、网易云的歌 / 歌单），想怎么布置都行。');

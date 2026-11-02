@@ -158,3 +158,21 @@ func (c *Client) GameHistory(ctx context.Context, convID, before int64) (*amv1.L
 	out := &amv1.ListGamesResponse{}
 	return out, c.call(ctx, http.MethodGet, fmt.Sprintf("/api/v1/conversations/%d/games?ended=1&before=%d", convID, before), nil, out)
 }
+
+// GetGame refreshes timed fishing bites as well as ordinary board games.
+func (c *Client) GetGame(ctx context.Context, id int64) (*amv1.Game, error) {
+	out := &amv1.Game{}
+	return out, c.call(ctx, http.MethodGet, fmt.Sprintf("/api/v1/games/%d", id), nil, out)
+}
+func (c *Client) FishingRules(ctx context.Context) (*amv1.FishingData, error) {
+	out := &amv1.FishingData{}
+	return out, c.call(ctx, http.MethodGet, "/api/v1/fishing/rules", nil, out)
+}
+func (c *Client) FishingAccount(ctx context.Context) (*amv1.FishingData, error) {
+	out := &amv1.FishingData{}
+	return out, c.call(ctx, http.MethodGet, "/api/v1/fishing/me", nil, out)
+}
+func (c *Client) FishingAction(ctx context.Context, req *amv1.FishingActionRequest) (*amv1.FishingData, error) {
+	out := &amv1.FishingData{}
+	return out, c.call(ctx, http.MethodPost, "/api/v1/fishing/me", req, out)
+}

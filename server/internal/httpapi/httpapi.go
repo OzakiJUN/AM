@@ -165,6 +165,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/groups/{id}/requests/{uid}/reject", a.authed(a.decideJoin(false)))
 
 	mux.HandleFunc("POST /api/v1/events/{id}/delete", a.authed(a.adminDelete))
+	a.registerFishing(mux)
 	a.registerProfiles(mux)
 	a.registerHosting(mux)
 	a.registerMuseum(mux)

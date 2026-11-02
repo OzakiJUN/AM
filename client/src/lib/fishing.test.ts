@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { cardParts, collectionProgress, exhibitCapacity, isBiting, recordsOf } from './fishing.ts';
+assert.equal(exhibitCapacity('fishing_fish', 3, 3), 4);
+assert.equal(exhibitCapacity('fishing_cards', 3, 3), 9);
+assert.deepEqual(cardParts('4:f100'), [4, 'f100']);
+const record = { id: '9007199254740993000', species: 'f001', length_cm: 12, grade: 0, value: 12, caught_by: '9007199254740993001', at: 1 };
+const c = { records: { 'f001:min': record, 'f001:max': record }, cards: { '0:f001': 9, '0:f002': 1, '4:f100': 1, '2:f003': 0 }, badges: [0, 0, 0, 0, 0] };
+assert.deepEqual(collectionProgress(c), [2, 0, 0, 0, 1]);
+assert.equal(recordsOf(c).length, 1);
+assert.equal(recordsOf(c)[0].id, record.id);
+const seat = { user_id: '9007199254740993001', bite_at: 1000, expires_at: 2000 };
+assert.equal(isBiting(seat, 999), false);
+assert.equal(isBiting(seat, 1000), true);
+assert.equal(isBiting(seat, 2001), false);
+assert.equal(isBiting({ ...seat, user_id: '0' }, 1500), false);
+console.log('fishing: capacities, card uniqueness, bigint ids and bite window ok');

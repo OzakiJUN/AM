@@ -1,3 +1,4 @@
+import { FishingWindow } from './Fishing';
 // Board games in a channel or shared AI room (docs/design.md §13 小游戏):
 // the 「开一局」 button in the header, the strip of this conversation's
 // games above the messages, and the game window (board, seats, asking to
@@ -25,7 +26,7 @@ const closeGame = (id: string) => useGameWindow.setState((s) => ({ id: s.id === 
 export async function startGame(serverId: string, convId: string, kind: GameKind) {
   const g = await session(serverId)!.openGame(convId, kind, false);
   openGameWindow(serverId, g.id);
-  toast(`开了一局${GAME_INFO[kind].name}，等人加入`);
+  toast(`开了一局${GAME_INFO[kind].name}，${kind === 'fishing' ? '坐下就能钓鱼' : '等人加入'}`);
   return g;
 }
 
@@ -100,6 +101,7 @@ function statusLine(v: SessionView, g: Game): string {
   if (g.status === 'waiting') return `等人 ${g.players.length}/${info.max}${g.applicants.length ? ` · ${g.applicants.length} 人申请` : ''}`;
   if (g.status === 'ended') return resultText(g, (id) => name(v, id));
   if (g.kind === 'undercover' && g.state.phase === 'vote') return `第 ${g.state.round} 轮 · 投票中`;
+  if (g.kind === 'fishing') return `${g.players.length}/12 人 · 随时可加入`;
   const who = g.waitingOn[0];
   return who ? `轮到 ${who === v.me?.id ? '你' : name(v, who)}` : '进行中';
 }
@@ -145,7 +147,7 @@ export function GameBar({ v, conv }: { v: SessionView; conv: Conversation }) {
         </div>
       )}
       <Dialog open={!!open} onClose={() => useGameWindow.setState({ id: '' })} title={open ? GAME_INFO[open.kind].name : ''} width={open?.kind === 'undercover' || open?.kind === 'trail' ? 640 : 860}>
-        {open && <GameWindow v={v} g={open} />}
+        {open && (open.kind === 'fishing' ? <FishingWindow v={v} g={open} /> : <GameWindow v={v} g={open} />)}
       </Dialog>
     </>
   );

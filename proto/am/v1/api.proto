@@ -634,6 +634,7 @@ message ListGamesResponse {
 message GameActRequest {
   // move (x, y) | say (text) | vote (target seat) | resign
   // 数字迷踪: ask (target seat, text = gt / lt / mult / odd / even, x) | guess (target seat, x)
+  // 星屿鱼塘: sit (target seat 0-11) | reel | steal (target seat 0-11)
   string action = 1;
   int32 x = 2;
   int32 y = 3;
@@ -854,4 +855,16 @@ message HelperCommand {
 // GET /api/v1/helper/commands
 message HelperCommandsResponse {
   repeated HelperCommand commands = 1;
+}
+
+// Persistent fishing data; state_json is versioned in docs/fishing.md.
+message FishingData {
+  string state_json = 1;
+}
+message FishingActionRequest {
+  string action = 1; // sell | buy_tool | equip | unequip | buy_pack | open_pack
+  string item = 2;
+  int32 quality = 3;
+  repeated string fish_ids = 4;
+  string request_id = 5; // idempotency key, reused on retry
 }

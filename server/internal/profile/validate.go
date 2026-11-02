@@ -176,8 +176,31 @@ var kinds = map[string]kindSpec{
 		}
 		return mediaIDs(ids...)
 	}},
-	"status": {2, 1, store.ProfileUser, func(c []byte) ([]int64, error) { return nil, check(c, &struct{}{}, nil) }},
-	"online": {2, 2, store.ProfileServer, func(c []byte) ([]int64, error) { return nil, check(c, &struct{}{}, nil) }},
+	"fishing_fish":   {1, 1, store.ProfileUser, fishingConfig},
+	"fishing_cards":  {1, 1, store.ProfileUser, fishingConfig},
+	"fishing_badges": {1, 1, store.ProfileUser, fishingConfig},
+	"status":         {2, 1, store.ProfileUser, func(c []byte) ([]int64, error) { return nil, check(c, &struct{}{}, nil) }},
+	"online":         {2, 2, store.ProfileServer, func(c []byte) ([]int64, error) { return nil, check(c, &struct{}{}, nil) }},
+}
+
+func fishingConfig(c []byte) ([]int64, error) {
+	var v struct {
+		IDs  []string
+		Mode string
+	}
+	return nil, check(c, &v, func() bool {
+		if len(v.IDs) > 16 || (v.Mode != "" && v.Mode != "cards" && v.Mode != "progress") {
+			return false
+		}
+		seen := map[string]bool{}
+		for _, id := range v.IDs {
+			if len(id) > 40 || id == "" || seen[id] {
+				return false
+			}
+			seen[id] = true
+		}
+		return true
+	})
 }
 
 // audioOf says which media of a kind must be sound files (the rest are images).
@@ -258,6 +281,17 @@ func validate(l *amv1.ProfileLayout, owner int16) (map[string][]int64, map[int64
 			var err error
 			if ids, err = spec.check(cfg); err != nil {
 				return nil, nil, err
+			}
+			if strings.HasPrefix(w.GetKind(), "fishing_") {
+				var v struct{ IDs []string }
+				_ = json.Unmarshal(cfg, &v)
+				capacity := int(w.GetW() * w.GetH())
+				if w.GetKind() == "fishing_fish" {
+					capacity /= 2
+				}
+				if len(v.IDs) > capacity {
+					return nil, nil, apperr.ErrInvalidWidget
+				}
 			}
 			if f := audioOf[w.GetKind()]; f != nil {
 				for _, id := range f(cfg) {

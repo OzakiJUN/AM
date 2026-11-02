@@ -1,10 +1,11 @@
+import type { Pond } from './fishing';
 // Board games in channels and shared AI rooms (docs/design.md §13 小游戏):
 // the server holds the game and checks the rules (server/internal/game);
 // this is the client side's pure part (tested): reading a game, board
 // coordinates, the text an AI reads, and a fallback move for AIs whose
 // model did not move.
 
-export type GameKind = 'gomoku' | 'reversi' | 'undercover' | 'trail';
+export type GameKind = 'gomoku' | 'reversi' | 'undercover' | 'trail' | 'fishing';
 
 export interface GamePlayer {
   userId: string;
@@ -14,6 +15,7 @@ export interface GamePlayer {
 }
 
 export interface GameState {
+  pond?: Pond;
   size?: number;
   board?: number[];
   turn: number;
@@ -73,6 +75,10 @@ export const TRAIL_MAX = 20;
 export const TRAIL_STEPS = 90;
 
 export const GAME_INFO: Record<GameKind, { name: string; players: string; min: number; max: number; rules: string }> = {
+  fishing: {
+    name: '星屿鱼塘', players: '1–12 人 · 不限时', min: 1, max: 12,
+    rules: '方形鱼塘 12 个座位，坐下自动抛竿，水面波动时点收杆，错过窗口鱼会游走。100 种鱼各有平均长度，鱼种越稀有越难遇见，同种鱼偏长或偏短越极端越罕见、价值越高。每次收获还有小概率是钱袋、单张鱼卡或卡包。商店只切换自己的界面，可卖鱼、买工具和卡包。疾风竿缩短等待，机械竿自动收一次后冷却，点金竿提高鱼价，手套可偷别人未收杆的收获，结界自动防偷后冷却。五类工具各有五档品质，最多装两类，同类只能装一件。卡包有四张卡，100 种鱼各有铁、铜、银、金、镭射卡，共 500 种，每档收集 25/50/75/100 种分别得 I/II/III/IV 级徽章。账号存档跨本服频道和重开鱼塘保留，同一账号只能坐一个鱼塘。',
+  },
   gomoku: {
     name: '五子棋', players: '2 人', min: 2, max: 2,
     rules: '15×15 棋盘，黑先白后轮流落子，横竖斜先连成五个（或更多）的赢。开局的人执黑。',
@@ -309,6 +315,11 @@ export function gameText(g: Game, me: string, nameOf: (id: string) => string): s
   }
   if (g.status === 'ended') {
     lines.push('已经结束：' + resultText(g, nameOf));
+    return lines.join('\n');
+  }
+  if (g.kind === 'fishing') {
+    lines.push(...(st.pond?.seats ?? []).map((p, i) => `${i + 1}号：${p.user_id === '0' ? '空位' : nameOf(p.user_id) + (p.user_id === me ? '（你）' : '') + (Date.now() >= p.bite_at && Date.now() <= p.expires_at ? '，已上钩，可以收杆或偷鱼' : '，等待上钩')}`));
+    lines.push('用 fishing_state 查看完整规则、金币、装备和收集，fishing_act 收杆或偷鱼，fishing_shop 管理商店。');
     return lines.join('\n');
   }
   const mine = g.waitingOn.includes(me);

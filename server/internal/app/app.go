@@ -182,9 +182,13 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 			V5Native: dc.V5Native, Quality: dc.Quality, QualityV5: dc.QualityV5, Negative: dc.Negative, BlockWords: dc.BlockWords, AutoNsfw: dc.AutoNsfw},
 	}, st, ms, md, bot, log)
 
+	games := game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv)
+	if err := games.LoadFishingRules(cfg.Fishing.RulesFile); err != nil {
+		return nil, err
+	}
 	mux := http.NewServeMux()
 	api := httpapi.New(acct, cs, ms, md, ps, prof, sk,
-		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), game.New(st, ids, hub, cfg.Limits.MaxGamesPerConv), cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
+		music.New(cfg.Media.Netease, cfg.Media.NeteaseAPI, md), games, cfg.Limits.LoginAttemptsPerMinute, cfg.Limits.MaxUploadMB, cfg.Stickers.SyncKBps, log)
 	if plugins != nil {
 		api.SetPlugins(plugins)
 	}

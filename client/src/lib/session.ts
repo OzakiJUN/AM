@@ -1,3 +1,4 @@
+import type { FishingAccount, FishingRules, FishingAction, Collection } from './fishing';
 import { mergeEmojiPins } from './chatTools';
 import type { EmojiPin, ForwardEntry } from './types';
 // One logged-in server: HTTP calls, the WebSocket (auth, sync, pushes,
@@ -763,8 +764,16 @@ export class Session {
     return this.gameCall('PATCH', `/api/v1/games/${id}`, { schema: api.SetGameRequestSchema, value: { autoApprove } });
   }
 
-  actGame(id: string, act: { action: 'move' | 'say' | 'vote' | 'resign' | 'ask' | 'guess'; x?: number; y?: number; text?: string; target?: number }) {
+  actGame(id: string, act: { action: 'move' | 'say' | 'vote' | 'resign' | 'ask' | 'guess' | 'sit' | 'reel' | 'steal'; x?: number; y?: number; text?: string; target?: number }) {
     return this.gameCall('POST', `/api/v1/games/${id}/act`, { schema: api.GameActRequestSchema, value: act });
+  }
+
+  refreshGame(id: string) { return this.gameCall('GET', `/api/v1/games/${id}`); }
+  async fishingRules(): Promise<FishingRules> { return JSON.parse((await this.call('GET', '/api/v1/fishing/rules', api.FishingDataSchema)).stateJson); }
+  async fishingAccount(): Promise<FishingAccount> { return JSON.parse((await this.call('GET', '/api/v1/fishing/me', api.FishingDataSchema)).stateJson); }
+  async fishingShowcase(user: string): Promise<Collection> { return JSON.parse((await this.call('GET', `/api/v1/users/${user}/fishing-showcase`, api.FishingDataSchema)).stateJson); }
+  async fishingAction(action: FishingAction, requestId: string): Promise<FishingAccount> {
+    return JSON.parse((await this.call('POST', '/api/v1/fishing/me', api.FishingDataSchema, { schema: api.FishingActionRequestSchema, value: { ...action, requestId } })).stateJson);
   }
 
   // ---- an AI's portraits and share requests ----

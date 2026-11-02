@@ -1,3 +1,4 @@
+import { isBiting, type FishingAction } from '@/lib/fishing';
 // Runs my AI accounts on this device (docs/design.md §9). Each AI has one
 // device that runs it (settings.runner); that device logs in as the AI
 // (POST /api/v1/ai/{id}/run, token kept in the credential store), reads
@@ -76,6 +77,8 @@ interface Run {
   /** When it spoke in each conversation (last hour, for the limits). */
   sends: Map<string, number[]>;
   routine?: ReturnType<typeof setInterval>;
+  fishing?: ReturnType<typeof setInterval>;
+  fishingBusy?: boolean;
   /** Clear the routine status (eating, playing) after this time; 0 = keep. */
   statusUntil: number;
   /** The owner as seen at the last check (talking first: social.ts proactive). */
@@ -250,6 +253,7 @@ async function start(serverId: string, ai: AIInfo, settings: AISettings) {
   runs.set(key, run);
   patch('running', key, false);
   run.routine = setInterval(() => void tickRoutine(run), 30_000);
+  run.fishing = setInterval(() => void tickFishing(run), 3000);
   await run.s.start();
 }
 
@@ -257,6 +261,7 @@ function stop(key: string) {
   const run = runs.get(key);
   if (run) {
     clearInterval(run.routine);
+    clearInterval(run.fishing);
     for (const p of run.pending.values()) clearTimeout(p.timer);
     for (const tm of run.rememberTimers.values()) clearTimeout(tm);
   }
@@ -860,6 +865,16 @@ function onGame(run: Run, g: Game) {
   const seat = seatOf(g, me);
   const key = gk(run, g.id);
   if (!run.s.view.convs[g.convId]) return;
+  if (g.kind === 'fishing') {
+    if (g.status === 'playing' && seat < 0 && !gameSeen.has(key)) {
+      gameSeen.add(key);
+      const now = new Date(), st = run.settings;
+      const playing = Object.values(run.s.view.games).filter((x) => x.status !== 'ended' && seatOf(x, me) >= 0).length;
+      const delay = wantsToJoin({ s: st.games, free: 12 - g.players.length, playing, byOwner: g.hostId === run.ai.user.ownerId, manyPlayers: true, asleep: isAsleep(st.routine, now.getHours() * 60 + now.getMinutes()), random: Math.random(), random2: Math.random() });
+      if (delay !== null) setTimeout(() => { if (runs.get(k(run.serverId, me)) === run && run.s.view.games[g.id]?.status === 'playing') void run.s.gameStep(g.id, 'join').catch(() => {}); }, delay);
+    }
+    return;
+  }
   if (g.status === 'waiting' && seat < 0 && !g.applicants.includes(me) && !gameSeen.has(key)) {
     gameSeen.add(key);
     const st = run.settings;
@@ -987,8 +1002,9 @@ async function gameTool(run: Run, tool: string, a: Record<string, unknown>): Pro
       const c = groups.find((x) => x.name === name) ?? groups.find((x) => x.name.includes(name));
       if (!c) return `你不在叫「${a.channel}」的频道里`;
       const kind = str(a.kind) as GameKind;
-      if (!GAME_INFO[kind]) return '没有这种游戏：gomoku / reversi / undercover / trail';
+      if (!GAME_INFO[kind]) return '没有这种游戏：gomoku / reversi / undercover / trail / fishing';
       const g = await s.openGame(c.id, kind, true);
+      if (kind === 'fishing') return `鱼塘开好了，编号 ${g.id}。你已坐下自动抛竿，用 fishing_state 了解规则。`;
       return `开好了，编号 ${g.id}，在「${c.name}」等人加入（申请的人直接进）。人够了会自动开始，也可以用 start_game。可以在频道里喊大家来玩。`;
     }
     case 'join_game': {
@@ -1001,7 +1017,20 @@ async function gameTool(run: Run, tool: string, a: Record<string, unknown>): Pro
     case 'leave_game':
       return after(await s.gameStep(str(a.game_id), 'leave'));
     case 'view_game':
-      return gameText(await find(str(a.game_id)), me, nameOf);
+      return gameText(await s.refreshGame(str(a.game_id)), me, nameOf);
+    case 'fishing_state': {
+      const [rules, account] = await Promise.all([s.fishingRules(), s.fishingAccount()]);
+      return GAME_INFO.fishing.rules + '\n服务端完整规则和图鉴：' + JSON.stringify(rules) + '\n你的账号：' + JSON.stringify(account);
+    }
+    case 'fishing_act': {
+      const action = str(a.action);
+      if (action !== 'sit' && action !== 'reel' && action !== 'steal') return '无效钓鱼动作';
+      return after(await s.actGame(str(a.game_id), { action, target: Math.round(Number(a.seat) || 1) - 1 }));
+    }
+    case 'fishing_shop': {
+      const req: FishingAction = { action: str(a.action) as FishingAction['action'], item: str(a.item), quality: Math.round(Number(a.quality) || 0), fishIds: Array.isArray(a.fish_ids) ? a.fish_ids.map(str) : [] };
+      return JSON.stringify(await s.fishingAction(req, str(a.request_id)));
+    }
     case 'game_move': {
       const g = await find(str(a.game_id));
       const at = parseCoord(str(a.at), g.state.size ?? 15);
@@ -1028,7 +1057,7 @@ async function playTimeGame(run: Run): Promise<boolean> {
   const groups = Object.values(run.s.view.convs).filter((c) => c.kind === 'group' && !c.left);
   const all = (await Promise.all(groups.map((c) => run.s.listGames(c.id).catch(() => [] as Game[])))).flat();
   if (all.some((g) => g.status !== 'ended' && seatOf(g, me) >= 0)) return true;
-  const waiting = all.find((g) => g.status === 'waiting' && g.players.length < GAME_INFO[g.kind].max && !g.applicants.includes(me));
+  const waiting = all.find((g) => (g.status === 'waiting' || (g.kind === 'fishing' && g.status === 'playing')) && g.players.length < GAME_INFO[g.kind].max && !g.applicants.includes(me));
   if (waiting && st.join) {
     await run.s.gameStep(waiting.id, 'join').catch(() => {});
     return true;
@@ -1039,7 +1068,7 @@ async function playTimeGame(run: Run): Promise<boolean> {
   const c = live[Math.floor(Math.random() * live.length)];
   if (!c) return false;
   const r = Math.random();
-  const kind: GameKind = c.members.length >= 5 && r < 0.3 ? 'undercover' : c.members.length >= 3 && r < 0.55 ? 'trail' : Math.random() < 0.6 ? 'gomoku' : 'reversi';
+  const kind: GameKind = r > 0.85 ? 'fishing' : c.members.length >= 5 && r < 0.3 ? 'undercover' : c.members.length >= 3 && r < 0.55 ? 'trail' : Math.random() < 0.6 ? 'gomoku' : 'reversi';
   const g = await run.s.openGame(c.id, kind, true).catch(() => null);
   if (!g) return false;
   await reply(run, c.id, { note: `（系统提示：你刚在这里开了一局${GAME_INFO[kind].name}，编号 ${g.id}。用一句话喊大家来玩，点上面的游戏条就能加入。）`, moment: 'play' });
@@ -1153,6 +1182,21 @@ function saveDone(key: string, day: string, done: Set<string>) {
   } catch {
     /* nothing remembered: at worst it says good morning twice */
   }
+}
+
+// AIs watch bites through the same authenticated server endpoints as people.
+// No extra model call or chat message per catch. Stop timers when its runner stops.
+async function tickFishing(run: Run) {
+  if (run.fishingBusy || run.s.view.status !== 'online') return;
+  run.fishingBusy = true;
+  try {
+    for (const g of Object.values(run.s.view.games)) {
+      if (g.kind !== 'fishing' || g.status !== 'playing' || seatOf(g, run.ai.user.id) < 0) continue;
+      const fresh = await run.s.refreshGame(g.id).catch(() => null);
+      const p = fresh?.state.pond?.seats.find((x) => x.user_id === run.ai.user.id);
+      if (p && isBiting(p, fresh!.state.pond!.now)) await run.s.actGame(g.id, { action: 'reel' }).catch(() => {});
+    }
+  } finally { run.fishingBusy = false; }
 }
 
 async function tickRoutine(run: Run) {
