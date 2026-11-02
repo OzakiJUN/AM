@@ -74,9 +74,14 @@ export function readFishingSave(s: Session): Promise<FishingAccount> {
 export function withFishingSave<T>(s: Session, act: () => Promise<T>): Promise<T> {
   if (!human(s)) return act();
   return locked(async () => {
-    const { source, state, list } = await sourceFor(s);
+    const { source, account: sourceAccount, state, list } = await sourceFor(s);
     if (source !== s) {
-      const target = await s.fishingRawAccount(); const transfer = crypto.randomUUID();
+      let target = await s.fishingRawAccount(); const transfer = crypto.randomUUID();
+      // Validate and prepare a read-only destination before freezing the source.
+      if (target.identity !== sourceAccount.identity || !target.frozen || target.revision !== sourceAccount.revision) {
+        await s.fishingSyncRequest('mirror', JSON.stringify({ account: sourceAccount, receipts: {} }), target.revision);
+        target = await s.fishingRawAccount();
+      }
       let exported;
       for (let tries = 0; tries < 3; tries++) {
         const current = await source.fishingRawAccount();
