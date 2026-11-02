@@ -22,7 +22,7 @@ import { toggleBlock } from './People';
 import { GameBar, GameButton } from './Games';
 import { HangDialog, MuseumButton, askHang, openMuseum } from './Museum';
 import { PortraitCorner, PortraitOverlay, PortraitPosButton, hitPortrait, usePortraitPack } from './Portrait';
-import { AISettingsDialog, askDeleteAI } from './AISettings';
+import { AISettingsDialog, HelperProfileDialog, askDeleteAI } from './AISettings';
 import { useAI } from '@/lib/ai/runner';
 import { voiceInput } from '@/lib/voice';
 import { MOODS, pokeText, type Mood } from '@/lib/portraits';
@@ -72,6 +72,9 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   const ai = page === 'ai';
   const peerPresence = peer ? v.presence[peer.id] : undefined;
   const myAI = ai && !!peer && peer.ownerId === v.me?.id;
+  // The server's built-in bot: site admins edit its name, avatar and page.
+  const botAdmin = !!peer && peer.id === v.helperId && v.isAdmin;
+  const [botOpen, setBotOpen] = useState(false);
   const mood = pokedMood ?? aiMood(v, conv.id, peer?.id, streaming);
   // Poking the portrait: a click on the figure (not on the empty space around it) sends "[戳一戳] …".
   const poke = (e: React.MouseEvent) => {
@@ -122,6 +125,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
           )}
           {myAI && !group && <IconButton label="删除 AI" onClick={() => askDeleteAI(v.id, peer.id, () => closeConv('ai', v.id))}><Trash2 size={18} /></IconButton>}
           {myAI && <IconButton label="AI 设置" onClick={() => setAIOpen(true)}><Settings2 size={19} /></IconButton>}
+          {botAdmin && <IconButton label="小助手的资料" onClick={() => setBotOpen(true)}><Settings2 size={19} /></IconButton>}
           {ai && peer && <PortraitPosButton />}
           {ai && peer && <PortraitCorner user={peer} online={!!peerPresence} mood={mood} pack={pack} />}
         </header>
@@ -145,6 +149,7 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
         )}
         <Composer key={conv.id} v={v} conv={conv} blocked={blocked} replyId={replying?.convId === conv.id ? replying.id : undefined} onCancelReply={() => setReplying(null)} />
         {myAI && peer && <AISettingsDialog open={aiOpen} onClose={() => setAIOpen(false)} aiId={peer.id} />}
+        {botAdmin && peer && <HelperProfileDialog open={botOpen} onClose={() => setBotOpen(false)} serverId={v.id} botId={peer.id} />}
       </section>
       <AnimatePresence initial={false}>
         {group && !conv.left && (

@@ -168,6 +168,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	a.registerPlugins(mux)
 	a.registerHosting(mux)
 	a.registerMuseum(mux)
+	a.registerHelper(mux)
 
 	mux.HandleFunc("POST /api/v1/media", a.authed(a.upload))
 	mux.HandleFunc("GET /api/v1/media/{id}", a.authed(a.download(false)))

@@ -124,6 +124,15 @@ export const TOOLS: ToolDef[] = [
       args_json: str('那个工具的参数，JSON 字符串，例如 {"path":"D:/"}'),
     }, ['person', 'tool']),
   },
+  {
+    name: 'use_helper', category: 'self', own: true,
+    description: '叫服务器的小助手（服务器自带的 bot）执行一条它的指令，指令列表在系统提示里（比如 /资讯 原神、/厕所、/投厕 标题）。你的指令本身不会出现在聊天里。show=true：小助手把回复发在现在这个聊天里，大家都看得到（想让大家知道你在干嘛、想分享时用）；show=false：结果只给你自己看（自己查资料、先看看再说时用）。投厕这类要针对一张图的，设 about_last_picture=true（就是这个聊天里最近的一张图）。',
+    parameters: obj({
+      command: str('指令，带 /，比如「/资讯 原神」'),
+      show: { type: 'boolean', description: 'true = 小助手的回复发在聊天里；false = 只给你看' },
+      about_last_picture: { type: 'boolean', description: '指令针对这个聊天里最近的一张图（投厕等）' },
+    }, ['command', 'show']),
+  },
   { name: 'message_owner', category: 'social', own: true, description: '给你的主人发一条私信。', parameters: obj({ text: str('要说的话') }, ['text']) },
   { name: 'list_games', category: 'games', own: true, description: '列出你在的频道和共享聊天里正在等人、正在进行的桌游（五子棋、黑白棋、谁是卧底、数字迷踪）。', parameters: obj({}) },
   {
@@ -279,6 +288,7 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'leave_game': return `退出游戏 ${args.game_id}`;
     case 'wait': return `等 ${args.seconds} 秒`;
     case 'draw_picture': return `画画：${short(args.prompt, 60)}`;
+    case 'use_helper': return `叫小助手：${short(args.command, 60)}`;
     default:
       if (name.startsWith(MCP_PREFIX)) {
         const [server, ...tool] = name.slice(MCP_PREFIX.length).split('__');

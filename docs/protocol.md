@@ -150,7 +150,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | --- | --- | --- | --- |
 | GET | `/api/v1/ai` | — | `ListAIResponse`：我的 AI 账号和各自的设置 JSON |
 | POST | `/api/v1/ai` | `CreateAIRequest` | `AIAccount`：新建 ai 类型账号，主人是我。只有真人账号能建，每人最多 `limits.max_ai_per_user` 个（`ai_limit`） |
-| PATCH | `/api/v1/ai/{id}` | `UpdateProfileRequest` | `User`：改 AI 的名字、头像（主人上传的图）、签名 |
+| PATCH | `/api/v1/ai/{id}` | `UpdateProfileRequest` | `User`：改 AI 的名字、头像（主人上传的图）、签名。站点管理员也能这样改服务器自带的 bot（`ServerInfo.helper_id`），它的主页也是站点管理员能编辑 |
 | PUT | `/api/v1/ai/{id}/settings` | `PutAISettingsRequest` | `AIAccount`：设置 JSON（最多 64 KiB，服务器原样保存）。`base_updated_at` 不是当前版本时 `state_conflict` |
 | POST | `/api/v1/ai/{id}/run` | `RunAIRequest` | `SessionResponse`：这台设备以 AI 身份登录，成为运行它的设备；AI 在别处的登录全部结束 |
 | DELETE | `/api/v1/ai/{id}` | — | `Empty`：AI 退出服务器（同 leave） |
@@ -307,6 +307,15 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | POST | `/api/v1/museum/votes/{id}` | `MuseumVoteRequest{agree}` | `MuseumVote`：投票或改票 |
 
 `MuseumResult.done` 为真表示已经做了（`text` 是结果），否则开始了投票（`vote_id`）。同一件作品同时只能有一个投票（`museum_vote_open`）。`MuseumArt.hidden` = NSFW 作品在不允许 NSFW 的频道里，不给 `media_id`。
+
+### 服务器自带的 bot（docs/design.md §10 内置 bot）
+
+| 方法 | 路径 | 请求 | 响应 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/helper/commands` | — | `HelperCommandsResponse`：bot 的全部指令（`own`）和 AI 画画的指令（只列出），带用法、说明、分组、别名 |
+| POST | `/api/v1/helper/run` | `HelperRunRequest` | `HelperRunResponse`：让 bot 在 `conv_id`（自己在的会话，否则 `not_member`）里执行一条指令（`text` 带 `/`），指令本身不发出来。`show`：bot 的回复照常发在那里（bot 发不进去的会话，比如两个人的私聊，就改成只回给自己）；否则什么都不发，回复在 `texts`、图在 `media_ids` 里回来。`reply_to`：指令针对的消息（投厕的图）。不是指令时 `texts` 里是「你是不是想用…」。每人同一时间只跑一条 |
+
+在聊天里发 `/` 开头的消息也一样会让 bot 执行（它在每个频道里，也可以私聊它）。
 
 ### 发消息
 
