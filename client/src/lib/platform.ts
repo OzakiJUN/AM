@@ -45,14 +45,13 @@ export async function scanQRFromFile(file: Blob): Promise<string | null> {
 }
 
 /** Returns an error for the settings test. Background callers can ignore it. */
-export async function notify(title: string, body: string, viewingChat = false): Promise<string | undefined> {
+export async function notify(title: string, body: string, { force = false }: { force?: boolean } = {}): Promise<string | undefined> {
   if (localStorage.getItem('am-notify') === 'off') return;
   try {
     if (inTauri) {
       const { invoke } = await import('@tauri-apps/api/core');
-      if (await invoke<boolean>('windows_notify', { title, body, viewingChat })) return;
-    }
-    if (viewingChat && document.visibilityState === 'visible' && document.hasFocus()) return;
+      if (await invoke<boolean>('windows_notify', { title, body, force })) return;
+    } else if (!force && document.visibilityState === 'visible') return;
     if (inTauri) {
       const n = await import('@tauri-apps/plugin-notification');
       if (!(await n.isPermissionGranted()) && (await n.requestPermission()) !== 'granted') return '系统未允许 AM 发送通知';
@@ -62,6 +61,7 @@ export async function notify(title: string, body: string, viewingChat = false): 
     if (!('Notification' in window)) return '当前浏览器不支持桌面通知';
     if (Notification.permission === 'default') await Notification.requestPermission();
     if (Notification.permission !== 'granted') return '浏览器未允许通知';
+    if (!force && document.visibilityState === 'visible') return;
     new Notification(title, { body });
   } catch (err) {
     return String(err);

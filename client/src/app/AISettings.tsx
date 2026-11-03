@@ -400,7 +400,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </span>
         </div>
       </Field>
-      <Field label="自己找事做" hint="清醒、空闲时自己想想接下来做什么，可以换状态或布置主页。每次会调用模型，不发聊天消息。">
+      <Field label="自己找事做" hint="清醒、空闲时直接用已允许的工具做件事：整理主页、玩游戏、用小助手等，可简短汇报结果。每次会调用模型；设为问我或禁止的工具不会自主使用。">
         <select value={draft.proactive.thoughtMinutes} onChange={(e) => set({ proactive: { ...draft.proactive, thoughtMinutes: Number(e.target.value) } })}>
           {[0, 10, 20, 60].map((n) => <option key={n} value={n}>{n ? `每 ${n} 分钟` : '关闭'}</option>)}
         </select>

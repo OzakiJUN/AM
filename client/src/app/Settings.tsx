@@ -420,9 +420,9 @@ function Notify() {
   return (
     <div className="max-w-3xl">
       <h2 className="text-[1.4rem] font-semibold">通知与窗口</h2>
-      <Row title="桌面通知" desc="窗口不在前台、或者在看别的会话时，新消息弹系统通知">
+      <Row title="桌面通知" desc="窗口打开时不弹通知；最小化或收到托盘后提醒。测试通知会强制发送。">
         {on && <Button size="sm" variant="soft" onClick={async () => {
-          const error = await notify('AM 通知测试', '能看到这条，就说明系统通知已显示。');
+          const error = await notify('AM 通知测试', '能看到这条，就说明系统通知已显示。', { force: true });
           setTestResult(error ? '发送失败：' + error : '已向系统发送测试通知。');
         }}>测试通知</Button>}
         <Toggle label="桌面通知" checked={on} onChange={(v) => { setOn(v); localStorage.setItem('am-notify', v ? 'on' : 'off'); }} />

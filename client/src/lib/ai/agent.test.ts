@@ -1,7 +1,7 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
 import {
-  drawCommandFor, GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
+  autonomyPrompt, selfDirectedTools, drawCommandFor, GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
 import { defaultComputer, parseSettings } from './persona.ts';
 
 const c = defaultComputer();
@@ -79,3 +79,24 @@ console.log('ai agent ok');
 assert.equal(drawCommandFor({ prompt: '1girl, beach', orientation: 'landscape', count: 2, as_me: true, negative: 'hat' }), '/nai 横图 *2 用我的头像 原样 1girl, beach\nNegative: hat');
 assert.equal(drawCommandFor({ prompt: 'a cat', model: 'v5', count: 9 }), '/nai5 *4 原样 a cat');
 console.log('draw command ok');
+
+// Self-directed turns can actually use AM tools, even with desktop control off.
+const choices = { openGames: true, joinGames: true, joinChannels: true };
+const own = selfDirectedTools(c, toolsFor(c), choices);
+for (const name of ['view_my_page','edit_my_page','set_my_status','set_my_bio','list_games','open_game','join_game','fishing_shop','use_helper','message_owner']) assert.ok(own.some(t => t.name === name), name);
+assert.ok(own.every(t => t.own && levelFor(c, t.name) === 'allow'));
+assert.ok(!own.some(t => t.name === 'run_command' || t.name === 'mouse'));
+const limited: typeof c = { ...c, enabled: false, levels: { ...c.levels, social: 'ask', games: 'deny', draw: 'ask' } };
+const quiet = selfDirectedTools(limited, toolsFor(limited), choices);
+assert.ok(quiet.some(t => t.name === 'edit_my_page'));
+assert.ok(quiet.some(t => t.name === 'use_helper')); // helper follows self permission, not social
+assert.ok(!own.some(t => t.name === 'use_computer_of'));
+assert.ok(!quiet.some(t => ['message_owner','send_to_channel','open_game','draw_picture','use_computer_of'].includes(t.name)));
+const disabledGames = selfDirectedTools(c, toolsFor(c), { openGames: false, joinGames: false, joinChannels: false });
+assert.ok(!disabledGames.some(t => ['open_game','join_game','send_to_channel'].includes(t.name)));
+assert.ok(disabledGames.some(t => t.name === 'list_games'));
+const prompt = autonomyPrompt(c, own);
+assert.match(prompt, /先斩后奏/); assert.match(prompt, /直接调用工具/); assert.match(prompt, /message_owner/);
+assert.match(autonomyPrompt(c, toolsFor(c)), /问我.*软件处理确认/);
+assert.match(autonomyPrompt(c, []), /不要声称已经做了操作/);
+console.log('AI autonomy: available account tools, exact permissions and game/social settings respected');

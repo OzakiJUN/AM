@@ -81,14 +81,11 @@ function attach(rec: ServerRecord): Session {
       saveRecords(list);
     },
     (convId, m) => {
-      const st = useApp.getState();
-      const open = st.openConvs[openKey(st.page as ConvPage, rec.id)];
-      const viewingChat = st.view === 'main' && st.currentId === rec.id && open === convId;
       const v = s.view;
       const conv = v.convs[convId];
       if (conv && (conv.dndUntil === -1 || conv.dndUntil > Date.now())) return; // do not disturb
       const who = s.nameOf(m.senderId);
-      void notify(conv?.kind === 'group' ? conv.name : who, (conv?.kind === 'group' ? `${who}：` : '') + previewText(m, s.nameOf), viewingChat);
+      void notify(conv?.kind === 'group' ? conv.name : who, (conv?.kind === 'group' ? `${who}：` : '') + previewText(m, s.nameOf));
     },
   );
   s.onMoved = (address) => void moveServer(rec.id, address);
