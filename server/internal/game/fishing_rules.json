@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "wait_min_seconds": 18,
-  "wait_max_seconds": 42,
+  "wait_min_seconds": 10,
+  "wait_max_seconds": 3600,
   "bite_seconds": 30,
   "start_coins": 200,
   "pack_price": 180,

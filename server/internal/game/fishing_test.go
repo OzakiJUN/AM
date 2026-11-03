@@ -143,3 +143,48 @@ func TestFishingCatchupBatchKeepsPendingEvents(t *testing.T) {
 		t.Fatal("catchup failed to complete")
 	}
 }
+
+// Every cast samples integer seconds across the configured inclusive range.
+// A fast rod shortens it, but cannot go below the ten-second minimum.
+func TestFishingWaitSeconds(t *testing.T) {
+	r := DefaultFishingRules()
+	if r.WaitMin != 10 || r.WaitMax != 3600 {
+		t.Fatal("default wait must be 10–3600 seconds")
+	}
+	s := &Service{fishing: r, rnd: rand.New(rand.NewSource(37))}
+	a := r.newAccount()
+	seen := map[int64]bool{}
+	const now int64 = 123456789
+	for i := 0; i < 100000; i++ {
+		var p Angler
+		s.cast(&p, a, now)
+		delta := p.BiteAt - now
+		if delta%1000 != 0 || delta < 10000 || delta > 3600000 {
+			t.Fatalf("invalid cast wait %d", delta)
+		}
+		if p.ExpiresAt-p.BiteAt != int64(r.Bite)*1000 {
+			t.Fatal("bite window changed")
+		}
+		seen[delta/1000] = true
+	}
+	if len(seen) != 3591 {
+		t.Fatalf("not all second values sampled: %d", len(seen))
+	}
+	a.Tools["speed"] = 5
+	a.Equipped = []string{"speed"}
+	for i := 0; i < 10000; i++ {
+		var p Angler
+		s.cast(&p, a, now)
+		if delta := p.BiteAt - now; delta%1000 != 0 || delta < 10000 || delta > 1620000 {
+			t.Fatalf("invalid accelerated cast %d", delta)
+		}
+	}
+	// A single configured second is legal and deterministic, inclusive at both ends.
+	r.WaitMin = 10
+	r.WaitMax = 10
+	var p Angler
+	s.cast(&p, a, now)
+	if p.BiteAt-now != 10000 {
+		t.Fatal("speed rod broke minimum wait")
+	}
+}

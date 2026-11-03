@@ -4,22 +4,24 @@
 
 /** How an AI behaves in the channels it is in. */
 export interface ChannelSettings {
-  /** mention = only when @-mentioned or called by name; active = also joins in by itself. */
+  /** mention = called by name / @ or continuing a chat; active = also joins by itself. */
   mode: 'mention' | 'active';
+  /** Same person's conversation continues without another @; 0 disables (default 300). */
+  followUpSeconds?: number;
   /** 0–1: the model's preference for joining a discussion. */
   chattiness: number;
   /** Wait for a pause, but evaluate continuous discussion by maxBatchSeconds. */
   batchSeconds: number;
   maxBatchSeconds: number;
-  /** Least seconds between two of its messages in one channel (being @-mentioned skips this). */
+  /** Least seconds between unsolicited messages (human conversations skip this). */
   minGapSeconds: number;
-  /** Most messages per hour in one channel. */
+  /** Most unsolicited messages per hour in one channel (AI replies still count). */
   maxPerHour: number;
   /** After this many AI messages in a row (any AIs), wait for a person. */
   maxAIChain: number;
 }
 
-export const defaultChannels = (): ChannelSettings => ({ mode: 'active', chattiness: 0.5, batchSeconds: 5, maxBatchSeconds: 20, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6 });
+export const defaultChannels = (): ChannelSettings => ({ mode: 'active', followUpSeconds: 300, chattiness: 0.5, batchSeconds: 5, maxBatchSeconds: 20, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6 });
 
 /** Its day. Times are "HH:MM" on the device that runs it; each event moves by up to `jitterMinutes`. */
 export interface RoutineSettings {
@@ -48,6 +50,9 @@ export interface Said {
   ai: boolean;
   /** @-mentions it, or calls it by name. */
   toMe: boolean;
+  replyToSender?: string;
+  toOthers?: boolean;
+  text?: string;
 }
 
 /** The message @-mentions the AI or calls it by name. */
@@ -61,6 +66,20 @@ export function addressed(text: string, mentions: string[] | undefined, aiId: st
 export function discussionText(text: string): boolean {
   const words = text.toLowerCase().replace(/[\p{P}\p{S}\p{M}\s\u200d]/gu, '');
   return !!words && !/^(?:哈+|呵呵|嗯+|哦+|好[的啊呀吧]?|收到|明白了?|谢谢|赞|同意|确实|是的|对+|ok(?:ay)?|lol|thanks)+$/u.test(words);
+}
+
+/** Reconstruct a conversation from message history, including the AI's quoted replies. */
+export function channelTurnIsDirected(recent: Said[], me: string, now: number, followUpSeconds = 300, room = false): boolean {
+  const last = recent.at(-1);
+  if (!last || last.senderId === me) return false;
+  if (last.toMe) return true;
+  if (last.ai || last.toOthers) return false;
+  if (room) return true;
+  if (followUpSeconds <= 0 || !discussionText(last.text ?? '')) return false;
+  return recent.slice(0, -1).some((m) => m.time <= last.time && now - m.time <= followUpSeconds * 1000 && (
+    (m.senderId === me && m.replyToSender === last.senderId) ||
+    (m.senderId === last.senderId && m.toMe)
+  ));
 }
 
 export type Decision = { act: 'reply' | 'maybe' | 'no'; delay: number; why: string };
@@ -78,6 +97,8 @@ export function decide(o: {
   const { now, s, recent, me } = o;
   const last = recent.at(-1);
   if (!last || last.senderId === me) return { act: 'no', delay: 0, why: 'nothing new' };
+  // Human conversations must not silently stop at the unsolicited-message budget.
+  if (last.toMe && !last.ai) return { act: 'reply', delay: 800 + 1200 * o.random2, why: 'spoken to' };
   const hour = o.mySends.filter((t) => now - t < 60 * MIN).length;
   if (hour >= s.maxPerHour) return { act: 'no', delay: 0, why: 'hourly limit' };
   let chain = 0;
