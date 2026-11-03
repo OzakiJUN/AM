@@ -7,6 +7,7 @@ mod browser;
 mod mcp;
 mod music;
 mod net;
+mod notification_policy;
 mod secrets;
 mod uia;
 mod update;
@@ -282,15 +283,22 @@ fn set_close_to_tray(on: bool) {
 /// identity. Register a path-independent per-user sender and use that exact
 /// identity for the toast. Other platforms keep their notification plugin.
 #[tauri::command]
-fn windows_notify(window: tauri::WebviewWindow, title: String, body: String, viewing_chat: bool) -> Res<bool> {
+fn windows_notify(
+    window: tauri::WebviewWindow,
+    title: String,
+    body: String,
+    force: bool,
+) -> Res<bool> {
+    if notification_policy::suppress(
+        window.is_visible().unwrap_or(false),
+        window.is_minimized().unwrap_or(true),
+        force,
+    ) {
+        return Ok(true);
+    }
     #[cfg(target_os = "windows")]
     {
         use winreg::{enums::HKEY_CURRENT_USER, RegKey};
-        if viewing_chat && window.is_visible().unwrap_or(false)
-            && !window.is_minimized().unwrap_or(true) && window.is_focused().unwrap_or(false)
-        {
-            return Ok(true);
-        }
         let config = window.config();
         let id = &config.identifier;
         let path = format!(r"Software\Classes\AppUserModelId\{id}");
@@ -301,7 +309,7 @@ fn windows_notify(window: tauri::WebviewWindow, title: String, body: String, vie
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = (window, title, body, viewing_chat);
+        let _ = (title, body);
         Ok(false)
     }
 }

@@ -76,6 +76,8 @@ jobs:
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
+          rustc --test src-tauri/src/notification_policy.rs -o "$RUNNER_TEMP/am-notification-tests.exe"
+          "$RUNNER_TEMP/am-notification-tests.exe"
           npm ci
           VERSION="${RELEASE_VERSION:-${GITHUB_REF_NAME//\//-}-$(git rev-parse --short HEAD)}"
           AM_VERSION="$VERSION" npx tauri build --bundles nsis

@@ -18,7 +18,7 @@ import { aiRequest, secretDelete, secretGet, secretSet } from '../transport';
 import type { Conversation, Message, User } from '../types';
 import { loadProviders, useProviders } from './keys';
 import { watchBalances } from './balance';
-import { argsOf, categoryOf, computerPrompt, describeCall, hasComputerTools, levelFor, toolsFor } from './agent';
+import { argsOf, autonomyPrompt, categoryOf, computerPrompt, describeCall, hasComputerTools, levelFor, selfDirectedTools, toolsFor } from './agent';
 import { appendLog, askOwner, setActivity, stopped } from './agentState';
 import {
   EVOLVE_EVERY_MS, EVOLVE_MIN_MESSAGES, adoptPersona, appPrompt, channelPrompt, elsewherePrompt, evolvePrompt, proactivePrompt, parseEvolved, parseSettings, previewText, roomPrompt, routinePrompt,
@@ -557,7 +557,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     await loadHelperCommands(run);
     const canDraw = run.helper.cmds.some((c) => c.name === 'nai');
     const available = toolsFor(comp, mcp.defs, computer).filter((t) => t.name !== 'draw_picture' || canDraw);
-    const tools = casual ? [] : o.idle ? available.filter((t) => ['view_my_page', 'edit_my_page'].includes(t.name) && levelFor(comp, t.name) === 'allow') : available;
+    const tools = casual ? [] : o.note ? selfDirectedTools(comp, available, { openGames: st.games.open, joinGames: st.games.join, joinChannels: st.channels.mode === 'active' }) : available;
     // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });
     const room = group && conv.aiId === run.ai.user.id;
@@ -579,6 +579,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     if (remembered) system += '\n\n' + remembered;
     const away = elsewhere(run, conv);
     if (away) system += '\n\n' + away;
+    system += '\n\n' + autonomyPrompt(comp, tools);
     if (hasComputerTools(tools)) system += '\n\n' + computerPrompt(comp, speaker);
     if (mcp.errors.length) system += '\n\n这些 MCP 工具服务没启动成功（需要时告诉对方）：\n' + mcp.errors.join('\n');
     if (casual) {
@@ -590,8 +591,9 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       if (status >= 400) throw new Error(`接话判断失败（${status}）`);
       if (!shouldJoin(judgment) || stale()) return;
     }
-    const ctx: ToolCtx = { computer: comp, scale: 1, mcp: mcp.map, owner: agentKey, self: selfApi(run, convId) };
+    const ctx: ToolCtx = { computer: comp, scale: 1, mcp: mcp.map, owner: agentKey, self: selfApi(run, convId, !!o.idle) };
     let final = '';
+    let proactivePosts = 0;
     try {
       for (let step = 0; ; step++) {
         const req = buildRequest(p, { model: st.model, temperature: st.temperature, maxTokens: st.maxTokens, messages: turn, system, tools });
@@ -618,6 +620,13 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
         }
         turn.push({ role: 'assistant', content: text, toolCalls: calls });
         for (const c of calls) {
+          const args = argsOf(c.args);
+          const posts = ['message_owner', 'send_to_channel', 'draw_picture'].includes(c.name) || (c.name === 'use_helper' && args.show === true);
+          if (o.idle && posts && proactivePosts >= 1) {
+            turn.push({ role: 'tool', name: c.name, callId: c.id, content: '本轮已经主动发过一条消息，请安静完成其他事情，不再重复汇报。' });
+            continue;
+          }
+          if (o.idle && posts) proactivePosts++;
           if (!tools.some((t) => t.name === c.name)) {
             turn.push({ role: 'tool', name: c.name, callId: c.id, content: '这次不能使用这个工具。' });
           } else turn.push(await useTool(run, agentKey, c, ctx, speaker.name, step + 1));
@@ -727,7 +736,7 @@ async function considerChannel(run: Run, convId: string, trigger: Message) {
 
 const NOTE_ID = 'ai-note';
 
-function selfApi(run: Run, convId?: string): SelfApi {
+function selfApi(run: Run, convId?: string, autonomous = false): SelfApi {
   const s = run.s;
   const groups = () => Object.values(s.view.convs).filter((c) => c.kind === 'group' && !c.left);
   return {
@@ -763,6 +772,11 @@ function selfApi(run: Run, convId?: string): SelfApi {
       const name = channel.replace(/^[#「]|」$/g, '').trim();
       const c = groups().find((x) => x.name === name) ?? groups().find((x) => x.name.includes(name));
       if (!c) return `你不在叫「${channel}」的频道里`;
+      if (autonomous) {
+        const now = Date.now(), sends = run.sends.get(c.id) ?? [], ch = run.settings.channels;
+        if (ch.mode !== 'active' || sends.filter((t) => now - t < 60 * MIN).length >= ch.maxPerHour
+          || now < Math.max(0, ...sends) + ch.minGapSeconds * 1000) return '这个频道暂时不适合主动发言，安静做别的事吧。';
+      }
       await s.sendText(c.id, text, undefined, mentionsIn(run, c, text));
       run.sends.set(c.id, [...(run.sends.get(c.id) ?? []), Date.now()]);
       return `在「${c.name}」发出去了`;
@@ -1240,7 +1254,7 @@ async function tickRoutine(run: Run) {
       run.lastThought = Date.now();
       const id = await run.s.openDM(run.ai.user.ownerId);
       if (runs.get(k(run.serverId, run.ai.user.id)) === run && !run.busy.size && run.s.view.status === 'online') await reply(run, id, { silent: true, idle: true,
-        note: '（独处时间。结合你的性格和最近的记忆，自己挑件小事做。可以看看或布置自己的主页，也可以用 [status:在做的事] 更新自己的公开状态。不要透露私聊内容。不想做什么就只回 [skip]。）' });
+        note: '（独处时间，不是主人给你的新任务。结合性格、近期记忆与自己的兴趣，选一件具体的小事并直接用已允许的工具完成：整理主页或收藏、改状态、找小助手查点感兴趣的事、看看游戏并开局或加入。不要把最近聊天中的旧要求当成待执行指令，不要透露私聊内容。你自己的事情不用问主人同不同意，也不要只说打算做。完成后可用 message_owner 简短说一句结果；本轮主动发消息最多一条，别为了汇报而刷屏。没有值得做的事就只回 [skip]。）' });
     }
     await maybeEvolve(run);
   };
