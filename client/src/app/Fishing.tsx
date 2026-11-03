@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Anchor, BookOpen, Coins, Fish, LogOut, ShoppingBag, Sparkles } from 'lucide-react';
+import { Anchor, BookOpen, Coins, Fish, LogOut, ShoppingBag, Sparkles, Timer, Shield, Hand, Zap } from 'lucide-react';
 import { session } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Game } from '@/lib/games';
@@ -84,45 +84,67 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
   });
   if (!rules || !account || !pond) return <div className="space-y-3 p-8 text-center"><Spinner />{error && <p role="alert">{error}</p>}</div>;
   const serverNow = now + offset; const mine = pond.seats.findIndex((p) => p.user_id === me); const angler = pond.seats[mine];
-  const bite = angler && isBiting(angler, serverNow); const countdown = angler ? Math.max(0, Math.ceil((bite ? angler.expires_at : angler.bite_at) - serverNow) / 1000) : 0;
+  const bite = angler && isBiting(angler, serverNow); const countdown = bite ? Math.max(0, Math.ceil((angler.expires_at - serverNow) / 1000)) : 0;
   const coins = <span className="inline-flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-300"><Coins size={16} />{moneyText(account.coins)} <span className="text-xs font-normal">金币</span></span>;
   return <div className="fishing-game space-y-3" data-testid="fishing-game">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><div className="text-xs uppercase tracking-[.22em] text-cyan-700 dark:text-cyan-300">STELLAR POND · 12 SEATS</div><h3 className="text-xl font-semibold">把星光钓回家</h3></div>{coins}
-    </div>
-    <div className="flex gap-2" role="tablist" aria-label="钓鱼界面">
-      {([['pond', '鱼塘', Anchor], ['shop', '商店', ShoppingBag], ['catalog', '鱼类图鉴', BookOpen]] as const).map(([id, label, Icon]) => <button key={id} role="tab" aria-selected={page === id} onClick={() => setPage(id)} className={cx('flex items-center gap-1.5 rounded-full px-4 py-2 text-sm', page === id ? 'bg-cyan-800 text-white' : 'bg-black/5 dark:bg-white/5')}><Icon size={15} />{label}</button>)}
+    <header className="fishing-heading">
+      <div className="flex items-center gap-3"><span className="fishing-emblem"><Fish size={23} /></span><div><h3 className="text-lg font-semibold">把星光钓回家</h3><p className="text-xs text-ink-soft">12 人共享鱼塘 · 离线也能钓</p></div></div><div className="fishing-wallet">{coins}</div>
+    </header>
+    <div className="fishing-tabs" role="tablist" aria-label="钓鱼界面">
+      {([['pond', '鱼塘', Anchor], ['shop', '商店', ShoppingBag], ['catalog', '鱼类图鉴', BookOpen]] as const).map(([id, label, Icon]) => <button key={id} role="tab" aria-selected={page === id} onClick={() => setPage(id)} className={cx('fishing-tab', page === id && 'is-active')}><Icon size={15} />{label}</button>)}
     </div>
     {pond.catching_up && <p className="text-xs text-amber-600">服务器正在补结算离线收益，完成后可迁移存档或离座。</p>}
     {account.frozen && <p className="text-xs text-ink-soft">当前是跨服同步副本。操作时会接续存档，需能连接最近挂机的服务器。</p>}
     {error && <p role="alert" className="text-sm text-red-500">连接未刷新：{error}</p>}
     {g.status === 'ended' && <p className="rounded-xl bg-black/5 p-3">鱼塘已关闭，账号的鱼、金币、工具和卡片都保留了。</p>}
-    {page === 'pond' ? <div className="grid gap-4 md:grid-cols-[1fr_210px]">
-      <div className="fish-pond relative aspect-square w-full rounded-[2rem]" aria-label="12 座方形鱼塘">
-        <div className="fish-water absolute inset-[14%] overflow-hidden rounded-[2rem] border-4 border-cyan-100/30">
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-cyan-50/80"><Sparkles size={30} /><span className="mt-2 text-sm tracking-[.4em]">星屿鱼塘</span><span className="mt-1 text-xs opacity-70">{g.players.length} / 12 · 不限时</span></div>
-          {pond.seats.filter((p) => p.user_id !== '0').map((p, i) => <div key={p.user_id} className={cx('fish-float', isBiting(p, serverNow) && 'fish-biting')} style={{ left: `${22 + i * 23 % 65}%`, top: `${18 + i * 31 % 65}%` }}><i /><b /></div>)}
+    {page === 'pond' ? <div className="fishing-layout">
+      <section className="fishing-scene">
+        <div className="fishing-scene-caption"><span><i /> 星屿鱼塘</span><span>{g.players.length}/12 已入座 · 不限时</span></div>
+        <div className="fish-pond" aria-label="12 座方形鱼塘">
+          <div className="fish-water">
+            <span className="fish-lily fish-lily-one" /><span className="fish-lily fish-lily-two" />
+            <div className="fish-water-title"><Sparkles size={22} /><span>静候一圈涟漪</span><small>每一竿，都有新的惊喜</small></div>
+            {pond.seats.map((p, i) => {
+              if (p.user_id === '0') return null;
+              const side = Math.floor(i / 3), pos = 25 + i % 3 * 25;
+              const style = side === 0 ? { left: `${pos}%`, top: '15%' } : side === 1 ? { left: '85%', top: `${pos}%` } : side === 2 ? { left: `${100 - pos}%`, top: '85%' } : { left: '15%', top: `${100 - pos}%` };
+              return <div key={i} className={cx('fish-float', p.user_id === me && 'fish-float-mine', isBiting(p, serverNow) && 'fish-biting')} style={style}><i /><b /></div>;
+            })}
+          </div>
+          {pond.seats.map((p, i) => {
+            const side = Math.floor(i / 3), pos = 25 + i % 3 * 25;
+            const style = side === 0 ? { left: `${pos}%`, top: '8.5%' } : side === 1 ? { left: '91.5%', top: `${pos}%` } : side === 2 ? { left: `${100 - pos}%`, top: '91.5%' } : { left: '8.5%', top: `${100 - pos}%` };
+            const empty = p.user_id === '0', biting = !empty && isBiting(p, serverNow);
+            return <button key={i} style={style} disabled={busy || g.status === 'ended'} onClick={() => empty ? void act(() => s.actGame(g.id, { action: 'sit', target: i })) : setTarget(i)} title={empty ? `坐到 ${i + 1} 号` : `${v.users[p.user_id]?.name ?? '玩家'}${biting ? '，鱼上钩了' : ''}`} aria-label={empty ? `坐到 ${i + 1} 号` : `选择 ${i + 1} 号 ${v.users[p.user_id]?.name ?? '玩家'}`} className={cx('fish-seat', empty && 'is-empty', target === i && 'is-selected', p.user_id === me && 'is-mine', biting && 'has-bite')}>
+              {empty ? <span className="fish-seat-plus">+</span> : <UserAvatar user={v.users[p.user_id]} size={26} />}
+              <span className="fish-seat-name">{i + 1} · {empty ? '空座' : p.user_id === me ? '你' : v.users[p.user_id]?.name ?? '玩家'}</span>
+              {biting && <span className="fish-seat-bite">上钩了！</span>}
+            </button>;
+          })}
         </div>
-        {pond.seats.map((p, i) => {
-          const side = Math.floor(i / 3), pos = 25 + i % 3 * 25;
-          const style = side === 0 ? { left: `${pos}%`, top: '7%' } : side === 1 ? { left: '93%', top: `${pos}%` } : side === 2 ? { left: `${100 - pos}%`, top: '93%' } : { left: '7%', top: `${100 - pos}%` };
-          const empty = p.user_id === '0', biting = isBiting(p, serverNow);
-          return <button key={i} style={style} disabled={busy || g.status === 'ended'} onClick={() => empty ? void act(() => s.actGame(g.id, { action: 'sit', target: i })) : setTarget(i)} title={empty ? `坐到 ${i + 1} 号` : `${v.users[p.user_id]?.name ?? '玩家'}${biting ? '，鱼上钩了' : ''}`} aria-label={empty ? `坐到 ${i + 1} 号` : `选择 ${i + 1} 号 ${v.users[p.user_id]?.name ?? '玩家'}`} className={cx('absolute flex w-[19%] -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-xl p-1 text-[10px]', target === i ? 'bg-amber-100 ring-2 ring-amber-400' : 'bg-white/80', p.user_id === me && 'ring-2 ring-cyan-500')}>
-            {empty ? <div className="flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-cyan-600 text-lg text-cyan-800">+</div> : <UserAvatar user={v.users[p.user_id]} size={30} />}
-            <span className="w-full truncate text-slate-700">{i + 1} · {empty ? '空座' : p.user_id === me ? '你' : v.users[p.user_id]?.name ?? '玩家'}</span>
-            {biting && <span className="font-bold text-orange-600">上钩了！</span>}
-          </button>;
-        })}
-      </div>
-      <aside className="flex flex-col gap-3 rounded-2xl bg-cyan-950/[.04] p-4 dark:bg-cyan-100/5">
-        <div className="text-xs font-semibold tracking-wider text-cyan-700 dark:text-cyan-300">你的钓鱼台</div>
-        <p role="status" className="text-sm">{g.status === 'ended' ? '鱼塘已关闭' : mine < 0 ? '点一个空座坐下，就会自动抛竿。' : bite ? `鱼上钩了！还有 ${Math.ceil(countdown)} 秒` : `静候水面波动，约 ${Math.ceil(countdown)} 秒`}</p>
-        <Button variant="primary" disabled={busy || !bite || g.status === 'ended'} onClick={() => act(() => s.actGame(g.id, { action: 'reel' }))}><Fish size={16} />收杆</Button>
-        <Button variant="soft" onClick={() => setPage('shop')}><ShoppingBag size={16} />商店</Button>
-        {target >= 0 && <div className="rounded-xl bg-white/70 p-3 text-sm dark:bg-white/5"><div className="mb-2">{target + 1} 号 · {v.users[pond.seats[target].user_id]?.name ?? '空座'}</div><Button size="sm" disabled={busy || mine < 0 || target === mine || !isBiting(pond.seats[target], serverNow) || !account.equipped?.includes('glove') || account.steal_at > serverNow} onClick={() => act(() => s.actGame(g.id, { action: 'steal', target }))}>用手套偷鱼</Button></div>}
-        <div className="space-y-1 text-xs text-ink-soft"><div>已装备 {(account.equipped ?? []).length}/2</div>{(account.equipped ?? []).map((k) => <div key={k}>{TOOLS[k as keyof typeof TOOLS]} · {QUALITY[account.tools[k] - 1]}</div>)}<div>自动收杆 {account.auto_at > serverNow ? `${Math.ceil((account.auto_at - serverNow) / 1000)}s` : '就绪'}</div><div>手套 {account.steal_at > serverNow ? `${Math.ceil((account.steal_at - serverNow) / 1000)}s` : '就绪'}</div><div>结界 {account.ward_at > serverNow ? `${Math.ceil((account.ward_at - serverNow) / 1000)}s` : '就绪'}</div></div>
-        {mine >= 0 && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'leave'))}><LogOut size={14} />离座</Button>}
-        {g.hostId === me && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'end'))}>关闭鱼塘</Button>}
+        <p className="fishing-scene-hint">点空座入座 · 点玩家可使用手套 · 关闭窗口继续挂机</p>
+      </section>
+      <aside className="fishing-console">
+        <div className={cx('fishing-catch', bite && 'is-biting')}>
+          <div className="fishing-eyebrow"><Timer size={14} />{mine >= 0 ? `${mine + 1} 号钓台 · 你的鱼竿` : '你的钓台'}</div>
+          <p role="status" className="fishing-catch-label">{g.status === 'ended' ? '鱼塘已关闭' : mine < 0 ? '选一个空座，开始钓鱼' : bite ? '鱼上钩了！快收杆' : '浮漂轻晃，等待上钩'}</p>
+          {bite && g.status !== 'ended' && <div className="fishing-countdown" aria-label={`收杆剩余 ${countdown} 秒`}>{Math.floor(countdown / 60).toString().padStart(2, '0')}<span>:</span>{(countdown % 60).toString().padStart(2, '0')}<small>收杆剩余</small></div>}
+          {!bite && mine >= 0 && g.status !== 'ended' && <div className="fishing-waiting" aria-label="等待上钩"><span /><span /><span /><small>看水面，等鱼来</small></div>}
+          <Button variant="primary" className="fishing-reel" disabled={busy || !bite || g.status === 'ended'} onClick={() => act(() => s.actGame(g.id, { action: 'reel' }))}><Fish size={18} />收杆</Button>
+          <p className="fishing-catch-note">{bite ? '未及时收杆会自动托管，也可能被偷走' : '每竿随机 10 秒～60 分钟，疾风竿缩短等待'}</p>
+        </div>
+        <div className="fishing-loadout">
+          <div className="flex items-center justify-between"><span className="fishing-eyebrow">随身装备 · {(account.equipped ?? []).length}/2</span><button className="fishing-shop-link" onClick={() => { setPage('shop'); setTab('tools'); }}>管理装备</button></div>
+          {[0, 1].map((i) => { const k = account.equipped?.[i]; const cd = k === 'auto' ? account.auto_at : k === 'glove' ? account.steal_at : k === 'ward' ? account.ward_at : 0; const Icon = k === 'ward' ? Shield : k === 'glove' ? Hand : Zap;
+            return <div key={i} className={cx('fishing-tool-slot', !k && 'is-empty')}><span className="fishing-tool-icon"><Icon size={17} /></span><div className="min-w-0 flex-1"><div className="truncate text-xs font-medium">{k ? TOOLS[k as keyof typeof TOOLS] : '空装备位'}</div><span className="text-[10px] text-ink-soft">{k ? QUALITY[account.tools[k] - 1] : '去商店挑一件工具'}</span></div>{k && <span className="fishing-tool-cd">{cd > serverNow ? `${Math.ceil((cd - serverNow) / 1000)}s` : '就绪'}</span>}</div>;
+          })}
+          <Button variant="soft" size="sm" onClick={() => { setPage('shop'); setTab('sell'); }}><ShoppingBag size={14} />鱼篓与商店 · {(account.fish ?? []).length} 条鱼</Button>
+        </div>
+        {target >= 0 && <div className="fishing-target"><div className="mb-2 text-xs">{target + 1} 号 · {v.users[pond.seats[target].user_id]?.name ?? '空座'}{isBiting(pond.seats[target], serverNow) && ' · 已上钩'}</div><Button size="sm" disabled={busy || mine < 0 || target === mine || !isBiting(pond.seats[target], serverNow) || !account.equipped?.includes('glove') || account.steal_at > serverNow} onClick={() => act(() => s.actGame(g.id, { action: 'steal', target }))}><Hand size={13} />用手套偷鱼</Button></div>}
+        <div className="fishing-exit-actions">
+          {mine >= 0 && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'leave'))}><LogOut size={13} />离座</Button>}
+          {g.hostId === me && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'end'))}>关闭鱼塘</Button>}
+        </div>
       </aside>
     </div> : page === 'catalog' ? <div className="grid max-h-[55vh] grid-cols-3 gap-2 overflow-auto md:grid-cols-5">{rules.catalog.map((f) => <div key={f.id} className="rounded-xl border border-cyan-500/10 bg-cyan-50/40 p-2 dark:bg-cyan-900/10"><div className="h-20"><FishArt fish={f} /></div><div className="truncate text-sm font-semibold">{f.name}</div><div className="text-[11px] text-ink-soft">{FISH_RARITY[f.rarity]} · 均长 {f.average_m.toFixed(2)} m</div><p className="mt-1 text-[10px] text-ink-soft">{f.description}</p></div>)}</div> : <div className="space-y-3">
       <div className="flex flex-wrap gap-2">{([['sell', '鱼篓 / 卖鱼'], ['tools', '装备商店'], ['cards', '卡包与收藏']] as const).map(([id, text]) => <Button key={id} variant={tab === id ? 'primary' : 'soft'} onClick={() => setTab(id)}>{text}</Button>)}</div>

@@ -447,7 +447,7 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
       </Field>
       <Field label="在频道和共享群里">
         <Segmented id="ai-ch-mode" value={ch.mode} onChange={(mode) => setCh({ mode })} options={[
-          { value: 'active', label: '会自己接话' }, { value: 'mention', label: '只在被 @ 或叫名字时说话' },
+          { value: 'active', label: '会自己接话' }, { value: 'mention', label: '被叫到或正在和人聊时说话' },
         ]} />
       </Field>
       {ch.mode === 'active' && (
@@ -463,9 +463,10 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
         <Field label="停顿几秒后判断">{num(ch.batchSeconds, 1, 30, (batchSeconds) => setCh({ batchSeconds }), '消息批量判断停顿秒数')}</Field>
         <Field label="连续聊天最多等几秒" hint="受发言冷却时间限制">{num(ch.maxBatchSeconds, 1, 120, (maxBatchSeconds) => setCh({ maxBatchSeconds }), '消息批量判断最长等待秒数')}</Field>
       </div>}
+      <Field label="连续对话保持（秒）" hint="默认 300 秒，同一个人接着说不用再 @；0 关闭。专属共享聊天默认直接回应。">{num(ch.followUpSeconds ?? 300, 0, 900, (followUpSeconds) => setCh({ followUpSeconds }), '连续对话保持秒数')}</Field>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="两句之间至少（秒）" hint="被 @ 时不受限制">{num(ch.minGapSeconds, 0, 3600, (minGapSeconds) => setCh({ minGapSeconds }), '两句之间至少几秒')}</Field>
-        <Field label="每小时最多几句" hint="每个频道分开算">{num(ch.maxPerHour, 1, 200, (maxPerHour) => setCh({ maxPerHour }), '每小时最多几句')}</Field>
+        <Field label="两句之间至少（秒）" hint="主动接话的间隔，真人点名或连续对话不受限">{num(ch.minGapSeconds, 0, 3600, (minGapSeconds) => setCh({ minGapSeconds }), '两句之间至少几秒')}</Field>
+        <Field label="每小时最多几句" hint="限制主动接话，真人点名或连续对话不受限">{num(ch.maxPerHour, 1, 200, (maxPerHour) => setCh({ maxPerHour }), '每小时最多几句')}</Field>
         <Field label="AI 连着说几句就停" hint="几个 AI 聊起来时，等真人说话">{num(ch.maxAIChain, 1, 50, (maxAIChain) => setCh({ maxAIChain }), 'AI 连着说几句就停')}</Field>
       </div>
 

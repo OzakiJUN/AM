@@ -1,15 +1,15 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { addressed, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
+import { channelTurnIsDirected, addressed, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
 
 const s = defaultChannels();
 const me = 'ai';
 const now = 10_000_000;
 const msg = (senderId: string, ago: number, o: Partial<Said> = {}): Said => ({ senderId, time: now - ago, ai: false, toMe: false, ...o });
 
-// Spoken to: always answer soon (also in mention-only mode), unless over the hourly limit.
+// Spoken to: always answer soon (also in mention-only mode), even over the unsolicited hourly limit.
 assert.equal(decide({ now, s: { ...s, mode: 'mention' }, recent: [msg('bob', 0, { toMe: true })], me, mySends: [], random: 0.99, random2: 0 }).act, 'reply');
-assert.equal(decide({ now, s, recent: [msg('bob', 0, { toMe: true })], me, mySends: Array(30).fill(now - 1000), random: 0, random2: 0 }).act, 'no');
+assert.equal(decide({ now, s, recent: [msg('bob', 0, { toMe: true })], me, mySends: Array(30).fill(now - 1000), random: 0, random2: 0 }).act, 'reply');
 // Its own message last, or mention-only mode: quiet.
 assert.equal(decide({ now, s, recent: [msg(me, 0)], me, mySends: [], random: 0, random2: 0 }).act, 'no');
 assert.equal(decide({ now, s: { ...s, mode: 'mention' }, recent: [msg('bob', 0)], me, mySends: [], random: 0, random2: 0 }).act, 'no');
@@ -97,3 +97,23 @@ assert.equal(shouldJoin('{"reply":true}'), true);
 assert.equal(shouldJoin('{"reply":false}'), false);
 assert.equal(shouldJoin('{"reply":"true"}'), false);
 assert.equal(shouldJoin('oops'), false);
+
+// Follow-up turns use the same person's recent address or the AI's quoted reply.
+const follow = (recent: Said[], seconds = 300, room = false) => channelTurnIsDirected(recent, me, now, seconds, room);
+const question = msg('bob', 0, { text: '具体怎么操作？' });
+const answer = msg(me, 2000, { ai: true, replyToSender: 'bob' });
+assert.ok(follow([msg('bob', 3000, { toMe: true }), question])); // while first answer is still pending
+assert.ok(follow([answer, question]));
+assert.ok(follow([msg('bob', 400000, { toMe: true }), answer, question])); // answer renews conversation
+assert.ok(!follow([answer, { ...question, senderId: 'carol' }]));
+assert.ok(!follow([answer, { ...question, toOthers: true }]));
+assert.ok(!follow([answer, { ...question, ai: true }]));
+assert.ok(!follow([answer, { ...question, text: '哈哈哈' }]));
+assert.ok(!follow([answer, question], 0));
+assert.ok(!follow([{ ...answer, time: now - 300001 }, question]));
+assert.ok(follow([question], 0, true));
+assert.ok(!follow([{ ...question, toOthers: true }], 300, true));
+const continued = { ...question, toMe: follow([answer, question]) };
+assert.equal(decide({ now, s: { ...s, mode: 'mention' }, recent: [answer, continued], me, mySends: Array(40).fill(now - 100), random: 0, random2: 0 }).act, 'reply');
+assert.equal(decideWith([question], 0, Array(30).fill(now - 1000)).act, 'no');
+assert.equal(decideWith([msg('other-ai', 0, { ai: true, toMe: true })], 0, Array(30).fill(now - 1000)).act, 'no');

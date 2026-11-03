@@ -25,7 +25,7 @@ import {
   systemPrompt, toChat,
   type AISettings, type RoutineMoment,
 } from './persona';
-import { addressed, batchDelay, shouldJoin, dayPlan, decide, discussionText, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
+import { addressed, channelTurnIsDirected, batchDelay, shouldJoin, dayPlan, decide, discussionText, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
 import { activityText } from '../presence';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
@@ -565,8 +565,8 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       const members = conv.members.map((m) => s.view.users[m.userId]).filter((u): u is User => !!u && u.id !== run.ai.user.id && !u.gone);
       const names = members.map((u) => (u.type === 'human' ? u.name : `${u.name}（AI）`));
       system += '\n\n' + (room ? roomPrompt({ room: conv.name, members: names }) : channelPrompt({ channel: conv.name, members: names }));
-      if (o.must) system += '\n这次有人在叫你，请回应。';
-      if (o.trigger && o.must) system += '\n请回答这条点名你的消息：' + s.nameOf(o.trigger.senderId) + '：' + textOf(o.trigger);
+      if (o.must) system += '\n这条消息是在与你对话，请回应。';
+      if (o.trigger && o.must) system += '\n请回答这条发给你的消息：' + s.nameOf(o.trigger.senderId) + '：' + textOf(o.trigger);
       if (casual) system += '\n这次没有人点名你。只有能解答尚未解决的问题、补充具体的新信息或观点、纠正有影响的错误，或自然地提出相关见解时才发言。如果别人已经答了，或者你只是附和、复述、寒暄，就只输出 [skip]。';
     }
     // What AM lets it do (tools + installed plugins), who is talking, and its one memory.
@@ -662,19 +662,31 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
 
 // ---------- channels: when to join in (lib/ai/social.ts decides) ----------
 
+function channelHistory(run: Run, convId: string, msgs: Message[]): Said[] {
+  const me = run.ai.user.id, s = run.s;
+  return msgs.map((x) => {
+    const body = x.body;
+    const quoted = replyTarget(x, s.view.messages[convId] ?? [], s.view.replyTargets[convId]);
+    const toMe = x.senderId !== me && body.kind === 'text' && (quoted?.senderId === me || addressed(body.text, body.mentions, me, run.ai.user.name));
+    return {
+      senderId: x.senderId, time: x.time,
+      ai: (s.view.users[x.senderId]?.type ?? 'human') !== 'human', toMe,
+      replyToSender: quoted?.senderId,
+      toOthers: !toMe && body.kind === 'text' && (!!body.mentions?.length || !!body.replyTo),
+      text: body.kind === 'text' ? body.text : undefined,
+    };
+  });
+}
+
 async function considerChannel(run: Run, convId: string, trigger: Message) {
   if (trigger.body.kind === 'text' && trigger.body.replyTo) await run.s.loadReplyTarget(convId, trigger.body.replyTo).catch(() => {});
   if (runs.get(k(run.serverId, run.ai.user.id)) !== run) return;
   const s = run.s;
   const me = run.ai.user.id;
-  const msgs = (s.view.messages[convId] ?? []).filter((x) => !x.pending && !x.failed && x.seq <= trigger.seq && textOf(x) !== null).slice(-Math.max(12, run.settings.channels.maxAIChain));
+  const msgs = (s.view.messages[convId] ?? []).filter((x) => !x.pending && !x.failed && x.seq <= trigger.seq && textOf(x) !== null);
   if (msgs.at(-1)?.id !== trigger.id) return;
-  const recent: Said[] = msgs.map((x) => ({
-    senderId: x.senderId,
-    time: x.time,
-    ai: (s.view.users[x.senderId]?.type ?? 'human') !== 'human',
-    toMe: x.senderId !== me && x.body.kind === 'text' && (replyTarget(x, s.view.messages[convId] ?? [], s.view.replyTargets[convId])?.senderId === me || addressed(x.body.text, x.body.mentions, me, run.ai.user.name)),
-  }));
+  const recent = channelHistory(run, convId, msgs);
+  recent[recent.length - 1].toMe = channelTurnIsDirected(recent, me, Date.now(), run.settings.channels.followUpSeconds ?? 300, s.view.convs[convId]?.aiId === me);
   const d = decide({
     now: Date.now(), s: run.settings.channels, recent, me, mySends: run.sends.get(convId) ?? [],
     asleep: isAsleep(run.settings.routine, minuteOfDay()), random: Math.random(), random2: Math.random(),
@@ -702,7 +714,7 @@ async function considerChannel(run: Run, convId: string, trigger: Message) {
     if (wait) { job.timer = setTimeout(dispatch, wait); return; }
     run.pending.delete(convId);
     if (!must && (run.settings.channels.mode !== 'active' || isAsleep(run.settings.routine, minuteOfDay()))) return;
-    if ((run.sends.get(convId) ?? []).filter((t) => Date.now() - t < 60 * MIN).length >= run.settings.channels.maxPerHour) return;
+    if (!must && (run.sends.get(convId) ?? []).filter((t) => Date.now() - t < 60 * MIN).length >= run.settings.channels.maxPerHour) return;
     void reply(run, convId, { must, trigger, batchAfter: job.fromSeq });
   };
   const delay = must ? d.delay : batchDelay(Date.now(), firstAt, run.settings.channels.batchSeconds, run.settings.channels.maxBatchSeconds,
@@ -1145,7 +1157,7 @@ async function catchUp(run: Run) {
     if (!after.length) continue;
     const group = conv.kind === 'group';
     const asked = group
-      ? after.filter((m) => s.view.users[m.senderId]?.type === 'human' && m.body.kind === 'text' && (replyTarget(m, s.view.messages[conv.id] ?? [], s.view.replyTargets[conv.id])?.senderId === me || addressed(m.body.text, m.body.mentions, me, run.ai.user.name))).at(-1)
+      ? after.filter((m) => s.view.users[m.senderId]?.type === 'human' && channelTurnIsDirected(channelHistory(run, conv.id, msgs.filter((x) => x.seq <= m.seq)), me, m.time, run.settings.channels.followUpSeconds ?? 300, conv.aiId === me)).at(-1)
       : run.settings.whoCanChat === 'owner' && after.at(-1)!.senderId !== run.ai.user.ownerId ? undefined : after.at(-1);
     if (asked) todo.push({ convId: conv.id, msg: asked, group, when: asked.time });
   }

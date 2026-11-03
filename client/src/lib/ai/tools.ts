@@ -193,15 +193,15 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
     case 'edit_my_page':
       if (!ctx.self) return { text: '现在用不了这个工具' };
       return { text: await ctx.self.page(name, a) };
-    case 'list_games':
-    case 'open_game':
-    case 'join_game':
     case 'draw_picture':
       if (!ctx.self) return { text: '现在用不了这个工具' };
       return { text: await ctx.self.draw(a) };
     case 'use_helper':
       if (!ctx.self) return { text: '现在用不了这个工具' };
       return { text: await ctx.self.helper(a) };
+    case 'list_games':
+    case 'open_game':
+    case 'join_game':
     case 'start_game':
     case 'view_game':
     case 'fishing_state':

@@ -479,7 +479,7 @@ func (s *Service) cast(p *Angler, a *FishingAccount, now int64) {
 	r := s.fishing
 	wait := r.WaitMin + s.rnd.Intn(r.WaitMax-r.WaitMin+1)
 	if q := a.quality("speed"); q > 0 {
-		wait = max(1, wait*(100-r.Speed[q-1])/100)
+		wait = max(r.WaitMin, wait*(100-r.Speed[q-1])/100)
 	}
 	p.BiteAt = now + int64(wait)*1000
 	p.ExpiresAt = p.BiteAt + int64(r.Bite)*1000
