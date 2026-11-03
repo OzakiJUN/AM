@@ -75,3 +75,5 @@
 .fishing-waiting>span:nth-child(2) { opacity:.5; }
 .fishing-waiting>span:nth-child(3) { opacity:.75; }
 .fishing-waiting>small { margin-left:5px; font-size:10px; color:var(--pond-muted); }
+
+.fishing-game .text-ink-soft { color:var(--pond-muted); }

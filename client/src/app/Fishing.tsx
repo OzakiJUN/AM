@@ -131,7 +131,7 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
           {bite && g.status !== 'ended' && <div className="fishing-countdown" aria-label={`收杆剩余 ${countdown} 秒`}>{Math.floor(countdown / 60).toString().padStart(2, '0')}<span>:</span>{(countdown % 60).toString().padStart(2, '0')}<small>收杆剩余</small></div>}
           {!bite && mine >= 0 && g.status !== 'ended' && <div className="fishing-waiting" aria-label="等待上钩"><span /><span /><span /><small>看水面，等鱼来</small></div>}
           <Button variant="primary" className="fishing-reel" disabled={busy || !bite || g.status === 'ended'} onClick={() => act(() => s.actGame(g.id, { action: 'reel' }))}><Fish size={18} />收杆</Button>
-          <p className="fishing-catch-note">{bite ? '未及时收杆会自动托管，也可能被偷走' : '每竿随机 10 秒～60 分钟，疾风竿缩短等待'}</p>
+          <p className="fishing-catch-note">{bite ? '未及时收杆会自动托管，也可能被偷走' : '每竿随机等待，留意水面波动；疾风竿能缩短等待'}</p>
         </div>
         <div className="fishing-loadout">
           <div className="flex items-center justify-between"><span className="fishing-eyebrow">随身装备 · {(account.equipped ?? []).length}/2</span><button className="fishing-shop-link" onClick={() => { setPage('shop'); setTab('tools'); }}>管理装备</button></div>

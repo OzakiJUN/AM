@@ -48,6 +48,7 @@ try {
  await page.evaluate(() => { window.fixture.g.state.pond.seats[0].bite_at = Date.now() + 120000; window.fixture.g.state.pond.seats[0].expires_at = Date.now() + 150000; });
  await root.getByLabel('等待上钩', { exact: true }).waitFor();
  assert.equal(await root.locator('.fishing-countdown').count(), 0);
+ await page.screenshot({ path: '/tmp/fishing-waiting.png', fullPage: true, animations: 'disabled' });
  assert.equal(await root.getByLabel(/上钩倒计时|预计等待/).count(), 0);
  await page.evaluate(() => { window.fixture.g.state.pond.seats[0].bite_at = Date.now() - 1000; window.fixture.g.state.pond.seats[0].expires_at = Date.now() + 200000; });
  await root.locator('.fishing-countdown').waitFor();
@@ -59,14 +60,14 @@ try {
  await page.waitForFunction(() => window.gameCalls?.length === 3);
  assert.equal(await page.evaluate(() => window.gameCalls[2].action), 'steal');
  assert.equal(await page.evaluate(() => window.gameCalls[2].target), 1);
- await page.screenshot({ path: '/tmp/fishing-pond.png', fullPage: true });
+ await page.screenshot({ path: '/tmp/fishing-pond.png', fullPage: true, animations: 'disabled' });
  const before = await page.evaluate(() => JSON.stringify(window.fixture.g));
  await page.getByRole('tab', { name: '商店', exact: true }).click(); assert.equal(await page.evaluate(() => JSON.stringify(window.fixture.g)), before);
  await page.getByRole('button', { name: '装备商店', exact: true }).click(); await page.getByText('疾风钓竿', { exact: true }).waitFor();
- await page.screenshot({ path: '/tmp/fishing-tools.png', fullPage: true });
+ await page.screenshot({ path: '/tmp/fishing-tools.png', fullPage: true, animations: 'disabled' });
  await page.getByRole('button', { name: '卡包与收藏', exact: true }).click(); await page.getByRole('button', { name: /买卡包/ }).click();
  await page.waitForFunction(() => window.shopCalls === 1); assert.equal(await page.evaluate(() => window.fixture.account.packs), 4);
- await page.screenshot({ path: '/tmp/fishing-cards.png', fullPage: true });
+ await page.screenshot({ path: '/tmp/fishing-cards.png', fullPage: true, animations: 'disabled' });
  await page.getByRole('button', { name: '鱼篓 / 卖鱼', exact: true }).click();
  await root.getByRole('checkbox').first().check(); await root.getByRole('button', { name: /卖出所选/ }).click();
  await page.waitForFunction(() => document.querySelector('[data-testid="fishing_fish"]').querySelectorAll('svg[role="img"]').length === 1);
@@ -88,13 +89,13 @@ try {
   }
  };
  await checkSeats();
- await page.screenshot({ path: '/tmp/fishing-window.png', fullPage: true });
+ await page.screenshot({ path: '/tmp/fishing-window.png', fullPage: true, animations: 'disabled' });
  await page.evaluate(() => document.documentElement.classList.add('dark'));
- await page.screenshot({ path: '/tmp/fishing-dark.png', fullPage: true });
+ await page.screenshot({ path: '/tmp/fishing-dark.png', fullPage: true, animations: 'disabled' });
  await page.evaluate(() => document.documentElement.classList.remove('dark'));
  await page.setViewportSize({ width: 390, height: 900 });
  await checkSeats();
  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
- await page.screenshot({ path: '/tmp/fishing-mobile.png', fullPage: true }); assert.deepEqual(errors, []);
+ await page.screenshot({ path: '/tmp/fishing-mobile.png', fullPage: true, animations: 'disabled' }); assert.deepEqual(errors, []);
  console.log('fishing UI: twelve seats, local shop, one purchase, sold fish disappears, 100 species, widgets and mobile width ok');
 } finally { await browser?.close(); await server?.close(); rmSync(dir, { recursive: true, force: true }); }
