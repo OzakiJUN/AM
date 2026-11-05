@@ -26,6 +26,8 @@ export interface AISettings {
   /** How many recent messages it sees. */
   contextSize: number;
   maxTokens: number;
+  thinking?: boolean;
+  thinkingBudget?: number;
   /** Who it answers: only me, or anyone on the server. */
   whoCanChat: 'owner' | 'everyone';
   /** The one device that runs it (lib/deviceId.ts). */
@@ -264,15 +266,17 @@ export function routinePrompt(kind: RoutineMoment, o: { time: string; ownerOnlin
 }
 
 /** A conversation's messages as the model sees them (oldest first). */
-export function toChat(msgs: { fromAI: boolean; who: string; text: string }[], groupLike: boolean): ChatMsg[] {
+export function toChat(msgs: { fromAI: boolean; who: string; text: string; reasoning?: string }[], groupLike: boolean): ChatMsg[] {
   const out: ChatMsg[] = [];
   for (const m of msgs) {
     const content = m.fromAI ? m.text : groupLike ? `${m.who}：${m.text}` : m.text;
     const role = m.fromAI ? 'assistant' : 'user';
     const last = out[out.length - 1];
     // Claude and Gemini want user / assistant turns to alternate.
-    if (last && last.role === role) last.content += '\n' + content;
-    else out.push({ role, content });
+    if (last && last.role === role) {
+      last.content += '\n' + content;
+      if (m.fromAI && m.reasoning) last.reasoning = [last.reasoning, m.reasoning].filter(Boolean).join('\n');
+    } else out.push({ role, content, ...(m.fromAI && m.reasoning ? { reasoning: m.reasoning } : {}) });
   }
   while (out.length && out[0].role === 'assistant') out.shift();
   return out;

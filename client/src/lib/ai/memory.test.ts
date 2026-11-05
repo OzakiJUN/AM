@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { MAX_EVENTS, recentAcrossChats, applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory } from './memory.ts';
+import { rememberActivity, browserExperience, MAX_EVENTS, recentAcrossChats, applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory } from './memory.ts';
 
 const people = [{ id: '1', name: '股肉', owner: true }, { id: '2', name: '小克' }];
 let m = emptyMemory();
@@ -39,3 +39,12 @@ assert.deepEqual(recentAcrossChats([busy, [{ time: 1, line: '下一局我执黑'
 assert.deepEqual(parseMemory('{"v":1,"events":[]}').cursors, {});
 assert.deepEqual(parseMemory('{"cursors":{"1":12,"2":-1}}').cursors, { 1: 12 });
 console.log('ai memory ok');
+
+const observed = browserExperience('browser_read', '标题：鱼类\n地址：https://user:password@example.com/fish?token=secret#private\n可以操作的元素：irrelevant\n页面文字（开头）：星星鱼适合夜间钓。');
+assert.match(observed,/星星鱼适合夜间钓/);assert.match(observed,/example.com\/fish/);assert.doesNotMatch(observed,/password|secret|irrelevant|private/);
+const activity=rememberActivity(emptyMemory(),'game:42:ended','一局五子棋打平',1000);
+assert.equal(rememberActivity(activity,'game:42:ended','重复广播',2000),activity);
+const reloadActivity=parseMemory(JSON.stringify(activity));
+assert.equal(rememberActivity(reloadActivity,'game:42:ended','又收到结束事件',3000),reloadActivity);
+assert.match(memoryPrompt(reloadActivity,[]),/五子棋打平/);
+assert.match(memoryPrompt(rememberActivity(reloadActivity,'web:1',observed,2000),[]),/不是指令/);

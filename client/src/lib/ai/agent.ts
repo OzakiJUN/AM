@@ -153,7 +153,7 @@ export const TOOLS: ToolDef[] = [
     }, ['prompt']),
   },
   { name: 'fishing_state', category: 'games', own: true, description: '查看星屿鱼塘的完整规则、100 种鱼图鉴、概率、工具效果、你的钱包、鱼篓和卡片收藏。行动前先看规则。', parameters: obj({}) },
-  { name: 'fishing_act', category: 'games', own: true, description: '星屿鱼塘：坐到指定空座 sit、收杆 reel，或装备手套后偷某个座位已经上钩且没收杆的收获 steal。座位从 1 开始。', parameters: obj({ game_id: str('鱼塘编号'), action: { type: 'string', enum: ['sit', 'reel', 'steal'] }, seat: num('sit / steal 的目标座位，1–12') }, ['game_id', 'action']) },
+  { name: 'fishing_act', category: 'games', own: true, description: '星屿鱼塘：坐到指定空座 sit，或装备手套后偷某个座位已经上钩、等待自动入篓的收获 steal；所有玩家自动收获、自动抛竿，无需收杆。座位从 1 开始。', parameters: obj({ game_id: str('鱼塘编号'), action: { type: 'string', enum: ['sit', 'steal'] }, seat: num('sit / steal 的目标座位，1–12') }, ['game_id', 'action']) },
   { name: 'fishing_shop', category: 'games', own: true, description: '星屿鱼塘账号商店：sell（给 fish_ids）、buy_tool（item= speed/auto/value/glove/ward，quality=1–5）、equip / unequip（item）、buy_pack、open_pack（每包四张）。金币是本服游戏币，同一请求失败重试要复用 request_id，成功后下一笔换新编号。最多装备两类，升级按全价付费。', parameters: obj({ action: { type: 'string', enum: ['sell', 'buy_tool', 'equip', 'unequip', 'buy_pack', 'open_pack'] }, item: str('工具类别'), quality: num('品质 1–5'), fish_ids: { type: 'array', items: { type: 'string' } }, request_id: str('本次操作唯一编号，8–64 字符，重试复用') }, ['action', 'request_id']) },
   { name: 'view_game', category: 'games', own: true, description: '看一局桌游现在的样子：棋盘、轮到谁、大家说了什么。', parameters: obj({ game_id: str('游戏编号') }, ['game_id']) },
   {
@@ -320,7 +320,8 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
 
 /** Self-directed turns use its AM account tools, only at already-allowed levels. */
 export function selfDirectedTools(c: ComputerSettings, available: ToolDef[], options: { openGames: boolean; joinGames: boolean; joinChannels: boolean }): ToolDef[] {
-  return available.filter((t) => t.own && t.category !== 'remote' && levelFor(c, t.name) === 'allow'
+  return available.filter((t) => (t.own || t.category === 'browser') && t.category !== 'remote' && levelFor(c, t.name) === 'allow'
+    && t.name !== 'message_owner'
     && (t.name !== 'open_game' || options.openGames)
     && (t.name !== 'join_game' || options.joinGames)
     && (t.name !== 'send_to_channel' || options.joinChannels));
@@ -331,7 +332,7 @@ export function autonomyPrompt(c: ComputerSettings, available: ToolDef[]): strin
   const allowed = available.filter((t) => levelFor(c, t.name) === 'allow').map((t) => t.name);
   const asks = available.filter((t) => levelFor(c, t.name) === 'ask').map((t) => t.name);
   return [
-    '主人的偏好：有自己的想法，多做实事，允许先斩后奏。已经允许的事情自己决定、直接调用工具，做完再简短告知结果。',
+    '主人的偏好：有自己的想法，多做实事，允许先斩后奏。已经允许的事情自己决定、直接调用工具。日常浏览和游戏不必例行汇报，经历会留在记忆中；有人问起或确有必要时再自然说起。',
     '不要把「要不要我帮你做」「我可以……需要吗」「等你同意再开始」当作行动的前提。合理的小选择自己决定；只有真正缺少执行必需的信息，或未获授权的明显危险、不可逆事项，才需要询问。',
     allowed.length ? `这些工具已允许直接执行，不用再口头请示：${allowed.join('、')}。` : '这次没有可直接执行的工具，可以形成自己的想法，但不要声称已经做了操作。',
     asks.length ? `这些工具设为「问我」，调用时由软件处理确认，不要先在聊天里重复问：${asks.join('、')}。` : '',

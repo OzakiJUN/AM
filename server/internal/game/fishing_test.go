@@ -34,7 +34,7 @@ func TestFishingCatalogueAndBalance(t *testing.T) {
 		t.Fatal("bad size accepted")
 	}
 	bad = DefaultFishingRules()
-	bad.AutoCD = bad.AutoCD[:4]
+	bad.DoubleChance = bad.DoubleChance[:4]
 	if bad.validate() == nil {
 		t.Fatal("missing tool tier")
 	}
@@ -186,5 +186,90 @@ func TestFishingWaitSeconds(t *testing.T) {
 	s.cast(&p, a, now)
 	if p.BiteAt-now != 10000 {
 		t.Fatal("speed rod broke minimum wait")
+	}
+}
+
+func TestFishingDoubleRod(t *testing.T) {
+	for _, chance := range []int{0, 100} {
+		r := DefaultFishingRules()
+		r.LootWeights = []int{1, 0, 0, 0}
+		r.DoubleChance = []int{chance, chance, chance, chance, chance}
+		s := &Service{ids: idgen.New(1), fishing: r, rnd: rand.New(rand.NewSource(8))}
+		a := r.newAccount()
+		a.Tools["auto"] = 5
+		a.Equipped = []string{"auto"}
+		a.AutoAt = 99999999
+		s.landCatch(a, 7, 2000)
+		want := 1
+		if chance == 100 {
+			want = 2
+		}
+		if len(a.Fish) != want {
+			t.Fatalf("chance %d: got %d", chance, len(a.Fish))
+		}
+		seen := map[string]bool{}
+		for _, f := range a.Fish {
+			if seen[f.ID] || f.By != "7" || f.Value <= 0 || f.Length <= 0 {
+				t.Fatal("invalid independent catch")
+			}
+			seen[f.ID] = true
+		}
+		// Neither the old cooldown nor a second refresh can affect the new perk.
+		if a.AutoAt != 99999999 {
+			t.Fatal("legacy cooldown mutated")
+		}
+		r.InventoryLimit = len(a.Fish) + 1
+		s.landCatch(a, 7, 3000)
+		if len(a.Fish) != r.InventoryLimit {
+			t.Fatal("inventory overflow")
+		}
+	}
+	for loot := 1; loot < 4; loot++ {
+		r := DefaultFishingRules()
+		r.LootWeights = []int{0, 0, 0, 0}
+		r.LootWeights[loot] = 1
+		r.DoubleChance = []int{100, 100, 100, 100, 100}
+		s := &Service{fishing: r, rnd: rand.New(rand.NewSource(9))}
+		a := r.newAccount()
+		a.Tools["auto"] = 5
+		a.Equipped = []string{"auto"}
+		s.landCatch(a, 7, 1000)
+		if len(a.Fish) != 0 {
+			t.Fatal("nonfish loot duplicated")
+		}
+		if loot == 2 && len(a.Opened) != 1 || loot == 3 && a.Packs != 1 {
+			t.Fatal("nonfish reward lost")
+		}
+	}
+	r := DefaultFishingRules()
+	r.DoubleChance = nil
+	if r.validate() != nil || r.DoubleChance[4] != 50 {
+		t.Fatal("old rules migration")
+	}
+	r.DoubleChance[4] = 101
+	if r.validate() == nil {
+		t.Fatal("unbounded double chance")
+	}
+}
+
+func TestFishingAutoHarvestWaitsForTheftWindow(t *testing.T) {
+	r := DefaultFishingRules()
+	r.LootWeights = []int{1, 0, 0, 0}
+	r.DoubleChance = []int{100, 100, 100, 100, 100}
+	s := &Service{fishing: r, rnd: rand.New(rand.NewSource(4))}
+	a := r.newAccount()
+	a.Tools["auto"] = 1
+	a.Equipped = []string{"auto"}
+	st := &State{Kind: Fishing, Status: Playing, Pond: &Pond{}}
+	st.Pond.Seats[0] = Angler{User: 7, BiteAt: 1000, ExpiresAt: 31000}
+	accounts := map[int64]*FishingAccount{7: a}
+	if s.settlePond(st, accounts, 30999) || len(a.Fish) != 0 {
+		t.Fatal("harvest bypassed theft window")
+	}
+	if !s.settlePond(st, accounts, 31000) || len(a.Fish) != 2 {
+		t.Fatal("automatic double catch missing")
+	}
+	if s.settlePond(st, accounts, 31000) || len(a.Fish) != 2 {
+		t.Fatal("duplicate settlement")
 	}
 }

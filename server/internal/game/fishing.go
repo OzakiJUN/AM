@@ -60,7 +60,8 @@ type FishingRules struct {
 	MoneyMax         int           `json:"money_max"`
 	ToolPrices       []Money       `json:"tool_prices"`
 	Speed            []int         `json:"speed_percent"`
-	AutoCD           []int         `json:"auto_cd_seconds"`
+	AutoCD           []int         `json:"auto_cd_seconds,omitempty"` // legacy custom rules; no longer used
+	DoubleChance     []int         `json:"double_fish_percent"`
 	Value            []int         `json:"value_percent"`
 	StealCD          []int         `json:"steal_cd_seconds"`
 	StealChance      []int         `json:"steal_percent"`
@@ -92,11 +93,23 @@ func (s *Service) LoadFishingRules(file string) error {
 	return nil
 }
 func (r *FishingRules) validate() error {
+	// Old rule files inherit the new perk without changing saved tool IDs.
+	if r.DoubleChance == nil {
+		r.DoubleChance = []int{10, 20, 30, 40, 50}
+	}
+	if len(r.DoubleChance) != 5 {
+		return errors.New("invalid double fish chances")
+	}
+	for _, n := range r.DoubleChance {
+		if n < 0 || n > 100 {
+			return errors.New("invalid double fish chance")
+		}
+	}
 	bad := func() error { return errors.New("invalid fishing balance or catalogue") }
 	if r.Version != 2 || r.WaitMin < 1 || r.WaitMax < r.WaitMin || r.WaitMax > 3600 || r.Bite < 1 || r.Bite > 3600 || r.StartCoins < 0 || r.StartCoins > 1e9 || r.PackPrice < 1 || r.PackPrice > 1e9 || r.InventoryLimit < 1 || r.InventoryLimit > 10000 || r.PackLimit < 1 || r.PackLimit > 10000 || r.MoneyMin < 1 || r.MoneyMax < r.MoneyMin || r.MoneyMax > 1e6 || len(r.Catalog) != 100 {
 		return bad()
 	}
-	for _, v := range [][]int{r.Speed, r.AutoCD, r.Value, r.StealCD, r.StealChance, r.WardCD} {
+	for _, v := range [][]int{r.Speed, r.Value, r.StealCD, r.StealChance, r.WardCD} {
 		if len(v) != 5 {
 			return bad()
 		}
@@ -423,7 +436,7 @@ func (s *Service) card(a *FishingAccount) string {
 	a.addCard(key)
 	return key
 }
-func (s *Service) reward(a *FishingAccount, user int64, now int64, record bool) {
+func (s *Service) reward(a *FishingAccount, user int64, now int64, record bool) bool {
 	r := s.fishing
 	a.Opened = nil
 	switch weighted(s.rnd, r.LootWeights) {
@@ -431,22 +444,26 @@ func (s *Service) reward(a *FishingAccount, user int64, now int64, record bool) 
 		n := Coins(float64(r.MoneyMin + s.rnd.Intn(r.MoneyMax-r.MoneyMin+1)))
 		a.Coins += n
 		a.Last = fmt.Sprintf("钓到钱袋，获得 %s 金币", n)
-		return
+		return false
 	case 2:
 		key := s.card(a)
 		a.Opened = []string{key}
 		a.Last = "钓到一张鱼卡"
-		return
+		return false
 	case 3:
 		if a.Packs < r.PackLimit {
 			a.Packs++
 			a.Last = "钓到一个卡包"
-			return
+			return false
 		}
 	}
+	return s.rewardFish(a, user, now, record)
+}
+func (s *Service) rewardFish(a *FishingAccount, user int64, now int64, record bool) bool {
+	r := s.fishing
 	if len(a.Fish) >= r.InventoryLimit {
 		a.Last = "鱼篓满了，这条鱼放回了水里，请先卖鱼"
-		return
+		return false
 	}
 	rarity := weighted(s.rnd, r.FishWeights)
 	var pool []FishSpecies
@@ -474,6 +491,25 @@ func (s *Service) reward(a *FishingAccount, user int64, now int64, record bool) 
 		}
 	}
 	a.Last = fmt.Sprintf("钓到了 %s，%.2f m，价值 %s 金币", f.Name, fish.Length, fish.Value)
+	return true
+}
+
+// Only the angler's own fish catch can trigger the second independent fish.
+// Cards, packs, money bags and stolen catches never duplicate.
+func (s *Service) landCatch(a *FishingAccount, user int64, now int64) {
+	if !s.reward(a, user, now, true) {
+		return
+	}
+	q := a.quality("auto")
+	if q == 0 || s.rnd.Intn(100) >= s.fishing.DoubleChance[q-1] {
+		return
+	}
+	first := a.Last
+	if s.rewardFish(a, user, now, true) {
+		a.Last = "双鱼竿生效！" + first + "；" + a.Last
+	} else {
+		a.Last = first + "；双鱼竿触发，但鱼篓已满，第二条放回水中"
+	}
 }
 func (s *Service) cast(p *Angler, a *FishingAccount, now int64) {
 	r := s.fishing
@@ -657,16 +693,10 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 			s.cast(&st.Pond.Seats[target], a, now)
 			changed = true
 		case "reel":
+			// Compatibility with older clients: do not bypass the theft window.
 			if mine < 0 {
 				return apperr.ErrNoPermission
 			}
-			p := &st.Pond.Seats[mine]
-			if now < p.BiteAt || now > p.ExpiresAt {
-				return ErrBadMove
-			}
-			s.reward(a, me.ID, now, true)
-			s.cast(p, a, now)
-			changed = true
 		case "steal":
 			if mine < 0 {
 				return apperr.ErrNoPermission

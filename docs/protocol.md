@@ -351,7 +351,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 
 ### 星屿鱼塘
 
-kind `fishing` 复用游戏开局、加入、离座、结束和推送接口，进入立即 playing。`Game.state_json` 的 `pond` 含 12 个座位和服务器时间，操作扩展 sit / reel / steal。新增 FishingData、FishingActionRequest、FishingSyncRequest 和 `/fishing/rules`、`/fishing/me`、`/fishing/sync`、`/users/{id}/fishing-showcase`。账号存档、幂等请求、JSON 字段和错误沿用规则见 [fishing.md](fishing.md#接口和数据)。用户主页新增 fishing_fish / fishing_cards / fishing_badges，容量和配置见同文档。公开展示不返回私有钱包和鱼篓。
+kind `fishing` 复用游戏开局、加入、离座、结束和推送接口，进入立即 playing。`Game.state_json` 的 `pond` 含 12 个座位和服务器时间，操作 sit / steal；所有玩家的收获由服务端按 `expires_at` 自动结算，旧 reel 请求仅兼容读取、不提前收获。规则 JSON 新增五档概率 `double_fish_percent`（缺省 10/20/30/40/50），原工具 ID auto 改为双鱼竿，旧 auto_at / auto_cd_seconds 不再影响收益。新增 FishingData、FishingActionRequest、FishingSyncRequest 和 `/fishing/rules`、`/fishing/me`、`/fishing/sync`、`/users/{id}/fishing-showcase`。账号存档、幂等请求、JSON 字段和错误沿用规则见 [fishing.md](fishing.md#接口和数据)。用户主页新增 fishing_fish / fishing_cards / fishing_badges，容量和配置见同文档。公开展示不返回私有钱包和鱼篓。
 
 ### 别人的 AI 操作我的电脑（转发）
 

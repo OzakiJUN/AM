@@ -25,6 +25,7 @@ import (
 func TestFishing(t *testing.T) {
 	rules := game.DefaultFishingRules()
 	rules.LootWeights = []int{1, 0, 0, 0}
+	rules.DoubleChance = []int{100, 100, 100, 100, 100}
 	for i := range rules.StealChance {
 		rules.StealChance[i] = 100
 		rules.WardBlock[i] = 100
@@ -152,16 +153,20 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	wantCode(t, err, "game_full")
 	_, err = host.cli.OpenGame(ctx, second.Id, "fishing", true)
 	wantCode(t, err, "game_state")
-	_, err = host.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "reel"})
-	wantCode(t, err, "game_bad_move")
-	setBite(g.Id, host.me.Id, false)
 	must(host.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "reel"}))
+	if len(account(host).Fish) != 0 {
+		t.Fatal("legacy reel bypassed automatic fishing")
+	}
+	setBite(g.Id, host.me.Id, true)
+	must(host.cli.GetGame(ctx, g.Id))
 	first := account(host)
 	if len(first.Fish) != 1 || len(first.Records) != 2 {
 		t.Fatal("missing persistent catch")
 	}
-	_, err = host.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "reel"})
-	wantCode(t, err, "game_bad_move")
+	must(host.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "reel"}))
+	if len(account(host).Fish) != 1 {
+		t.Fatal("legacy reel bypassed automatic fishing")
+	}
 	// Only a currently held, self-caught specimen can be displayed.
 	fishID := first.Fish[0].ID
 	foreign := first.Fish[0]
@@ -261,18 +266,18 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	if len(stolen.Records) != 2 {
 		t.Fatal("steal changed self records")
 	}
-	// Automatic rod catches once per cooldown, preserves state across leaving/reopening.
+	// Double rod retains ownership and quality, and only harvests at the automatic deadline.
 	updateAccount(host, func(a *game.FishingAccount) { a.Tools["auto"] = 1; a.Equipped = []string{"auto"}; a.AutoAt = 0 })
 	setBite(g.Id, host.me.Id, false)
 	must(host.cli.GetGame(ctx, g.Id))
 	auto := account(host)
-	if len(auto.Fish) != 2 || auto.AutoAt <= time.Now().UnixMilli() {
+	if len(auto.Fish) != 1 {
 		t.Fatal("automatic reel")
 	}
 	setBite(g.Id, host.me.Id, false)
 	must(host.cli.GetGame(ctx, g.Id))
-	if len(account(host).Fish) != 2 {
-		t.Fatal("auto ignored cooldown")
+	if len(account(host).Fish) != 1 {
+		t.Fatal("harvest bypassed theft window")
 	}
 	setBite(g.Id, host.me.Id, true)
 	must(host.cli.GetGame(ctx, g.Id))
