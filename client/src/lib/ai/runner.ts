@@ -614,6 +614,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
           patch('streams', streamKey, /^\s*\[?\s*s(k(ip?)?)?$/i.test(shown) ? '' : shown);
         });
         if (status >= 400) throw new Error(`模型服务返回 ${status}：${errorOf(reader.raw()) || '没有说明'}`);
+        if (runs.get(errKey) !== run || s.view.status !== 'online') return;
         patch('models', errKey, { requested: st.model, reported: reader.model(), at: Date.now() });
         const calls = reader.toolCalls();
         if (casual && calls.length) return;

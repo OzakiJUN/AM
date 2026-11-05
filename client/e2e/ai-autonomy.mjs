@@ -15,7 +15,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
     if (id === '\0virtual:autonomy-transport') return `
       export async function secretDelete(){};export async function secretGet(){return null};export async function secretSet(){};
       export async function aiRequest(url,headers,body,onChunk){
-        const s=globalThis.__amAutonomy;s.requests.push(JSON.parse(body));
+        const s=globalThis.__amAutonomy;s.requests.push(JSON.parse(body));s.onRequest?.();
         const delta=s.step++===0?{reasoning_content:'private tool reasoning',tool_calls:[{index:0,id:'browse-1',function:{name:'browser_open',arguments:'{"url":"https://example.com/fish"}'}}]}:{content:'阅读了鱼类资料，记住星星鱼适合夜间钓。'};
         onChunk('data: '+JSON.stringify({model:'reported-flash',choices:[{delta}]})+'\\n\\n');return 200;
       }`;
@@ -60,6 +60,14 @@ try {
   await testRunner.reply(run, '10', { idle: true, silent: true, note: '自己找事做' });
   assert.equal(state.calls.length, before);
   assert.ok(!state.requests.at(-2).tools.some(t => t.function.name.startsWith('browser_')));
+  // A delayed model result must not operate the browser after its runner stops.
+  run.settings = settings; state.step = 0;
+  state.onRequest = () => testRunner.runs.delete('srv|2');
+  const writesBeforeStop = state.writes.length;
+  await testRunner.reply(run, '10', { idle: true, silent: true, note: '浏览' });
+  assert.equal(state.calls.length, before);
+  assert.equal(state.writes.length, writesBeforeStop);
+  state.onRequest = undefined;
   testRunner.runs.clear();
   console.log('AI autonomy: real browsing loop, private reasoning, quiet persistent experiences, game-end dedupe and denied tools');
 } finally {
