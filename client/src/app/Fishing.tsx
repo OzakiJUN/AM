@@ -160,7 +160,7 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
       </div>
     </div>}
     {account.last && <div className="rounded-xl bg-amber-100/60 px-3 py-2 text-sm text-amber-950 dark:bg-amber-300/10 dark:text-amber-100" role="status">{account.last}</div>}
-    <details className="text-xs text-ink-soft"><summary className="cursor-pointer">完整玩法与概率</summary><p className="mt-2 leading-relaxed">{GAME_INFO.fishing.rules}</p><p className="mt-2">等待 {rules.wait_min_seconds}–{rules.wait_max_seconds} 秒，上钩窗口 {rules.bite_seconds} 秒。鱼 / 钱袋 / 卡片 / 卡包概率 {rules.loot_weights.map((n) => `${n / rules.loot_weights.reduce((a, b) => a + b, 0) * 100}%`).join(' / ')}。鱼种稀有度权重 {rules.fish_weights.join(' / ')}，长度按连续分布抽取，实际长度参与价格计算。服务端持续挂机，手套自动偷鱼，结界自动防御。</p></details>
+    <details className="text-xs text-ink-soft"><summary className="cursor-pointer">完整玩法与概率</summary><p className="mt-2 leading-relaxed">{GAME_INFO.fishing.rules}</p><p className="mt-2">等待 {rules.wait_min_seconds}–{rules.wait_max_seconds} 秒，上钩即自动入篓；手套基础冷却 {rules.steal_base_cd_seconds ?? rules.steal_cd_seconds[0]} 秒。鱼 / 钱袋 / 卡片 / 卡包概率 {rules.loot_weights.map((n) => `${n / rules.loot_weights.reduce((a, b) => a + b, 0) * 100}%`).join(' / ')}。鱼种稀有度权重 {rules.fish_weights.join(' / ')}，长度按连续分布抽取，实际长度参与价格计算。服务端持续挂机，手套自动偷鱼，结界自动防御。</p></details>
   </div>;
 }
 function FishInventory({ account, rules, busy, sell }: { account: FishingAccount; rules: FishingRules; busy: boolean; sell: (ids: string[]) => void }) {
