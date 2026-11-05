@@ -122,9 +122,10 @@ func testFishing(t *testing.T, a *app.App, base string) {
 			for i := range state.Pond.Seats {
 				p := &state.Pond.Seats[i]
 				if p.User == user {
-					p.BiteAt = now - 1000
-					p.ExpiresAt = now + 25000
+					p.BiteAt = now + 25000
+					p.ExpiresAt = p.BiteAt
 					if expired {
+						p.BiteAt = now - 1
 						p.ExpiresAt = now - 1
 					}
 				}
@@ -246,8 +247,10 @@ func testFishing(t *testing.T, a *app.App, base string) {
 			t.Fatal("two tool limit")
 		}
 	}
-	updateAccount(other, func(a *game.FishingAccount) { a.Fish = nil })
-	// Ward protects a pending catch, then its persistent cooldown permits a later theft.
+	updateAccount(other, func(a *game.FishingAccount) {
+		a.Fish = []game.CaughtFish{{ID: "inventory-theft-fish", Species: "f001", Average: 50, Length: 53.16, Value: game.Coins(123.45), By: strconv.FormatInt(other.me.Id, 10), OwnerKey: a.Identity, At: time.Now().UnixMilli(), AcquiredAt: time.Now().UnixMilli()}}
+	})
+	// Ward protects fish already in the basket, even while the next bite is in the future.
 	updateAccount(other, func(a *game.FishingAccount) { a.Tools["ward"] = 1; a.Equipped = []string{"ward"} })
 	setBite(g.Id, other.me.Id, false)
 	must(host.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "steal", Target: 1}))
@@ -277,7 +280,7 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	setBite(g.Id, host.me.Id, false)
 	must(host.cli.GetGame(ctx, g.Id))
 	if len(account(host).Fish) != 1 {
-		t.Fatal("harvest bypassed theft window")
+		t.Fatal("harvest happened before the bite")
 	}
 	setBite(g.Id, host.me.Id, true)
 	must(host.cli.GetGame(ctx, g.Id))
@@ -307,6 +310,30 @@ func testFishing(t *testing.T, a *app.App, base string) {
 	must(host.cli.GameStep(ctx, again.Id, "end"))
 	if account(host).Room != "" {
 		t.Fatal("closing didn't release seat lock")
+	}
+	// New glove variants use the same shop/equipment and account-wide cooldown.
+	cooldown := account(host).StealAt
+	for _, k := range []string{"glove_haste", "glove_value"} {
+		code, _ := shop(host, &amv1.FishingActionRequest{Action: "buy_tool", Item: k, Quality: 5, RequestId: "purchase-" + k})
+		if code != 200 {
+			t.Fatal("new glove not purchasable")
+		}
+	}
+	must(host.cli.FishingAction(ctx, &amv1.FishingActionRequest{Action: "unequip", Item: "auto", RequestId: "glove-test-remove-rod"}))
+	must(host.cli.FishingAction(ctx, &amv1.FishingActionRequest{Action: "equip", Item: "glove_haste", RequestId: "glove-test-equip-haste"}))
+	must(host.cli.FishingAction(ctx, &amv1.FishingActionRequest{Action: "equip", Item: "glove_value", RequestId: "glove-test-equip-value"}))
+	if got := account(host); got.StealAt != cooldown || got.Tools["glove_haste"] != 5 || got.Tools["glove_value"] != 5 || len(got.Equipped) != 2 {
+		t.Fatal("glove equipment lost shared cooldown")
+	}
+	// The transferred specimen has exactly one seller; repeat sale receipts do not pay twice.
+	sale := &amv1.FishingActionRequest{Action: "sell", FishIds: []string{"inventory-theft-fish"}, RequestId: "sell-the-stolen-fish"}
+	_, err = other.cli.FishingAction(ctx, sale)
+	wantCode(t, err, "game_bad_move")
+	beforeSale := account(host).Coins
+	must(host.cli.FishingAction(ctx, sale))
+	must(host.cli.FishingAction(ctx, sale))
+	if account(host).Coins != beforeSale+game.Coins(123.45) {
+		t.Fatal("transferred fish paid twice or lost value")
 	}
 	// Old account catches survive a fresh reader of the same persistent store.
 	raw := must(a.Store.FishingAccount(ctx, host.me.Id))

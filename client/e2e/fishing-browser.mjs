@@ -43,26 +43,32 @@ try {
  assert.match(tooltip, /标准长度/); assert.match(tooltip, /实际长度/); assert.match(tooltip, /价值/); assert.match(tooltip, /钓获时间/);
  assert.match(await root.innerText(), /50,000[.,]00/);
  assert.equal(await page.evaluate(() => window.gameCalls?.length ?? 0), 0);
- // Waiting is intentionally opaque; only the bite window has a countdown.
+ // Waiting is opaque; auto catches no longer have a separate harvest window.
  await page.evaluate(() => { window.fixture.g.state.pond.seats[0].bite_at = Date.now() + 120000; window.fixture.g.state.pond.seats[0].expires_at = Date.now() + 150000; });
  await root.getByLabel('等待上钩', { exact: true }).waitFor();
  assert.equal(await root.locator('.fishing-countdown').count(), 0);
  await page.screenshot({ path: '/tmp/fishing-waiting.png', fullPage: true, animations: 'disabled' });
  assert.equal(await root.getByLabel(/上钩倒计时|预计等待/).count(), 0);
  await page.evaluate(() => { window.fixture.g.state.pond.seats[0].bite_at = Date.now() - 1000; window.fixture.g.state.pond.seats[0].expires_at = Date.now() + 200000; });
- await root.locator('.fishing-countdown').waitFor();
+ assert.equal(await root.locator('.fishing-countdown').count(), 0);
  await page.getByRole('button', { name: '坐到 5 号', exact: true }).click();
  await page.waitForFunction(() => window.gameCalls?.length === 1);
  assert.equal(await page.evaluate(() => window.gameCalls[0].target), 4);
  await page.getByRole('button', { name: '选择 2 号 晚星', exact: true }).click();
+ // A future bite does not disable inventory theft. All glove types share the CD.
+ await page.evaluate(() => { window.fixture.g.state.pond.seats[1].bite_at = Date.now()+120000; window.fixture.account.tools={glove_haste:5}; window.fixture.account.equipped=['glove_haste']; });
+ await page.waitForFunction(() => document.querySelector('[data-testid="glove-summary"]')?.textContent.includes('CD 24 秒'));
  await page.getByRole('button', { name: '用手套偷鱼', exact: false }).click();
  await page.waitForFunction(() => window.gameCalls?.length === 2);
  assert.equal(await page.evaluate(() => window.gameCalls[1].action), 'steal');
  assert.equal(await page.evaluate(() => window.gameCalls[1].target), 1);
- await page.screenshot({ path: '/tmp/fishing-pond.png', fullPage: true, animations: 'disabled' });
+ await page.evaluate(() => { window.fixture.account.steal_at=Date.now()+120000; });
+ await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('用手套偷鱼'))?.disabled);
+ await page.screenshot({ path: '/tmp/fishing-pond.png' , fullPage: true, animations: 'disabled' });
  const before = await page.evaluate(() => JSON.stringify(window.fixture.g));
  await page.getByRole('tab', { name: '商店', exact: true }).click(); assert.equal(await page.evaluate(() => JSON.stringify(window.fixture.g)), before);
  await page.getByRole('button', { name: '装备商店', exact: true }).click(); await page.getByText('疾风钓竿', { exact: true }).waitFor();
+ for (const name of ['多鱼手套','疾影手套','点金手套']) await root.getByRole('heading',{ name,exact:true }).waitFor();
  await page.screenshot({ path: '/tmp/fishing-tools.png', fullPage: true, animations: 'disabled' });
  await page.getByRole('button', { name: '卡包与收藏', exact: true }).click(); await page.getByRole('button', { name: /买卡包/ }).click();
  await page.waitForFunction(() => window.shopCalls === 1); assert.equal(await page.evaluate(() => window.fixture.account.packs), 4);

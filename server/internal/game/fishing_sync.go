@@ -128,7 +128,7 @@ func (s *Service) FishingSync(ctx context.Context, me *store.User, req *amv1.Fis
 }
 func (s *Service) validateFishingSave(a *FishingAccount) error {
 	key, err := hex.DecodeString(a.Identity)
-	if err != nil || len(key) != 16 || a.Version != 2 || a.Coins < 0 || a.Coins > Coins(1e13) || len(a.Fish) > s.fishing.InventoryLimit || len(a.Cards) > 500 || len(a.Records) > 200 || len(a.Equipped) > 2 || len(a.Tools) > 5 || a.Packs < 0 || a.Packs > s.fishing.PackLimit {
+	if err != nil || len(key) != 16 || a.Version != 2 || a.Coins < 0 || a.Coins > Coins(1e13) || len(a.Fish) > s.fishing.InventoryLimit || len(a.Cards) > 500 || len(a.Records) > 200 || len(a.Equipped) > 2 || len(a.Tools) > 7 || a.Packs < 0 || a.Packs > s.fishing.PackLimit {
 		return apperr.ErrBadRequest
 	}
 	if len(a.Last) > 2048 || len(a.Opened) > 4 {
@@ -145,7 +145,7 @@ func (s *Service) validateFishingSave(a *FishingAccount) error {
 	}
 	ids := map[string]bool{}
 	for _, f := range a.Fish {
-		if f.ID == "" || len(f.ID) > 40 || ids[f.ID] || !species[f.Species] || f.Length <= 0 || f.Length > 1e12 || f.Value < 0 || f.OwnerKey == "" {
+		if f.ID == "" || len(f.ID) > 40 || ids[f.ID] || !species[f.Species] || f.Length <= 0 || f.Length > 1e12 || f.Value < 0 || f.Value > Coins(1e13) || f.BaseValue < 0 || f.BaseValue > Coins(1e13) || f.At < 0 || f.At > 1e15 || f.AcquiredAt < 0 || f.AcquiredAt > 1e15 || f.StealBonus < 0 || f.StealBonus > 1000 || f.OwnerKey == "" {
 			return apperr.ErrBadRequest
 		}
 		ids[f.ID] = true

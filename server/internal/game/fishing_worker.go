@@ -21,25 +21,14 @@ func (s *Service) settlePond(st *State, accounts map[int64]*FishingAccount, now 
 			if p.User == 0 {
 				continue
 			}
-			due := p.ExpiresAt
+			due := max(p.BiteAt, st.Pond.SettledAt)
 			if due < at {
 				at, actor, target, steal = due, i, -1, false
 			}
 		}
-		for i, p := range st.Pond.Seats {
-			if p.User == 0 {
-				continue
-			}
-			a := accounts[p.User]
-			if a.quality("glove") == 0 {
-				continue
-			}
-			for j, v := range st.Pond.Seats {
-				if i == j || v.User == 0 {
-					continue
-				}
-				due := max(v.BiteAt+int64(s.fishing.AutoStealDelay), a.StealAt)
-				if due <= v.ExpiresAt && due < at {
+		for i := range st.Pond.Seats {
+			for j := range st.Pond.Seats {
+				if due, ok := s.nextTheft(st, accounts, i, j); ok && due < at {
 					at, actor, target, steal = due, i, j, true
 				}
 			}
@@ -55,34 +44,11 @@ func (s *Service) settlePond(st *State, accounts map[int64]*FishingAccount, now 
 			s.landCatch(a, p.User, at)
 			s.cast(p, a, at)
 		}
+		st.Pond.SettledAt = at
 		changed = true
 	}
 	st.Pond.CatchingUp = s.pondBacklog(st, accounts, now)
 	return changed
-}
-func (s *Service) stealCatch(st *State, accounts map[int64]*FishingAccount, actor, target int, now int64) {
-	p := &st.Pond.Seats[target]
-	thief := accounts[st.Pond.Seats[actor].User]
-	victim := accounts[p.User]
-	quality := thief.quality("glove")
-	thief.StealAt = now + int64(s.fishing.StealCD[quality-1])*1000
-	if ward := victim.quality("ward"); ward > 0 && victim.WardAt <= now {
-		victim.WardAt = now + int64(s.fishing.WardCD[ward-1])*1000
-		block := max(0, s.fishing.WardBlock[ward-1]-s.fishing.GlovePierce[quality-1])
-		if s.rnd.Intn(100) < block {
-			thief.Last = "结界挡住了手套"
-			victim.Last = "结界挡住一次偷鱼"
-			return
-		}
-	}
-	if s.rnd.Intn(100) >= s.fishing.StealChance[quality-1] {
-		thief.Last = "手套失手了"
-		return
-	}
-	s.reward(thief, p.User, now, false)
-	thief.Last = "偷鱼成功！" + thief.Last
-	victim.Last = "钩上的收获被偷走了"
-	s.cast(p, victim, now)
 }
 
 // RunFishing owns the server timer. CloseFishing joins it before the database closes.
@@ -130,20 +96,12 @@ func (s *Service) pondBacklog(st *State, accounts map[int64]*FishingAccount, now
 		if p.User == 0 {
 			continue
 		}
-		a := accounts[p.User]
-		due := p.ExpiresAt
-		if due <= now {
+		if p.BiteAt <= now {
 			return true
 		}
-		if a.quality("glove") > 0 {
-			for j, v := range st.Pond.Seats {
-				if i == j || v.User == 0 {
-					continue
-				}
-				due := max(v.BiteAt+int64(s.fishing.AutoStealDelay), a.StealAt)
-				if due <= v.ExpiresAt && due <= now {
-					return true
-				}
+		for j := range st.Pond.Seats {
+			if due, ok := s.nextTheft(st, accounts, i, j); ok && due <= now {
+				return true
 			}
 		}
 	}

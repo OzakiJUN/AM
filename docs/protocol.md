@@ -351,7 +351,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 
 ### 星屿鱼塘
 
-kind `fishing` 复用游戏开局、加入、离座、结束和推送接口，进入立即 playing。`Game.state_json` 的 `pond` 含 12 个座位和服务器时间，操作 sit / steal；所有玩家的收获由服务端按 `expires_at` 自动结算，旧 reel 请求仅兼容读取、不提前收获。规则 JSON 新增五档概率 `double_fish_percent`（缺省 10/20/30/40/50），原工具 ID auto 改为双鱼竿，旧 auto_at / auto_cd_seconds 不再影响收益。新增 FishingData、FishingActionRequest、FishingSyncRequest 和 `/fishing/rules`、`/fishing/me`、`/fishing/sync`、`/users/{id}/fishing-showcase`。账号存档、幂等请求、JSON 字段和错误沿用规则见 [fishing.md](fishing.md#接口和数据)。用户主页新增 fishing_fish / fishing_cards / fishing_badges，容量和配置见同文档。公开展示不返回私有钱包和鱼篓。
+kind `fishing` 复用游戏开局、加入、离座、结束和推送接口，进入立即 playing。`Game.state_json` 的 `pond` 含 12 个座位和服务器时间，操作 sit / steal；所有玩家的收获由服务端按 `bite_at` 立即自动结算（新竿 expires_at = bite_at），旧 reel 请求仅兼容读取、不提前收获。规则 JSON 新增五档概率 `double_fish_percent`（缺省 10/20/30/40/50），手套 `glove`（多鱼）/ `glove_haste`（减冷却）/ `glove_value`（加售价）共用账号 steal_at，从本塘玩家鱼篓原子转移现有鱼，保留原鱼 ID/钓者/归属、不生成副本。规则新增 steal_base_cd_seconds / steal_fish_count / steal_cd_reduction_percent / steal_value_percent；pond 新增 settled_at，座位新增 joined_at，鱼新增 acquired_at / base_value / steal_bonus_percent，跨服保存七类工具和新字段。原工具 ID auto 改为双鱼竿，旧 auto_at / auto_cd_seconds 不再影响收益。新增 FishingData、FishingActionRequest、FishingSyncRequest 和 `/fishing/rules`、`/fishing/me`、`/fishing/sync`、`/users/{id}/fishing-showcase`。账号存档、幂等请求、JSON 字段和错误沿用规则见 [fishing.md](fishing.md#接口和数据)。用户主页新增 fishing_fish / fishing_cards / fishing_badges，容量和配置见同文档。公开展示不返回私有钱包和鱼篓。
 
 ### 别人的 AI 操作我的电脑（转发）
 
