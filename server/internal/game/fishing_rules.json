@@ -52,6 +52,10 @@
     90,
     150
   ],
+  "steal_base_cd_seconds": 120,
+  "steal_fish_count": [1, 2, 3, 4, 5],
+  "steal_cd_reduction_percent": [10, 25, 40, 60, 80],
+  "steal_value_percent": [15, 30, 55, 90, 150],
   "steal_cd_seconds": [
     120,
     85,

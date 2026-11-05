@@ -4,7 +4,7 @@ import { session } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Game } from '@/lib/games';
 import { GAME_INFO } from '@/lib/games';
-import { CARD_RARITY, FISH_RARITY, moneyText, QUALITY, TOOLS, TOOL_KEYS, cardParts, collectionProgress, isBiting, toolEffect, type FishingAccount, type FishingAction, type FishingRules, type Species } from '@/lib/fishing';
+import { CARD_RARITY, FISH_RARITY, moneyText, QUALITY, TOOLS, TOOL_KEYS, cardParts, collectionProgress, isBiting, isGlove, gloveStats, toolEffect, type FishingAccount, type FishingAction, type FishingRules, type Species } from '@/lib/fishing';
 import { Button, Spinner, cx, toastError } from '@/ui';
 import { UserAvatar } from './media';
 import './fishing.css';
@@ -84,7 +84,7 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
   });
   if (!rules || !account || !pond) return <div className="space-y-3 p-8 text-center"><Spinner />{error && <p role="alert">{error}</p>}</div>;
   const serverNow = now + offset; const mine = pond.seats.findIndex((p) => p.user_id === me); const angler = pond.seats[mine];
-  const bite = angler && isBiting(angler, serverNow); const countdown = bite ? Math.max(0, Math.ceil((angler.expires_at - serverNow) / 1000)) : 0;
+  const bite = angler && isBiting(angler, serverNow); const gloves = gloveStats(rules, account);
   const coins = <span className="inline-flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-300"><Coins size={16} />{moneyText(account.coins)} <span className="text-xs font-normal">金币</span></span>;
   return <div className="fishing-game space-y-3" data-testid="fishing-game">
     <header className="fishing-heading">
@@ -127,20 +127,20 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
       <aside className="fishing-console">
         <div className={cx('fishing-catch', bite && 'is-biting')}>
           <div className="fishing-eyebrow"><Timer size={14} />{mine >= 0 ? `${mine + 1} 号钓台 · 你的鱼竿` : '你的钓台'}</div>
-          <p role="status" className="fishing-catch-label">{g.status === 'ended' ? '鱼塘已关闭' : mine < 0 ? '选一个空座，开始钓鱼' : bite ? '鱼上钩了，等待自动入篓' : '浮漂轻晃，等待上钩'}</p>
-          {bite && g.status !== 'ended' && <div className="fishing-countdown" aria-label={`自动入篓剩余 ${countdown} 秒`}>{Math.floor(countdown / 60).toString().padStart(2, '0')}<span>:</span>{(countdown % 60).toString().padStart(2, '0')}<small>自动入篓剩余</small></div>}
+          <p role="status" className="fishing-catch-label">{g.status === 'ended' ? '鱼塘已关闭' : mine < 0 ? '选一个空座，开始钓鱼' : bite ? '鱼上钩了，正在自动入篓' : '浮漂轻晃，等待上钩'}</p>
           {!bite && mine >= 0 && g.status !== 'ended' && <div className="fishing-waiting" aria-label="等待上钩"><span /><span /><span /><small>看水面，等鱼来</small></div>}
           <div className="fishing-reel flex items-center justify-center gap-2" data-testid="auto-fishing"><Fish size={18} />{g.status === 'ended' ? '已停止钓鱼' : mine < 0 ? '入座后自动钓鱼' : '自动钓鱼中'}</div>
-          <p className="fishing-catch-note">{bite ? '短暂偷鱼窗口结束后自动入篓，再自动抛下一竿' : '无需手动收杆，离线也继续钓鱼；疾风竿能缩短等待'}</p>
+          <p className="fishing-catch-note">鱼上钩即自动入篓，离线继续钓；手套偷的是对方鱼篓中的鱼</p>
         </div>
         <div className="fishing-loadout">
           <div className="flex items-center justify-between"><span className="fishing-eyebrow">随身装备 · {(account.equipped ?? []).length}/2</span><button className="fishing-shop-link" onClick={() => { setPage('shop'); setTab('tools'); }}>管理装备</button></div>
-          {[0, 1].map((i) => { const k = account.equipped?.[i]; const cd = k === 'glove' ? account.steal_at : k === 'ward' ? account.ward_at : 0; const Icon = k === 'ward' ? Shield : k === 'glove' ? Hand : Zap;
+          {[0, 1].map((i) => { const k = account.equipped?.[i]; const cd = isGlove(k) ? account.steal_at : k === 'ward' ? account.ward_at : 0; const Icon = k === 'ward' ? Shield : isGlove(k) ? Hand : Zap;
             return <div key={i} className={cx('fishing-tool-slot', !k && 'is-empty')}><span className="fishing-tool-icon"><Icon size={17} /></span><div className="min-w-0 flex-1"><div className="truncate text-xs font-medium">{k ? TOOLS[k as keyof typeof TOOLS] : '空装备位'}</div><span className="text-[10px] text-ink-soft">{k ? QUALITY[account.tools[k] - 1] : '去商店挑一件工具'}</span></div>{k && <span className="fishing-tool-cd">{k === 'auto' ? (rules.double_fish_percent ? `${rules.double_fish_percent[account.tools[k] - 1]}% 双鱼` : '服务端待更新') : cd > serverNow ? `${Math.ceil((cd - serverNow) / 1000)}s` : '就绪'}</span>}</div>;
           })}
           <Button variant="soft" size="sm" onClick={() => { setPage('shop'); setTab('sell'); }}><ShoppingBag size={14} />鱼篓与商店 · {(account.fish ?? []).length} 条鱼</Button>
         </div>
-        {target >= 0 && <div className="fishing-target"><div className="mb-2 text-xs">{target + 1} 号 · {v.users[pond.seats[target].user_id]?.name ?? '空座'}{isBiting(pond.seats[target], serverNow) && ' · 已上钩'}</div><Button size="sm" disabled={busy || mine < 0 || target === mine || !isBiting(pond.seats[target], serverNow) || !account.equipped?.includes('glove') || account.steal_at > serverNow} onClick={() => act(() => s.actGame(g.id, { action: 'steal', target }))}><Hand size={13} />用手套偷鱼</Button></div>}
+        {gloves.equipped && <p className="text-xs text-ink-soft" data-testid="glove-summary">偷鱼：最多 {gloves.count} 条 · CD {gloves.cooldown} 秒 · 偷鱼售价 +{gloves.bonus}%{account.steal_at > serverNow ? ` · 冷却 ${Math.ceil((account.steal_at - serverNow) / 1000)} 秒` : ' · 就绪'}</p>}
+        {target >= 0 && <div className="fishing-target"><div className="mb-2 text-xs">{target + 1} 号 · {v.users[pond.seats[target].user_id]?.name ?? '空座'} · 从该玩家鱼篓偷鱼</div><Button size="sm" disabled={busy || mine < 0 || target === mine || pond.seats[target].user_id === '0' || g.status === 'ended' || !gloves.equipped || (account.fish?.length ?? 0) >= rules.inventory_limit || account.steal_at > serverNow} onClick={() => act(() => s.actGame(g.id, { action: 'steal', target }))}><Hand size={13} />用手套偷鱼</Button></div>}
         <div className="fishing-exit-actions">
           {mine >= 0 && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'leave'))}><LogOut size={13} />离座</Button>}
           {g.hostId === me && g.status !== 'ended' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => s.gameStep(g.id, 'end'))}>关闭鱼塘</Button>}
@@ -150,7 +150,7 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
       <div className="flex flex-wrap gap-2">{([['sell', '鱼篓 / 卖鱼'], ['tools', '装备商店'], ['cards', '卡包与收藏']] as const).map(([id, text]) => <Button key={id} variant={tab === id ? 'primary' : 'soft'} onClick={() => setTab(id)}>{text}</Button>)}</div>
       <div className="max-h-[52vh] overflow-auto">
         {tab === 'sell' && <FishInventory account={account} rules={rules} busy={busy} sell={(ids) => shop({ action: 'sell', fishIds: ids })} />}
-        {tab === 'tools' && <div className="space-y-3"><p className="text-xs text-ink-soft">最多装两类工具，同类品质会替换。升级按全价购买，冷却随账号保留，换装不会重置。</p>{TOOL_KEYS.map((k) => <div key={k} className="rounded-xl border border-cyan-500/15 p-3"><div className="mb-2 flex items-center justify-between"><h4 className="font-semibold">{TOOLS[k]}</h4>{account.tools[k] > 0 && <Button size="sm" disabled={busy || (!account.equipped?.includes(k) && (account.equipped?.length ?? 0) >= 2)} onClick={() => shop({ action: account.equipped?.includes(k) ? 'unequip' : 'equip', item: k })}>{account.equipped?.includes(k) ? '卸下' : '装备'}</Button>}</div><div className="grid gap-2 sm:grid-cols-5">{QUALITY.map((q, i) => <div key={q} className="rounded-xl bg-black/[.03] p-2 text-xs dark:bg-white/5"><div className="font-semibold">{q}</div><p className="my-1 min-h-12 text-ink-soft">{toolEffect(rules, k, i + 1)}</p><Button size="sm" disabled={busy || (account.tools[k] ?? 0) >= i + 1 || account.coins < rules.tool_prices[i]} onClick={() => shop({ action: 'buy_tool', item: k, quality: i + 1 })}>{(account.tools[k] ?? 0) === i + 1 ? '已拥有' : (account.tools[k] ?? 0) > i + 1 ? '已有更高品质' : `${rules.tool_prices[i]} 币`}</Button></div>)}</div></div>)}</div>}
+        {tab === 'tools' && <div className="space-y-3"><p className="text-xs text-ink-soft">最多装两类工具；三种手套可单独使用或组合，共用偷鱼冷却。成功率与破盾取已装手套的最高品质，其余效果分别计算。升级全价购买，换装不会重置冷却。</p>{TOOL_KEYS.map((k) => <div key={k} className="rounded-xl border border-cyan-500/15 p-3"><div className="mb-2 flex items-center justify-between"><h4 className="font-semibold">{TOOLS[k]}</h4>{account.tools[k] > 0 && <Button size="sm" disabled={busy || (!account.equipped?.includes(k) && (account.equipped?.length ?? 0) >= 2)} onClick={() => shop({ action: account.equipped?.includes(k) ? 'unequip' : 'equip', item: k })}>{account.equipped?.includes(k) ? '卸下' : '装备'}</Button>}</div><div className="grid gap-2 sm:grid-cols-5">{QUALITY.map((q, i) => <div key={q} className="rounded-xl bg-black/[.03] p-2 text-xs dark:bg-white/5"><div className="font-semibold">{q}</div><p className="my-1 min-h-12 text-ink-soft">{toolEffect(rules, k, i + 1)}</p><Button size="sm" disabled={busy || (account.tools[k] ?? 0) >= i + 1 || account.coins < rules.tool_prices[i]} onClick={() => shop({ action: 'buy_tool', item: k, quality: i + 1 })}>{(account.tools[k] ?? 0) === i + 1 ? '已拥有' : (account.tools[k] ?? 0) > i + 1 ? '已有更高品质' : `${rules.tool_prices[i]} 币`}</Button></div>)}</div></div>)}</div>}
         {tab === 'cards' && <div className="space-y-4"><div className="flex flex-wrap items-center gap-2"><Button disabled={busy || account.coins < rules.pack_price} onClick={() => shop({ action: 'buy_pack' })}>买卡包 · {rules.pack_price} 币</Button><Button variant="primary" disabled={busy || account.packs < 1} onClick={() => shop({ action: 'open_pack' })}>开一包 · 剩余 {account.packs}</Button><span className="text-xs text-ink-soft">每包四张，重复卡计数</span></div>
           {!!account.opened?.length && <div className="rounded-xl bg-amber-300/10 p-3"><div className="mb-2 text-sm">刚刚获得</div><div className="grid grid-cols-4 gap-2">{account.opened.map((key, i) => <FishCard key={i} card={key} rules={rules} />)}</div></div>}
           <div className="grid grid-cols-5 gap-2">{collectionProgress(account).map((n, i) => <div key={i} className="rounded-xl bg-black/5 p-2 text-center text-xs dark:bg-white/5"><div>{CARD_RARITY[i]}卡</div><div className="my-1 font-semibold">{n}/100</div><progress value={n} max={100} className="w-full accent-cyan-600" />{account.badges[i] > 0 && <FishingBadge tier={i} level={account.badges[i]} />}</div>)}</div>
@@ -160,7 +160,7 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
       </div>
     </div>}
     {account.last && <div className="rounded-xl bg-amber-100/60 px-3 py-2 text-sm text-amber-950 dark:bg-amber-300/10 dark:text-amber-100" role="status">{account.last}</div>}
-    <details className="text-xs text-ink-soft"><summary className="cursor-pointer">完整玩法与概率</summary><p className="mt-2 leading-relaxed">{GAME_INFO.fishing.rules}</p><p className="mt-2">等待 {rules.wait_min_seconds}–{rules.wait_max_seconds} 秒，上钩窗口 {rules.bite_seconds} 秒。鱼 / 钱袋 / 卡片 / 卡包概率 {rules.loot_weights.map((n) => `${n / rules.loot_weights.reduce((a, b) => a + b, 0) * 100}%`).join(' / ')}。鱼种稀有度权重 {rules.fish_weights.join(' / ')}，长度按连续分布抽取，实际长度参与价格计算。服务端持续挂机，手套自动偷鱼，结界自动防御。</p></details>
+    <details className="text-xs text-ink-soft"><summary className="cursor-pointer">完整玩法与概率</summary><p className="mt-2 leading-relaxed">{GAME_INFO.fishing.rules}</p><p className="mt-2">等待 {rules.wait_min_seconds}–{rules.wait_max_seconds} 秒，上钩即自动入篓；手套基础冷却 {rules.steal_base_cd_seconds ?? rules.steal_cd_seconds[0]} 秒。鱼 / 钱袋 / 卡片 / 卡包概率 {rules.loot_weights.map((n) => `${n / rules.loot_weights.reduce((a, b) => a + b, 0) * 100}%`).join(' / ')}。鱼种稀有度权重 {rules.fish_weights.join(' / ')}，长度按连续分布抽取，实际长度参与价格计算。服务端持续挂机，手套自动偷鱼，结界自动防御。</p></details>
   </div>;
 }
 function FishInventory({ account, rules, busy, sell }: { account: FishingAccount; rules: FishingRules; busy: boolean; sell: (ids: string[]) => void }) {

@@ -64,6 +64,31 @@ func testFishingClientRelayedSave(t *testing.T, dest *app.App, base string) {
 		t.Fatal(err)
 	}
 	must(alice.cli.GetGame(ctx, g.Id))
+	err = origin.Store.InTx(ctx, func(q *store.Queries) error {
+		raw, e := q.FishingAccountForUpdate(ctx, alice.me.Id, "")
+		if e != nil {
+			return e
+		}
+		var saved game.FishingAccount
+		if e = json.Unmarshal([]byte(raw), &saved); e != nil {
+			return e
+		}
+		saved.Tools = map[string]int{"speed": 1, "auto": 1, "value": 1, "glove": 3, "glove_haste": 4, "glove_value": 5, "ward": 1}
+		saved.Equipped = []string{"glove_haste", "glove_value"}
+		saved.StealAt = time.Now().UnixMilli() + 120000
+		saved.Fish[0].BaseValue = saved.Fish[0].Value
+		saved.Fish[0].Value = (saved.Fish[0].BaseValue*250 + 50) / 100
+		saved.Fish[0].StealBonus = 150
+		saved.Fish[0].AcquiredAt = time.Now().UnixMilli()
+		b, e := json.Marshal(saved)
+		if e != nil {
+			return e
+		}
+		return q.SaveFishingAccount(ctx, alice.me.Id, string(b))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	purchase := &amv1.FishingActionRequest{Action: "buy_pack", RequestId: "purchase-before-move"}
 	must(alice.cli.FishingAction(ctx, purchase))
 	before, target := account(alice), account(bob)
@@ -79,6 +104,9 @@ func testFishingClientRelayedSave(t *testing.T, dest *app.App, base string) {
 	moved := account(bob)
 	if moved.Frozen || moved.Identity != before.Identity || moved.LocalSlot != target.LocalSlot || moved.Coins != before.Coins || moved.Packs != 1 || len(moved.Fish) != 1 || moved.Fish[0].ID != before.Fish[0].ID {
 		t.Fatal("save did not continue across servers")
+	}
+	if len(moved.Tools) != 7 || moved.Tools["glove_haste"] != 4 || moved.Tools["glove_value"] != 5 || moved.StealAt != before.StealAt || moved.Fish[0].StealBonus != 150 || moved.Fish[0].BaseValue != before.Fish[0].BaseValue || moved.Fish[0].AcquiredAt != before.Fish[0].AcquiredAt {
+		t.Fatal("glove state lost in cross-server save")
 	}
 	must(bob.cli.FishingSync(ctx, req))
 	if account(bob).Revision != moved.Revision {

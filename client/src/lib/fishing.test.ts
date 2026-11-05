@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cardParts, collectionProgress, exhibitCapacity, isBiting, recordsOf } from './fishing.ts';
+import { cardParts, collectionProgress, exhibitCapacity, isBiting, recordsOf, gloveStats, toolEffect, isGlove, type FishingRules, type FishingAccount } from './fishing.ts';
 assert.equal(exhibitCapacity('fishing_fish', 3, 3), 4);
 assert.equal(exhibitCapacity('fishing_cards', 3, 3), 9);
 assert.deepEqual(cardParts('4:f100'), [4, 'f100']);
@@ -14,3 +14,12 @@ assert.equal(isBiting(seat, 1000), true);
 assert.equal(isBiting(seat, 2001), false);
 assert.equal(isBiting({ ...seat, user_id: '0' }, 1500), false);
 console.log('fishing: capacities, card uniqueness, bigint ids and bite window ok');
+
+const rules = {steal_base_cd_seconds:120,steal_fish_count:[1,2,3,4,5],steal_cd_reduction_percent:[10,25,40,60,80],steal_value_percent:[15,30,55,90,150],steal_percent:[35,48,62,78,95],glove_pierce_percent:[0,5,12,22,35],steal_cd_seconds:[120,85,55,35,20]} as FishingRules;
+const account={tools:{glove:5,glove_haste:5,glove_value:5},equipped:['glove','glove_haste']} as unknown as FishingAccount;
+assert.deepEqual(gloveStats(rules,account),{equipped:true,count:5,cooldown:24,bonus:0});
+assert.deepEqual(gloveStats(rules,{...account,equipped:['glove_value']}),{equipped:true,count:1,cooldown:120,bonus:150});
+assert.deepEqual(gloveStats(rules,{...account,equipped:[]}),{equipped:false,count:1,cooldown:120,bonus:0});
+for(const k of ['glove','glove_haste','glove_value']) assert.equal(isGlove(k),true);
+assert.equal(isGlove('value'),false);
+assert.match(toolEffect(rules,'glove',5),/5 条鱼/);assert.match(toolEffect(rules,'glove_haste',5),/80%/);assert.match(toolEffect(rules,'glove_value',5),/150%/);

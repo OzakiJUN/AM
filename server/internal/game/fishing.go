@@ -63,6 +63,10 @@ type FishingRules struct {
 	AutoCD           []int         `json:"auto_cd_seconds,omitempty"` // legacy custom rules; no longer used
 	DoubleChance     []int         `json:"double_fish_percent"`
 	Value            []int         `json:"value_percent"`
+	StealBaseCD      int           `json:"steal_base_cd_seconds"`
+	StealCount       []int         `json:"steal_fish_count"`
+	StealReduction   []int         `json:"steal_cd_reduction_percent"`
+	StealValue       []int         `json:"steal_value_percent"`
 	StealCD          []int         `json:"steal_cd_seconds"`
 	StealChance      []int         `json:"steal_percent"`
 	WardCD           []int         `json:"ward_cd_seconds"`
@@ -103,6 +107,34 @@ func (r *FishingRules) validate() error {
 	for _, n := range r.DoubleChance {
 		if n < 0 || n > 100 {
 			return errors.New("invalid double fish chance")
+		}
+	}
+	if r.StealBaseCD == 0 {
+		r.StealBaseCD = 120
+	}
+	if r.StealCount == nil {
+		r.StealCount = []int{1, 2, 3, 4, 5}
+	}
+	if r.StealReduction == nil {
+		r.StealReduction = []int{10, 25, 40, 60, 80}
+	}
+	if r.StealValue == nil {
+		r.StealValue = []int{15, 30, 55, 90, 150}
+	}
+	if r.StealBaseCD < 1 || r.StealBaseCD > 86400 {
+		return errors.New("invalid base theft cooldown")
+	}
+	for _, setting := range []struct {
+		values []int
+		lo, hi int
+	}{{r.StealCount, 1, 100}, {r.StealReduction, 0, 90}, {r.StealValue, 0, 1000}} {
+		if len(setting.values) != 5 {
+			return errors.New("invalid glove tiers")
+		}
+		for _, n := range setting.values {
+			if n < setting.lo || n > setting.hi {
+				return errors.New("invalid glove effect")
+			}
 		}
 	}
 	bad := func() error { return errors.New("invalid fishing balance or catalogue") }
@@ -175,14 +207,17 @@ func (s *Service) FishingRules() *amv1.FishingData {
 }
 
 type CaughtFish struct {
-	Average  float64 `json:"average_m"`
-	OwnerKey string  `json:"owner_key"`
-	ID       string  `json:"id"`
-	Species  string  `json:"species"`
-	Length   float64 `json:"length_m"`
-	Value    Money   `json:"value"`
-	By       string  `json:"caught_by"`
-	At       int64   `json:"at"`
+	BaseValue  Money   `json:"base_value,omitempty"`
+	AcquiredAt int64   `json:"acquired_at,omitempty"`
+	StealBonus int     `json:"steal_bonus_percent,omitempty"`
+	Average    float64 `json:"average_m"`
+	OwnerKey   string  `json:"owner_key"`
+	ID         string  `json:"id"`
+	Species    string  `json:"species"`
+	Length     float64 `json:"length_m"`
+	Value      Money   `json:"value"`
+	By         string  `json:"caught_by"`
+	At         int64   `json:"at"`
 }
 type FishingAccount struct {
 	LocalSlot  string `json:"local_slot"`
@@ -210,11 +245,13 @@ type FishingAccount struct {
 	Badges   [5]int                `json:"badges"`
 }
 type Angler struct {
+	JoinedAt  int64 `json:"joined_at,omitempty"`
 	User      int64 `json:"user_id,string"`
 	BiteAt    int64 `json:"bite_at"`
 	ExpiresAt int64 `json:"expires_at"`
 }
 type Pond struct {
+	SettledAt  int64      `json:"settled_at,omitempty"`
 	CatchingUp bool       `json:"catching_up"`
 	Seats      [12]Angler `json:"seats"`
 	Now        int64      `json:"now"`
@@ -518,7 +555,7 @@ func (s *Service) cast(p *Angler, a *FishingAccount, now int64) {
 		wait = max(r.WaitMin, wait*(100-r.Speed[q-1])/100)
 	}
 	p.BiteAt = now + int64(wait)*1000
-	p.ExpiresAt = p.BiteAt + int64(r.Bite)*1000
+	p.ExpiresAt = p.BiteAt // legacy field; catches now enter the basket immediately
 }
 func (s *Service) isPond(ctx context.Context, id int64) bool {
 	g, err := s.st.GetGame(ctx, id)
@@ -534,7 +571,7 @@ func rebuildPond(st *State) {
 }
 func (s *Service) openPond(ctx context.Context, me *store.User, conv int64) (*amv1.Game, error) {
 	now := time.Now().UnixMilli()
-	st := &State{Kind: Fishing, Status: Playing, Turn: -1, Pond: &Pond{Now: now}, AutoApprove: true}
+	st := &State{Kind: Fishing, Status: Playing, Turn: -1, Pond: &Pond{Now: now, SettledAt: now}, AutoApprove: true}
 	g := &store.Game{ID: s.ids.Next(), ConvID: conv, Kind: Fishing, HostID: me.ID, Status: Playing, CreatedAt: now, UpdatedAt: now}
 	err := s.st.InTx(ctx, func(q *store.Queries) error {
 		if err := member(ctx, q, conv, me.ID); err != nil {
@@ -556,7 +593,7 @@ func (s *Service) openPond(ctx context.Context, me *store.User, conv int64) (*am
 		}
 		a.Room = strconv.FormatInt(g.ID, 10)
 		s.mu.Lock()
-		st.Pond.Seats[0] = Angler{User: me.ID}
+		st.Pond.Seats[0] = Angler{User: me.ID, JoinedAt: now}
 		s.cast(&st.Pond.Seats[0], a, now)
 		s.mu.Unlock()
 		rebuildPond(st)
@@ -628,6 +665,16 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 		now := time.Now().UnixMilli()
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		if st.Pond.SettledAt == 0 {
+			st.Pond.SettledAt = g.UpdatedAt
+			changed = true
+		}
+		for i := range st.Pond.Seats {
+			if st.Pond.Seats[i].User != 0 && st.Pond.Seats[i].JoinedAt == 0 {
+				st.Pond.Seats[i].JoinedAt = g.CreatedAt
+				changed = true
+			}
+		}
 		// Evict members that left, and stop copies frozen for client transfer.
 		for i := range st.Pond.Seats {
 			p := &st.Pond.Seats[i]
@@ -689,11 +736,11 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 				return ErrGameFull
 			}
 			a.Room = strconv.FormatInt(id, 10)
-			st.Pond.Seats[target] = Angler{User: me.ID}
+			st.Pond.Seats[target] = Angler{User: me.ID, JoinedAt: now}
 			s.cast(&st.Pond.Seats[target], a, now)
 			changed = true
 		case "reel":
-			// Compatibility with older clients: do not bypass the theft window.
+			// Compatibility with older clients: harvest is automatic.
 			if mine < 0 {
 				return apperr.ErrNoPermission
 			}
@@ -701,12 +748,12 @@ func (s *Service) pondChange(ctx context.Context, me *store.User, id int64, acti
 			if mine < 0 {
 				return apperr.ErrNoPermission
 			}
-			quality := a.quality("glove")
+			quality := a.gloveQuality()
 			if quality < 1 || a.StealAt > now || target < 0 || target >= 12 || target == mine {
 				return ErrBadMove
 			}
 			p := &st.Pond.Seats[target]
-			if p.User == 0 || now < p.BiteAt || now > p.ExpiresAt {
+			if p.User == 0 || len(a.Fish) >= s.fishing.InventoryLimit || !hasStealable(accounts[p.User], now) {
 				return ErrBadMove
 			}
 			s.stealCatch(st, accounts, mine, target, now)
@@ -766,10 +813,32 @@ func (s *Service) FishingAction(ctx context.Context, me *store.User, req *amv1.F
 	if len(req.RequestId) < 8 || len(req.RequestId) > 64 || len(req.FishIds) > 1000 {
 		return nil, apperr.ErrBadRequest
 	}
+	current, err := s.FishingAccount(ctx, me)
+	if err != nil {
+		return nil, err
+	}
+	var before FishingAccount
+	if err = json.Unmarshal([]byte(current.StateJson), &before); err != nil {
+		return nil, err
+	}
+	if before.Room != "" {
+		room, _ := strconv.ParseInt(before.Room, 10, 64)
+		fresh, e := s.pondChange(ctx, me, room, "refresh", 0)
+		if e != nil {
+			return nil, e
+		}
+		var state State
+		if e = json.Unmarshal([]byte(fresh.StateJson), &state); e != nil {
+			return nil, e
+		}
+		if state.Pond != nil && state.Pond.CatchingUp {
+			return nil, ErrGameState
+		}
+	}
 	var out *FishingAccount
 	fingerprint := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%d\x00%q", req.Action, req.Item, req.Quality, req.FishIds)))
 	hash := hex.EncodeToString(fingerprint[:])
-	err := s.st.InTx(ctx, func(q *store.Queries) error {
+	err = s.st.InTx(ctx, func(q *store.Queries) error {
 		a, err := s.account(ctx, q, me.ID)
 		if err != nil {
 			return err
@@ -828,6 +897,9 @@ func (s *Service) FishingAction(ctx context.Context, me *store.User, req *amv1.F
 			}
 			a.Coins -= price
 			a.Tools[req.Item] = int(req.Quality)
+			if gloveKind(req.Item) && a.quality(req.Item) > 0 {
+				a.StealAt = max(a.StealAt, time.Now().UnixMilli())
+			}
 			a.Last = "工具购买成功"
 		case "equip":
 			if !toolKind(req.Item) || a.Tools[req.Item] == 0 {
@@ -842,6 +914,9 @@ func (s *Service) FishingAction(ctx context.Context, me *store.User, req *amv1.F
 				return ErrBadMove
 			}
 			a.Equipped = append(a.Equipped, req.Item)
+			if gloveKind(req.Item) {
+				a.StealAt = max(a.StealAt, time.Now().UnixMilli())
+			}
 			a.Last = "已装备"
 		case "unequip":
 			var keep []string
@@ -881,7 +956,7 @@ func (s *Service) FishingAction(ctx context.Context, me *store.User, req *amv1.F
 	return accountData(out), nil
 }
 func toolKind(k string) bool {
-	return k == "speed" || k == "auto" || k == "value" || k == "glove" || k == "ward"
+	return k == "speed" || k == "auto" || k == "value" || gloveKind(k) || k == "ward"
 }
 
 func (s *Service) FishingAccountUser(ctx context.Context, id int64) (*store.User, error) {

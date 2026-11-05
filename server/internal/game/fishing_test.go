@@ -107,7 +107,7 @@ func TestFishingOfflineChronologicalCatchup(t *testing.T) {
 	a := r.newAccount()
 	st := &State{Kind: Fishing, Status: Playing, Pond: &Pond{}}
 	st.Pond.Seats[0] = Angler{User: 1, BiteAt: 1000, ExpiresAt: 2000}
-	if !s.settlePond(st, map[int64]*FishingAccount{1: a}, 10000) || len(a.Fish) != 5 {
+	if !s.settlePond(st, map[int64]*FishingAccount{1: a}, 10000) || len(a.Fish) != 10 {
 		t.Fatalf("offline catches %d", len(a.Fish))
 	}
 	n := len(a.Fish)
@@ -136,10 +136,10 @@ func TestFishingCatchupBatchKeepsPendingEvents(t *testing.T) {
 	if len(a.Fish) != 1 || !st.Pond.CatchingUp {
 		t.Fatal("catchup discarded remainder")
 	}
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 9; i++ {
 		s.settlePond(st, accounts, 10000)
 	}
-	if len(a.Fish) != 5 || st.Pond.CatchingUp {
+	if len(a.Fish) != 10 || st.Pond.CatchingUp {
 		t.Fatal("catchup failed to complete")
 	}
 }
@@ -162,7 +162,7 @@ func TestFishingWaitSeconds(t *testing.T) {
 		if delta%1000 != 0 || delta < 10000 || delta > 3600000 {
 			t.Fatalf("invalid cast wait %d", delta)
 		}
-		if p.ExpiresAt-p.BiteAt != int64(r.Bite)*1000 {
+		if p.ExpiresAt != p.BiteAt {
 			t.Fatal("bite window changed")
 		}
 		seen[delta/1000] = true
@@ -252,7 +252,7 @@ func TestFishingDoubleRod(t *testing.T) {
 	}
 }
 
-func TestFishingAutoHarvestWaitsForTheftWindow(t *testing.T) {
+func TestFishingAutoHarvestsImmediatelyAtBite(t *testing.T) {
 	r := DefaultFishingRules()
 	r.LootWeights = []int{1, 0, 0, 0}
 	r.DoubleChance = []int{100, 100, 100, 100, 100}
@@ -263,13 +263,13 @@ func TestFishingAutoHarvestWaitsForTheftWindow(t *testing.T) {
 	st := &State{Kind: Fishing, Status: Playing, Pond: &Pond{}}
 	st.Pond.Seats[0] = Angler{User: 7, BiteAt: 1000, ExpiresAt: 31000}
 	accounts := map[int64]*FishingAccount{7: a}
-	if s.settlePond(st, accounts, 30999) || len(a.Fish) != 0 {
+	if s.settlePond(st, accounts, 999) || len(a.Fish) != 0 {
 		t.Fatal("harvest bypassed theft window")
 	}
-	if !s.settlePond(st, accounts, 31000) || len(a.Fish) != 2 {
+	if !s.settlePond(st, accounts, 1000) || len(a.Fish) != 2 {
 		t.Fatal("automatic double catch missing")
 	}
-	if s.settlePond(st, accounts, 31000) || len(a.Fish) != 2 {
+	if s.settlePond(st, accounts, 1000) || len(a.Fish) != 2 {
 		t.Fatal("duplicate settlement")
 	}
 }
