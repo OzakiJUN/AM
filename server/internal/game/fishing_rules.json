@@ -43,13 +43,8 @@
     42,
     55
   ],
-  "auto_cd_seconds": [
-    150,
-    120,
-    90,
-    65,
-    40
-  ],
+  "auto_cd_seconds": [150, 120, 90, 65, 40],
+  "double_fish_percent": [10, 20, 30, 40, 50],
   "value_percent": [
     15,
     30,

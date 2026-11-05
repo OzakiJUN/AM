@@ -127,16 +127,16 @@ export function FishingWindow({ v, g }: { v: SessionView; g: Game }) {
       <aside className="fishing-console">
         <div className={cx('fishing-catch', bite && 'is-biting')}>
           <div className="fishing-eyebrow"><Timer size={14} />{mine >= 0 ? `${mine + 1} 号钓台 · 你的鱼竿` : '你的钓台'}</div>
-          <p role="status" className="fishing-catch-label">{g.status === 'ended' ? '鱼塘已关闭' : mine < 0 ? '选一个空座，开始钓鱼' : bite ? '鱼上钩了！快收杆' : '浮漂轻晃，等待上钩'}</p>
-          {bite && g.status !== 'ended' && <div className="fishing-countdown" aria-label={`收杆剩余 ${countdown} 秒`}>{Math.floor(countdown / 60).toString().padStart(2, '0')}<span>:</span>{(countdown % 60).toString().padStart(2, '0')}<small>收杆剩余</small></div>}
+          <p role="status" className="fishing-catch-label">{g.status === 'ended' ? '鱼塘已关闭' : mine < 0 ? '选一个空座，开始钓鱼' : bite ? '鱼上钩了，等待自动入篓' : '浮漂轻晃，等待上钩'}</p>
+          {bite && g.status !== 'ended' && <div className="fishing-countdown" aria-label={`自动入篓剩余 ${countdown} 秒`}>{Math.floor(countdown / 60).toString().padStart(2, '0')}<span>:</span>{(countdown % 60).toString().padStart(2, '0')}<small>自动入篓剩余</small></div>}
           {!bite && mine >= 0 && g.status !== 'ended' && <div className="fishing-waiting" aria-label="等待上钩"><span /><span /><span /><small>看水面，等鱼来</small></div>}
-          <Button variant="primary" className="fishing-reel" disabled={busy || !bite || g.status === 'ended'} onClick={() => act(() => s.actGame(g.id, { action: 'reel' }))}><Fish size={18} />收杆</Button>
-          <p className="fishing-catch-note">{bite ? '未及时收杆会自动托管，也可能被偷走' : '每竿随机等待，留意水面波动；疾风竿能缩短等待'}</p>
+          <div className="fishing-reel flex items-center justify-center gap-2" data-testid="auto-fishing"><Fish size={18} />{g.status === 'ended' ? '已停止钓鱼' : mine < 0 ? '入座后自动钓鱼' : '自动钓鱼中'}</div>
+          <p className="fishing-catch-note">{bite ? '短暂偷鱼窗口结束后自动入篓，再自动抛下一竿' : '无需手动收杆，离线也继续钓鱼；疾风竿能缩短等待'}</p>
         </div>
         <div className="fishing-loadout">
           <div className="flex items-center justify-between"><span className="fishing-eyebrow">随身装备 · {(account.equipped ?? []).length}/2</span><button className="fishing-shop-link" onClick={() => { setPage('shop'); setTab('tools'); }}>管理装备</button></div>
-          {[0, 1].map((i) => { const k = account.equipped?.[i]; const cd = k === 'auto' ? account.auto_at : k === 'glove' ? account.steal_at : k === 'ward' ? account.ward_at : 0; const Icon = k === 'ward' ? Shield : k === 'glove' ? Hand : Zap;
-            return <div key={i} className={cx('fishing-tool-slot', !k && 'is-empty')}><span className="fishing-tool-icon"><Icon size={17} /></span><div className="min-w-0 flex-1"><div className="truncate text-xs font-medium">{k ? TOOLS[k as keyof typeof TOOLS] : '空装备位'}</div><span className="text-[10px] text-ink-soft">{k ? QUALITY[account.tools[k] - 1] : '去商店挑一件工具'}</span></div>{k && <span className="fishing-tool-cd">{cd > serverNow ? `${Math.ceil((cd - serverNow) / 1000)}s` : '就绪'}</span>}</div>;
+          {[0, 1].map((i) => { const k = account.equipped?.[i]; const cd = k === 'glove' ? account.steal_at : k === 'ward' ? account.ward_at : 0; const Icon = k === 'ward' ? Shield : k === 'glove' ? Hand : Zap;
+            return <div key={i} className={cx('fishing-tool-slot', !k && 'is-empty')}><span className="fishing-tool-icon"><Icon size={17} /></span><div className="min-w-0 flex-1"><div className="truncate text-xs font-medium">{k ? TOOLS[k as keyof typeof TOOLS] : '空装备位'}</div><span className="text-[10px] text-ink-soft">{k ? QUALITY[account.tools[k] - 1] : '去商店挑一件工具'}</span></div>{k && <span className="fishing-tool-cd">{k === 'auto' ? (rules.double_fish_percent ? `${rules.double_fish_percent[account.tools[k] - 1]}% 双鱼` : '服务端待更新') : cd > serverNow ? `${Math.ceil((cd - serverNow) / 1000)}s` : '就绪'}</span>}</div>;
           })}
           <Button variant="soft" size="sm" onClick={() => { setPage('shop'); setTab('sell'); }}><ShoppingBag size={14} />鱼篓与商店 · {(account.fish ?? []).length} 条鱼</Button>
         </div>

@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { balanceQuery, balanceText, buildRequest, errorOf, imageMime, parseBalance, streamReader, type Provider } from './providers.ts';
+import { modelsQuery, parseModels, balanceQuery, balanceText, buildRequest, errorOf, imageMime, parseBalance, streamReader, type Provider } from './providers.ts';
 
 const req = { model: 'm1', system: '你是小鱼', messages: [{ role: 'user' as const, content: '你好' }], temperature: 0.8, maxTokens: 800 };
 const P = (kind: Provider['kind'], baseUrl: string): Provider => ({ id: 'p', kind, name: 'x', baseUrl, key: 'sk-1' });
@@ -117,3 +117,21 @@ assert.equal(balanceQuery({ ...ds, baseUrl: 'http://localhost:11434/v1' }), null
 assert.equal(balanceText({ currency: 'CNY', amount: 3.5 }), '¥3.50');
 
 console.log('ai providers ok');
+
+// Metadata is read from streamed API envelopes, not from the model's self description.
+const meta = streamReader('openai');
+assert.equal(meta.feed(sse({model:'actual-deployment',choices:[{delta:{reasoning_content:'private reasoning'}}]})), '');
+assert.equal(meta.feed(sse({choices:[{delta:{content:'I am something else'},finish_reason:'length'}]})), 'I am something else');
+assert.equal(meta.model(),'actual-deployment'); assert.equal(meta.reasoning(),'private reasoning'); assert.equal(meta.finish(),'length');
+const thought = {...turn, thinking:true, thinkingBudget:4096, messages:[{role:'assistant' as const,content:'',reasoning:meta.reasoning(),toolCalls:[{id:'c',name:'read',args:'{}'}]}]};
+const dsBody=JSON.parse(buildRequest(ds, thought).body);
+assert.equal(dsBody.thinking.type,'enabled');assert.equal(dsBody.max_tokens,thought.maxTokens+4096);assert.equal(dsBody.temperature,undefined);
+assert.equal(dsBody.messages[1].reasoning_content,'private reasoning');
+assert.equal(JSON.parse(buildRequest(or, thought).body).messages[1].reasoning_content,undefined);
+assert.equal(JSON.parse(buildRequest(ds,req).body).thinking.type,'disabled');
+
+assert.equal(modelsQuery(ds).url,'https://api.deepseek.com/v1/models');
+assert.deepEqual(parseModels(200, '{"data":[{"id":"b"},{"id":"a"},{"id":"b"}]}'),['a','b']);
+assert.deepEqual(parseModels(200, '{"models":[{"name":"models/gemini-x","supportedGenerationMethods":["generateContent"]},{"name":"models/embed","supportedGenerationMethods":["embedContent"]}]}'),['gemini-x']);
+assert.throws(()=>parseModels(401,'{"error":{"message":"bad key"}}'),/401/);
+assert.throws(()=>parseModels(200,'{"data":[]}'),/没有返回/);

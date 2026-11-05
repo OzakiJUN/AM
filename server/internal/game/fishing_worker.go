@@ -21,14 +21,7 @@ func (s *Service) settlePond(st *State, accounts map[int64]*FishingAccount, now 
 			if p.User == 0 {
 				continue
 			}
-			a := accounts[p.User]
 			due := p.ExpiresAt
-			if q := a.quality("auto"); q > 0 {
-				ready := max(p.BiteAt, a.AutoAt)
-				if ready <= p.ExpiresAt {
-					due = ready
-				}
-			}
 			if due < at {
 				at, actor, target, steal = due, i, -1, false
 			}
@@ -59,10 +52,7 @@ func (s *Service) settlePond(st *State, accounts map[int64]*FishingAccount, now 
 		if steal {
 			s.stealCatch(st, accounts, actor, target, at)
 		} else {
-			s.reward(a, p.User, at, true)
-			if q := a.quality("auto"); q > 0 && at == max(p.BiteAt, a.AutoAt) && at <= p.ExpiresAt {
-				a.AutoAt = at + int64(s.fishing.AutoCD[q-1])*1000
-			}
+			s.landCatch(a, p.User, at)
 			s.cast(p, a, at)
 		}
 		changed = true
@@ -142,12 +132,6 @@ func (s *Service) pondBacklog(st *State, accounts map[int64]*FishingAccount, now
 		}
 		a := accounts[p.User]
 		due := p.ExpiresAt
-		if q := a.quality("auto"); q > 0 {
-			ready := max(p.BiteAt, a.AutoAt)
-			if ready <= p.ExpiresAt {
-				due = ready
-			}
-		}
 		if due <= now {
 			return true
 		}

@@ -14,11 +14,11 @@ import { deviceId } from '@/lib/deviceId';
 import { errorText } from '@/lib/errors';
 import { newProviderId, putProvider, removeProvider, useProviders } from '@/lib/ai/keys';
 import { TEMPLATES, defaultSettings, type AISettings } from '@/lib/ai/persona';
-import { KIND_LABEL, PRESETS, chatProviders, balanceQuery, balanceText, buildRequest, errorOf, streamReader, type Provider, type ProviderKind } from '@/lib/ai/providers';
+import { KIND_LABEL, PRESETS, chatProviders, balanceQuery, balanceText, buildRequest, errorOf, streamReader, modelsQuery, parseModels, isDeepSeek, type Provider, type ProviderKind } from '@/lib/ai/providers';
 import { checkBalance, useBalance } from '@/lib/ai/balance';
 import { aiSettings, refreshAIs, runHere, saveSettings, useAI } from '@/lib/ai/runner';
 import { openConv, openProfile, session, useApp } from '@/lib/store';
-import { aiRequest } from '@/lib/transport';
+import { aiGet, aiRequest } from '@/lib/transport';
 import { Button, Dialog, Field, Input, Segmented, Slider, Spinner, Toggle, ask, cx, inputClass, openMenu, toast, toastError } from '@/ui';
 import { UserAvatar, mediaPath, useMediaUrl } from './media';
 import { forgetPack } from './Portrait';
@@ -133,7 +133,7 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
       ) : (
         <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
           {tab === 'persona' && <PersonaTab draft={draft} set={set} save={save} />}
-          {tab === 'model' && <ModelTab draft={draft} set={set} save={save} />}
+          {tab === 'model' && <ModelTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
           {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
           {tab === 'social' && <SocialTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
           {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
@@ -191,9 +191,33 @@ function PersonaTab({ draft, set, save }: TabProps) {
   );
 }
 
-function ModelTab({ draft, set, save }: TabProps) {
+function ModelTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: string; aiId: string }) {
   const providers = useProviders((s) => s.list);
   const [manage, setManage] = useState(false);
+  const provider = providers.find(p => p.id === draft.providerId);
+  const [models, setModels] = useState<{ provider: string; ids: string[] } | null>(null);
+  const [result, setResult] = useState('');
+  const [loading, setLoading] = useState(false);
+  const actual = useAI(s => s.models[`${serverId}|${aiId}`]);
+  const listModels = async () => {
+    if (!provider) return;
+    setLoading(true); setResult('正在获取模型…');
+    try {
+      const q = modelsQuery(provider), res = await aiGet(q.url, q.headers);
+      setModels({ provider: provider.id, ids: parseModels(res.status, res.body) }); setResult('已获取模型，选择后记得保存');
+    } catch(e) { setResult(errorText(e)); } finally { setLoading(false); }
+  };
+  const testModel = async () => {
+    if (!provider || !draft.model) return;
+    setLoading(true); setResult('正在测试当前填写的模型…');
+    try {
+      const req = buildRequest(provider, { model: draft.model, system: '只回答：好', messages: [{ role: 'user', content: '你好' }], temperature: 0, maxTokens: 50, thinking: draft.thinking, thinkingBudget: draft.thinkingBudget });
+      const rd = streamReader(provider.kind); let out = '';
+      const status = await aiRequest(req.url, req.headers, req.body, c => { out += rd.feed(c); });
+      if (status >= 400) throw new Error(`测试失败（${status}）：${errorOf(rd.raw())}`);
+      setResult(`请求模型：${draft.model}；服务商返回模型：${rd.model() ?? '未提供'}；回复：${out.trim() || '（无文字回复）'}${rd.finish() === 'length' ? '（达到输出上限）' : ''}`);
+    } catch(e) { setResult(errorText(e)); } finally { setLoading(false); }
+  };
   return (
     <>
       <Field label="模型服务商">
@@ -205,9 +229,19 @@ function ModelTab({ draft, set, save }: TabProps) {
           <Button variant="soft" onClick={() => setManage(true)}><KeyRound size={15} /> 管理服务商</Button>
         </div>
       </Field>
-      <Field label="模型名" hint="服务商那边的模型名字，例如 deepseek-chat">
-        <Input value={draft.model} onChange={(e) => set({ model: e.target.value.trim() })} placeholder="deepseek-chat" aria-label="模型名" />
+      <Field label="模型名" hint="这里才是 AI 聊天使用的模型。可获取服务商模型列表，也可手填；修改后保存生效。">
+        <Input list="ai-model-list" value={draft.model} onChange={(e) => set({ model: e.target.value.trim() })} placeholder="例如 deepseek-flash" aria-label="模型名" />
+        <datalist id="ai-model-list">{models?.provider === draft.providerId && models.ids.map(id => <option key={id} value={id} />)}</datalist>
+        <div className="mt-2 flex gap-2"><Button variant="soft" disabled={!provider || loading} onClick={listModels}>获取可用模型</Button><Button variant="soft" disabled={!provider || !draft.model || loading} onClick={testModel}>测试当前 AI 模型</Button></div>
+        {result && <p role="status" className="mt-2 break-all text-xs">{result}</p>}
+        {actual && <p className="mt-2 break-all text-xs">最近实际聊天：请求 {actual.requested}；服务商返回 {actual.reported ?? '未提供'}（{new Date(actual.at).toLocaleString('zh-CN')}）</p>}
+        <p className="mt-2 text-xs text-ink-soft">返回名称来自 API 响应，不采用 AI 自述；中转服务的名称映射仍需向服务商核实。</p>
       </Field>
+      {provider && isDeepSeek(provider) && /^deepseek-(chat|reasoner)$/.test(draft.model) && <p className="text-xs text-amber-700 dark:text-amber-300">当前填写的是旧模型名。请获取可用模型后重新选择并保存，避免旧别名失效或映射不清。</p>}
+      {provider && isDeepSeek(provider) && <Field label="DeepSeek 思考模式" hint="开启后保留思考；额外预算与回复上限合并，思考和正文共用总输出额度，会增加 token 用量。">
+        <label className="flex items-center gap-2"><input type="checkbox" checked={!!draft.thinking} onChange={e => set({ thinking: e.target.checked })} />启用思考</label>
+        {draft.thinking && <label className="mt-2 block">额外输出预算（含思考，token）<Input type="number" min={1024} max={32768} step={1024} value={draft.thinkingBudget ?? 8192} onChange={e => set({ thinkingBudget: Math.max(1024, Math.min(32768, Number(e.target.value) || 8192)) })} /></label>}
+      </Field>}
       <div className="grid grid-cols-3 gap-3">
         <Field label={`随机程度 ${draft.temperature.toFixed(1)}`} hint="越大越活泼，越小越稳">
           <input type="range" min={0} max={1.5} step={0.1} value={draft.temperature} onChange={(e) => set({ temperature: Number(e.target.value) })} className="w-full accent-[var(--accent)]" />
@@ -986,7 +1020,7 @@ function ProviderForm({ initial, onDone }: { initial: Provider; onDone: () => vo
       const rd = streamReader(p.kind);
       let out = '';
       const status = await aiRequest(r.url, r.headers, r.body, (c) => (out += rd.feed(c)));
-      setTest(status < 400 ? `能用 ✓ 它说：${out.trim() || '（空）'}` : `不行（${status}）：${errorOf(rd.raw())}`);
+      setTest(status < 400 ? `能用 ✓ 请求模型：${model}；服务商返回模型：${rd.model() ?? '未提供'}；它说：${out.trim() || '（空）'}` : `不行（${status}）：${errorOf(rd.raw())}`);
     } catch (e) {
       setTest(`不行：${errorText(e)}`);
     }
@@ -1026,7 +1060,7 @@ function ProviderForm({ initial, onDone }: { initial: Provider; onDone: () => vo
         </Field>
       )}
       {p.kind !== 'novelai' && <div className="flex items-end gap-2">
-        <div className="flex-1"><Field label="测试用的模型名"><Input value={model} onChange={(e) => setModel(e.target.value.trim())} aria-label="测试用的模型名" /></Field></div>
+        <div className="flex-1"><Field label="测试用的模型名" hint="仅测试连接，不会修改 AI 聊天使用的模型；请到 AI 的模型页选择并保存。"><Input value={model} onChange={(e) => setModel(e.target.value.trim())} aria-label="测试用的模型名" /></Field></div>
         <Button variant="soft" disabled={!p.baseUrl || !model} onClick={tryIt}>测试</Button>
       </div>}
       {test && <p className={cx('text-[0.85rem]', test.startsWith('能用') ? 'text-emerald-600 dark:text-emerald-300' : 'text-ink-soft dark:text-white/60')}>{test}</p>}

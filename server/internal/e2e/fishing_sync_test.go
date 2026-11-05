@@ -56,14 +56,14 @@ func testFishingClientRelayedSave(t *testing.T, dest *app.App, base string) {
 			return err
 		}
 		st.Pond.Seats[0].BiteAt = time.Now().UnixMilli() - 1
-		st.Pond.Seats[0].ExpiresAt = time.Now().UnixMilli() + 30000
+		st.Pond.Seats[0].ExpiresAt = time.Now().UnixMilli() - 1
 		g.State = string(must(json.Marshal(st)))
 		return q.SaveGame(ctx, g)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	must(alice.cli.ActGame(ctx, g.Id, &amv1.GameActRequest{Action: "reel"}))
+	must(alice.cli.GetGame(ctx, g.Id))
 	purchase := &amv1.FishingActionRequest{Action: "buy_pack", RequestId: "purchase-before-move"}
 	must(alice.cli.FishingAction(ctx, purchase))
 	before, target := account(alice), account(bob)

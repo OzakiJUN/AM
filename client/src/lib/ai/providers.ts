@@ -87,6 +87,7 @@ export const balanceText = (b: Balance) =>
 export interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
+  reasoning?: string;
 }
 
 /** A tool the model may call (JSON schema for its arguments). */
@@ -109,7 +110,7 @@ export interface ToolCall {
  */
 export type AgentMsg =
   | { role: 'user'; content: string; images?: string[] }
-  | { role: 'assistant'; content: string; toolCalls?: ToolCall[] }
+  | { role: 'assistant'; content: string; toolCalls?: ToolCall[]; reasoning?: string }
   | { role: 'tool'; callId: string; name: string; content: string; images?: string[] };
 
 export interface ChatRequest {
@@ -119,6 +120,9 @@ export interface ChatRequest {
   temperature: number;
   maxTokens: number;
   tools?: ToolSpec[];
+  /** DeepSeek thinking is opt-in; its explicit budget also covers reasoning. */
+  thinking?: boolean;
+  thinkingBudget?: number;
 }
 
 export const KIND_LABEL: Record<ProviderKind, string> = { openai: 'OpenAI 兼容', claude: 'Claude', gemini: 'Gemini', novelai: 'NovelAI（画画）' };
@@ -128,7 +132,7 @@ export const chatProviders = <T extends { kind: ProviderKind }>(list: T[]) => li
 
 /** Ready-made addresses (the user can type any other). */
 export const PRESETS: { name: string; kind: ProviderKind; baseUrl: string; model: string }[] = [
-  { name: 'DeepSeek', kind: 'openai', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  { name: 'DeepSeek', kind: 'openai', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-flash' },
   { name: 'OpenAI', kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: '' },
   { name: 'OpenRouter', kind: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: '' },
   { name: 'Claude', kind: 'claude', baseUrl: 'https://api.anthropic.com', model: '' },
@@ -160,7 +164,7 @@ function groupTools(msgs: AgentMsg[]): (AgentMsg | Extract<AgentMsg, { role: 'to
   return out;
 }
 
-function openaiMessages(r: ChatRequest) {
+function openaiMessages(r: ChatRequest, deepseek = false) {
   const out: unknown[] = [{ role: 'system', content: r.system }];
   for (const m of r.messages) {
     if (m.role === 'user') {
@@ -171,9 +175,10 @@ function openaiMessages(r: ChatRequest) {
           : m.content,
       });
     } else if (m.role === 'assistant') {
+      const reasoning = deepseek && r.tools?.length ? { reasoning_content: m.reasoning ?? '' } : {};
       out.push(m.toolCalls?.length
-        ? { role: 'assistant', content: m.content || null, tool_calls: m.toolCalls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.args || '{}' } })) }
-        : { role: 'assistant', content: m.content });
+        ? { role: 'assistant', ...reasoning, content: m.content || null, tool_calls: m.toolCalls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.args || '{}' } })) }
+        : { role: 'assistant', ...reasoning, content: m.content });
     } else {
       out.push({ role: 'tool', tool_call_id: m.callId, content: m.content });
       // Tool messages can't carry pictures here: hand them over as the user.
@@ -233,9 +238,10 @@ export function buildRequest(p: Provider, r: ChatRequest): { url: string; header
         headers: { ...json, Authorization: `Bearer ${p.key}` },
         body: JSON.stringify({
           model: r.model,
-          messages: openaiMessages(r),
-          temperature: r.temperature,
-          max_tokens: r.maxTokens,
+          messages: openaiMessages(r, isDeepSeek(p)),
+          ...(!isDeepSeek(p) || !r.thinking ? { temperature: r.temperature } : {}),
+          ...(isDeepSeek(p) ? { thinking: { type: r.thinking ? 'enabled' : 'disabled' } } : {}),
+          max_tokens: r.maxTokens + (isDeepSeek(p) && r.thinking ? Math.max(1024, Math.min(32768, r.thinkingBudget ?? 8192)) : 0),
           stream: true,
           ...(tools && { tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })) }),
         }),
@@ -284,6 +290,9 @@ export function errorOf(body: string): string {
 export function streamReader(kind: ProviderKind) {
   let buf = '';
   let raw = '';
+  let reasoning = '';
+  let model: string | undefined;
+  let finish: string | undefined;
   // Calls being assembled, by the provider's index.
   const calls = new Map<number, ToolCall>();
   let gemini = 0;
@@ -300,9 +309,13 @@ export function streamReader(kind: ProviderKind) {
     } catch {
       return '';
     }
+    const reported = o.model ?? o.message?.model ?? o.modelVersion;
+    if (typeof reported === 'string') model = reported;
     switch (kind) {
       case 'openai': {
         const delta = o.choices?.[0]?.delta ?? {};
+        if (typeof delta.reasoning_content === 'string') reasoning += delta.reasoning_content;
+        if (o.choices?.[0]?.finish_reason) finish = o.choices[0].finish_reason;
         for (const tc of delta.tool_calls ?? []) {
           const c = call(tc.index ?? 0);
           if (tc.id) c.id = tc.id;
@@ -354,5 +367,30 @@ export function streamReader(kind: ProviderKind) {
       [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([i, c]) => ({ ...c, id: c.id || `call_${i}`, args: c.args || '{}' })).filter((c) => c.name),
     /** Everything received (for error bodies, which are not a stream). */
     raw: () => raw,
+    reasoning: () => reasoning,
+    model: () => model,
+    finish: () => finish,
   };
+}
+
+/** The response model is the provider's claim, not proof of the underlying weights. */
+export const isDeepSeek = (p: Provider) => p.kind === 'openai' && hostOf(p.baseUrl) === 'api.deepseek.com';
+
+export function modelsQuery(p: Provider): { url: string; headers: Record<string, string> } {
+  if (p.kind === 'openai') return { url: `${trim(p.baseUrl)}/models`, headers: { Authorization: `Bearer ${p.key}` } };
+  if (p.kind === 'claude') return { url: `${trim(p.baseUrl)}/v1/models`, headers: { 'x-api-key': p.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } };
+  if (p.kind === 'gemini') return { url: `${trim(p.baseUrl)}/v1beta/models`, headers: { 'x-goog-api-key': p.key } };
+  throw new Error('这个服务商不提供聊天模型');
+}
+
+export function parseModels(status: number, body: string): string[] {
+  if (status >= 400) throw new Error(`获取模型失败（${status}）：${errorOf(body)}`);
+  const o = JSON.parse(body);
+  const ids = (o.data ?? o.models ?? []).flatMap((m: { id?: string; name?: string; supportedGenerationMethods?: string[] }) => {
+    if (m.supportedGenerationMethods && !m.supportedGenerationMethods.includes('generateContent')) return [];
+    const id = m.id ?? m.name?.replace(/^models\//, '');
+    return typeof id === 'string' && id ? [id] : [];
+  });
+  if (!ids.length) throw new Error('服务商没有返回可用模型；仍可手动填写');
+  return [...new Set<string>(ids)].sort();
 }
