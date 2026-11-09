@@ -349,6 +349,22 @@ update the docs in the same commit.
   owner / AI, recognise by account), `memoryPrompt`, and `elsewhere` (all
   chats incl. private ones, last 12 h). Installed workshop items live in
   `lib/workshop.ts` (`useWorkshop`); `syncPlugins` teaches them to running AIs.
+- Phones / Android (docs/design.md §5 手机和安卓): below 720 px (`lib/layout.ts`
+  `useNarrow`, Tailwind variant `phone:`) `Shell.tsx` switches to `PhoneShell`
+  (tab bar 频道 / 私信 / AI / 我, one thing at a time, sub-pages with a back
+  bar); `FoldColumn` fills the screen, big `Dialog`s are full-screen. The back
+  button goes through `lib/back.ts` (`useBack`, pure `BackStack`, tested):
+  anything that opens on a phone (dialog, chat, page) registers there. The
+  Android project is `src-tauri/gen/android` (committed; `MainActivity.kt` pads
+  by system-bar / keyboard insets); desktop-only Rust (tray, F12, trash, host
+  mode) is behind `cfg(desktop)`; secrets use `android-native-keyring-store`;
+  camera QR = `tauri-plugin-barcode-scanner` (`scanQRCamera`,
+  `capabilities/mobile.json`); `isAndroid` (lib/platform.ts) hides computer
+  features, phones never run AIs (`runHere` refuses), updates open the
+  release's `AM-android.apk`. CI `client-android` signs it with the secret
+  `ANDROID_SIGNING_KEY` (`am-server android-keygen`, docs/release.md 安卓).
+  Local Android builds need the SDK + NDK 27 (`NDK_HOME`); Gradle 9 is
+  fetched from GitHub, so only CI builds the APK in the cloud session.
 - Checks: `cd client && npm run typecheck && npm test && npx vite build`;
   e2e: `client/e2e/e2e.mjs` (see client/README.md).
 
