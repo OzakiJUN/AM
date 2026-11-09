@@ -42,6 +42,9 @@ impl Browser {
 /// Running browsers by profile folder.
 static BROWSERS: Mutex<Vec<(PathBuf, Running)>> = Mutex::new(Vec::new());
 
+/// Short-lived tabs of our own (the B站 login); the AI's tab is never one of them.
+static SIDE_TABS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
 /// Edge (always on Windows 10/11), else Chrome; AM_BROWSER overrides (tests).
 fn find_exe() -> R<PathBuf> {
     if let Ok(p) = std::env::var("AM_BROWSER") {
@@ -170,7 +173,12 @@ async fn cdp(b: &Browser, method: &str, params: Value) -> R<Value> {
     let (mut ws, _) = tokio_tungstenite::connect_async(url).await.map_err(|e| format!("连不上浏览器：{e}"))?;
     let run = async {
         let targets = call(&mut ws, 1, "Target.getTargets", json!({}), None).await?;
-        let page = targets["targetInfos"].as_array().and_then(|a| a.iter().find(|t| t["type"] == "page")).and_then(|t| t["targetId"].as_str()).map(str::to_owned);
+        let side = SIDE_TABS.lock().map(|g| g.clone()).unwrap_or_default();
+        let page = targets["targetInfos"]
+            .as_array()
+            .and_then(|a| a.iter().find(|t| t["type"] == "page" && !side.iter().any(|s| t["targetId"] == s.as_str())))
+            .and_then(|t| t["targetId"].as_str())
+            .map(str::to_owned);
         let target = match page {
             Some(t) => t,
             None => call(&mut ws, 2, "Target.createTarget", json!({ "url": "about:blank" }), None).await?["targetId"].as_str().unwrap_or_default().to_owned(),
@@ -442,6 +450,103 @@ pub async fn screenshot(b: &Browser) -> R<String> {
     shot["data"].as_str().map(str::to_owned).ok_or_else(|| "截不到图".into())
 }
 
+/// What to do in a side tab.
+enum SideJob<'a> {
+    /// Open the page, run this (a promise) and return its value.
+    Eval(&'a str, &'a str),
+    /// Delete every bilibili.com cookie.
+    ForgetBili,
+}
+
+/// Does `job` in a tab of its own, then closes the tab, so whatever the AI
+/// is looking at stays as it is.
+async fn in_side_tab(b: &Browser, job: SideJob<'_>) -> R<Value> {
+    let ws_url = ensure(b).await?;
+    let (mut ws, _) = tokio_tungstenite::connect_async(ws_url).await.map_err(|e| format!("连不上浏览器：{e}"))?;
+    let created = call(&mut ws, 1, "Target.createTarget", json!({ "url": "about:blank", "background": true }), None).await?;
+    let target = created["targetId"].as_str().ok_or("开不了新标签页")?.to_owned();
+    if let Ok(mut g) = SIDE_TABS.lock() {
+        g.push(target.clone());
+    }
+    let run = async {
+        let att = call(&mut ws, 2, "Target.attachToTarget", json!({ "targetId": target, "flatten": true }), None).await?;
+        let session = att["sessionId"].as_str().ok_or("浏览器页面连不上")?.to_owned();
+        let mut id = 3;
+        match job {
+            SideJob::ForgetBili => {
+                let all = call(&mut ws, id, "Storage.getCookies", json!({}), None).await?;
+                for c in all["cookies"].as_array().into_iter().flatten() {
+                    let domain = c["domain"].as_str().unwrap_or("");
+                    if domain.trim_start_matches('.') == "bilibili.com" || domain.ends_with(".bilibili.com") {
+                        id += 1;
+                        call(&mut ws, id, "Network.deleteCookies", json!({ "name": c["name"], "domain": domain, "path": c["path"] }), Some(&session)).await?;
+                    }
+                }
+                Ok(json!({ "login": false, "name": "" }))
+            }
+            SideJob::Eval(url, js) => {
+                call(&mut ws, id, "Page.navigate", json!({ "url": url }), Some(&session)).await?;
+                for _ in 0..60 {
+                    tokio::time::sleep(Duration::from_millis(250)).await;
+                    id += 1;
+                    let r = call(&mut ws, id, "Runtime.evaluate", json!({ "expression": "document.readyState", "returnByValue": true }), Some(&session)).await?;
+                    if r["result"]["value"] == "complete" {
+                        break;
+                    }
+                }
+                let r = call(&mut ws, id + 1, "Runtime.evaluate", json!({ "expression": js, "returnByValue": true, "awaitPromise": true }), Some(&session)).await?;
+                if let Some(ex) = r.get("exceptionDetails") {
+                    return Err(format!("页面脚本出错：{}", ex["exception"]["description"].as_str().unwrap_or("?")));
+                }
+                Ok(r["result"]["value"].clone())
+            }
+        }
+    };
+    let r = tokio::time::timeout(Duration::from_secs(30), run).await.map_err(|_| "浏览器没反应".to_string()).and_then(|r| r);
+    let _ = call(&mut ws, 9999, "Target.closeTarget", json!({ "targetId": target }), None).await;
+    if let Ok(mut g) = SIDE_TABS.lock() {
+        g.retain(|t| t != &target);
+    }
+    let _ = ws.close(None).await;
+    r
+}
+
+/// A small page on www.bilibili.com: the login requests must come from there
+/// so the cookies land in the browser.
+const BILI_PAGE: &str = "https://www.bilibili.com/robots.txt";
+
+/// Bilibili QR login for the background browser (docs/design.md §9 上网冲浪):
+/// logged in, it gets subtitles and full comments. `start` gives the QR
+/// link and its key; `poll` says how the scan is going (0 = logged in);
+/// `status` says who is logged in; `logout` drops the bilibili cookies.
+pub async fn bili(b: &Browser, action: &str, key: &str) -> R<Value> {
+    let get = |u: String| format!("fetch({u:?}, {{ credentials: 'include' }}).then((r) => r.json())");
+    const NAV: &str = "https://api.bilibili.com/x/web-interface/nav";
+    let status = format!("{}.then((j) => ({{ login: !!(j.data && j.data.isLogin), name: (j.data && j.data.uname) || '' }}))", get(NAV.into()));
+    match action {
+        "start" => {
+            let js = format!(
+                "{}.then((j) => {{ if (j.code !== 0 || !j.data) throw new Error(j.message || '拿不到二维码'); return {{ url: j.data.url, key: j.data.qrcode_key }}; }})",
+                get("https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header".into())
+            );
+            in_side_tab(b, SideJob::Eval(BILI_PAGE, &js)).await
+        }
+        "poll" => {
+            if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric()) {
+                return Err("二维码不对".into());
+            }
+            let poll = get(format!("https://passport.bilibili.com/x/passport-login/web/qrcode/poll?source=main-fe-header&qrcode_key={key}"));
+            let js = format!(
+                "{poll}.then(async (j) => {{ const d = j.data || {{}}; const out = {{ code: d.code ?? j.code, message: d.message || j.message || '' }}; if (out.code === 0) Object.assign(out, await {status}); return out; }})"
+            );
+            in_side_tab(b, SideJob::Eval(BILI_PAGE, &js)).await
+        }
+        "status" => in_side_tab(b, SideJob::Eval(BILI_PAGE, &status)).await,
+        "logout" => in_side_tab(b, SideJob::ForgetBili).await,
+        _ => Err(format!("不认识的操作：{action}")),
+    }
+}
+
 /// Closes the AI's browsers (both).
 pub fn close() {
     if let Ok(mut g) = BROWSERS.lock() {
@@ -533,6 +638,35 @@ mod tests {
         assert!(text.contains("弹幕（共") && text.contains("热门评论"), "{text}");
         let hits = open(&b, "https://search.bilibili.com/all?keyword=%E6%98%9F%E7%A9%B9%E9%93%81%E9%81%93").await.unwrap();
         assert!(hits.contains("星穹铁道"), "{hits}");
+        let _ = std::fs::remove_dir_all(&b.profile);
+    }
+
+    /// Bilibili QR login in a side tab (needs the internet): AM_TEST_BILI_LOGIN=1;
+    /// AM_BROWSER_PROXY when behind a proxy. Nobody scans, so it stays 86101.
+    #[tokio::test]
+    async fn bilibili_qr_login_in_a_side_tab() {
+        let (Ok(_), Ok(_)) = (std::env::var("AM_BROWSER"), std::env::var("AM_TEST_BILI_LOGIN")) else { return };
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let b = Browser::new(std::env::temp_dir().join(format!("am-bililogin-{}", std::process::id())), true);
+        // The AI's own tab is left alone.
+        cdp(&b, "Page.navigate", json!({ "url": "data:text/html,<title>mine</title>" })).await.unwrap();
+        settle(&b).await;
+        let start = bili(&b, "start", "").await.unwrap();
+        let key = start["key"].as_str().unwrap().to_owned();
+        assert!(start["url"].as_str().unwrap().starts_with("https://") && !key.is_empty(), "{start}");
+        let poll = bili(&b, "poll", &key).await.unwrap();
+        assert_eq!(poll["code"], 86101, "{poll}");
+        assert!(bili(&b, "poll", "x'); alert(1); ('").await.is_err());
+        let st = bili(&b, "status", "").await.unwrap();
+        assert_eq!(st["login"], false, "{st}");
+        let set = "Promise.resolve((document.cookie = 'SESSDATA=fake; domain=.bilibili.com; path=/', document.cookie))";
+        assert!(in_side_tab(&b, SideJob::Eval(BILI_PAGE, set)).await.unwrap().as_str().unwrap().contains("SESSDATA=fake"));
+        assert_eq!(bili(&b, "logout", "").await.unwrap()["login"], false);
+        let left = in_side_tab(&b, SideJob::Eval(BILI_PAGE, "Promise.resolve(document.cookie)")).await.unwrap();
+        assert!(!left.as_str().unwrap().contains("SESSDATA"), "{left}");
+        assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("mine".into()));
+        assert!(SIDE_TABS.lock().unwrap().is_empty());
         let _ = std::fs::remove_dir_all(&b.profile);
     }
 }

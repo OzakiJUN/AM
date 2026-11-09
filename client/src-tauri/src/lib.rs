@@ -211,6 +211,13 @@ struct BrowserMedia {
     images: Vec<String>,
 }
 
+/// Bilibili login for the AI's background browser (docs/design.md §9 上网冲浪).
+#[tauri::command]
+async fn agent_bili(app: tauri::AppHandle, action: String, key: Option<String>) -> Res<serde_json::Value> {
+    // Always the background browser: that is where the AI surfs.
+    browser::bili(&ai_browser(&app, true)?, &action, key.as_deref().unwrap_or("")).await
+}
+
 /// Watching a video page (details, subtitles, danmaku, comments, frames) or
 /// a picture of the page.
 #[tauri::command]
@@ -546,7 +553,7 @@ pub fn run() {
             save_edited_image, server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, agent_browser_media, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
+            agent_browser, agent_browser_media, agent_bili, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
             update_download, update_install, update_mode
         ])
         .run(tauri::generate_context!())

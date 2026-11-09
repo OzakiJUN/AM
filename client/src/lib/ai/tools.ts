@@ -104,6 +104,16 @@ async function rust<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
   return invoke<T>(cmd, args);
 }
 
+/** Bilibili login of the AI's background browser on this device (QR scan). */
+export type BiliState = { login: boolean; name: string };
+export const biliLogin = {
+  status: () => rust<BiliState>('agent_bili', { action: 'status' }),
+  start: () => rust<{ url: string; key: string }>('agent_bili', { action: 'start' }),
+  /** code: 86101 not scanned, 86090 scanned (confirm on the phone), 86038 expired, 0 logged in. */
+  poll: (key: string) => rust<{ code: number; message: string } & Partial<BiliState>>('agent_bili', { action: 'poll', key }),
+  logout: () => rust<BiliState>('agent_bili', { action: 'logout' }),
+};
+
 const MAX_READ = 30_000;
 const SHOT_WIDTH = 1280;
 
