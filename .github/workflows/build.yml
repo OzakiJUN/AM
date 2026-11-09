@@ -112,6 +112,8 @@ jobs:
         with:
           workspaces: client/src-tauri
           key: android
+      # Caches Gradle and its downloads between runs.
+      - uses: gradle/actions/setup-gradle@v5
       - name: Android SDK parts (the runner has the SDK)
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
       - name: Build the Android app (arm64 APK)
