@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Bell, BellOff, Compass, Lock, PanelLeftClose, PanelLeftOpen, Pin, PinOff, Plus, RefreshCw, Search, Users, WifiOff } from 'lucide-react';
 import { listTime } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
+import { useNarrow } from '@/lib/layout';
 import { convPage, isDeletedBotConv, openConv, session, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import { IconButton, IdentityChip, Spinner, cx, openMenu, spring, type MenuItem } from '@/ui';
@@ -24,6 +25,7 @@ const PAGES = {
 export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES }) {
   const openId = useOpenConv(page, v.id);
   const folded = usePrefs((p) => p.listFolded);
+  const narrow = useNarrow();
   const setPrefs = usePrefs((p) => p.set);
   const [q, setQ] = useState('');
   const [dialog, setDialog] = useState<'browse' | 'create' | 'people' | null>(null);
@@ -75,7 +77,7 @@ export function ConvList({ v, page }: { v: SessionView; page: keyof typeof PAGES
       <div className="mt-3 flex items-center gap-1 px-1">
         <h2 className="flex-1 text-[0.95rem] font-semibold text-ink-soft dark:text-white/60">{PAGES[page].title}</h2>
         {actions}
-        <IconButton label="收起列表" onClick={() => setPrefs({ listFolded: true })}><PanelLeftClose size={18} /></IconButton>
+        {!narrow && <IconButton label="收起列表" onClick={() => setPrefs({ listFolded: true })}><PanelLeftClose size={18} /></IconButton>}
       </div>
       <div className="relative my-2">
         <Search size={16} className="absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-soft/70 dark:text-white/40" />

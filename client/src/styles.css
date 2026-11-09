@@ -2,6 +2,8 @@
 
 /* Dark mode follows the "dark" class on <html> (set from the theme store). */
 @custom-variant dark (&:where(.dark, .dark *));
+/* Phone layout (lib/layout.ts NARROW = 720). */
+@custom-variant phone (@media (max-width: 719px));
 
 /*
   Theme. The accent colour is chosen by the user, so every accent shade is

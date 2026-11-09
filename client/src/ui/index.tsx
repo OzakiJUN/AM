@@ -6,6 +6,8 @@ import { AnimatePresence, motion, type Transition } from 'motion/react';
 import { create } from 'zustand';
 import { X } from 'lucide-react';
 import type { User } from '@/lib/types';
+import { useBack } from '@/lib/back';
+import { useNarrow } from '@/lib/layout';
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ');
@@ -341,13 +343,17 @@ export function Dialog({ open, onClose, title, children, width = 440 }: {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+  // Phones: the back button closes it; big dialogs take the whole screen.
+  const narrow = useNarrow();
+  useBack(open && narrow, onClose);
+  const full = narrow && width > 480;
   // Portal to <body>: a parent with backdrop-filter (the glass panels) would
   // otherwise become the containing block and trap the fixed overlay inside it.
   return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-[#15132a]/30 p-6 backdrop-blur-[3px]"
+          className={cx('fixed inset-0 z-40 flex items-center justify-center bg-[#15132a]/30 backdrop-blur-[3px]', full ? 'p-0' : narrow ? 'p-3' : 'p-6')}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -357,16 +363,16 @@ export function Dialog({ open, onClose, title, children, width = 440 }: {
           <motion.div
             role="dialog"
             aria-modal="true"
-            className="glass-strong max-h-full w-full overflow-y-auto rounded-3xl p-6 shadow-2xl"
-            style={{ maxWidth: width }}
-            initial={{ opacity: 0, scale: 0.94, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 6, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
+            className={cx('glass-strong max-h-full w-full overflow-y-auto shadow-2xl', full ? 'h-full rounded-none p-4' : narrow ? 'rounded-3xl p-5' : 'rounded-3xl p-6')}
+            style={{ maxWidth: full ? undefined : width }}
+            initial={full ? { opacity: 0, y: 40 } : { opacity: 0, scale: 0.94, y: 12 }}
+            animate={full ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+            exit={full ? { opacity: 0, y: 30, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } } : { opacity: 0, scale: 0.97, y: 6, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
             transition={spring}
           >
             {title && (
               <div className="mb-4 flex items-center gap-3">
-                <h2 className="flex-1 text-[1.15rem] font-semibold">{title}</h2>
+                <h2 className="min-w-0 flex-1 text-[1.15rem] font-semibold">{title}</h2>
                 <IconButton label="关闭" onClick={onClose}><X size={18} /></IconButton>
               </div>
             )}

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Bell, Check, ExternalLink, ImageUp, Info, Monitor, Moon, Palette, Plus, RotateCcw, Server, Shield, Sun, Trash2, Type, Volume2, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ACCENTS, GLASS_DEFAULTS, GLASS_STYLES, imageFileToDataURL, useTheme } from '@/lib/theme';
 import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/store';
 import { usePrefs } from '@/lib/prefs';
+import { useNarrow } from '@/lib/layout';
 import { inTauri, notify, openUrl } from '@/lib/platform';
 import { CATEGORY_LABEL, REMOTE_CATEGORIES } from '@/lib/ai/agent';
 import type { Level, ToolCategory } from '@/lib/ai/persona';
@@ -24,25 +25,28 @@ export function SettingsPage() {
     { id: 'notify', label: '通知与窗口', Icon: Bell },
     { id: 'about', label: '关于与更新', Icon: Info },
   ];
+  // Phones: the sections are a row of chips above the content.
+  const narrow = useNarrow();
+  const Wrap = narrow ? 'div' : Fragment;
   return (
-    <>
-      <aside className="glass flex w-[220px] shrink-0 flex-col gap-1 rounded-3xl p-3">
-        <h2 className="px-3 pt-2 pb-3 text-[1.2rem] font-semibold">设置</h2>
+    <Wrap {...(narrow ? { className: 'flex min-w-0 flex-1 flex-col gap-2' } : {})}>
+      <aside className={narrow ? 'glass flex shrink-0 gap-1 overflow-x-auto rounded-2xl p-1.5' : 'glass flex w-[220px] shrink-0 flex-col gap-1 rounded-3xl p-3'}>
+        {!narrow && <h2 className="px-3 pt-2 pb-3 text-[1.2rem] font-semibold">设置</h2>}
         {tabs.map(({ id, label, Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={cx(
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition',
+              narrow ? 'flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[0.88rem] whitespace-nowrap transition' : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition',
               'lift',
               tab === id ? 'bg-accent-100 font-medium text-accent-700 shadow-[var(--shadow-card)] dark:bg-white/10 dark:text-white' : 'hover:bg-white/60 dark:hover:bg-white/5',
             )}
           >
-            <Icon size={18} /> {label}
+            <Icon size={narrow ? 16 : 18} /> {label}
           </button>
         ))}
       </aside>
-      <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
+      <section className="glass flex-1 overflow-y-auto rounded-3xl p-8 phone:p-4">
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring}>
           {tab === 'appearance' && <Appearance />}
           {tab === 'sound' && <Sound />}
@@ -52,7 +56,7 @@ export function SettingsPage() {
           {tab === 'about' && <About />}
         </motion.div>
       </section>
-    </>
+    </Wrap>
   );
 }
 

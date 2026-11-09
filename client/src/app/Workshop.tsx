@@ -91,7 +91,7 @@ export function WorkshopPage() {
   };
 
   return (
-    <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
+    <section className="glass flex-1 overflow-y-auto rounded-3xl p-8 phone:p-4">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="mx-auto max-w-4xl">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent-100 text-accent dark:bg-white/10"><Store size={24} /></div>

@@ -1,11 +1,13 @@
 import { createContext, useContext, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  AlertCircle, Ban, Bot, Copy, Download, FileText, Hash, ImagePlus, Landmark, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
+  AlertCircle, Ban, Bot, ChevronLeft, MoreHorizontal, Users, Copy, Download, FileText, Hash, ImagePlus, Landmark, Lock, Megaphone, MessageCircle, Mic, Paperclip, PanelRight, RotateCw,
   Pencil, Forward, CheckSquare, Reply, X, SendHorizontal, Settings2, Smile, Sparkles, Sticker, Strikethrough, Trash2, Upload, UserPlus,
 } from 'lucide-react';
 import { chatTime, fileSize } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
+import { useNarrow } from '@/lib/layout';
+import { useBack } from '@/lib/back';
 import { activityText } from '@/lib/presence';
 import { closeConv, current, openProfile, useOpenConv, type ConvPage } from '@/lib/store';
 import { replyPreview, replyTarget } from '@/lib/replies';
@@ -66,6 +68,11 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
   });
   const membersFolded = usePrefs((p) => p.membersFolded);
   const setPrefs = usePrefs((p) => p.set);
+  // Phones: the chat fills the screen; back (or ←) returns to the list,
+  // the member list opens as a sheet and the header actions sit in one menu.
+  const narrow = useNarrow();
+  const [membersOpen, setMembersOpen] = useState(false);
+  useBack(narrow && !!convId, () => closeConv(page, v.id));
   const [groupOpen, setGroupOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [aiOpen, setAIOpen] = useState(false);
@@ -117,7 +124,8 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
     <ChatTools.Provider value={{ selected, select, edit: setEditor, place: setPinSpot }}>
     <>
       <section className="glass relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-black/5 px-5 dark:border-white/5">
+        <header className={cx('flex h-16 shrink-0 items-center gap-2 border-b border-black/5 dark:border-white/5', narrow ? 'px-2' : 'px-5')}>
+          {narrow && <IconButton label="返回" onClick={() => closeConv(page, v.id)}><ChevronLeft size={22} /></IconButton>}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               {group && (conv.public ? <Hash size={17} className="shrink-0 text-ink-soft" /> : <Lock size={15} className="shrink-0 text-ink-soft" aria-label="私密频道" />)}
@@ -132,7 +140,24 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
               {blocked && ' · 已屏蔽'}
             </div>
           </div>
-          {group && !conv.left && (
+          {group && !conv.left && narrow && (
+            <>
+              <GameButton v={v} conv={conv} />
+              <MuseumButton v={v} conv={conv} />
+              <IconButton label="更多" onClick={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                const r = el.getBoundingClientRect();
+                const items: MenuItem[] = [
+                  { label: '成员', icon: <Users size={16} />, onClick: () => setMembersOpen(true) },
+                  { label: '邀请成员', icon: <UserPlus size={16} />, onClick: () => setInviteOpen(true) },
+                ];
+                if (!conv.aiId && v.me?.type === 'human') items.push({ label: '添加 bot', icon: <Bot size={16} />, onClick: () => addBotMenu({ currentTarget: el } as unknown as React.MouseEvent, v, conv) });
+                items.push({ label: '频道设置', icon: <Settings2 size={16} />, onClick: () => setGroupOpen(true) });
+                openMenu({ clientX: r.right - 8, clientY: r.bottom }, items);
+              }}><MoreHorizontal size={20} /></IconButton>
+            </>
+          )}
+          {group && !conv.left && !narrow && (
             <>
               <GameButton v={v} conv={conv} />
               <MuseumButton v={v} conv={conv} />
@@ -178,8 +203,13 @@ export function ChatView({ v, page }: { v: SessionView; page: ConvPage }) {
         {myAI && peer && <AISettingsDialog open={aiOpen} onClose={() => setAIOpen(false)} aiId={peer.id} />}
         {botAdmin && peer && <HelperProfileDialog open={botOpen} onClose={() => setBotOpen(false)} serverId={v.id} botId={peer.id} />}
       </section>
+      {narrow && group && !conv.left && (
+        <Dialog open={membersOpen} onClose={() => setMembersOpen(false)} title={`成员 · ${memberCount(v, conv)} 人`} width={720}>
+          <MemberPanel v={v} conv={conv} onInvite={() => { setMembersOpen(false); setInviteOpen(true); }} />
+        </Dialog>
+      )}
       <AnimatePresence initial={false}>
-        {group && !conv.left && (
+        {group && !conv.left && !narrow && (
           <motion.div
             key="members"
             initial={{ opacity: 0, x: 24 }}
@@ -568,6 +598,7 @@ function ImageViewer({ mediaId, onClose }: { mediaId: string | null; onClose: ()
 const EMOJI = '😀😂🤣😊😍🥰😘😎🤔😅😭😡🥺😴🤯👍👎👏🙏💪🎉❤️🔥✨💯🤝👀🫡🥳😇😋🤗😏😬🙄😱🤤'.match(/\p{Extended_Pictographic}️?/gu)!;
 
 function Composer({ v, conv, blocked, replyId, onCancelReply }: { v: SessionView; conv: Conversation; blocked: boolean; replyId?: string; onCancelReply: () => void }) {
+  const narrow = useNarrow();
   const [text, setText] = useState('');
   // @-mentions (channels): who was picked from the list, and the list being shown.
   const picked = useRef(new Map<string, string>());
@@ -669,7 +700,7 @@ function Composer({ v, conv, blocked, replyId, onCancelReply }: { v: SessionView
     ta.style.height = Math.min(160, Math.max(52, ta.scrollHeight)) + 'px';
   }, [text]);
 
-  const placeholder = conv.left ? '你已经不在这个频道里了' : muted ? '你被禁言了' : blocked ? '你屏蔽了对方，取消屏蔽后才能发消息' : v.status !== 'online' ? '正在连接服务器…' : '说点什么…（Enter 发送，Shift+Enter 换行）';
+  const placeholder = conv.left ? '你已经不在这个频道里了' : muted ? '你被禁言了' : blocked ? '你屏蔽了对方，取消屏蔽后才能发消息' : v.status !== 'online' ? '正在连接服务器…' : narrow ? '说点什么…' : '说点什么…（Enter 发送，Shift+Enter 换行）';
   return (
     <div className="relative shrink-0 px-4 pb-4">
       {replyId && (
@@ -804,7 +835,8 @@ function Composer({ v, conv, blocked, replyId, onCancelReply }: { v: SessionView
                   return;
                 }
               }
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              // Phones: Enter is a new line, the send button sends.
+              if (e.key === 'Enter' && !e.shiftKey && !narrow && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 submit();
               }

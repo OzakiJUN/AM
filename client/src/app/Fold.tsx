@@ -5,6 +5,7 @@
 // per-device preference (lib/prefs.ts).
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion, type Transition } from 'motion/react';
+import { useNarrow } from '@/lib/layout';
 import { cx } from '@/ui';
 
 const glide: Transition = { type: 'spring', stiffness: 300, damping: 32, mass: 0.9 };
@@ -19,6 +20,14 @@ export function FoldColumn({ folded, width, foldedWidth, full, strip, label }: {
   label: string;
 }) {
   const w = folded ? foldedWidth : width;
+  // Phones: the column is the whole screen and never folds.
+  if (useNarrow()) {
+    return (
+      <aside aria-label={label} className="glass relative flex min-w-0 flex-1 overflow-hidden rounded-3xl">
+        <div className="flex h-full min-w-0 flex-1 flex-col">{full}</div>
+      </aside>
+    );
+  }
   return (
     <motion.aside
       aria-label={label}

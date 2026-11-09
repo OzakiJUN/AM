@@ -8,6 +8,7 @@ import { memberCount, type SessionView } from '@/lib/session';
 import type { Conversation, MemberRole } from '@/lib/types';
 import { Button, Dialog, Field, IconButton, IdentityChip, Input, RoleChip, Spinner, Toggle, ask, cx, inputClass, openMenu, spring, toast, toastError, type MenuItem } from '@/ui';
 import { FoldColumn, StripItem } from './Fold';
+import { useNarrow } from '@/lib/layout';
 import { ConvAvatar, UserAvatar } from './media';
 import { PersonPicker, messageUser, toggleBlock } from './People';
 
@@ -17,6 +18,7 @@ const RANK: Record<MemberRole, number> = { owner: 3, admin: 2, member: 1 };
 export function MemberPanel({ v, conv, onInvite }: { v: SessionView; conv: Conversation; onInvite: () => void }) {
   const folded = usePrefs((p) => p.membersFolded);
   const setPrefs = usePrefs((p) => p.set);
+  const narrow = useNarrow();
   const byRole = [...conv.members].sort((a, b) => RANK[b.role] - RANK[a.role]);
   const online = byRole.filter((m) => v.presence[m.userId]);
   const offline = byRole.filter((m) => !v.presence[m.userId]);
@@ -95,7 +97,7 @@ export function MemberPanel({ v, conv, onInvite }: { v: SessionView; conv: Conve
       <div className="mb-3 flex items-center gap-0.5">
         <h3 className="flex-1 font-semibold">成员 · {byRole.length}</h3>
         <IconButton label="邀请成员" onClick={onInvite}><UserPlus size={17} /></IconButton>
-        <IconButton label="收起成员列表" onClick={() => setPrefs({ membersFolded: true })}><PanelRightClose size={17} /></IconButton>
+        {!narrow && <IconButton label="收起成员列表" onClick={() => setPrefs({ membersFolded: true })}><PanelRightClose size={17} /></IconButton>}
       </div>
       {canManage && requests.length > 0 && (
         <div className="mb-3 space-y-2 rounded-2xl bg-accent-50 p-2.5 dark:bg-white/5">
