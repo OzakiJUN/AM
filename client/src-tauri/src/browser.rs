@@ -24,18 +24,55 @@ struct Running {
     child: std::process::Child,
     /// ws://127.0.0.1:<port>/devtools/browser/<id>
     ws: String,
+    /// What it was started with.
+    proxy: Proxy,
 }
 
-/// One of the AI's browsers: its profile folder, and whether it runs in the
-/// background (headless, muted, smaller page readouts).
+/// How the browser reaches the internet (docs/design.md §9 上网冲浪): the
+/// system's settings, never through a proxy, or through this one.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Proxy {
+    System,
+    Direct,
+    Server(String),
+}
+
+impl Proxy {
+    /// "system", "direct", or a proxy address (scheme://host:port).
+    pub fn parse(s: &str) -> R<Proxy> {
+        match s {
+            "" | "system" => Ok(Proxy::System),
+            "direct" => Ok(Proxy::Direct),
+            _ => {
+                let ok_scheme = ["http://", "https://", "socks4://", "socks5://"].iter().any(|p| s.starts_with(p));
+                let ok_chars = s.chars().all(|c| c.is_ascii_alphanumeric() || ".:/-[]".contains(c));
+                if ok_scheme && ok_chars && s.len() < 200 {
+                    Ok(Proxy::Server(s.to_owned()))
+                } else {
+                    Err("代理地址不对".into())
+                }
+            }
+        }
+    }
+}
+
+/// One of the AI's browsers: its profile folder, whether it runs in the
+/// background (headless, muted, smaller page readouts), and the proxy this
+/// call wants (None = whatever it runs with now; a different one restarts it).
 pub struct Browser {
     pub profile: PathBuf,
     pub background: bool,
+    pub proxy: Option<Proxy>,
 }
 
 impl Browser {
     pub fn new(profile: PathBuf, background: bool) -> Self {
-        Self { profile, background }
+        Self { profile, background, proxy: None }
+    }
+
+    pub fn with_proxy(mut self, proxy: Option<Proxy>) -> Self {
+        self.proxy = proxy;
+        self
     }
 }
 
@@ -68,11 +105,19 @@ async fn ensure(b: &Browser) -> R<String> {
     {
         let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
         if let Some(i) = g.iter().position(|(p, _)| p == &b.profile) {
-            if g[i].1.child.try_wait().map_err(|e| e.to_string())?.is_none() {
+            let alive = g[i].1.child.try_wait().map_err(|e| e.to_string())?.is_none();
+            if alive && b.proxy.as_ref().is_none_or(|p| p == &g[i].1.proxy) {
                 return Ok(g[i].1.ws.clone());
             }
-            g.remove(i); // closed by the owner
+            let (_, mut old) = g.remove(i); // closed by the owner, or another proxy wanted
+            if alive {
+                let _ = old.child.kill();
+                let _ = old.child.wait();
+            }
         }
+    }
+    if b.proxy.is_some() {
+        tokio::time::sleep(Duration::from_millis(300)).await; // let the old one let go of the profile
     }
     let mut r = launch(b, None).await?;
     if b.background {
@@ -105,8 +150,19 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
     if std::env::var("AM_BROWSER_HEADLESS").is_ok() {
         cmd.arg("--no-sandbox");
     }
-    if let Ok(proxy) = std::env::var("AM_BROWSER_PROXY") {
-        cmd.arg(format!("--proxy-server={proxy}")); // tests behind a proxy
+    let proxy = b.proxy.clone().unwrap_or(Proxy::System);
+    match &proxy {
+        Proxy::System => {
+            if let Ok(p) = std::env::var("AM_BROWSER_PROXY") {
+                cmd.arg(format!("--proxy-server={p}")); // tests behind a proxy
+            }
+        }
+        Proxy::Direct => {
+            cmd.arg("--no-proxy-server");
+        }
+        Proxy::Server(p) => {
+            cmd.arg(format!("--proxy-server={p}"));
+        }
     }
     if let Some(ua) = ua {
         cmd.arg(format!("--user-agent={ua}"));
@@ -125,7 +181,7 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
         if let Ok(t) = std::fs::read_to_string(&port_file) {
             let mut l = t.lines();
             if let (Some(port), Some(path)) = (l.next().and_then(|p| p.trim().parse::<u16>().ok()), l.next()) {
-                return Ok(Running { child, ws: format!("ws://127.0.0.1:{port}{}", path.trim()) });
+                return Ok(Running { child, ws: format!("ws://127.0.0.1:{port}{}", path.trim()), proxy });
             }
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -242,9 +298,18 @@ fn check_url(url: &str) -> R<&str> {
     Ok(u)
 }
 
+/// Goes to `url`; a page that could not be loaded is an error (net::ERR_…).
+async fn navigate(b: &Browser, url: &str) -> R<()> {
+    let r = cdp(b, "Page.navigate", json!({ "url": url })).await?;
+    match r["errorText"].as_str().filter(|e| !e.is_empty() && *e != "net::ERR_ABORTED") {
+        Some(e) => Err(format!("打不开这个网址：{e}")),
+        None => Ok(()),
+    }
+}
+
 pub async fn open(b: &Browser, url: &str) -> R<String> {
     let u = check_url(url)?;
-    cdp(b, "Page.navigate", json!({ "url": u })).await?;
+    navigate(b, u).await?;
     settle(b).await;
     snapshot(b).await
 }
@@ -405,7 +470,7 @@ const SEEK: &str = r#"(async () => {
 /// `frames` stills spread over the video. Returns the text and JPEGs (base64).
 pub async fn watch(b: &Browser, url: Option<&str>, frames: u32) -> R<(String, Vec<String>)> {
     if let Some(u) = url.filter(|u| !u.trim().is_empty()) {
-        cdp(b, "Page.navigate", json!({ "url": check_url(u)? })).await?;
+        navigate(b, check_url(u)?).await?;
         settle(b).await;
         tokio::time::sleep(Duration::from_millis(1500)).await; // players load after the page
     }
@@ -668,5 +733,46 @@ mod tests {
         assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("mine".into()));
         assert!(SIDE_TABS.lock().unwrap().is_empty());
         let _ = std::fs::remove_dir_all(&b.profile);
+    }
+
+    /// A different proxy restarts the browser; no proxy wish keeps it.
+    #[tokio::test]
+    async fn proxy_choice_restarts_the_browser() {
+        if std::env::var("AM_BROWSER").is_err() {
+            return;
+        }
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let dir = std::env::temp_dir().join(format!("am-proxy-{}", std::process::id()));
+        let pid = |dir: &PathBuf| BROWSERS.lock().unwrap().iter().find(|(p, _)| p == dir).map(|(_, r)| r.child.id());
+        // A tiny proxy that answers every request with its own page.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            for mut c in listener.incoming().flatten() {
+                let mut buf = [0u8; 4096];
+                let _ = c.read(&mut buf);
+                let body = "<title>via-proxy</title>hello from the proxy";
+                let _ = write!(c, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            }
+        });
+        let via = Browser::new(dir.clone(), true).with_proxy(Some(Proxy::parse(&format!("http://127.0.0.1:{port}")).unwrap()));
+        let page = open(&via, "http://am-proxy-test.example/").await.unwrap();
+        assert!(page.contains("via-proxy"), "{page}");
+        let first = pid(&dir);
+        // No wish: same browser.
+        let any = Browser::new(dir.clone(), true);
+        assert!(snapshot(&any).await.unwrap().contains("via-proxy"));
+        assert_eq!(pid(&dir), first);
+        // Direct: started again, and no longer through that proxy.
+        let direct = Browser::new(dir.clone(), true).with_proxy(Some(Proxy::Direct));
+        let page = open(&direct, "http://am-proxy-test.example/").await.unwrap_or_default();
+        assert!(!page.contains("via-proxy"), "{page}");
+        assert_ne!(pid(&dir), first);
+        assert!(Proxy::parse("http://a:1 --no-sandbox").is_err() && Proxy::parse("ftp://a:1").is_err());
+        assert_eq!(Proxy::parse("socks5://127.0.0.1:1080").unwrap(), Proxy::Server("socks5://127.0.0.1:1080".into()));
+        close();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

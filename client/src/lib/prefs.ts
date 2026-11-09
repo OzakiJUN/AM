@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { inTauri } from './platform';
+import { DEFAULT_PROXY, type ProxyPref } from './ai/proxy';
 
 /** Where the AI portrait sits in an AI chat; 'corner' = folded into the top-right corner. */
 export type PortraitPos = 'left' | 'center' | 'right' | 'corner';
@@ -29,7 +30,9 @@ interface Prefs {
   closeToTray: boolean;
   /** Check GitHub for a new AM version (lib/update.ts). */
   updateCheck: boolean;
-  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'workshopMirror' | 'closeToTray' | 'updateCheck'>>) => void;
+  /** Whether the AI's browser on this device goes through a proxy (lib/ai/proxy.ts). */
+  aiProxy: ProxyPref;
+  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'workshopMirror' | 'closeToTray' | 'updateCheck' | 'aiProxy'>>) => void;
 }
 
 export const usePrefs = create<Prefs>()(
@@ -47,6 +50,7 @@ export const usePrefs = create<Prefs>()(
       workshopMirror: '',
       closeToTray: true,
       updateCheck: true,
+      aiProxy: DEFAULT_PROXY,
       set: (p) => set(p),
     }),
     { name: 'am-prefs' },

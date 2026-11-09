@@ -9,6 +9,8 @@ import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
 import type { User } from '@/lib/types';
 import { biliLogin, listMcpTools, stopMcp, type BiliState } from '@/lib/ai/tools';
 import QRCode from 'qrcode';
+import { usePrefs } from '@/lib/prefs';
+import { PROXY_MODE_LABEL, proxyServer, type ProxyMode } from '@/lib/ai/proxy';
 import { chatTime } from '@/lib/format';
 import { inTauri, openUrl } from '@/lib/platform';
 import { deviceId } from '@/lib/deviceId';
@@ -341,9 +343,43 @@ function ComputerTab({ draft, set, save }: TabProps) {
           <Input type="number" min={1} max={60} value={c.yieldSeconds} onChange={(e) => setC({ yieldSeconds: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} />
         </Field>
       </div>
-      {inTauri && c.enabled && c.levels.browser !== 'deny' && <BiliLogin />}
+      {inTauri && c.enabled && c.levels.browser !== 'deny' && <><BrowserProxy /><BiliLogin /></>}
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
     </>
+  );
+}
+
+const PROXY_HINT: Record<ProxyMode, string> = {
+  system: '和这台电脑的系统代理一样（开着 Clash 之类的系统代理或 TUN 就会走）',
+  off: '一律直连，系统代理开着也不走',
+  on: '所有网页都走下面这个代理',
+  auto: '它自己看：国外网站（YouTube、谷歌、X、维基百科…）走代理，国内的直连；直连打不开会自动换代理再试一次',
+};
+
+/** Whether the AI's browser on this device goes through a proxy (per device, all its AIs). */
+function BrowserProxy() {
+  const pref = usePrefs((s) => s.aiProxy);
+  const setPrefs = usePrefs((s) => s.set);
+  const [server, setServer] = useState(pref.server);
+  const needsServer = pref.mode === 'on' || pref.mode === 'auto';
+  const bad = needsServer && proxyServer(server) === null;
+  return (
+    <Field label="AI 浏览器代理" hint={`${PROXY_HINT[pref.mode]}。这台电脑上的 AI 共用，改了下次打开网页时生效`}>
+      <div className="space-y-2" data-testid="ai-proxy">
+        <Segmented id="ai-proxy-mode" value={pref.mode} onChange={(mode) => setPrefs({ aiProxy: { ...pref, mode } })}
+          options={(Object.keys(PROXY_MODE_LABEL) as ProxyMode[]).map((m) => ({ value: m, label: PROXY_MODE_LABEL[m] }))} />
+        {needsServer && (
+          <div>
+            <Input aria-label="代理地址" placeholder="127.0.0.1:7890" value={server} className="font-mono"
+              onChange={(e) => setServer(e.target.value)}
+              onBlur={() => setPrefs({ aiProxy: { ...pref, server: server.trim() } })} />
+            <p className={cx('mt-1 text-[0.75rem]', bad ? 'text-rose-500' : 'text-ink-soft dark:text-white/45')}>
+              {bad ? '填「地址:端口」，比如 127.0.0.1:7890；socks 代理写 socks5://127.0.0.1:7891。没填好之前按「跟系统」走' : 'Clash 默认是 127.0.0.1:7890'}
+            </p>
+          </div>
+        )}
+      </div>
+    </Field>
   );
 }
 
