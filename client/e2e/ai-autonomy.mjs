@@ -16,12 +16,15 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
       export async function secretDelete(){};export async function secretGet(){return null};export async function secretSet(){};
       export async function aiRequest(url,headers,body,onChunk){
         const s=globalThis.__amAutonomy;s.requests.push(JSON.parse(body));s.onRequest?.();
-        const delta=s.step++===0?{reasoning_content:'private tool reasoning',tool_calls:[{index:0,id:'browse-1',function:{name:'browser_open',arguments:'{"url":"https://example.com/fish"}'}}]}:{content:'阅读了鱼类资料，记住星星鱼适合夜间钓。'};
+        const n=s.step++;
+        const delta=n===0?{reasoning_content:'private tool reasoning',tool_calls:[{index:0,id:'browse-1',function:{name:'browser_open',arguments:'{"url":"https://example.com/fish"}'}}]}
+          :n===1&&s.postAfterBrowse?{tool_calls:[{index:0,id:'post-1',function:{name:'use_helper',arguments:'{"command":"/资讯 鱼","show":true}'}}]}
+          :{content:'阅读了鱼类资料 https://example.com/fish?token=secret ，记住星星鱼适合夜间钓。'};
         onChunk('data: '+JSON.stringify({model:'reported-flash',choices:[{delta}]})+'\\n\\n');return 200;
       }`;
     if (id === '\0virtual:autonomy-tools') return `
       export async function loadMcpTools(){return {defs:[],map:new Map(),errors:[]}};export function stopMcp(){};
-      export async function execTool(name,args){globalThis.__amAutonomy.calls.push({name,args});return {text:'标题：鱼类\\n地址：https://example.com/fish?token=secret\\n可以操作的元素：\\n[1] link 下一页\\n页面文字（开头）：星星鱼适合夜间钓。'}};`;
+      export async function execTool(name,args,ctx){globalThis.__amAutonomy.calls.push({name,args,background:!!ctx.background});return {text:'标题：鱼类\\n地址：https://example.com/fish?token=secret\\n可以操作的元素：\\n[1] link 下一页\\n页面文字（开头）：星星鱼适合夜间钓。'}};`;
   },
 }] });
 try {
@@ -39,13 +42,16 @@ try {
   testRunner.runs.set('srv|2', run);
   await testRunner.reply(run, '10', { idle: true, silent: true, note: '按兴趣浏览并记住见闻，不发消息。' });
   assert.deepEqual(state.calls.map(c => c.name), ['browser_open']);
+  assert.equal(state.calls[0].background, true, 'its own surfing uses the background browser');
   const offered = state.requests[0].tools.map(t => t.function.name);
   assert.ok(offered.includes('browser_read') && !offered.includes('message_owner') && !offered.includes('run_command'));
   assert.equal(state.requests[1].messages.find(m => m.tool_calls)?.reasoning_content, 'private tool reasoning');
   assert.equal(useAI.getState().models['srv|2'].reported, 'reported-flash');
   assert.equal(state.sent.length, 0);
   const saved = state.writes.at(-1);
-  assert.ok(saved.events.some(e => e.text.includes('星星鱼')) && saved.events.some(e => e.text.includes('浏览经历')));
+  // Only its own summary is remembered (one event), address without the query.
+  assert.equal(saved.events.length, 1);
+  assert.ok(saved.events[0].text.includes('星星鱼') && saved.events[0].text.includes('https://example.com/fish') && saved.events[0].id.startsWith('leisure:'));
   assert.ok(!JSON.stringify(saved).includes('secret') && !JSON.stringify(saved).includes('private tool reasoning'));
   view.convs['20'] = { id: '20', kind: 'group', name: '棋社' };
   const game = { id: '30', kind: 'gomoku', convId: '20', status: 'ended', players: [{ userId: '2' }, { userId: '1' }], state: { winner: -1, result: 'draw' }, updatedAt: Date.now() };
@@ -60,16 +66,26 @@ try {
   await testRunner.reply(run, '10', { idle: true, silent: true, note: '自己找事做' });
   assert.equal(state.calls.length, before);
   assert.ok(!state.requests.at(-2).tools.some(t => t.function.name.startsWith('browser_')));
+  // After reading a page in its free time, it can't post anything that round.
+  run.settings = settings; state.step = 0; state.postAfterBrowse = true;
+  const callsBefore = state.calls.length;
+  await testRunner.reply(run, '10', { idle: true, silent: true, note: '浏览' });
+  state.postAfterBrowse = false;
+  assert.deepEqual(state.calls.slice(callsBefore).map(c => c.name), ['browser_open'], 'the post was not run');
+  const toolMsgs = state.requests.at(-1).messages.filter(m => m.role === 'tool');
+  assert.match(toolMsgs.at(-1).content, /这一轮看过网页，先不发消息/);
+  assert.equal(state.sent.length, 0);
   // A delayed model result must not operate the browser after its runner stops.
-  run.settings = settings; state.step = 0;
+  const before2 = state.calls.length;
+  state.step = 0;
   state.onRequest = () => testRunner.runs.delete('srv|2');
   const writesBeforeStop = state.writes.length;
   await testRunner.reply(run, '10', { idle: true, silent: true, note: '浏览' });
-  assert.equal(state.calls.length, before);
+  assert.equal(state.calls.length, before2);
   assert.equal(state.writes.length, writesBeforeStop);
   state.onRequest = undefined;
   testRunner.runs.clear();
-  console.log('AI autonomy: real browsing loop, private reasoning, quiet persistent experiences, game-end dedupe and denied tools');
+  console.log('AI autonomy: real browsing loop in the background browser, private reasoning, only its own summary remembered, no posts after browsing, game-end dedupe and denied tools');
 } finally {
   await server.close();
   if (savedStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = savedStorage;

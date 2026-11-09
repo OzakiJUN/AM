@@ -161,19 +161,30 @@ export function recentAcrossChats(chats: { time: number; line: string }[][], lim
   return selected.sort((a, b) => a.time - b.time).map((item) => item.line);
 }
 
-/** Source-backed experiences share the same persistent memory as conversations. */
-export function rememberActivity(m: Memory, id: string, text: string, at: number): Memory {
-  if (!text.trim() || m.events.some(e => e.id === id || e.text === clip(text, 500))) return m;
-  return trimMemory({ ...m, events: [...m.events, { id, at, text: clip(text, 500) }] });
-}
+/** Its own experiences (games, free-time surfing) kept beside chat events, at most this many, so they never push the chats out. */
+export const MAX_ACTIVITY = 8;
+export const MAX_ACTIVITY_TEXT = 300;
 
-/** Store a bounded page excerpt, never browser input or URL credentials/query strings. */
-export function browserExperience(name: string, result: string): string {
-  if (!name.startsWith('browser_') || !result.trim() || result === '现在用不了这个工具') return '';
-  const parts = result.split('页面文字（开头）：');
-  const excerpt = parts.length > 1 ? parts[0].split('可以操作的元素：')[0] + '页面文字：' + parts.slice(1).join('') : result;
-  const safe = excerpt.replace(/https?:\/\/[^\s<>"']+/g, raw => {
+/** Web addresses without passwords, query strings or fragments. */
+export function cleanUrls(text: string): string {
+  return text.replace(/https?:\/\/[^\s<>"'）)】]+/g, (raw) => {
     try { const u = new URL(raw); return u.origin + u.pathname; } catch { return '[网址]'; }
   });
-  return `浏览经历（网页资料，未经核实）：${clip(safe, 460)}`;
+}
+
+/**
+ * Something it did itself (a game, its free-time surfing summary): one
+ * event with an id (repeats ignored). Only the newest MAX_ACTIVITY of them
+ * are kept; chat events are not touched.
+ */
+export function rememberActivity(m: Memory, id: string, text: string, at: number): Memory {
+  const t = clip(cleanUrls(text.trim()), MAX_ACTIVITY_TEXT);
+  if (!t || m.events.some((e) => e.id === id || e.text === t)) return m;
+  let events = [...m.events, { id, at, text: t }];
+  const own = events.filter((e) => e.id);
+  if (own.length > MAX_ACTIVITY) {
+    const drop = new Set(own.slice(0, own.length - MAX_ACTIVITY));
+    events = events.filter((e) => !drop.has(e));
+  }
+  return trimMemory({ ...m, events });
 }

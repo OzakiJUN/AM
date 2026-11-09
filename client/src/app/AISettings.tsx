@@ -434,10 +434,19 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
           </span>
         </div>
       </Field>
-      <Field label="自己找事做" hint="清醒、空闲时直接用已允许的工具做件事：整理主页、玩游戏、用小助手等，可简短汇报结果。每次会调用模型；设为问我或禁止的工具不会自主使用。">
-        <select value={draft.proactive.thoughtMinutes} onChange={(e) => set({ proactive: { ...draft.proactive, thoughtMinutes: Number(e.target.value) } })}>
-          {[0, 10, 20, 60].map((n) => <option key={n} value={n}>{n ? `每 ${n} 分钟` : '关闭'}</option>)}
-        </select>
+      <Field label="自己找事做" hint="清醒、空闲时直接用已允许的工具做件事：整理主页、玩游戏、用小助手、上网等。每次会调用模型；设为问我或禁止的工具不会自主使用。">
+        <div className="space-y-2">
+          <select value={draft.proactive.thoughtMinutes} onChange={(e) => set({ proactive: { ...draft.proactive, thoughtMinutes: Number(e.target.value) } })}>
+            {[0, 10, 20, 60].map((n) => <option key={n} value={n}>{n ? `每 ${n} 分钟` : '关闭'}</option>)}
+          </select>
+          <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
+            <span className="flex-1 text-[0.9rem]">
+              上网冲浪
+              <span className="block text-[0.8rem] text-ink-soft dark:text-white/50">隔一次空闲就自己上 B 站或网上搜感兴趣的视频、文章来看，看完记在记忆里，以后聊天会提起。用后台浏览器，不弹窗口、没有声音。要「电脑」开着、浏览器设为允许。</span>
+            </span>
+            <Toggle label="上网冲浪" checked={draft.proactive.surf !== false} onChange={(surf) => set({ proactive: { ...draft.proactive, surf } })} />
+          </div>
+        </div>
       </Field>
       <Field label="主动找你聊" hint="你上线时它会打个招呼（几个小时最多一次）；你改了状态它可能问一句；你们好一阵没说话它会自己找话题。它睡觉时不打扰">
         <div className="space-y-2">
