@@ -76,14 +76,21 @@ def server_badge(img):
         d.rounded_rectangle((760, top + 40, 860, top + 60), 10, fill=(0x9F, 0xC9, 0xC2))
 
 
-def draw(colors, server):
+def circle_mask(inset=40):
+    m = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(m).ellipse((inset, inset, S - inset, S - inset), fill=255)
+    return m
+
+
+def draw(colors, server, shape=None):
+    shape = shape or squircle_mask()
     bg = gradient(*colors)
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    img.paste(bg, (0, 0), squircle_mask())
+    img.paste(bg, (0, 0), shape)
     # soft highlight on the upper half
     hl = Image.new("L", (S, S), 0)
     ImageDraw.Draw(hl).ellipse((-200, -520, 1100, 420), fill=70)
-    hl = ImageChops.multiply(hl.filter(ImageFilter.GaussianBlur(60)), squircle_mask())
+    hl = ImageChops.multiply(hl.filter(ImageFilter.GaussianBlur(60)), shape)
     img.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (S, S), 255)] * 3, hl)))
     # bubble with a soft shadow
     bm = bubble_mask()
@@ -123,6 +130,13 @@ def main():
     save_png(client, icons / "icon.png", 512)
     save_ico(client, icons / "icon.ico")
     save_png(client, ROOT / "client/src/assets/logo.png", 256)
+    # Android launcher icons (Tauri's gen/android project): square-ish and round.
+    res = ROOT / "client/src-tauri/gen/android/app/src/main/res"
+    round_icon = draw(CLIENT, server=False, shape=circle_mask())
+    for dpi, size in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)):
+        save_png(client, res / f"mipmap-{dpi}/ic_launcher.png", size)
+        save_png(round_icon, res / f"mipmap-{dpi}/ic_launcher_round.png", size)
+        save_png(client, res / f"mipmap-{dpi}/ic_launcher_foreground.png", size * 9 // 4)
     save_png(server, ROOT / "server/cmd/am-server/winres/icon.png", 256)
     save_ico(server, ROOT / "server/internal/desktop/icon.ico")
     save_png(server, ROOT / "server/internal/admin/web/favicon.png", 64)

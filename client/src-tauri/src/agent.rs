@@ -108,7 +108,10 @@ pub fn trash(path: &str, roots: &[String]) -> R<()> {
     if roots.iter().any(|r| std::fs::canonicalize(r).is_ok_and(|root| root == p)) {
         return Err("不能删除工作目录本身".into());
     }
-    ::trash::delete(&p).map_err(|e| format!("删不了：{e}"))
+    #[cfg(desktop)]
+    return ::trash::delete(&p).map_err(|e| format!("删不了：{e}"));
+    #[cfg(mobile)]
+    return Err(format!("手机上不能删文件：{}", p.display()));
 }
 
 #[derive(Serialize)]

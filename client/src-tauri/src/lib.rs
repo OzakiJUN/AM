@@ -348,6 +348,7 @@ fn windows_notify(
     }
 }
 
+#[cfg(desktop)]
 fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
@@ -469,12 +470,15 @@ pub fn run() {
     if !host {
         update::after_update();
     }
+    #[cfg_attr(mobile, allow(unused_mut))]
     let mut builder = tauri::Builder::default().setup(move |app| {
         // The main window is made here (tauri.conf: create = false): in host
         // mode hidden, with its own browser data (localStorage) so it never
         // mixes with a normal AM client on the same computer.
         let conf = app.config().app.windows.iter().find(|w| w.label == "main").cloned().expect("main window in tauri.conf.json");
+        #[cfg_attr(mobile, allow(unused_mut))]
         let mut win = tauri::WebviewWindowBuilder::from_config(app.handle(), &conf)?;
+        #[cfg(desktop)]
         if host {
             let dir = host_file()
                 .and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok())

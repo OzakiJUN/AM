@@ -66,8 +66,10 @@ func main() {
 			err = workshopKeygen(args)
 		case "release-keygen":
 			err = releaseKeygen(args)
+		case "android-keygen":
+			err = androidKeygen(args)
 		default:
-			err = fmt.Errorf("unknown command %q (use: panel, setup-db, version, workshop-keygen, release-keygen)", cmd)
+			err = fmt.Errorf("unknown command %q (use: panel, setup-db, version, workshop-keygen, release-keygen, android-keygen)", cmd)
 		}
 		if err != nil {
 			fatal(err)
