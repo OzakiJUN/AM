@@ -4,6 +4,8 @@
 import jsQR from 'jsqr';
 
 export const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+/** The Android app (docs/design.md §5 安卓). */
+export const isAndroid = inTauri && typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
 
 /** Reads the clipboard text, or null if it cannot be read. */
 export async function readClipboardText(): Promise<string | null> {
@@ -44,6 +46,16 @@ export async function scanQRFromFile(file: Blob): Promise<string | null> {
   return jsQR(img.data, img.width, img.height)?.data ?? null;
 }
 
+/** Android: scans a QR code with the camera (null = cancelled). */
+export async function scanQRCamera(): Promise<string | null> {
+  const s = await import('@tauri-apps/plugin-barcode-scanner');
+  let p = await s.checkPermissions();
+  if (p !== 'granted') p = await s.requestPermissions();
+  if (p !== 'granted') throw new Error('AM 没有相机权限：在手机设置里允许后再试');
+  const r = await s.scan({ windowed: false, formats: [s.Format.QRCode] });
+  return r?.content || null;
+}
+
 /** Returns an error for the settings test. Background callers can ignore it. */
 export async function notify(title: string, body: string, { force = false }: { force?: boolean } = {}): Promise<string | undefined> {
   if (localStorage.getItem('am-notify') === 'off') return;
@@ -52,6 +64,8 @@ export async function notify(title: string, body: string, { force = false }: { f
       const { invoke } = await import('@tauri-apps/api/core');
       if (await invoke<boolean>('windows_notify', { title, body, force })) return;
     } else if (!force && document.visibilityState === 'visible') return;
+    // Android: no notification while AM is on screen.
+    if (isAndroid && !force && document.visibilityState === 'visible') return;
     if (inTauri) {
       const n = await import('@tauri-apps/plugin-notification');
       if (!(await n.isPermissionGranted()) && (await n.requestPermission()) !== 'granted') return '系统未允许 AM 发送通知';

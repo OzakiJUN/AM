@@ -13,6 +13,16 @@
 
 **换钥匙**：老版本只认老公钥。所以换钥匙之后，用户得手动下载一次新版，之后才能继续自动更新。私钥一旦泄露就必须换。
 
+## 一次性准备：安卓签名钥匙（Weiqi 做一次）
+
+安卓只让用同一把钥匙签名的新版覆盖旧版。钥匙丢了，大家只能卸载重装（聊天记录在服务器上，不会丢，但要重新登录）。所以这把钥匙做一次、永远用，还要备份。
+
+1. 在自己电脑上，进 am-server 所在的文件夹，双击 `android_keygen.bat`（或者运行 `am-server android-keygen`）。
+2. 生成的 `android_signing_key.txt` 就是钥匙（一行：密码、冒号、base64 的 PKCS#12 钥匙库；4096 位 RSA，证书 50 年）。把里面的内容粘贴到 GitHub：AM 仓库 → Settings → Secrets and variables → Actions → New repository secret，名字填 `ANDROID_SIGNING_KEY`。
+3. 把这个文件**另外存一份**到安全的地方（U 盘、密码管理器），然后从这台电脑上删掉。不要发给任何人，聊天里也不要发。
+4. 屏幕上打印的**证书指纹**（SHA-256，可以公开）发给 Claude。CI 每次打包后都会打印 APK 的证书指纹，对一下就知道签对了。
+5. 设好之前，CI 打的 APK 用一次性的调试钥匙签，只能用来试；之后装正式版要先卸载它。发版时没有这个 Secret 会直接失败。
+
 ## 发版（Weiqi 说「发版」时 Claude 做）
 
 1. 定版本号 `X.Y.Z`（先 `0.x`；只修 bug 动最后一位，加功能动中间一位）。
@@ -22,9 +32,9 @@
 3. PR 的 CI 绿了就合并进 main。
 4. 在 GitHub Actions 里运行 **release** 工作流，`version` 填 `X.Y.Z`。Claude 可以直接触发；Weiqi 也可以在 Actions 页面 → release → Run workflow 手动跑。它会依次：
    - **检查**：只能从 main 发；三个文件里的版本号都要是 `X.Y.Z`；CHANGELOG 里要有这一节；公钥已经内置；这个 tag 还没用过。
-   - **构建**：跑和 CI 一样的构建（`build.yml`），版本号写进 am-server（`-X main.version`）和客户端（`AM_VERSION`）。
+   - **构建**：跑和 CI 一样的构建（`build.yml`），版本号写进 am-server（`-X main.version`）和客户端（`AM_VERSION`）。安卓包（`client-android`）用 `ANDROID_SIGNING_KEY` 签名，版本号取 `tauri.conf.json`。
    - **签名**：`tools/release` 给所有文件算大小和 SHA-256，备注取 CHANGELOG 里这一节，生成 `release.json`，再用 `RELEASE_SIGNING_KEY` 签出 `release.json.sig`。如果签名钥匙和内置公钥对不上，直接失败。
-   - **发布**：打 tag `vX.Y.Z`，建 GitHub Release，把所有文件都传上去：`am-windows-amd64.zip`、`am-server-windows-amd64.exe`、`am-server-linux-amd64`、`AM.exe`、`AM-setup.exe`、`release.json`、`release.json.sig`。版本号带 `-`（比如 `0.3.0-beta.1`）的算预发布版，「latest」不指向它，所以不会推给大家。
+   - **发布**：打 tag `vX.Y.Z`，建 GitHub Release，把所有文件都传上去：`am-windows-amd64.zip`、`am-server-windows-amd64.exe`、`am-server-linux-amd64`、`AM.exe`、`AM-setup.exe`、`AM-android.apk`、`release.json`、`release.json.sig`。版本号带 `-`（比如 `0.3.0-beta.1`）的算预发布版，「latest」不指向它，所以不会推给大家。
 
 ## 服务器怎么更新（`server/internal/update`）
 
@@ -47,6 +57,7 @@
 - **下载**：安装版下 `AM-setup.exe`，免安装版下 `AM.exe`（两个都在 Release 里，都列在签过名的清单里）。Rust 按顺序试 GitHub、镜像，最后是存着这个版本的服务器（走固定证书的连接；服务器只存安装包）。下载时核对大小和 SHA-256，对不上就换下一个来源。
 - **安装版**：运行 `AM-setup.exe /P /UPDATE /R`（只显示进度、按更新安装、装完重新打开 AM），然后 AM 自己退出。安装程序是装给当前用户的，不弹管理员权限确认。
 - **免安装版**：先把正在运行的 `AM.exe` 改名成 `AM.exe.old`（Windows 允许给正在运行的 exe 改名，不能删），再把新的复制到原来的位置，名字不变。然后启动新的，旧的退出。新的会先等旧的退出完（不然单实例检查会把它交给旧的），再删掉 `AM.exe.old`。放进新版失败时会把旧的改回来。放在不能写的文件夹里（比如 `C:\Program Files`）就会报错，请用户手动换。两种版本的登录和设置都存在同一个地方（应用数据目录、系统凭据管理器），换完不用重新登录。
+- **安卓**：检查、验签、提示都一样。点「去下载」用系统浏览器打开这个版本的 `AM-android.apk`（GitHub 上的），下载完点它安装，覆盖旧版，登录和设置都在。以后再做应用内下载安装。
 - 浏览器开发模式、托管模式（`--host`）、开发版（版本号不是 `X.Y.Z` 这种）都不自动更新。
 - 不做界面热更新，每次都是完整安装包（Weiqi 2026-11-02 定的）。
 

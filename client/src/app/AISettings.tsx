@@ -12,7 +12,7 @@ import QRCode from 'qrcode';
 import { usePrefs } from '@/lib/prefs';
 import { PROXY_MODE_LABEL, proxyServer, type ProxyMode } from '@/lib/ai/proxy';
 import { chatTime } from '@/lib/format';
-import { inTauri, openUrl } from '@/lib/platform';
+import { inTauri, isAndroid, openUrl } from '@/lib/platform';
 import { deviceId } from '@/lib/deviceId';
 import { errorText } from '@/lib/errors';
 import { newProviderId, putProvider, removeProvider, useProviders } from '@/lib/ai/keys';
@@ -54,10 +54,10 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
       const settings: AISettings = { ...defaultSettings(template), providerId: p?.id ?? '', model: preset?.model ?? '' };
       await s.putAISettings(info.user.id, JSON.stringify(settings), 0);
       await refreshAIs(serverId);
-      await runHere(serverId, info.user.id);
+      if (!isAndroid) await runHere(serverId, info.user.id);
       openConv(await s.openDM(info.user.id));
       onClose();
-      toast(p ? `「${info.user.name}」创建好了，在这台设备上运行` : `「${info.user.name}」创建好了。先在设置的「模型」里填一个服务商和 key，它才能回话`);
+      toast(isAndroid ? `「${info.user.name}」创建好了。手机上不运行 AI：在电脑上打开它的设置，点「在这台设备上运行」` : p ? `「${info.user.name}」创建好了，在这台设备上运行` : `「${info.user.name}」创建好了。先在设置的「模型」里填一个服务商和 key，它才能回话`);
     } catch (e) {
       toastError(e);
     } finally {
@@ -88,7 +88,7 @@ export function CreateAIDialog({ open, onClose }: { open: boolean; onClose: () =
             ))}
           </div>
         </div>
-        <p className="text-[0.8rem] text-ink-soft dark:text-white/50">AI 在这台设备上运行，用你自己的模型 key；这台设备关着的时候它回不了话。</p>
+        <p className="text-[0.8rem] text-ink-soft dark:text-white/50">{isAndroid ? 'AI 在电脑上运行，用你自己的模型 key；手机上只能和它聊、改设置。建好后到电脑上点「在这台设备上运行」。' : 'AI 在这台设备上运行，用你自己的模型 key；这台设备关着的时候它回不了话。'}</p>
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} disabled={!name.trim()}>创建</Button>
       </form>
     </Dialog>
@@ -343,7 +343,7 @@ function ComputerTab({ draft, set, save }: TabProps) {
           <Input type="number" min={1} max={60} value={c.yieldSeconds} onChange={(e) => setC({ yieldSeconds: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} />
         </Field>
       </div>
-      {inTauri && c.enabled && c.levels.browser !== 'deny' && <><BrowserProxy /><BiliLogin /></>}
+      {inTauri && !isAndroid && c.enabled && c.levels.browser !== 'deny' && <><BrowserProxy /><BiliLogin /></>}
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
     </>
   );
@@ -1008,12 +1008,12 @@ function RunTab({ serverId, aiId, draft, set, save, onDeleted }: TabProps & { se
         <div className="min-w-0 flex-1">
           <div className="font-semibold">运行在：{draft.runner ? `${draft.runner.name}${here ? '（这台设备）' : ''}` : '还没有设备'}</div>
           <div className="text-[0.8rem] text-ink-soft dark:text-white/50">
-            AI 只在一台设备上运行，用这台设备上的模型 key 回话。那台设备关着时它就离线。
+            AI 只在一台设备上运行，用这台设备上的模型 key 回话。那台设备关着时它就离线。{isAndroid && ' 手机上不运行 AI。'}
             {here && (running ? ' 现在已连上。' : ' 正在连接…')}
           </div>
           {error && <div className="mt-1 text-[0.8rem] text-rose-500">最近一次出错：{error}</div>}
         </div>
-        {!here && <Button variant="primary" onClick={() => runHere(serverId, aiId).then(() => toast('现在由这台设备运行'))}><Cpu size={15} /> 在这台设备上运行</Button>}
+        {!here && !isAndroid && <Button variant="primary" onClick={() => runHere(serverId, aiId).then(() => toast('现在由这台设备运行'))}><Cpu size={15} /> 在这台设备上运行</Button>}
       </div>
       <HostCard serverId={serverId} aiId={aiId} providerId={draft.providerId} />
       <Field label="谁能和它聊">

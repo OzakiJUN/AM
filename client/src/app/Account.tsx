@@ -28,7 +28,7 @@ const BIO_MAX = 100;
 export function AccountPage({ v }: { v: SessionView }) {
   const [tab, setTab] = useState<Tab>('invites');
   return (
-    <section className="glass flex-1 overflow-y-auto rounded-3xl p-8">
+    <section className="glass flex-1 overflow-y-auto rounded-3xl p-8 phone:p-4">
       <h1 className="mb-6 text-[1.35rem] font-bold">账号设置</h1>
       <Profile v={v} />
       <Bio v={v} />

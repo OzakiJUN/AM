@@ -1,6 +1,7 @@
 name: build
 
-# Builds am-server (Windows + Linux) and the Windows client. Called by ci.yml
+# Builds am-server (Windows + Linux), the Windows client and the Android
+# app (signed with the secret ANDROID_SIGNING_KEY when it is set). Called by ci.yml
 # for every push (development builds, version "<branch>-<commit>") and by
 # release.yml for a release (version "0.2.0"); see docs/release.md.
 
@@ -90,3 +91,60 @@ jobs:
           path: |
             dist/AM.exe
             dist/AM-setup.exe
+
+  client-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: client/src-tauri
+          key: android
+      # Caches Gradle and its downloads between runs.
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Android SDK parts (the runner has the SDK)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: Build the Android app (arm64 APK)
+        working-directory: client
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+        run: |
+          set -e
+          export NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
+          if [ -n "$ANDROID_SIGNING_KEY" ]; then
+            # "<password>:<base64 PKCS#12>" from am-server android-keygen.
+            export AM_ANDROID_KEYSTORE="$RUNNER_TEMP/am.p12"
+            export AM_ANDROID_KEYSTORE_PASSWORD="${ANDROID_SIGNING_KEY%%:*}"
+            echo "::add-mask::$AM_ANDROID_KEYSTORE_PASSWORD"
+            printf '%s' "${ANDROID_SIGNING_KEY#*:}" | base64 -d > "$AM_ANDROID_KEYSTORE"
+            export AM_ANDROID_KEY_ALIAS="$(keytool -list -keystore "$AM_ANDROID_KEYSTORE" -storetype pkcs12 -storepass "$AM_ANDROID_KEYSTORE_PASSWORD" | awk -F, '/PrivateKeyEntry/ { print $1; exit }')"
+          elif [ -n "$RELEASE_VERSION" ]; then
+            echo "a release needs the secret ANDROID_SIGNING_KEY (docs/release.md)"; exit 1
+          else
+            echo "::warning::ANDROID_SIGNING_KEY is not set: this APK is signed with a throwaway debug key"
+          fi
+          npm ci
+          VERSION="${RELEASE_VERSION:-${GITHUB_REF_NAME//\//-}-$(git rev-parse --short HEAD)}"
+          AM_VERSION="$VERSION" npx tauri android build --apk --target aarch64
+          mkdir -p ../dist
+          cp "$(find src-tauri/gen/android/app/build/outputs/apk -name '*release*.apk' | head -1)" ../dist/AM-android.apk
+          rm -f "$RUNNER_TEMP/am.p12"
+          # The certificate it is signed with (compare with android-keygen's fingerprint).
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs ../dist/AM-android.apk | grep -i "sha-256"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: am-client-android
+          path: dist/AM-android.apk

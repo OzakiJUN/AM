@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { KeyRound, PanelLeftClose, Plus, Sparkles } from 'lucide-react';
 import { listTime } from '@/lib/format';
 import { usePrefs } from '@/lib/prefs';
+import { useNarrow } from '@/lib/layout';
 import { botOf, isBotConv, isDeletedBotConv, openConv, useOpenConv } from '@/lib/store';
 import type { SessionView } from '@/lib/session';
 import type { Conversation, User } from '@/lib/types';
@@ -17,6 +18,10 @@ import { ServerSwitcher } from './ServerSwitcher';
 
 /** AI page: nav | your AIs and the ones you added | chat with the portrait on top. */
 export function AIPage({ v }: { v: SessionView }) {
+  // Phones: the list, or the open chat (lib/layout.ts).
+  const narrow = useNarrow();
+  const open = useOpenConv('ai', v.id);
+  if (narrow) return open && v.convs[open] ? <ChatView v={v} page="ai" /> : <AIList v={v} />;
   return (
     <>
       <AIList v={v} />
@@ -33,6 +38,7 @@ interface Row {
 function AIList({ v }: { v: SessionView }) {
   const convId = useOpenConv('ai', v.id);
   const folded = usePrefs((p) => p.listFolded);
+  const narrow = useNarrow();
   const setPrefs = usePrefs((p) => p.set);
   const { mine, added } = useMemo(() => {
     const rows: Row[] = Object.values(v.convs)
@@ -127,7 +133,7 @@ function AIList({ v }: { v: SessionView }) {
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1"><ServerSwitcher v={v} /></div>
         <IconButton label="模型服务商" onClick={() => setDialog('providers')}><KeyRound size={17} /></IconButton>
-        <IconButton label="收起列表" onClick={() => setPrefs({ listFolded: true })}><PanelLeftClose size={18} /></IconButton>
+        {!narrow && <IconButton label="收起列表" onClick={() => setPrefs({ listFolded: true })}><PanelLeftClose size={18} /></IconButton>}
       </div>
       <div className="-mx-1 mt-2 flex-1 overflow-y-auto px-1 pb-1">
         {(mine.length > 0 || added.length > 0) && section('我的 AI', mine, true)}

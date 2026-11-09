@@ -10,10 +10,10 @@
 // Browser dev mode and host mode don't update.
 
 import { create } from 'zustand';
-import { inTauri } from './platform';
+import { inTauri, isAndroid, openUrl } from './platform';
 import { usePrefs } from './prefs';
 import { session, useApp } from './store';
-import { compareVersions, isRelease, loadManifest, MANIFEST, type Manifest, RELEASE_PUBLIC_KEY, releaseUrls, SIGNATURE, updateFileOf } from './release';
+import { apkOf, compareVersions, isRelease, loadManifest, MANIFEST, type Manifest, RELEASE_PUBLIC_KEY, releaseUrls, SIGNATURE, updateFileOf } from './release';
 
 export const APP_VERSION = __APP_VERSION__;
 
@@ -113,6 +113,15 @@ export async function installUpdate(): Promise<void> {
   const why = cannotUpdate();
   if (why) throw new Error(why);
   if (!m || !updateAvailable(st)) throw new Error('已经是最新版了');
+  // Android: the system installs APKs; open the verified release's APK in
+  // the browser, which downloads it and hands it to the installer (the
+  // phone only accepts it when it is signed with the same key).
+  if (isAndroid) {
+    const apk = apkOf(m);
+    if (!apk) throw new Error(`${m.version} 没有安卓版`);
+    await openUrl(releaseUrls(apk.name, 'v' + m.version)[0]);
+    return;
+  }
   const { invoke, Channel } = await import('@tauri-apps/api/core');
   // An installed AM runs the installer; the portable AM.exe swaps itself (update.rs).
   const portable = (await invoke<string>('update_mode')) === 'portable';

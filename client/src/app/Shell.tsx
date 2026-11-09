@@ -1,13 +1,16 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Hash, KeyRound, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, Store, UserRound } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Hash, KeyRound, LogIn, MessageCircle, Plus, Server, Settings, Sparkles, Store, UserRound } from 'lucide-react';
 import { WorkshopPage } from './Workshop';
-import { current, openProfile, useApp, useCurrent, type Page } from '@/lib/store';
+import { current, openProfile, useApp, useCurrent, useOpenConv, type Page } from '@/lib/store';
+import { useNarrow } from '@/lib/layout';
+import { useBack } from '@/lib/back';
+import { activityText } from '@/lib/presence';
 import type { SessionView } from '@/lib/session';
 import { errorText } from '@/lib/errors';
 import { rememberLogin, savedPassword, useIdentity } from '@/lib/identity';
 import { useDevices } from '@/lib/devices';
-import { Button, Empty, Field, Input, cx, ease, spring, toast } from '@/ui';
+import { Button, Empty, Field, IconButton, Input, cx, ease, spring, toast } from '@/ui';
 import { AIPage } from './AI';
 import { ChatView } from './Chat';
 import { ConvList } from './ConvList';
@@ -25,6 +28,7 @@ export function Shell() {
   const page = useApp((s) => s.page);
   const v = useCurrent();
   useOfferToast();
+  if (useNarrow()) return <PhoneShell v={v} page={page} />;
   let content;
   if (page === 'workshop') content = <WorkshopPage />;
   else if (!v) content = page === 'settings' ? <SettingsPage /> : <NoServer />;
@@ -51,6 +55,125 @@ export function Shell() {
         </motion.div>
       </AnimatePresence>
     </div>
+  );
+}
+
+// ---------- phone layout (lib/layout.ts): one thing at a time + tab bar ----------
+
+const TABS: Page[] = ['channels', 'dms', 'ai', 'me'];
+const SUB_TITLE: Partial<Record<Page, string>> = { account: '账号设置', settings: '设置', workshop: '创意工坊', profile: '个人主页', server: '服务器主页' };
+/** The tab a sub-page (settings, a profile …) goes back to. */
+let lastTab: Page = 'channels';
+
+function PhoneShell({ v, page }: { v?: SessionView; page: Page }) {
+  const set = useApp((s) => s.set);
+  if (TABS.includes(page)) lastTab = page;
+  const sub = !TABS.includes(page);
+  useBack(sub, () => set({ page: lastTab }));
+  const chatOpen = useOpenConv(page === 'dms' || page === 'ai' ? page : 'channels', v?.id ?? '');
+  const inChat = !sub && page !== 'me' && !!v && !!chatOpen && !!v.convs[chatOpen];
+  let content;
+  if (page === 'me') content = <MePage v={v} />;
+  else if (page === 'workshop') content = <WorkshopPage />;
+  else if (!v) content = page === 'settings' ? <SettingsPage /> : <NoServer />;
+  else if (v.status === 'logged_out' && page !== 'settings') content = <LoginAgain v={v} />;
+  else if (page === 'channels' || page === 'dms') content = inChat ? <ChatView v={v} page={page} /> : <ConvList v={v} page={page} />;
+  else if (page === 'ai') content = <AIPage v={v} />;
+  else if (page === 'account') content = <AccountPage v={v} />;
+  else if (page === 'profile') content = <ProfilePage v={v} />;
+  else if (page === 'server') content = <ServerProfilePage v={v} />;
+  else content = <SettingsPage />;
+  return (
+    <div className="flex h-full flex-col gap-2 p-2">
+      {sub && (
+        <div className="glass flex h-12 shrink-0 items-center gap-1 rounded-2xl px-1.5">
+          <IconButton label="返回" onClick={() => set({ page: lastTab })}><ChevronLeft size={22} /></IconButton>
+          <h1 className="text-[1.05rem] font-semibold">{SUB_TITLE[page]}</h1>
+        </div>
+      )}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={page + (inChat ? `-${chatOpen}` : '') + (v?.status === 'logged_out' ? '-login' : '')}
+          className="flex min-h-0 min-w-0 flex-1 gap-2 overflow-y-auto"
+          initial={{ opacity: 0, x: inChat || sub ? 24 : 0, y: inChat || sub ? 0 : 8 }}
+          animate={{ opacity: 1, x: 0, y: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.12 } }}
+          transition={ease}
+        >
+          {content}
+        </motion.div>
+      </AnimatePresence>
+      {!sub && !inChat && <TabBar v={v} />}
+    </div>
+  );
+}
+
+function TabBar({ v }: { v?: SessionView }) {
+  const newVersion = useUpdate(updateAvailable);
+  const page = useApp((s) => s.page);
+  const set = useApp((s) => s.set);
+  const tab = (p: Page, label: string, Icon: typeof MessageCircle, badge?: number) => (
+    <button
+      key={p}
+      onClick={() => set({ page: p })}
+      aria-label={label}
+      aria-current={page === p ? 'page' : undefined}
+      className={cx('press relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl py-1.5 text-[0.7rem]', page === p ? 'text-accent-700 dark:text-white' : 'text-ink-soft dark:text-white/55')}
+    >
+      {page === p && <motion.span layoutId="tab-active" transition={spring} className="absolute inset-x-2 inset-y-0 rounded-2xl bg-accent-100/90 dark:bg-white/10" />}
+      <Icon size={21} strokeWidth={page === p ? 2.3 : 2} className="relative" />
+      <span className="relative">{label}</span>
+      {!!badge && (
+        <span className="absolute top-0.5 left-1/2 ml-2 min-w-[17px] rounded-full bg-rose-500 px-1 text-[0.66rem] leading-[17px] font-semibold text-white ring-2 ring-white dark:ring-[#1e1b36]">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </button>
+  );
+  return (
+    <nav className="glass flex h-16 shrink-0 items-stretch gap-1 rounded-3xl px-1.5 py-1.5" aria-label="主导航">
+      {tab('channels', '频道', Hash, unread(v, 'channels'))}
+      {tab('dms', '私信', MessageCircle, unread(v, 'dms'))}
+      {tab('ai', 'AI', Sparkles, unread(v, 'ai'))}
+      {tab('me', '我', UserRound, newVersion ? 1 : 0)}
+    </nav>
+  );
+}
+
+/** The 「我」 tab: me at the top, then the pages the desktop nav bar has. */
+function MePage({ v }: { v?: SessionView }) {
+  const newVersion = useUpdate(updateAvailable);
+  const set = useApp((s) => s.set);
+  const me = v?.me;
+  const presence = me ? v?.presence[me.id] : undefined;
+  const row = (p: Page, label: string, Icon: typeof MessageCircle, hint?: string) => (
+    <button key={p} onClick={() => set({ page: p })} className="press flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left hover:bg-white/70 dark:hover:bg-white/5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-100 text-accent-700 dark:bg-accent/15 dark:text-accent-200"><Icon size={18} /></span>
+      <span className="flex-1 text-[0.95rem]">{label}</span>
+      {hint && <span className="rounded-full bg-rose-500 px-2 text-[0.72rem] leading-5 font-semibold text-white">{hint}</span>}
+      <ChevronRight size={18} className="text-ink-soft/60" />
+    </button>
+  );
+  return (
+    <section className="glass flex flex-1 flex-col gap-2 overflow-y-auto rounded-3xl p-3">
+      {me && (
+        <button onClick={() => openProfile(null)} className="press flex items-center gap-4 rounded-2xl bg-white/60 p-4 text-left shadow-[var(--shadow-card)] dark:bg-white/5">
+          <UserAvatar user={me} size={56} presence />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[1.15rem] font-semibold">{me.name}</span>
+            <span className="block truncate text-[0.82rem] text-ink-soft dark:text-white/50">@{me.username} · {presence ? activityText(presence.activity) || '在线' : '离线'}</span>
+          </span>
+          <ChevronRight size={18} className="text-ink-soft/60" />
+        </button>
+      )}
+      <div className="mt-1 space-y-0.5">
+        {me && row('profile', '个人主页', UserRound)}
+        {v && row('account', '账号设置', KeyRound)}
+        {v && row('server', '服务器主页', Server)}
+        {row('workshop', '创意工坊', Store)}
+        {row('settings', '设置', Settings, newVersion ? '新版本' : undefined)}
+      </div>
+    </section>
   );
 }
 

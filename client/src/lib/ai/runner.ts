@@ -8,7 +8,7 @@ import { type FishingAction } from '@/lib/fishing';
 // with its mood for the portrait.
 import { create } from 'zustand';
 import { deviceId } from '../deviceId';
-import { notify } from '../platform';
+import { isAndroid, notify } from '../platform';
 import { toast } from '@/ui';
 import { ApiError, errorText } from '../errors';
 import { splitMoodTag } from '../portraits';
@@ -160,7 +160,8 @@ export async function refreshAIs(serverId: string) {
     const settings = hosted && isHosted(serverId) ? hostedSettings(saved, hosted.workDir) : saved;
     const key = k(serverId, ai.user.id);
     const run = runs.get(key);
-    if (settings.runner?.id === deviceId()) {
+    // Phones never run AIs (they sleep, and have no computer for its tools).
+    if (settings.runner?.id === deviceId() && !isAndroid) {
       if (run) {
         run.ai = ai;
         run.settings = settings;
@@ -188,6 +189,7 @@ export async function saveSettings(serverId: string, aiId: string, settings: AIS
 
 /** Makes this device the one that runs the AI. */
 export async function runHere(serverId: string, aiId: string) {
+  if (isAndroid) throw new Error('手机上不运行 AI：在电脑上打开它的设置，点「在这台设备上运行」');
   const owner = session(serverId)!;
   await secretSet(tokenName(serverId, aiId), await owner.runAI(aiId));
   stop(k(serverId, aiId));

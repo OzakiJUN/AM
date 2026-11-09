@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, ClipboardPaste, ImageUp, KeyRound, LayoutDashboard, MonitorSmartphone, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ClipboardPaste, ImageUp, KeyRound, LayoutDashboard, MonitorSmartphone, ScanLine, Sparkles, X } from 'lucide-react';
 import { findJoinCode, parseJoinCode, type Join } from '@/lib/joincode';
 import { findPairCode } from '@/lib/paircode';
 import { redeemPairing } from '@/lib/devices';
-import { readClipboardText, scanQRFromFile } from '@/lib/platform';
+import { isAndroid, readClipboardText, scanQRCamera, scanQRFromFile } from '@/lib/platform';
 import { addServer, removeServer, switchServer, useApp } from '@/lib/store';
 import { endpointFromJoin, fetchServerInfo } from '@/lib/transport';
 import { errorText } from '@/lib/errors';
@@ -123,14 +123,26 @@ function Start({ onFound, onPair }: { onFound: (f: Found) => void; onPair: (code
   }
 
   async function fromImage(file: Blob) {
-    const content = await scanQRFromFile(file).catch(() => null);
+    fromQR(await scanQRFromFile(file).catch(() => null), '图片里没有找到加入码二维码');
+  }
+
+  function fromQR(content: string | null, missing: string) {
     const code = content && (findPairCode(content) ?? findJoinCode(content));
     if (!code) {
-      setError('图片里没有找到加入码二维码');
+      setError(missing);
       return;
     }
     setText(code);
     use(code);
+  }
+
+  async function fromCamera() {
+    try {
+      const content = await scanQRCamera();
+      if (content) fromQR(content, '这个二维码里没有加入码');
+    } catch (e) {
+      setError(errorText(e));
+    }
   }
 
   return (
@@ -233,9 +245,14 @@ function Start({ onFound, onPair }: { onFound: (f: Found) => void; onPair: (code
         </Button>
       </form>
 
+      {isAndroid && (
+        <Button variant="soft" size="lg" className="mt-3 w-full" onClick={fromCamera}>
+          <ScanLine size={18} /> 扫一扫
+        </Button>
+      )}
       <div className="mt-3 flex gap-2">
         <Button variant="ghost" className="flex-1" onClick={() => fileRef.current?.click()}>
-          <ImageUp size={17} /> 选一张二维码图片
+          <ImageUp size={17} /> {isAndroid ? '选图片' : '选一张二维码图片'}
         </Button>
         <Button variant="ghost" className="flex-1" onClick={() => onPair('')}>
           <MonitorSmartphone size={17} /> 从已有设备登录
@@ -423,11 +440,23 @@ function PairLogin({ initial, onBack }: { initial: string; onBack: () => void })
   }
 
   async function fromImage(file: Blob) {
-    const content = await scanQRFromFile(file).catch(() => null);
+    fromQR(await scanQRFromFile(file).catch(() => null), '图片里没有找到登录码二维码');
+  }
+
+  function fromQR(content: string | null, missing: string) {
     const code = content && findPairCode(content);
-    if (!code) return setError('图片里没有找到登录码二维码');
+    if (!code) return setError(missing);
     setText(code);
     go(code);
+  }
+
+  async function fromCamera() {
+    try {
+      const content = await scanQRCamera();
+      if (content) fromQR(content, '这个二维码不是登录码');
+    } catch (e) {
+      setError(errorText(e));
+    }
   }
 
   return (
@@ -461,6 +490,11 @@ function PairLogin({ initial, onBack }: { initial: string; onBack: () => void })
         {error && <p className="text-[0.85rem] text-rose-500" role="alert">{error}</p>}
         <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} disabled={!text.trim()}>登录</Button>
       </form>
+      {isAndroid && (
+        <Button variant="soft" size="lg" className="mt-3 w-full" onClick={fromCamera}>
+          <ScanLine size={18} /> 扫一扫
+        </Button>
+      )}
       <Button variant="ghost" className="mt-3 w-full" onClick={() => fileRef.current?.click()}>
         <ImageUp size={17} /> 选一张二维码图片
       </Button>

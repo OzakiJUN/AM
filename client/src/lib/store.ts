@@ -11,7 +11,8 @@ import type { Conversation, User } from './types';
  * 'account' = 账号设置 (profile editing, invites, devices); 'profile' = my
  * profile page; 'server' = the current server's profile page.
  */
-export type Page = 'channels' | 'dms' | 'ai' | 'workshop' | 'account' | 'profile' | 'server' | 'settings';
+/** 'me' is the phone layout's 「我」 tab (a menu of the other pages). */
+export type Page = 'channels' | 'dms' | 'ai' | 'me' | 'workshop' | 'account' | 'profile' | 'server' | 'settings';
 /** Pages that list conversations: channels, direct messages, AI chats. */
 export type ConvPage = 'channels' | 'dms' | 'ai';
 

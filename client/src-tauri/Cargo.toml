@@ -30,11 +30,17 @@ sha2 = "0.10"
 base64 = "0.22"
 http = "1"
 keyring-core = "1"
-trash = "5"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
 tauri-plugin-global-shortcut = "2"
+trash = "5"
+
+# Android (docs/design.md §7 / release.md 安卓): passwords in the Android Keystore.
+[target.'cfg(target_os = "android")'.dependencies]
+android-native-keyring-store = "1"
+# Scanning join / pairing QR codes with the camera.
+tauri-plugin-barcode-scanner = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.56"

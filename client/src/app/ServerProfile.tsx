@@ -40,7 +40,7 @@ export function ServerProfilePage({ v }: { v: SessionView }) {
   return (
     <section className="glass relative flex-1 overflow-hidden rounded-3xl">
       {data && <ProfileBg bg={previewBg ?? data.layout.background} />}
-      <div className="relative h-full overflow-y-auto p-8">
+      <div className="relative h-full overflow-y-auto p-8 phone:p-3">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} className="card relative overflow-hidden rounded-3xl bg-white/90 dark:bg-[#211c38]/90">
         <div className="h-28 bg-gradient-to-br from-teal-200 via-accent-100 to-sky-100 dark:from-teal-500/30 dark:via-accent/20 dark:to-sky-500/20" />
         <div className="absolute top-4 right-4">
@@ -48,17 +48,17 @@ export function ServerProfilePage({ v }: { v: SessionView }) {
             <LogOut size={15} /> 退出服务器
           </Button>
         </div>
-        <div className="flex flex-wrap items-end gap-5 px-7 pb-6">
+        <div className="flex flex-wrap items-end gap-5 px-7 pb-6 phone:gap-3 phone:px-4">
           <div className="-mt-14 rounded-[34px] bg-white p-1.5 shadow-[var(--shadow-card)] dark:bg-[#24203c]">
             <ServerAvatar name={v.name} icon={p?.icon ?? v.icon} serverId={v.id} size={112} />
           </div>
-          <div className="min-w-0 flex-1 pb-1">
+          <div className="min-w-[11rem] flex-1 pb-1">
             <h1 className="truncate text-[1.6rem] font-bold">{p?.name || v.name}</h1>
             <div className="flex items-center gap-3 text-ink-soft dark:text-white/55">
               {p ? (
                 <>
-                  <span className="flex items-center gap-1"><Users size={15} /> {p.members} 位成员</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" /> {p.online} 人在线</span>
+                  <span className="flex items-center gap-1 whitespace-nowrap"><Users size={15} /> {p.members} 位成员</span>
+                  <span className="flex items-center gap-1.5 whitespace-nowrap"><span className="h-2 w-2 rounded-full bg-emerald-400" /> {p.online} 人在线</span>
                 </>
               ) : (
                 <Spinner size={14} />
@@ -66,7 +66,7 @@ export function ServerProfilePage({ v }: { v: SessionView }) {
             </div>
           </div>
         </div>
-        <div className="mx-7 mb-6 rounded-2xl bg-black/[0.03] px-4 py-3 whitespace-pre-wrap dark:bg-white/[0.04]">
+        <div className="mx-7 mb-6 phone:mx-4 rounded-2xl bg-black/[0.03] px-4 py-3 whitespace-pre-wrap dark:bg-white/[0.04]">
           {p?.description || <span className="text-ink-soft/80 dark:text-white/40">服主还没写简介{v.isAdmin ? '。在服务器的管理面板「设置 → 服务器主页」里写。' : '。'}</span>}
         </div>
       </motion.div>
