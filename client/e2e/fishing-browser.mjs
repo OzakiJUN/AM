@@ -77,6 +77,7 @@ try {
  await root.getByRole('checkbox').first().check(); await root.getByRole('button', { name: /卖出所选/ }).click();
  await page.waitForFunction(() => document.querySelector('[data-testid="fishing_fish"]').querySelectorAll('svg[role="img"]').length === 1);
  await page.getByRole('tab', { name: '鱼类图鉴' }).click(); assert.equal(await page.getByRole('img').count() >= 100, true);
+ await page.screenshot({ path: '/tmp/fishing-catalog.png', animations: 'disabled' });
  // Match the user's small Windows window inside the real modal container.
  await page.evaluate(() => window.setTestDialog(true));
  await page.setViewportSize({ width: 1088, height: 680 });

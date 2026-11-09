@@ -13,12 +13,11 @@
 10. **AI 第 2 批收尾**（design.md 第 9 节「操作电脑」）：2a、2b 已完成，等 Weiqi 在 Windows 上整批测试（界面自动化、自己的浏览器、MCP 只有桌面版能用）。用真的 DeepSeek key 测一遍工具调用（云端开发环境要先放开 api.deepseek.com）。游戏只接有 AI 接口的（Minecraft、环世界的 MCP 模板，已做），截图 + 虚拟手柄不做了（Weiqi 定的）。
 11. **以后做 AI 直播 / 语音时参考**：dsh-game-bridge（DeepSeek Harness 的游戏插件：DXcam 截屏 + RapidOCR，虚拟 Xbox 手柄 ViGEmBus + SendInput；F12 一键收回控制、游戏窗口不在前台就不动、反作弊游戏直接拒绝、默认只演练不真按、操作留记录——第 2 批的「让鼠标」和急停照这个思路），ZerolanLiveRobot（B 站弹幕 + 看屏幕 + mineflayer 操作 Minecraft）、DeepSeek Harness（DeepSeek 开源的 agent 框架，插件式，开发者预览版）、AI-XiaoPi（弹幕 → 模型 → TTS 的直播助手）、digital-human-livestream（LiveTalking 二次开发：B 站弹幕 → DeepSeek → EdgeTTS → wav2lip / MuseTalk 数字人，要 CUDA 显卡）。以后做 AI 直播 / 语音时再细看。
 
-## 下周（Weiqi 2026-11-03 定的，11-05 更新钓鱼规则）
+## 这周（Weiqi 2026-11-03 定的，11-05 更新钓鱼规则，11-09 加了 AI 上网冲浪）
 
-1. **第一件事：星屿鱼塘美术重做**（docs/fishing.md）。
-   - 美术素材和版面仍待后续整批重做。
-   - 2026-11-05 最新要求覆盖原先手动抛竿/自动抛竿道具计划：全部自动收获、自动抛竿，原机械竿改为概率双鱼竿，原装备与品质保留；11-05 后续改为偷鱼篓里的现有鱼，取消偷鱼窗口，离线挂机保留。
-2. **安卓端**（上面第 8 条）。
+1. **星屿鱼塘美术重做**：2026-11-09 做完了（Claude 自己画的一套，见 docs/fishing.md「美术」），等 Weiqi 看。11-05 的规则改动（全自动收获、双鱼竿、偷鱼篓）GPT 已做。
+2. **AI 上网冲浪**：2026-11-09 做完了（后台浏览器、搜索、看视频、主动冲浪，见 design.md 第 9 节），等 Weiqi 在 Windows 上试。
+3. **安卓端**（上面第 8 条）。
 
 ## 这周要做（Weiqi 2026-11-01 定的顺序；每一批先给他计划，确认后再动代码）
 
