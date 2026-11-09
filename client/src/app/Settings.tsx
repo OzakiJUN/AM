@@ -5,7 +5,7 @@ import { ACCENTS, GLASS_DEFAULTS, GLASS_STYLES, imageFileToDataURL, useTheme } f
 import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/store';
 import { usePrefs } from '@/lib/prefs';
 import { useNarrow } from '@/lib/layout';
-import { inTauri, notify, openUrl } from '@/lib/platform';
+import { inTauri, isAndroid, notify, openUrl } from '@/lib/platform';
 import { CATEGORY_LABEL, REMOTE_CATEGORIES } from '@/lib/ai/agent';
 import type { Level, ToolCategory } from '@/lib/ai/persona';
 import { newAllow, useRemote, type RemoteAllow } from '@/lib/ai/remote';
@@ -22,7 +22,7 @@ export function SettingsPage() {
     { id: 'sound', label: '声音', Icon: Volume2 },
     { id: 'servers', label: '服务器', Icon: Server },
     { id: 'privacy', label: '隐私', Icon: Shield },
-    { id: 'notify', label: '通知与窗口', Icon: Bell },
+    { id: 'notify', label: isAndroid ? '通知' : '通知与窗口', Icon: Bell },
     { id: 'about', label: '关于与更新', Icon: Info },
   ];
   // Phones: the sections are a row of chips above the content.
@@ -423,8 +423,8 @@ function Notify() {
   const setPrefs = usePrefs((p) => p.set);
   return (
     <div className="max-w-3xl">
-      <h2 className="text-[1.4rem] font-semibold">通知与窗口</h2>
-      <Row title="桌面通知" desc="窗口打开时不弹通知；最小化或收到托盘后提醒。测试通知会强制发送。">
+      <h2 className="text-[1.4rem] font-semibold">{isAndroid ? '通知' : '通知与窗口'}</h2>
+      <Row title={isAndroid ? '通知' : '桌面通知'} desc={isAndroid ? 'AM 在屏幕上时不弹通知；切到后台后提醒（后台久了系统可能断开连接，那时收不到）。测试通知会强制发送。' : '窗口打开时不弹通知；最小化或收到托盘后提醒。测试通知会强制发送。'}>
         {on && <Button size="sm" variant="soft" onClick={async () => {
           const error = await notify('AM 通知测试', '能看到这条，就说明系统通知已显示。', { force: true });
           setTestResult(error ? '发送失败：' + error : '已向系统发送测试通知。');
@@ -432,7 +432,7 @@ function Notify() {
         <Toggle label="桌面通知" checked={on} onChange={(v) => { setOn(v); localStorage.setItem('am-notify', v ? 'on' : 'off'); }} />
       </Row>
       {on && testResult && <p role="status" className="text-sm text-ink-soft">{testResult}</p>}
-      {inTauri && (
+      {inTauri && !isAndroid && (
         <Row title="点窗口的关闭按钮时" desc="收到托盘：AM 继续在后台收消息，在这台设备上运行的 AI 也保持在线；右下角托盘图标点一下打开，右键可以退出">
           <Segmented id="close-to-tray" value={closeToTray ? 'tray' : 'quit'} onChange={(x) => setPrefs({ closeToTray: x === 'tray' })} options={[
             { value: 'tray', label: '收到托盘' }, { value: 'quit', label: '直接退出' },
@@ -470,10 +470,10 @@ function UpdateBox() {
       ) : (
         <>
           <Row title={newer ? `有新版本 ${u.latest!.version}` : u.latest ? '已经是最新版' : '还没检查过'} desc={
-            (u.checkedAt ? `上次检查：${new Date(u.checkedAt).toLocaleString()}。` : '') + '新版本先验签（内置公钥）再换上：免安装版直接换掉 AM.exe（位置和名字不变），安装版运行安装程序。从 GitHub 下载，下不动时走镜像或你连着的服务器存的那份。'
+            (u.checkedAt ? `上次检查：${new Date(u.checkedAt).toLocaleString()}。` : '') + (isAndroid ? '新版本信息先验签（内置公钥）。点「去下载」用浏览器下载新的安装包，装上就是新版，聊天记录和登录都在。' : '新版本先验签（内置公钥）再换上：免安装版直接换掉 AM.exe（位置和名字不变），安装版运行安装程序。从 GitHub 下载，下不动时走镜像或你连着的服务器存的那份。')
           }>
             <Button size="sm" variant="soft" disabled={busy} onClick={() => checkGitHub()}>检查更新</Button>
-            {newer && <Button size="sm" disabled={busy} onClick={() => installUpdate().catch(toastError)}>下载并安装</Button>}
+            {newer && <Button size="sm" disabled={busy} onClick={() => installUpdate().catch(toastError)}>{isAndroid ? '去下载' : '下载并安装'}</Button>}
           </Row>
           {u.status === 'downloading' && u.total > 0 && (
             <div className="py-2">

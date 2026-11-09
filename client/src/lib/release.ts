@@ -98,6 +98,10 @@ export function releaseUrls(name: string, tag = '', repo = RELEASE_REPO, mirrors
   return [gh, ...mirrors.map((m) => m.replace(/\/+$/, '') + '/' + gh)];
 }
 
+/** The Android app in a release (docs/release.md 安卓). */
+export const ANDROID_APK = 'AM-android.apk';
+export const apkOf = (m: Manifest) => m.files.find((f) => f.name === ANDROID_APK) ?? null;
+
 export const installerOf = (m: Manifest) => m.files.find((f) => f.name === INSTALLER) ?? null;
 
 /** The file an update needs: the installer for an installed AM, AM.exe for the portable one. */

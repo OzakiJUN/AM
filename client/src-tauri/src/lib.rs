@@ -470,7 +470,6 @@ pub fn run() {
     if !host {
         update::after_update();
     }
-    #[cfg_attr(mobile, allow(unused_mut))]
     let mut builder = tauri::Builder::default().setup(move |app| {
         // The main window is made here (tauri.conf: create = false): in host
         // mode hidden, with its own browser data (localStorage) so it never
@@ -517,6 +516,11 @@ pub fn run() {
                 })
                 .build(),
         );
+    }
+    #[cfg(target_os = "android")]
+    {
+        // Camera QR codes for join / pairing codes (Welcome.tsx).
+        builder = builder.plugin(tauri_plugin_barcode_scanner::init());
     }
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
