@@ -109,6 +109,15 @@ assert.ok(!quiet.some(t => t.category === 'browser'));
 // Searching and watching: search pages per site; the page picture needs a model that can see.
 assert.equal(searchUrl(' 星穹铁道 阿哈 ', 'bilibili'), 'https://search.bilibili.com/all?keyword=%E6%98%9F%E7%A9%B9%E9%93%81%E9%81%93%20%E9%98%BF%E5%93%88');
 assert.equal(searchUrl('a&b=c'), 'https://www.bing.com/search?q=a%26b%3Dc');
+{
+  const c = { ...defaultComputer(), enabled: true };
+  const prop = (list: ReturnType<typeof toolsFor>, name: string) => (list.find((t) => t.name === name)!.parameters as { properties: Record<string, unknown> }).properties.proxy;
+  assert.equal(prop(toolsFor(c), 'browser_search'), undefined);
+  const auto = toolsFor(c, [], true, { proxyChoice: true });
+  assert.ok(prop(auto, 'browser_search') && prop(auto, 'browser_open') && prop(auto, 'browser_watch'));
+  assert.equal(prop(auto, 'browser_click'), undefined);
+  assert.equal(prop(toolsFor(c), 'browser_open'), undefined, 'the shared list is not changed');
+}
 assert.equal(searchUrl('lofi', 'youtube'), 'https://www.youtube.com/results?search_query=lofi');
 assert.ok(toolsFor(c).some((t) => t.name === 'browser_watch') && toolsFor(c).some((t) => t.name === 'browser_search'));
 assert.ok(!toolsFor({ ...c, vision: false }).some((t) => t.name === 'browser_look'));

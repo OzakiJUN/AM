@@ -7,7 +7,10 @@ import { CATEGORY_LABEL, GAME_TEMPLATES } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
 import type { User } from '@/lib/types';
-import { listMcpTools, stopMcp } from '@/lib/ai/tools';
+import { biliLogin, listMcpTools, stopMcp, type BiliState } from '@/lib/ai/tools';
+import QRCode from 'qrcode';
+import { usePrefs } from '@/lib/prefs';
+import { PROXY_MODE_LABEL, proxyServer, type ProxyMode } from '@/lib/ai/proxy';
 import { chatTime } from '@/lib/format';
 import { inTauri, openUrl } from '@/lib/platform';
 import { deviceId } from '@/lib/deviceId';
@@ -340,8 +343,145 @@ function ComputerTab({ draft, set, save }: TabProps) {
           <Input type="number" min={1} max={60} value={c.yieldSeconds} onChange={(e) => setC({ yieldSeconds: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} />
         </Field>
       </div>
+      {inTauri && c.enabled && c.levels.browser !== 'deny' && <><BrowserProxy /><BiliLogin /></>}
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
     </>
+  );
+}
+
+const PROXY_HINT: Record<ProxyMode, string> = {
+  system: '和这台电脑的系统代理一样（开着 Clash 之类的系统代理或 TUN 就会走）',
+  off: '一律直连，系统代理开着也不走',
+  on: '所有网页都走下面这个代理',
+  auto: '它自己看：国外网站（YouTube、谷歌、X、维基百科…）走代理，国内的直连；直连打不开会自动换代理再试一次',
+};
+
+/** Whether the AI's browser on this device goes through a proxy (per device, all its AIs). */
+function BrowserProxy() {
+  const pref = usePrefs((s) => s.aiProxy);
+  const setPrefs = usePrefs((s) => s.set);
+  const [server, setServer] = useState(pref.server);
+  const needsServer = pref.mode === 'on' || pref.mode === 'auto';
+  const bad = needsServer && proxyServer(server) === null;
+  return (
+    <Field label="AI 浏览器代理" hint={`${PROXY_HINT[pref.mode]}。这台电脑上的 AI 共用，改了下次打开网页时生效`}>
+      <div className="space-y-2" data-testid="ai-proxy">
+        <Segmented id="ai-proxy-mode" value={pref.mode} onChange={(mode) => setPrefs({ aiProxy: { ...pref, mode } })}
+          options={(Object.keys(PROXY_MODE_LABEL) as ProxyMode[]).map((m) => ({ value: m, label: PROXY_MODE_LABEL[m] }))} />
+        {needsServer && (
+          <div>
+            <Input aria-label="代理地址" placeholder="127.0.0.1:7890" value={server} className="font-mono"
+              onChange={(e) => setServer(e.target.value)}
+              onBlur={() => setPrefs({ aiProxy: { ...pref, server: server.trim() } })} />
+            <p className={cx('mt-1 text-[0.75rem]', bad ? 'text-rose-500' : 'text-ink-soft dark:text-white/45')}>
+              {bad ? '填「地址:端口」，比如 127.0.0.1:7890；socks 代理写 socks5://127.0.0.1:7891。没填好之前按「跟系统」走' : 'Clash 默认是 127.0.0.1:7890'}
+            </p>
+          </div>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+/** The AI browser's Bilibili login on this device (QR scan with the B站 app):
+ * logged in, its surfing gets subtitles and full comments. Shared by every
+ * AI this device runs; the cookies stay in the AI's background browser. */
+function BiliLogin() {
+  const [state, setState] = useState<BiliState | null>(null);
+  const [failed, setFailed] = useState('');
+  const [scanning, setScanning] = useState(false);
+  useEffect(() => {
+    let live = true;
+    biliLogin.status().then((s) => live && setState(s)).catch((e) => live && setFailed(errorText(e)));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const logout = async () => {
+    const ok = await ask({ title: '退出 B 站登录？', text: 'AI 浏览器里的 B 站登录会被清掉，之后看视频拿不到字幕。', ok: '退出' });
+    if (ok === null) return;
+    setState(await biliLogin.logout());
+    toast('已退出 B 站');
+  };
+  return (
+    <Field label="AI 浏览器登录 B 站" hint="登录后它冲浪时能看到字幕和完整评论。这台电脑上的 AI 共用，最好用小号">
+      <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]" data-testid="bili-login">
+        <span className="min-w-0 flex-1 truncate text-[0.88rem]">
+          {failed ? <span className="text-rose-500">{failed}</span> : !state ? <Spinner /> : state.login ? `已登录：${state.name || 'B 站账号'}` : '没登录'}
+        </span>
+        {state?.login ? (
+          <Button size="sm" variant="soft" key="bili-out" onClick={logout}>退出登录</Button>
+        ) : (
+          <Button size="sm" variant="soft" key="bili-in" onClick={() => setScanning(true)}>扫码登录</Button>
+        )}
+      </div>
+      <BiliQrDialog open={scanning} onClose={() => setScanning(false)} onDone={(s) => { setState(s); setFailed(''); setScanning(false); toast(`B 站已登录：${s.name}`); }} />
+    </Field>
+  );
+}
+
+function BiliQrDialog({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (s: BiliState) => void }) {
+  const [qr, setQr] = useState('');
+  const [key, setKey] = useState('');
+  const [code, setCode] = useState(86101);
+  const [error, setError] = useState('');
+  const make = async () => {
+    setQr('');
+    setError('');
+    setCode(86101);
+    try {
+      const r = await biliLogin.start();
+      setKey(r.key);
+      setQr(await QRCode.toDataURL(r.url, { margin: 1, width: 420, color: { dark: '#2a2440', light: '#ffffff' } }));
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+  useEffect(() => {
+    if (open) void make();
+    else setKey('');
+  }, [open]);
+  // Ask every 2 s how the scan is going, until it is done or expired.
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    if (!open || !key || code === 86038) return;
+    let live = true;
+    const t = setInterval(() => {
+      biliLogin.poll(key).then((r) => {
+        if (!live) return;
+        if (r.code === 0) done.current({ login: true, name: r.name ?? '' });
+        else setCode(r.code);
+      }).catch(() => {});
+    }, 2000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [open, key, code === 86038]);
+  const expired = code === 86038;
+  return (
+    <Dialog open={open} onClose={onClose} title="AI 浏览器登录 B 站" width={400}>
+      {error ? (
+        <div className="space-y-4">
+          <p className="text-rose-500" role="alert">{error}</p>
+          <Button className="w-full" onClick={make}>再试一次</Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-[0.85rem] text-ink-soft dark:text-white/60">用 B 站手机 App 扫一扫（首页左上角头像旁边），在手机上确认登录。登录只存在 AI 自己的浏览器里，不会碰你平时用的浏览器。</p>
+          <div className={cx('mx-auto aspect-square w-52 overflow-hidden rounded-2xl bg-white p-2 shadow-[var(--shadow-card)]', expired && 'opacity-30')}>
+            {qr ? <img src={qr} alt="B 站登录二维码" className="h-full w-full" /> : <div className="flex h-full items-center justify-center text-ink-soft"><Spinner /></div>}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={cx('flex-1 text-[0.85rem]', code === 86090 ? 'text-emerald-600 dark:text-emerald-300' : expired ? 'text-rose-500' : 'text-ink-soft dark:text-white/50')} role="status">
+              {code === 86090 ? '扫到了，在手机上点确认' : expired ? '二维码过期了' : '等你扫码…'}
+            </span>
+            {expired && <Button size="sm" variant="primary" onClick={make}>刷新</Button>}
+          </div>
+        </div>
+      )}
+    </Dialog>
   );
 }
 

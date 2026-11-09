@@ -196,15 +196,34 @@ export const TOOLS: ToolDef[] = [
  * The tools offered to the model: not denied, the screen only for models
  * that can see; `mcp` are the tools its MCP servers offer (mcpTool()).
  */
-export function toolsFor(c: ComputerSettings, mcp: ToolDef[] = [], computer = true): ToolDef[] {
+export function toolsFor(c: ComputerSettings, mcp: ToolDef[] = [], computer = true, opts: { proxyChoice?: boolean } = {}): ToolDef[] {
   const useComputer = c.enabled && computer;
-  return [...TOOLS, ...(useComputer ? mcp : [])].filter((t) => {
+  const list = opts.proxyChoice ? TOOLS.map(withProxyChoice) : TOOLS;
+  return [...list, ...(useComputer ? mcp : [])].filter((t) => {
     if (!t.own && !useComputer) return false;
     if (!t.category) return true;
     if (c.levels[t.category] === 'deny') return false;
     if ((t.category === 'screen' || t.name === 'browser_look') && !c.vision) return false;
     return true;
   });
+}
+
+/** Tools that open a page: with the owner's 「让它自己决定」 proxy they say whether to use it. */
+const OPENS_PAGE = ['browser_open', 'browser_search', 'browser_watch'];
+
+function withProxyChoice(t: ToolDef): ToolDef {
+  if (!OPENS_PAGE.includes(t.name)) return t;
+  const p = t.parameters as { properties: Record<string, unknown>; required: string[] };
+  return {
+    ...t,
+    parameters: {
+      ...p,
+      properties: {
+        ...p.properties,
+        proxy: { type: 'boolean', description: '这次走不走代理：国外网站（YouTube、谷歌、X、维基百科等）打不开就 true，国内网站 false；不填按网站自动选' },
+      },
+    },
+  };
 }
 
 const MCP_PREFIX = 'mcp__';

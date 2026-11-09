@@ -29,6 +29,8 @@ import { addressed, channelTurnIsDirected, batchDelay, shouldJoin, dayPlan, deci
 import { activityText } from '../presence';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
+import { usePrefs } from '../prefs';
+import { canChooseProxy } from './proxy';
 import { firstFree, placements } from '../widgets';
 import { describePage, editPage, type PageEdit } from './page';
 import { applyRemember, recentAcrossChats, emptyMemory, rememberActivity, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory, type Who } from './memory';
@@ -561,7 +563,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
     // Drawing only when the server's bot can draw (/nai among its commands).
     await loadHelperCommands(run);
     const canDraw = run.helper.cmds.some((c) => c.name === 'nai');
-    const available = toolsFor(comp, mcp.defs, computer || !!o.idle).filter((t) => t.name !== 'draw_picture' || canDraw);
+    const available = toolsFor(comp, mcp.defs, computer || !!o.idle, { proxyChoice: canChooseProxy(usePrefs.getState().aiProxy) }).filter((t) => t.name !== 'draw_picture' || canDraw);
     const tools = casual ? [] : o.note ? selfDirectedTools(comp, available, { openGames: st.games.open, joinGames: st.games.join, joinChannels: st.channels.mode === 'active' }) : available;
     // run.ai is refreshed when the owner renames it (AISettings ProfileTab).
     let system = systemPrompt({ name: run.ai.user.name, owner: ownerName, persona: st.persona, now: new Date() });

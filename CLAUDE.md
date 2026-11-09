@@ -262,7 +262,7 @@ update the docs in the same commit.
   profile, DevTools protocol; test with `AM_BROWSER=<chrome> AM_BROWSER_HEADLESS=1
   cargo test`; a second headless, muted `ai-browser-bg` for its own surfing;
   `browser_search` / `browser_watch` (B站 / YouTube details, subtitles, danmaku,
-  comments, frames) / `browser_look`), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
+  comments, frames) / `browser_look`; B站 QR login of the background browser = `bili` / `agent_bili`, run in a side tab, UI 「AI 浏览器登录 B 站」 in AISettings; proxy per device `prefs.aiProxy` → `lib/ai/proxy.ts` (pure, tested: system / off / on / auto, the AI may pass `proxy`), the browser restarts when the proxy changes), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
   named `mcp__<server>__<tool>`, category `mcp`). New tool categories need
   `ToolCategory`, `DEFAULT_LEVELS` and `CATEGORY_LABEL`. Tools flagged `own`
   (self / social: its status, bio, page note, channels, messaging the owner)

@@ -24,23 +24,63 @@ struct Running {
     child: std::process::Child,
     /// ws://127.0.0.1:<port>/devtools/browser/<id>
     ws: String,
+    /// What it was started with.
+    proxy: Proxy,
 }
 
-/// One of the AI's browsers: its profile folder, and whether it runs in the
-/// background (headless, muted, smaller page readouts).
+/// How the browser reaches the internet (docs/design.md §9 上网冲浪): the
+/// system's settings, never through a proxy, or through this one.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Proxy {
+    System,
+    Direct,
+    Server(String),
+}
+
+impl Proxy {
+    /// "system", "direct", or a proxy address (scheme://host:port).
+    pub fn parse(s: &str) -> R<Proxy> {
+        match s {
+            "" | "system" => Ok(Proxy::System),
+            "direct" => Ok(Proxy::Direct),
+            _ => {
+                let ok_scheme = ["http://", "https://", "socks4://", "socks5://"].iter().any(|p| s.starts_with(p));
+                let ok_chars = s.chars().all(|c| c.is_ascii_alphanumeric() || ".:/-[]".contains(c));
+                if ok_scheme && ok_chars && s.len() < 200 {
+                    Ok(Proxy::Server(s.to_owned()))
+                } else {
+                    Err("代理地址不对".into())
+                }
+            }
+        }
+    }
+}
+
+/// One of the AI's browsers: its profile folder, whether it runs in the
+/// background (headless, muted, smaller page readouts), and the proxy this
+/// call wants (None = whatever it runs with now; a different one restarts it).
 pub struct Browser {
     pub profile: PathBuf,
     pub background: bool,
+    pub proxy: Option<Proxy>,
 }
 
 impl Browser {
     pub fn new(profile: PathBuf, background: bool) -> Self {
-        Self { profile, background }
+        Self { profile, background, proxy: None }
+    }
+
+    pub fn with_proxy(mut self, proxy: Option<Proxy>) -> Self {
+        self.proxy = proxy;
+        self
     }
 }
 
 /// Running browsers by profile folder.
 static BROWSERS: Mutex<Vec<(PathBuf, Running)>> = Mutex::new(Vec::new());
+
+/// Short-lived tabs of our own (the B站 login); the AI's tab is never one of them.
+static SIDE_TABS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 /// Edge (always on Windows 10/11), else Chrome; AM_BROWSER overrides (tests).
 fn find_exe() -> R<PathBuf> {
@@ -65,11 +105,19 @@ async fn ensure(b: &Browser) -> R<String> {
     {
         let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
         if let Some(i) = g.iter().position(|(p, _)| p == &b.profile) {
-            if g[i].1.child.try_wait().map_err(|e| e.to_string())?.is_none() {
+            let alive = g[i].1.child.try_wait().map_err(|e| e.to_string())?.is_none();
+            if alive && b.proxy.as_ref().is_none_or(|p| p == &g[i].1.proxy) {
                 return Ok(g[i].1.ws.clone());
             }
-            g.remove(i); // closed by the owner
+            let (_, mut old) = g.remove(i); // closed by the owner, or another proxy wanted
+            if alive {
+                let _ = old.child.kill();
+                let _ = old.child.wait();
+            }
         }
+    }
+    if b.proxy.is_some() {
+        tokio::time::sleep(Duration::from_millis(300)).await; // let the old one let go of the profile
     }
     let mut r = launch(b, None).await?;
     if b.background {
@@ -102,8 +150,19 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
     if std::env::var("AM_BROWSER_HEADLESS").is_ok() {
         cmd.arg("--no-sandbox");
     }
-    if let Ok(proxy) = std::env::var("AM_BROWSER_PROXY") {
-        cmd.arg(format!("--proxy-server={proxy}")); // tests behind a proxy
+    let proxy = b.proxy.clone().unwrap_or(Proxy::System);
+    match &proxy {
+        Proxy::System => {
+            if let Ok(p) = std::env::var("AM_BROWSER_PROXY") {
+                cmd.arg(format!("--proxy-server={p}")); // tests behind a proxy
+            }
+        }
+        Proxy::Direct => {
+            cmd.arg("--no-proxy-server");
+        }
+        Proxy::Server(p) => {
+            cmd.arg(format!("--proxy-server={p}"));
+        }
     }
     if let Some(ua) = ua {
         cmd.arg(format!("--user-agent={ua}"));
@@ -122,7 +181,7 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
         if let Ok(t) = std::fs::read_to_string(&port_file) {
             let mut l = t.lines();
             if let (Some(port), Some(path)) = (l.next().and_then(|p| p.trim().parse::<u16>().ok()), l.next()) {
-                return Ok(Running { child, ws: format!("ws://127.0.0.1:{port}{}", path.trim()) });
+                return Ok(Running { child, ws: format!("ws://127.0.0.1:{port}{}", path.trim()), proxy });
             }
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -170,7 +229,12 @@ async fn cdp(b: &Browser, method: &str, params: Value) -> R<Value> {
     let (mut ws, _) = tokio_tungstenite::connect_async(url).await.map_err(|e| format!("连不上浏览器：{e}"))?;
     let run = async {
         let targets = call(&mut ws, 1, "Target.getTargets", json!({}), None).await?;
-        let page = targets["targetInfos"].as_array().and_then(|a| a.iter().find(|t| t["type"] == "page")).and_then(|t| t["targetId"].as_str()).map(str::to_owned);
+        let side = SIDE_TABS.lock().map(|g| g.clone()).unwrap_or_default();
+        let page = targets["targetInfos"]
+            .as_array()
+            .and_then(|a| a.iter().find(|t| t["type"] == "page" && !side.iter().any(|s| t["targetId"] == s.as_str())))
+            .and_then(|t| t["targetId"].as_str())
+            .map(str::to_owned);
         let target = match page {
             Some(t) => t,
             None => call(&mut ws, 2, "Target.createTarget", json!({ "url": "about:blank" }), None).await?["targetId"].as_str().unwrap_or_default().to_owned(),
@@ -234,9 +298,18 @@ fn check_url(url: &str) -> R<&str> {
     Ok(u)
 }
 
+/// Goes to `url`; a page that could not be loaded is an error (net::ERR_…).
+async fn navigate(b: &Browser, url: &str) -> R<()> {
+    let r = cdp(b, "Page.navigate", json!({ "url": url })).await?;
+    match r["errorText"].as_str().filter(|e| !e.is_empty() && *e != "net::ERR_ABORTED") {
+        Some(e) => Err(format!("打不开这个网址：{e}")),
+        None => Ok(()),
+    }
+}
+
 pub async fn open(b: &Browser, url: &str) -> R<String> {
     let u = check_url(url)?;
-    cdp(b, "Page.navigate", json!({ "url": u })).await?;
+    navigate(b, u).await?;
     settle(b).await;
     snapshot(b).await
 }
@@ -397,7 +470,7 @@ const SEEK: &str = r#"(async () => {
 /// `frames` stills spread over the video. Returns the text and JPEGs (base64).
 pub async fn watch(b: &Browser, url: Option<&str>, frames: u32) -> R<(String, Vec<String>)> {
     if let Some(u) = url.filter(|u| !u.trim().is_empty()) {
-        cdp(b, "Page.navigate", json!({ "url": check_url(u)? })).await?;
+        navigate(b, check_url(u)?).await?;
         settle(b).await;
         tokio::time::sleep(Duration::from_millis(1500)).await; // players load after the page
     }
@@ -440,6 +513,103 @@ pub async fn watch(b: &Browser, url: Option<&str>, frames: u32) -> R<(String, Ve
 pub async fn screenshot(b: &Browser) -> R<String> {
     let shot = cdp(b, "Page.captureScreenshot", json!({ "format": "jpeg", "quality": 60 })).await?;
     shot["data"].as_str().map(str::to_owned).ok_or_else(|| "截不到图".into())
+}
+
+/// What to do in a side tab.
+enum SideJob<'a> {
+    /// Open the page, run this (a promise) and return its value.
+    Eval(&'a str, &'a str),
+    /// Delete every bilibili.com cookie.
+    ForgetBili,
+}
+
+/// Does `job` in a tab of its own, then closes the tab, so whatever the AI
+/// is looking at stays as it is.
+async fn in_side_tab(b: &Browser, job: SideJob<'_>) -> R<Value> {
+    let ws_url = ensure(b).await?;
+    let (mut ws, _) = tokio_tungstenite::connect_async(ws_url).await.map_err(|e| format!("连不上浏览器：{e}"))?;
+    let created = call(&mut ws, 1, "Target.createTarget", json!({ "url": "about:blank", "background": true }), None).await?;
+    let target = created["targetId"].as_str().ok_or("开不了新标签页")?.to_owned();
+    if let Ok(mut g) = SIDE_TABS.lock() {
+        g.push(target.clone());
+    }
+    let run = async {
+        let att = call(&mut ws, 2, "Target.attachToTarget", json!({ "targetId": target, "flatten": true }), None).await?;
+        let session = att["sessionId"].as_str().ok_or("浏览器页面连不上")?.to_owned();
+        let mut id = 3;
+        match job {
+            SideJob::ForgetBili => {
+                let all = call(&mut ws, id, "Storage.getCookies", json!({}), None).await?;
+                for c in all["cookies"].as_array().into_iter().flatten() {
+                    let domain = c["domain"].as_str().unwrap_or("");
+                    if domain.trim_start_matches('.') == "bilibili.com" || domain.ends_with(".bilibili.com") {
+                        id += 1;
+                        call(&mut ws, id, "Network.deleteCookies", json!({ "name": c["name"], "domain": domain, "path": c["path"] }), Some(&session)).await?;
+                    }
+                }
+                Ok(json!({ "login": false, "name": "" }))
+            }
+            SideJob::Eval(url, js) => {
+                call(&mut ws, id, "Page.navigate", json!({ "url": url }), Some(&session)).await?;
+                for _ in 0..60 {
+                    tokio::time::sleep(Duration::from_millis(250)).await;
+                    id += 1;
+                    let r = call(&mut ws, id, "Runtime.evaluate", json!({ "expression": "document.readyState", "returnByValue": true }), Some(&session)).await?;
+                    if r["result"]["value"] == "complete" {
+                        break;
+                    }
+                }
+                let r = call(&mut ws, id + 1, "Runtime.evaluate", json!({ "expression": js, "returnByValue": true, "awaitPromise": true }), Some(&session)).await?;
+                if let Some(ex) = r.get("exceptionDetails") {
+                    return Err(format!("页面脚本出错：{}", ex["exception"]["description"].as_str().unwrap_or("?")));
+                }
+                Ok(r["result"]["value"].clone())
+            }
+        }
+    };
+    let r = tokio::time::timeout(Duration::from_secs(30), run).await.map_err(|_| "浏览器没反应".to_string()).and_then(|r| r);
+    let _ = call(&mut ws, 9999, "Target.closeTarget", json!({ "targetId": target }), None).await;
+    if let Ok(mut g) = SIDE_TABS.lock() {
+        g.retain(|t| t != &target);
+    }
+    let _ = ws.close(None).await;
+    r
+}
+
+/// A small page on www.bilibili.com: the login requests must come from there
+/// so the cookies land in the browser.
+const BILI_PAGE: &str = "https://www.bilibili.com/robots.txt";
+
+/// Bilibili QR login for the background browser (docs/design.md §9 上网冲浪):
+/// logged in, it gets subtitles and full comments. `start` gives the QR
+/// link and its key; `poll` says how the scan is going (0 = logged in);
+/// `status` says who is logged in; `logout` drops the bilibili cookies.
+pub async fn bili(b: &Browser, action: &str, key: &str) -> R<Value> {
+    let get = |u: String| format!("fetch({u:?}, {{ credentials: 'include' }}).then((r) => r.json())");
+    const NAV: &str = "https://api.bilibili.com/x/web-interface/nav";
+    let status = format!("{}.then((j) => ({{ login: !!(j.data && j.data.isLogin), name: (j.data && j.data.uname) || '' }}))", get(NAV.into()));
+    match action {
+        "start" => {
+            let js = format!(
+                "{}.then((j) => {{ if (j.code !== 0 || !j.data) throw new Error(j.message || '拿不到二维码'); return {{ url: j.data.url, key: j.data.qrcode_key }}; }})",
+                get("https://passport.bilibili.com/x/passport-login/web/qrcode/generate?source=main-fe-header".into())
+            );
+            in_side_tab(b, SideJob::Eval(BILI_PAGE, &js)).await
+        }
+        "poll" => {
+            if key.is_empty() || !key.chars().all(|c| c.is_ascii_alphanumeric()) {
+                return Err("二维码不对".into());
+            }
+            let poll = get(format!("https://passport.bilibili.com/x/passport-login/web/qrcode/poll?source=main-fe-header&qrcode_key={key}"));
+            let js = format!(
+                "{poll}.then(async (j) => {{ const d = j.data || {{}}; const out = {{ code: d.code ?? j.code, message: d.message || j.message || '' }}; if (out.code === 0) Object.assign(out, await {status}); return out; }})"
+            );
+            in_side_tab(b, SideJob::Eval(BILI_PAGE, &js)).await
+        }
+        "status" => in_side_tab(b, SideJob::Eval(BILI_PAGE, &status)).await,
+        "logout" => in_side_tab(b, SideJob::ForgetBili).await,
+        _ => Err(format!("不认识的操作：{action}")),
+    }
 }
 
 /// Closes the AI's browsers (both).
@@ -534,5 +704,75 @@ mod tests {
         let hits = open(&b, "https://search.bilibili.com/all?keyword=%E6%98%9F%E7%A9%B9%E9%93%81%E9%81%93").await.unwrap();
         assert!(hits.contains("星穹铁道"), "{hits}");
         let _ = std::fs::remove_dir_all(&b.profile);
+    }
+
+    /// Bilibili QR login in a side tab (needs the internet): AM_TEST_BILI_LOGIN=1;
+    /// AM_BROWSER_PROXY when behind a proxy. Nobody scans, so it stays 86101.
+    #[tokio::test]
+    async fn bilibili_qr_login_in_a_side_tab() {
+        let (Ok(_), Ok(_)) = (std::env::var("AM_BROWSER"), std::env::var("AM_TEST_BILI_LOGIN")) else { return };
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let b = Browser::new(std::env::temp_dir().join(format!("am-bililogin-{}", std::process::id())), true);
+        // The AI's own tab is left alone.
+        cdp(&b, "Page.navigate", json!({ "url": "data:text/html,<title>mine</title>" })).await.unwrap();
+        settle(&b).await;
+        let start = bili(&b, "start", "").await.unwrap();
+        let key = start["key"].as_str().unwrap().to_owned();
+        assert!(start["url"].as_str().unwrap().starts_with("https://") && !key.is_empty(), "{start}");
+        let poll = bili(&b, "poll", &key).await.unwrap();
+        assert_eq!(poll["code"], 86101, "{poll}");
+        assert!(bili(&b, "poll", "x'); alert(1); ('").await.is_err());
+        let st = bili(&b, "status", "").await.unwrap();
+        assert_eq!(st["login"], false, "{st}");
+        let set = "Promise.resolve((document.cookie = 'SESSDATA=fake; domain=.bilibili.com; path=/', document.cookie))";
+        assert!(in_side_tab(&b, SideJob::Eval(BILI_PAGE, set)).await.unwrap().as_str().unwrap().contains("SESSDATA=fake"));
+        assert_eq!(bili(&b, "logout", "").await.unwrap()["login"], false);
+        let left = in_side_tab(&b, SideJob::Eval(BILI_PAGE, "Promise.resolve(document.cookie)")).await.unwrap();
+        assert!(!left.as_str().unwrap().contains("SESSDATA"), "{left}");
+        assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("mine".into()));
+        assert!(SIDE_TABS.lock().unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&b.profile);
+    }
+
+    /// A different proxy restarts the browser; no proxy wish keeps it.
+    #[tokio::test]
+    async fn proxy_choice_restarts_the_browser() {
+        if std::env::var("AM_BROWSER").is_err() {
+            return;
+        }
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let dir = std::env::temp_dir().join(format!("am-proxy-{}", std::process::id()));
+        let pid = |dir: &PathBuf| BROWSERS.lock().unwrap().iter().find(|(p, _)| p == dir).map(|(_, r)| r.child.id());
+        // A tiny proxy that answers every request with its own page.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            for mut c in listener.incoming().flatten() {
+                let mut buf = [0u8; 4096];
+                let _ = c.read(&mut buf);
+                let body = "<title>via-proxy</title>hello from the proxy";
+                let _ = write!(c, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            }
+        });
+        let via = Browser::new(dir.clone(), true).with_proxy(Some(Proxy::parse(&format!("http://127.0.0.1:{port}")).unwrap()));
+        let page = open(&via, "http://am-proxy-test.example/").await.unwrap();
+        assert!(page.contains("via-proxy"), "{page}");
+        let first = pid(&dir);
+        // No wish: same browser.
+        let any = Browser::new(dir.clone(), true);
+        assert!(snapshot(&any).await.unwrap().contains("via-proxy"));
+        assert_eq!(pid(&dir), first);
+        // Direct: started again, and no longer through that proxy.
+        let direct = Browser::new(dir.clone(), true).with_proxy(Some(Proxy::Direct));
+        let page = open(&direct, "http://am-proxy-test.example/").await.unwrap_or_default();
+        assert!(!page.contains("via-proxy"), "{page}");
+        assert_ne!(pid(&dir), first);
+        assert!(Proxy::parse("http://a:1 --no-sandbox").is_err() && Proxy::parse("ftp://a:1").is_err());
+        assert_eq!(Proxy::parse("socks5://127.0.0.1:1080").unwrap(), Proxy::Server("socks5://127.0.0.1:1080".into()));
+        close();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
