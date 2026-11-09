@@ -19,7 +19,8 @@ update the docs in the same commit.
   breaks). Keep CRLF (enforced by `.gitattributes`).
 - Verify before stating things (look it up / run it). He cannot always tell
   outdated or wrong information apart.
-- Update `CHANGELOG.md` with every user-visible change.
+- Update `CHANGELOG.md` with every user-visible change, under `## 未发布` as
+  `### 标题（日期）` subsections (a release renames `## 未发布`).
 
 ## Architecture rules
 
@@ -259,7 +260,9 @@ update the docs in the same commit.
   2b: UI Automation `src-tauri/src/uia.rs` (Windows only, acts by number +
   name check), the AI's own browser `browser.rs` (Edge / Chrome with its own
   profile, DevTools protocol; test with `AM_BROWSER=<chrome> AM_BROWSER_HEADLESS=1
-  cargo test`), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
+  cargo test`; a second headless, muted `ai-browser-bg` for its own surfing;
+  `browser_search` / `browser_watch` (B站 / YouTube details, subtitles, danmaku,
+  comments, frames) / `browser_look`), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
   named `mcp__<server>__<tool>`, category `mcp`). New tool categories need
   `ToolCategory`, `DEFAULT_LEVELS` and `CATEGORY_LABEL`. Tools flagged `own`
   (self / social: its status, bio, page note, channels, messaging the owner)
@@ -297,7 +300,7 @@ update the docs in the same commit.
   game strip, window), `app/Workshop.tsx`. AIs join / open /
   play through tools in category `games` (`gameTool`, `onGame`, `gameTurn`
   with a fallback move in runner.ts; `wantsToJoin` in social.ts).
-- Fishing (docs/fishing.md): built-in `game/fishing.go` and configurable `fishing_rules.json`, 12 seats, persistent per-account economy in store migrations 0023. All economy and cooldowns are server-owned, transactions lock game then account rows in ID order. Client `app/Fishing.tsx`, `lib/fishing.ts`, three `app/widgets/Fishing.tsx` exhibits. No executable workshop package. Keep its protocol, defaults, docs and rules in sync.
+- Fishing (docs/fishing.md): built-in `game/fishing.go` and configurable `fishing_rules.json`, 12 seats, persistent per-account economy in store migrations 0023. All economy and cooldowns are server-owned, transactions lock game then account rows in ID order. Client `app/Fishing.tsx`, `lib/fishing.ts`, three `app/widgets/Fishing.tsx` exhibits. Art is our own SVG (docs/fishing.md 美术): `app/FishingArt.tsx` (fish, cards, badges, tool icons, pond scene, `seatSpot`), each species' look from `lib/fishArt.ts` (`fishLook`, pure + tested), colours as `--pond-*` in `app/fishing.css`. No executable workshop package. Keep its protocol, defaults, docs and rules in sync.
 - Creative workshop (docs/design.md §13): the index lives in the GitHub repo
   OzakiJUN/am-workshop (items/*.json, its own Go checker + Actions; signed
   `index.json` on its `index` branch, Ed25519, private key only in its
@@ -336,6 +339,10 @@ update the docs in the same commit.
   NovelAI code any more (old `novelai` providers only load). Channels have
   `conversations.nsfw`, set per channel in the admin panel only
   (`conv.SetNsfw`, recorded as said by the built-in bot); minors are never drawn.
+- AI surfing (docs/design.md §9 上网冲浪): every other free-time turn is a
+  surf turn (`SURF_NOTE`, `canSurf`, prefs `proactive.surf`), at most
+  `IDLE_STEPS`; after any browser tool in a free-time turn it can't post;
+  only its own summary is remembered (`rememberActivity`, `MAX_ACTIVITY`).
 - AI memory (docs/design.md §9 一个记忆): `lib/ai/memory.ts` (pure, tested:
   per-person notes by account id, events, known plugins, 28 KB cap) stored as
   the AI account's own client state; `rememberNow` (runner) updates it in batches with a persisted per-chat cursor; every reply gets `whoPrompt` (who is talking,

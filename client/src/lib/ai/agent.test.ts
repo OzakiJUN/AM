@@ -1,7 +1,7 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
 import {
-  autonomyPrompt, selfDirectedTools, drawCommandFor, GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
+  autonomyPrompt, searchUrl, selfDirectedTools, drawCommandFor, GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
 import { defaultComputer, parseSettings } from './persona.ts';
 
 const c = defaultComputer();
@@ -105,3 +105,14 @@ assert.ok(!own.some(t => t.name === 'message_owner'));
 assert.ok(!selfDirectedTools({ ...c, levels: { ...c.levels, browser: 'ask' } }, toolsFor(c), choices).some(t => t.category === 'browser'));
 assert.ok(!selfDirectedTools({ ...c, levels: { ...c.levels, browser: 'deny' } }, toolsFor(c), choices).some(t => t.category === 'browser'));
 assert.ok(!quiet.some(t => t.category === 'browser'));
+
+// Searching and watching: search pages per site; the page picture needs a model that can see.
+assert.equal(searchUrl(' 星穹铁道 阿哈 ', 'bilibili'), 'https://search.bilibili.com/all?keyword=%E6%98%9F%E7%A9%B9%E9%93%81%E9%81%93%20%E9%98%BF%E5%93%88');
+assert.equal(searchUrl('a&b=c'), 'https://www.bing.com/search?q=a%26b%3Dc');
+assert.equal(searchUrl('lofi', 'youtube'), 'https://www.youtube.com/results?search_query=lofi');
+assert.ok(toolsFor(c).some((t) => t.name === 'browser_watch') && toolsFor(c).some((t) => t.name === 'browser_search'));
+assert.ok(!toolsFor({ ...c, vision: false }).some((t) => t.name === 'browser_look'));
+assert.ok(toolsFor({ ...c, vision: true }).some((t) => t.name === 'browser_look'));
+assert.ok(selfDirectedTools(c, toolsFor(c), choices).some((t) => t.name === 'browser_watch'), 'surfing tools in free time');
+assert.match(describeCall('browser_search', { query: '猫', site: 'bilibili' }), /B 站搜「猫」/);
+console.log('agent web ok');

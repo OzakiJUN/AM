@@ -85,6 +85,16 @@ export const TOOLS: ToolDef[] = [
   { name: 'browser_scroll', category: 'browser', description: '页面往下（负数往上）滚几屏。', parameters: obj({ pages: num('屏数，默认 1') }) },
   { name: 'browser_back', category: 'browser', description: '浏览器后退一页。', parameters: obj({}) },
   {
+    name: 'browser_search', category: 'browser', description: '在你的浏览器里搜索：bing 搜网页，bilibili 搜 B 站视频，youtube 搜 YouTube 视频。返回结果页（带编号的链接，点开就能看）。',
+    parameters: obj({ query: str('要搜的内容'), site: { type: 'string', enum: ['bing', 'bilibili', 'youtube'], description: '在哪搜，默认 bing' } }, ['query']),
+  },
+  {
+    name: 'browser_watch', category: 'browser',
+    description: '看视频：打开视频页（不给 url 就看当前页面），读出标题、UP 主 / 作者、简介、标签、播放数据、字幕（有的话），B 站还有按时间挑的弹幕和热门评论。frames 大于 0 时再截几帧画面（1–4，你能看图时才有用）。',
+    parameters: obj({ url: str('视频网址，可选'), frames: num('截几帧画面，0–4，默认 0') }),
+  },
+  { name: 'browser_look', category: 'browser', description: '截一张浏览器当前页面的图来看（你能看图时才有）。', parameters: obj({}) },
+  {
     name: 'set_my_status', category: 'self', own: true,
     description: '改你自己的状态（显示在你头像旁边）：playing 在玩、listening 在听、working 在忙、custom 自定义，none 清空。',
     parameters: obj({ activity: { type: 'string', enum: ['none', 'playing', 'listening', 'working', 'custom'] }, text: str('状态文字，比如「原神」「在吃火锅」，最多 32 字') }, ['activity']),
@@ -192,7 +202,7 @@ export function toolsFor(c: ComputerSettings, mcp: ToolDef[] = [], computer = tr
     if (!t.own && !useComputer) return false;
     if (!t.category) return true;
     if (c.levels[t.category] === 'deny') return false;
-    if (t.category === 'screen' && !c.vision) return false;
+    if ((t.category === 'screen' || t.name === 'browser_look') && !c.vision) return false;
     return true;
   });
 }
@@ -286,6 +296,9 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'browser_type': return `浏览器在第 ${args.n} 号填「${short(args.text, 40)}」${args.submit ? '并提交' : ''}`;
     case 'browser_scroll': return `浏览器滚动 ${args.pages ?? 1} 屏`;
     case 'browser_back': return '浏览器后退';
+    case 'browser_search': return `在${({ bilibili: ' B 站', youtube: ' YouTube' } as Record<string, string>)[String(args.site)] ?? '必应'}搜「${short(args.query, 40)}」`;
+    case 'browser_watch': return `看视频${args.url ? ' ' + short(args.url) : ''}${Number(args.frames) > 0 ? `（截 ${args.frames} 帧）` : ''}`;
+    case 'browser_look': return '截浏览器页面的图';
     case 'set_my_status': return args.activity === 'none' ? '清空自己的状态' : `把状态改成「${short(args.text, 32)}」`;
     case 'set_my_bio': return `把签名改成「${short(args.text, 40)}」`;
     case 'write_my_page': return `在主页写便签「${short(args.title || args.text, 30)}」`;
@@ -315,6 +328,16 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
         return `MCP ${server}：${tool.join('__')} ${short(JSON.stringify(args), 120)}`;
       }
       return `${name}（不认识的工具）`;
+  }
+}
+
+/** Where browser_search goes (pure, tested). */
+export function searchUrl(query: string, site = 'bing'): string {
+  const q = encodeURIComponent(query.trim().slice(0, 200));
+  switch (site) {
+    case 'bilibili': return `https://search.bilibili.com/all?keyword=${q}`;
+    case 'youtube': return `https://www.youtube.com/results?search_query=${q}`;
+    default: return `https://www.bing.com/search?q=${q}`;
   }
 }
 

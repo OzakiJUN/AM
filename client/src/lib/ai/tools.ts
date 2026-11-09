@@ -2,7 +2,7 @@
 // §9). The desktop app does the work in Rust (src-tauri/src/agent.rs); in
 // browser development mode only the clipboard works.
 import { copyText, inTauri, readClipboardText } from '../platform';
-import { envPairs, mcpTool, mcpToolName, type ToolDef } from './agent';
+import { envPairs, mcpTool, mcpToolName, searchUrl, type ToolDef } from './agent';
 import type { ComputerSettings, McpServer } from './persona';
 
 export interface ToolResult {
@@ -21,6 +21,8 @@ export interface ToolCtx {
   owner: string;
   /** Its own account and chats (runner.ts), for the self / social tools. */
   self?: SelfApi;
+  /** Its own free time: the background browser (headless, muted, no window). */
+  background?: boolean;
 }
 
 /** What the AI can do as itself (implemented by the runner with the AI's session). */
@@ -171,17 +173,29 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
       await rust('agent_ui_activate', { handle: n(a.window, 0) });
       return { text: '切过去了' };
     case 'browser_open':
-      return { text: await rust<string>('agent_browser', { action: 'open', url: s(a.url) }) };
+      return { text: await rust<string>('agent_browser', { action: 'open', url: s(a.url), background: !!ctx.background }) };
     case 'browser_read':
-      return { text: await rust<string>('agent_browser', { action: 'read' }) };
+      return { text: await rust<string>('agent_browser', { action: 'read', background: !!ctx.background }) };
     case 'browser_click':
-      return { text: await rust<string>('agent_browser', { action: 'click', n: n(a.n, 0) }) };
+      return { text: await rust<string>('agent_browser', { action: 'click', n: n(a.n, 0), background: !!ctx.background }) };
     case 'browser_type':
-      return { text: await rust<string>('agent_browser', { action: 'type', n: n(a.n, 0), text: s(a.text), submit: a.submit === true }) };
+      return { text: await rust<string>('agent_browser', { action: 'type', n: n(a.n, 0), text: s(a.text), submit: a.submit === true, background: !!ctx.background }) };
     case 'browser_scroll':
-      return { text: await rust<string>('agent_browser', { action: 'scroll', pages: n(a.pages, 1) }) };
+      return { text: await rust<string>('agent_browser', { action: 'scroll', pages: n(a.pages, 1), background: !!ctx.background }) };
     case 'browser_back':
-      return { text: await rust<string>('agent_browser', { action: 'back' }) };
+      return { text: await rust<string>('agent_browser', { action: 'back', background: !!ctx.background }) };
+    case 'browser_search':
+      return { text: await rust<string>('agent_browser', { action: 'open', url: searchUrl(s(a.query), s(a.site) || 'bing'), background: !!ctx.background }) };
+    case 'browser_watch': {
+      // Frames only for a model that can look at pictures.
+      const frames = ctx.computer.vision ? Math.max(0, Math.min(4, Math.round(n(a.frames, 0)))) : 0;
+      const r = await rust<{ text: string; images: string[] }>('agent_browser_media', { action: 'watch', url: s(a.url) || null, frames, background: !!ctx.background });
+      return { text: r.text, images: r.images.length ? r.images : undefined };
+    }
+    case 'browser_look': {
+      const r = await rust<{ text: string; images: string[] }>('agent_browser_media', { action: 'shot', background: !!ctx.background });
+      return { text: '这是浏览器当前页面的样子', images: r.images };
+    }
     case 'set_my_status':
     case 'set_my_bio':
     case 'write_my_page':

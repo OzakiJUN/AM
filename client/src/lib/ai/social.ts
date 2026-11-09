@@ -232,9 +232,11 @@ export interface ProactiveSettings {
   /** Quiet this many hours before it starts a topic. */
   quietHours: number;
   thoughtMinutes: number;
+  /** In its free time it also surfs the web with its background browser (when the browser is allowed). */
+  surf: boolean;
 }
 
-export const defaultProactive = (): ProactiveSettings => ({ greet: true, topics: true, quietHours: 3, thoughtMinutes: 20 });
+export const defaultProactive = (): ProactiveSettings => ({ greet: true, topics: true, quietHours: 3, thoughtMinutes: 20, surf: true });
 
 const HOUR = 60 * MIN;
 

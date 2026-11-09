@@ -18,7 +18,7 @@
 1. 定版本号 `X.Y.Z`（先 `0.x`；只修 bug 动最后一位，加功能动中间一位）。
 2. 一个 PR 里改这些：
    - `client/package.json`、`client/src-tauri/tauri.conf.json`、`client/src-tauri/Cargo.toml`（还有 `Cargo.lock`）里的版本号都改成 `X.Y.Z`。
-   - `CHANGELOG.md` 里的「## 未发布」改名为「## X.Y.Z（日期）」，上面再加一个空的「## 未发布」。
+   - `CHANGELOG.md` 里的「## 未发布」改名为「## X.Y.Z（日期）」，上面再加一个空的「## 未发布」。平时写更新日志都写在「## 未发布」下面，用「### 标题（日期）」分小节；别另起「## 」标题，不然发版时不会进这一版的说明。
 3. PR 的 CI 绿了就合并进 main。
 4. 在 GitHub Actions 里运行 **release** 工作流，`version` 填 `X.Y.Z`。Claude 可以直接触发；Weiqi 也可以在 Actions 页面 → release → Run workflow 手动跑。它会依次：
    - **检查**：只能从 main 发；三个文件里的版本号都要是 `X.Y.Z`；CHANGELOG 里要有这一节；公钥已经内置；这个 tag 还没用过。

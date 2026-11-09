@@ -178,26 +178,50 @@ async fn agent_ui_activate(handle: i64) -> Res<()> {
     blocking(move || uia::activate(handle)).await
 }
 
-// The AI's own browser (browser.rs), with its own profile in the app data folder.
+// The AI's own browsers (browser.rs), with their own profiles in the app
+// data folder: the visible one, and the background one for its free time.
 
-fn browser_profile(app: &tauri::AppHandle) -> Res<std::path::PathBuf> {
-    Ok(app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("ai-browser"))
+fn ai_browser(app: &tauri::AppHandle, background: bool) -> Res<browser::Browser> {
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    Ok(browser::Browser::new(dir.join(if background { "ai-browser-bg" } else { "ai-browser" }), background))
 }
 
 #[tauri::command]
-async fn agent_browser(app: tauri::AppHandle, action: String, url: Option<String>, n: Option<u32>, text: Option<String>, submit: Option<bool>, pages: Option<f64>) -> Res<String> {
-    let p = browser_profile(&app)?;
+#[allow(clippy::too_many_arguments)]
+async fn agent_browser(app: tauri::AppHandle, action: String, url: Option<String>, n: Option<u32>, text: Option<String>, submit: Option<bool>, pages: Option<f64>, background: Option<bool>) -> Res<String> {
+    let b = ai_browser(&app, background.unwrap_or(false))?;
     match action.as_str() {
-        "open" => browser::open(&p, url.as_deref().unwrap_or("")).await,
-        "read" => browser::snapshot(&p).await,
-        "click" => browser::click(&p, n.ok_or("缺少元素编号")?).await,
-        "type" => browser::type_text(&p, n.ok_or("缺少元素编号")?, text.as_deref().unwrap_or(""), submit.unwrap_or(false)).await,
-        "scroll" => browser::scroll(&p, pages.unwrap_or(1.0)).await,
-        "back" => browser::back(&p).await,
+        "open" => browser::open(&b, url.as_deref().unwrap_or("")).await,
+        "read" => browser::snapshot(&b).await,
+        "click" => browser::click(&b, n.ok_or("缺少元素编号")?).await,
+        "type" => browser::type_text(&b, n.ok_or("缺少元素编号")?, text.as_deref().unwrap_or(""), submit.unwrap_or(false)).await,
+        "scroll" => browser::scroll(&b, pages.unwrap_or(1.0)).await,
+        "back" => browser::back(&b).await,
         "close" => {
             browser::close();
             Ok("浏览器关了".into())
         }
+        _ => Err(format!("不认识的浏览器操作 {action}")),
+    }
+}
+
+#[derive(serde::Serialize)]
+struct BrowserMedia {
+    text: String,
+    images: Vec<String>,
+}
+
+/// Watching a video page (details, subtitles, danmaku, comments, frames) or
+/// a picture of the page.
+#[tauri::command]
+async fn agent_browser_media(app: tauri::AppHandle, action: String, url: Option<String>, frames: Option<u32>, background: Option<bool>) -> Res<BrowserMedia> {
+    let b = ai_browser(&app, background.unwrap_or(false))?;
+    match action.as_str() {
+        "watch" => {
+            let (text, images) = browser::watch(&b, url.as_deref(), frames.unwrap_or(0)).await?;
+            Ok(BrowserMedia { text, images })
+        }
+        "shot" => Ok(BrowserMedia { text: String::new(), images: vec![browser::screenshot(&b).await?] }),
         _ => Err(format!("不认识的浏览器操作 {action}")),
     }
 }
@@ -522,7 +546,7 @@ pub fn run() {
             save_edited_image, server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
+            agent_browser, agent_browser_media, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
             update_download, update_install, update_mode
         ])
         .run(tauri::generate_context!())
