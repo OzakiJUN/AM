@@ -151,7 +151,18 @@ async fn ensure(b: &Browser) -> R<String> {
         tokio::time::sleep(Duration::from_millis(300)).await; // let the old one let go of the profile
     }
     close_leftover(&b.profile).await;
-    let mut r = launch(b, None).await?;
+    let mut r = match launch(b, None).await {
+        // A leftover holds the profile but cannot be asked to close (an
+        // older AM deleted its port file): end the processes running on
+        // this profile (only those: the owner's own browser is not touched)
+        // and start again.
+        Err(e) if e.starts_with(HANDED_OVER) => {
+            kill_profile_processes(&b.profile).await;
+            tokio::time::sleep(Duration::from_millis(800)).await;
+            launch(b, None).await?
+        }
+        r => r?,
+    };
     if b.background {
         // Headless Chrome says so in its user agent, and some sites then
         // refuse it: start it again under the normal browser's name.
@@ -167,6 +178,40 @@ async fn ensure(b: &Browser) -> R<String> {
     let ws = r.ws.clone();
     BROWSERS.lock().map_err(|_| "浏览器状态出错")?.push((b.profile.clone(), r));
     Ok(ws)
+}
+
+/// Start of the error when a new browser hands itself to one already
+/// running on the profile and quits.
+const HANDED_OVER: &str = "AI 的浏览器一开就退出了";
+
+/// Ends every browser process started on this profile (its command line
+/// has `--user-data-dir=<profile>`).
+async fn kill_profile_processes(profile: &Path) {
+    let p = profile.display().to_string();
+    #[cfg(windows)]
+    {
+        let script = format!(
+            "Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -and $_.CommandLine.Contains('{}') }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}",
+            format!("--user-data-dir={p}").replace('\'', "''")
+        );
+        let _ = tokio::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .status()
+            .await;
+    }
+    #[cfg(not(windows))]
+    {
+        let pattern: String = format!("--user-data-dir={p}").chars().map(|c| if c.is_ascii_alphanumeric() || c == '/' || c == '-' || c == '=' || c == '_' { c.to_string() } else { format!("\\{c}") }).collect();
+        let _ = tokio::process::Command::new("pkill").args(["-f", "--", &pattern]).status().await;
+    }
+}
+
+/// The last lines the browser wrote (browser.log in its profile).
+fn log_tail(profile: &Path) -> String {
+    let t = std::fs::read_to_string(profile.join("am-browser.log")).unwrap_or_default();
+    let lines: Vec<&str> = t.lines().filter(|l| !l.trim().is_empty()).collect();
+    lines[lines.len().saturating_sub(3)..].join(" / ").chars().take(300).collect()
 }
 
 async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
@@ -208,6 +253,13 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
             cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         }
     }
+    // What the browser prints goes to a file (a pipe nobody reads would
+    // block it), shown in the error when it quits right away.
+    if let Ok(log) = std::fs::File::create(b.profile.join("am-browser.log")) {
+        if let Ok(log2) = log.try_clone() {
+            cmd.stdout(log).stderr(log2);
+        }
+    }
     let mut child = cmd.spawn().map_err(|e| format!("打不开浏览器：{e}"))?;
     // The file holds the port and the browser's DevTools path, one per line.
     // A first start on a new profile can be slow (antivirus, first-run setup).
@@ -217,7 +269,8 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
         }
         if let Ok(Some(_)) = child.try_wait() {
             // It handed itself to another browser on the same profile and quit.
-            return Err("AI 的浏览器一开就退出了：它的资料夹被另一个浏览器占着。关掉 AM（托盘里退出）再打开试试".into());
+            let said = log_tail(&b.profile);
+            return Err(format!("{HANDED_OVER}：它的资料夹被另一个浏览器占着。{}", if said.is_empty() { String::new() } else { format!("浏览器说：{said}") }));
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -847,6 +900,37 @@ mod tests {
         cdp(&b, "Page.navigate", json!({ "url": "data:text/html,<title>ok</title>" })).await.unwrap();
         settle(&b).await;
         assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("ok".into()));
+        close();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A leftover whose port file is gone (0.1.3 deleted it before starting
+    /// a new one) can't be asked to close: its processes are ended instead.
+    #[tokio::test]
+    async fn starts_despite_a_leftover_without_port_file() {
+        if std::env::var("AM_BROWSER").is_err() {
+            return;
+        }
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let dir = std::env::temp_dir().join(format!("am-leftover2-{}", std::process::id()));
+        let b = Browser::new(dir.clone(), true);
+        let mut orphan = launch(&b, None).await.unwrap();
+        std::fs::remove_file(dir.join("DevToolsActivePort")).unwrap();
+        let ws = ensure(&b).await.unwrap();
+        assert_ne!(ws, orphan.ws);
+        let mut gone = false;
+        for _ in 0..30 {
+            if orphan.child.try_wait().unwrap().is_some() {
+                gone = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert!(gone, "the leftover browser still runs");
+        cdp(&b, "Page.navigate", json!({ "url": "data:text/html,<title>ok2</title>" })).await.unwrap();
+        settle(&b).await;
+        assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("ok2".into()));
         close();
         let _ = std::fs::remove_dir_all(&dir);
     }
