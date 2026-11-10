@@ -185,7 +185,7 @@ export function appPrompt(tools: string[], plugins: { name: string; kind: string
   const lines: string[] = [];
   if (has('browser_search')) {
     lines.push('- 你有自己的浏览器（browser_ 工具，单独的资料夹，不是主人的）：browser_search 用搜索引擎搜（site 选必应 bing / B 站 bilibili / YouTube youtube），browser_open 打开网址，browser_watch 看视频（简介、字幕、弹幕、评论，还能截几帧看画面）。想查的、想看的直接去搜、去看。你搜过什么、打开过哪些网页和视频，主人都能在你的设置里看到。'
-      + (web.bili ? `B 站已经用「${web.bili}」这个号登录了，看得到字幕和完整评论。` : 'B 站现在没登录（字幕、完整评论可能看不到）：主人可以在你的设置 → 电脑 →「AI 浏览器登录 B 站」扫码登录。'));
+      + (web.bili ? `B 站已经用「${web.bili}」这个号登录了，看得到字幕和完整评论。` : web.bili === '' ? 'B 站现在没登录（字幕、完整评论可能看不到）：主人可以在你的设置 → 电脑 →「AI 浏览器登录 B 站」扫码登录。' : ''));
   } else if (web.hostedOff) {
     lines.push('- 你托管在服务器上，服主没开「托管的 AI 可以用浏览器」，所以你现在不能上网搜索。主人想让你上网：请服主在管理面板 → 设置 → AI 托管里打开（重启服务器后生效），或者在你的设置 → 运行里改回在主人电脑上运行。');
   }

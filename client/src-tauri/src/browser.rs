@@ -26,6 +26,7 @@ struct Running {
     ws: String,
     /// What it was started with.
     proxy: Proxy,
+    headless: bool,
 }
 
 /// How the browser reaches the internet (docs/design.md §9 上网冲浪): the
@@ -56,18 +57,25 @@ impl Proxy {
     }
 }
 
-/// One of the AI's browsers: its profile folder, whether it runs in the
-/// background (headless, muted, smaller page readouts), and the proxy this
-/// call wants (None = whatever it runs with now; a different one restarts it).
+/// The AI's browser: its profile folder, whether it runs in the background
+/// (headless and muted, no window; the other way round restarts it), whether
+/// page readouts are the short ones (its free time), and the proxy this call
+/// wants (None = whatever it runs with now; a different one restarts it).
 pub struct Browser {
     pub profile: PathBuf,
     pub background: bool,
+    pub brief: bool,
     pub proxy: Option<Proxy>,
 }
 
 impl Browser {
     pub fn new(profile: PathBuf, background: bool) -> Self {
-        Self { profile, background, proxy: None }
+        Self { profile, background, brief: background, proxy: None }
+    }
+
+    pub fn with_brief(mut self, brief: bool) -> Self {
+        self.brief = brief;
+        self
     }
 
     pub fn with_proxy(mut self, proxy: Option<Proxy>) -> Self {
@@ -138,17 +146,18 @@ async fn ensure(b: &Browser) -> R<String> {
     // as running while its DevTools port answers.
     let known = {
         let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
-        g.iter_mut().find(|(p, _)| p == &b.profile).map(|(_, r)| (r.ws.clone(), r.proxy.clone(), matches!(r.child.try_wait(), Ok(None))))
+        g.iter_mut().find(|(p, _)| p == &b.profile).map(|(_, r)| (r.ws.clone(), r.proxy.clone(), r.headless, matches!(r.child.try_wait(), Ok(None))))
     };
     let mut replaced = None;
-    if let Some((ws, proxy, child_alive)) = known {
+    if let Some((ws, proxy, headless, child_alive)) = known {
         let alive = child_alive || port_alive(&ws).await;
-        if alive && b.proxy.as_ref().is_none_or(|p| p == &proxy) {
+        // Same proxy and window (or none) as asked: keep it; else start it again.
+        if alive && b.proxy.as_ref().is_none_or(|p| p == &proxy) && headless == b.background {
             return Ok(ws);
         }
         let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
         if let Some(i) = g.iter().position(|(p, _)| p == &b.profile) {
-            let (_, old) = g.remove(i); // closed by the owner, or another proxy wanted
+            let (_, old) = g.remove(i); // closed by the owner, or another proxy / window wanted
             if alive {
                 replaced = Some(old);
             }
@@ -335,7 +344,7 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
     let mut quit_ticks = 0;
     for _ in 0..250 {
         if let Some(ws) = port_file_ws(&b.profile) {
-            return Ok(Running { child, ws, proxy });
+            return Ok(Running { child, ws, proxy, headless: b.background });
         }
         if let Ok(Some(_)) = child.try_wait() {
             quit_ticks += 1;
@@ -477,7 +486,7 @@ pub async fn open(b: &Browser, url: &str) -> R<String> {
 
 pub async fn snapshot(b: &Browser) -> R<String> {
     // The background browser is the AI's own surfing: shorter readouts.
-    let (n, t) = if b.background { (80, 2500) } else { (300, 4000) };
+    let (n, t) = if b.brief { (80, 2500) } else { (300, 4000) };
     let js = SNAPSHOT.replace("__MAXN__", &n.to_string()).replace("__MAXT__", &t.to_string());
     Ok(eval(b, &js).await?.as_str().unwrap_or("").to_owned())
 }
@@ -773,82 +782,7 @@ pub async fn bili(b: &Browser, action: &str, key: &str) -> R<Value> {
     }
 }
 
-/// The window browser's ws address when it last got the background one's
-/// B站 login (None = copy again next time).
-static BILI_SHARED: Mutex<Option<String>> = Mutex::new(None);
-
-fn bili_domain(domain: &str) -> bool {
-    let d = domain.trim_start_matches('.').to_ascii_lowercase();
-    d == "bilibili.com" || d.ends_with(".bilibili.com")
-}
-
-/// A B站 page (or a b23.tv short link to one).
-pub fn is_bili(url: &str) -> bool {
-    let rest = url.split_once("://").map_or(url, |(_, r)| r);
-    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
-    let host = host.rsplit('@').next().unwrap_or("").split(':').next().unwrap_or("");
-    bili_domain(host) || host.eq_ignore_ascii_case("b23.tv")
-}
-
-/// The background browser's B站 login changed (logged in / out): copy it again.
-pub fn bili_changed() {
-    if let Ok(mut g) = BILI_SHARED.lock() {
-        *g = None;
-    }
-}
-
-/// Gives `to` the B站 cookies of `from` (the window browser gets the
-/// background one's QR login), dropping its own first so a logout carries
-/// over too. Once per run of `to`, again after bili_changed().
-pub async fn share_bili(from: &Browser, to: &Browser) -> R<()> {
-    let to_ws = ensure(to).await?;
-    if BILI_SHARED.lock().ok().and_then(|g| g.clone()).as_deref() == Some(to_ws.as_str()) {
-        return Ok(());
-    }
-    let from_ws = ensure(from).await?;
-    let (mut a, _) = tokio_tungstenite::connect_async(from_ws).await.map_err(|e| format!("连不上浏览器：{e}"))?;
-    let theirs = call(&mut a, 1, "Storage.getCookies", json!({}), None).await;
-    let _ = a.close(None).await;
-    let bili = |v: &Value| -> Vec<Value> {
-        v["cookies"].as_array().into_iter().flatten().filter(|c| bili_domain(c["domain"].as_str().unwrap_or(""))).cloned().collect()
-    };
-    let theirs = bili(&theirs?);
-    let (mut b, _) = tokio_tungstenite::connect_async(to_ws.as_str()).await.map_err(|e| format!("连不上浏览器：{e}"))?;
-    let run = async {
-        let mine = bili(&call(&mut b, 1, "Storage.getCookies", json!({}), None).await?);
-        // Expired = deleted; then theirs as they are.
-        let gone: Vec<Value> = mine.iter().map(|c| json!({ "name": c["name"], "value": "", "domain": c["domain"], "path": c["path"], "expires": 1 })).collect();
-        if !gone.is_empty() {
-            call(&mut b, 2, "Storage.setCookies", json!({ "cookies": gone }), None).await?;
-        }
-        let set: Vec<Value> = theirs
-            .iter()
-            .map(|c| {
-                let mut p = json!({ "name": c["name"], "value": c["value"], "domain": c["domain"], "path": c["path"], "secure": c["secure"], "httpOnly": c["httpOnly"] });
-                if let Some(s) = c["sameSite"].as_str() {
-                    p["sameSite"] = json!(s);
-                }
-                if c["session"] != json!(true) && c["expires"].as_f64().is_some_and(|e| e > 0.0) {
-                    p["expires"] = c["expires"].clone();
-                }
-                p
-            })
-            .collect();
-        if !set.is_empty() {
-            call(&mut b, 3, "Storage.setCookies", json!({ "cookies": set }), None).await?;
-        }
-        Ok::<(), String>(())
-    };
-    let r = run.await;
-    let _ = b.close(None).await;
-    r?;
-    if let Ok(mut g) = BILI_SHARED.lock() {
-        *g = Some(to_ws);
-    }
-    Ok(())
-}
-
-/// Closes the AI's browsers (both).
+/// Closes the AI's browser.
 /// Also called when AM quits, so the headless one does not outlive it.
 pub fn close() {
     if let Ok(mut g) = BROWSERS.lock() {
@@ -1122,52 +1056,24 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// The window browser gets the background one's B站 login (and loses it on logout).
+    /// One browser, one profile (one B站 login): showing its window or not
+    /// starts it again in the other way; asking the same way keeps it.
     #[tokio::test]
-    async fn window_browser_gets_the_bili_login() {
+    async fn one_profile_with_or_without_a_window() {
         if std::env::var("AM_BROWSER").is_err() {
             return;
         }
         let _serial = SERIAL.lock().await;
         let _c = Closer;
-        let dir = std::env::temp_dir().join(format!("am-bilishare-{}", std::process::id()));
-        let bg = Browser::new(dir.join("bg"), true);
-        let win = Browser::new(dir.join("win"), false);
-        let ws = ensure(&bg).await.unwrap();
-        let (mut a, _) = tokio_tungstenite::connect_async(ws).await.unwrap();
-        let cookie = |name: &str, value: &str| json!({ "name": name, "value": value, "domain": ".bilibili.com", "path": "/", "secure": true, "httpOnly": true, "expires": 4102444800.0 });
-        call(&mut a, 1, "Storage.setCookies", json!({ "cookies": [cookie("SESSDATA", "abc"), { "name": "other", "value": "x", "domain": "example.com", "path": "/" }] }), None).await.unwrap();
-        bili_changed();
-        share_bili(&bg, &win).await.unwrap();
-        let names = |v: Value| -> Vec<(String, String)> {
-            v["cookies"].as_array().unwrap().iter().map(|c| (c["name"].as_str().unwrap().to_owned(), c["value"].as_str().unwrap().to_owned())).collect()
-        };
-        let win_ws = ensure(&win).await.unwrap();
-        let (mut w, _) = tokio_tungstenite::connect_async(win_ws.as_str()).await.unwrap();
-        let got = names(call(&mut w, 1, "Storage.getCookies", json!({}), None).await.unwrap());
-        assert!(got.contains(&("SESSDATA".into(), "abc".into())), "{got:?}");
-        assert!(!got.iter().any(|(n, _)| n == "other"), "only B站 cookies: {got:?}");
-        // Logged out in the background browser: gone from the window one too.
-        let mut gone = cookie("SESSDATA", "");
-        gone["expires"] = json!(1);
-        call(&mut a, 2, "Storage.setCookies", json!({ "cookies": [gone] }), None).await.unwrap();
-        bili_changed();
-        share_bili(&bg, &win).await.unwrap();
-        let got = names(call(&mut w, 2, "Storage.getCookies", json!({}), None).await.unwrap());
-        assert!(!got.iter().any(|(n, _)| n == "SESSDATA"), "{got:?}");
+        let dir = std::env::temp_dir().join(format!("am-onebrowser-{}", std::process::id()));
+        let hidden = ensure(&Browser::new(dir.clone(), true)).await.unwrap();
+        assert_eq!(ensure(&Browser::new(dir.clone(), true).with_brief(false)).await.unwrap(), hidden, "brief is only how much a readout says");
+        let shown = ensure(&Browser::new(dir.clone(), false)).await.unwrap();
+        assert_ne!(shown, hidden, "a window was asked for: started again");
+        assert_eq!(ensure(&Browser::new(dir.clone(), false)).await.unwrap(), shown);
+        assert_eq!(BROWSERS.lock().unwrap().len(), 1, "still one browser");
         close();
         let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn bili_urls() {
-        assert!(is_bili("https://www.bilibili.com/video/BV1x"));
-        assert!(is_bili("https://search.bilibili.com/all?keyword=a"));
-        assert!(is_bili("https://b23.tv/abc"));
-        assert!(is_bili("https://BILIBILI.com"));
-        assert!(!is_bili("https://bilibili.com.evil.com/"));
-        assert!(!is_bili("https://evil.com/?u=https://www.bilibili.com"));
-        assert!(!is_bili("https://notbilibili.com/"));
     }
 
     #[test]

@@ -23,8 +23,10 @@ export interface ToolCtx {
   owner: string;
   /** Its own account and chats (runner.ts), for the self / social tools. */
   self?: SelfApi;
-  /** Its own free time: the background browser (headless, muted, no window). */
+  /** Its own free time: short page readouts. */
   background?: boolean;
+  /** Its browser shows a window (prefs.aiBrowserVisible; never when hosted). */
+  visible?: boolean;
   /** Where this turn happens (a chat's name; '' = its free time), for its search history. */
   place?: string;
 }
@@ -108,14 +110,15 @@ async function rust<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
   return invoke<T>(cmd, args);
 }
 
-/** Bilibili login of the AI's background browser on this device (QR scan). */
+/** Bilibili login of the AI's browser on this device (QR scan); with or without its window as it runs now. */
 export type BiliState = { login: boolean; name: string };
+const shown = () => usePrefs.getState().aiBrowserVisible === true;
 export const biliLogin = {
-  status: () => rust<BiliState>('agent_bili', { action: 'status' }),
-  start: () => rust<{ url: string; key: string }>('agent_bili', { action: 'start' }),
+  status: () => rust<BiliState>('agent_bili', { action: 'status', visible: shown() }),
+  start: () => rust<{ url: string; key: string }>('agent_bili', { action: 'start', visible: shown() }),
   /** code: 86101 not scanned, 86090 scanned (confirm on the phone), 86038 expired, 0 logged in. */
-  poll: (key: string) => rust<{ code: number; message: string } & Partial<BiliState>>('agent_bili', { action: 'poll', key }),
-  logout: () => rust<BiliState>('agent_bili', { action: 'logout' }),
+  poll: (key: string) => rust<{ code: number; message: string } & Partial<BiliState>>('agent_bili', { action: 'poll', key, visible: shown() }),
+  logout: () => rust<BiliState>('agent_bili', { action: 'logout', visible: shown() }),
 };
 
 const proxyPref = () => usePrefs.getState().aiProxy ?? DEFAULT_PROXY;
@@ -214,29 +217,29 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
     case 'browser_open':
     case 'browser_search': {
       const url = name === 'browser_open' ? s(a.url) : searchUrl(s(a.query), s(a.site) || 'bing');
-      const { r, note } = await viaProxy(url, a.proxy, (proxy) => rust<string>('agent_browser', { action: 'open', url, background: !!ctx.background, proxy }));
+      const { r, note } = await viaProxy(url, a.proxy, (proxy) => rust<string>('agent_browser', { action: 'open', url, background: !!ctx.background, visible: !!ctx.visible, proxy }));
       return { text: note + r };
     }
     case 'browser_read':
-      return { text: await rust<string>('agent_browser', { action: 'read', background: !!ctx.background, proxy: keepProxy() }) };
+      return { text: await rust<string>('agent_browser', { action: 'read', background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() }) };
     case 'browser_click':
-      return { text: await rust<string>('agent_browser', { action: 'click', n: n(a.n, 0), background: !!ctx.background, proxy: keepProxy() }) };
+      return { text: await rust<string>('agent_browser', { action: 'click', n: n(a.n, 0), background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() }) };
     case 'browser_type':
-      return { text: await rust<string>('agent_browser', { action: 'type', n: n(a.n, 0), text: s(a.text), submit: a.submit === true, background: !!ctx.background, proxy: keepProxy() }) };
+      return { text: await rust<string>('agent_browser', { action: 'type', n: n(a.n, 0), text: s(a.text), submit: a.submit === true, background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() }) };
     case 'browser_scroll':
-      return { text: await rust<string>('agent_browser', { action: 'scroll', pages: n(a.pages, 1), background: !!ctx.background, proxy: keepProxy() }) };
+      return { text: await rust<string>('agent_browser', { action: 'scroll', pages: n(a.pages, 1), background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() }) };
     case 'browser_back':
-      return { text: await rust<string>('agent_browser', { action: 'back', background: !!ctx.background, proxy: keepProxy() }) };
+      return { text: await rust<string>('agent_browser', { action: 'back', background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() }) };
     case 'browser_watch': {
       // Frames only for a model that can look at pictures.
       const frames = ctx.computer.vision ? Math.max(0, Math.min(4, Math.round(n(a.frames, 0)))) : 0;
       const url = s(a.url);
-      const watch = (proxy: string | null) => rust<{ text: string; images: string[] }>('agent_browser_media', { action: 'watch', url: url || null, frames, background: !!ctx.background, proxy });
+      const watch = (proxy: string | null) => rust<{ text: string; images: string[] }>('agent_browser_media', { action: 'watch', url: url || null, frames, background: !!ctx.background, visible: !!ctx.visible, proxy });
       const { r, note } = url ? await viaProxy(url, a.proxy, watch) : { r: await watch(keepProxy()), note: '' };
       return { text: note + r.text, images: r.images.length ? r.images : undefined };
     }
     case 'browser_look': {
-      const r = await rust<{ text: string; images: string[] }>('agent_browser_media', { action: 'shot', background: !!ctx.background, proxy: keepProxy() });
+      const r = await rust<{ text: string; images: string[] }>('agent_browser_media', { action: 'shot', background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() });
       return { text: '这是浏览器当前页面的样子', images: r.images };
     }
     case 'set_my_status':

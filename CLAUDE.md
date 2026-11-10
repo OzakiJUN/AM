@@ -269,9 +269,9 @@ update the docs in the same commit.
   2b: UI Automation `src-tauri/src/uia.rs` (Windows only, acts by number +
   name check), the AI's own browser `browser.rs` (Edge / Chrome with its own
   profile, DevTools protocol; test with `AM_BROWSER=<chrome> AM_BROWSER_HEADLESS=1
-  cargo test`; a second headless, muted `ai-browser-bg` for its own surfing;
+  cargo test`; one profile `ai-browser-bg` for chats and its surfing, headless + muted unless `prefs.aiBrowserVisible` (switching restarts it; `brief` = short readouts in free time);
   `browser_search` / `browser_watch` (B站 / YouTube details, subtitles, danmaku,
-  comments, frames) / `browser_look`; B站 QR login of the background browser = `bili` / `agent_bili`, run in a side tab, UI 「AI 浏览器登录 B 站」 in AISettings, copied to the window browser before it goes to B站 (`share_bili`); proxy per device `prefs.aiProxy` → `lib/ai/proxy.ts` (pure, tested: system / off / on / auto, the AI may pass `proxy`), the browser restarts when the proxy changes), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
+  comments, frames) / `browser_look`; B站 QR login of the background browser = `bili` / `agent_bili`, run in a side tab, UI 「AI 浏览器登录 B 站」 in AISettings; proxy per device `prefs.aiProxy` → `lib/ai/proxy.ts` (pure, tested: system / off / on / auto, the AI may pass `proxy`), the browser restarts when the proxy changes), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
   named `mcp__<server>__<tool>`, category `mcp`). New tool categories need
   `ToolCategory`, `DEFAULT_LEVELS` and `CATEGORY_LABEL`. Tools flagged `own`
   (self / social: its status, bio, page note, channels, messaging the owner)

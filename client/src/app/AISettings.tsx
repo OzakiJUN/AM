@@ -348,7 +348,7 @@ function ComputerTab({ serverId, aiId, hosting, draft, set, save }: TabProps & {
           <Input type="number" min={1} max={60} value={c.yieldSeconds} onChange={(e) => setC({ yieldSeconds: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} />
         </Field>
       </div>
-      {where === 'here' && inTauri && !isAndroid && c.enabled && c.levels.browser !== 'deny' && <><BrowserProxy /><BiliLogin api={biliLogin} hint="登录后它上网时能看到字幕和完整评论。这台电脑上的 AI 共用，最好用小号" /></>}
+      {where === 'here' && inTauri && !isAndroid && c.enabled && c.levels.browser !== 'deny' && <><BrowserWindow /><BrowserProxy /><BiliLogin api={biliLogin} hint="登录后它上网时能看到字幕和完整评论。这台电脑上的 AI 共用，最好用小号" /></>}
       {where === 'host' && c.levels.browser !== 'deny' && (hosting?.browser
         ? <BiliLogin api={remote} hint="登录存在服务器上它自己的浏览器里（看不见的那个），扫码就在这里扫。最好用小号" />
         : <Field label="AI 浏览器" hint="托管在服务器上的 AI 要服主允许才能上网"><p className="text-[0.85rem] text-ink-soft dark:text-white/55">服务器没允许托管的 AI 用浏览器。服主可以在管理面板 → 设置 → AI 托管里打开「托管的 AI 可以用浏览器」，重启服务器后生效。</p></Field>)}
@@ -366,6 +366,17 @@ const PROXY_HINT: Record<ProxyMode, string> = {
 };
 
 /** Whether the AI's browser on this device goes through a proxy (per device, all its AIs). */
+/** Whether the AI's browser shows its window here (this device; one browser either way). */
+function BrowserWindow() {
+  const visible = usePrefs((s) => s.aiBrowserVisible);
+  const setPrefs = usePrefs((s) => s.set);
+  return (
+    <Field label="上网时让我看到它的浏览器" hint="关着（默认）：它在后台上网，不弹窗口。打开：开一个 Edge / Chrome 窗口，你能看着它点。都是同一个浏览器、同一份 B 站登录；切换时浏览器重开一下。这台电脑上的 AI 共用">
+      <Toggle label="让我看到它的浏览器" checked={visible} onChange={(on) => setPrefs({ aiBrowserVisible: on })} />
+    </Field>
+  );
+}
+
 function BrowserProxy() {
   const pref = usePrefs((s) => s.aiProxy);
   const setPrefs = usePrefs((s) => s.set);
