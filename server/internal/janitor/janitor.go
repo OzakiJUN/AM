@@ -75,6 +75,12 @@ func (j *Janitor) RunOnce(ctx context.Context) {
 	} else if n > 0 {
 		j.log.Info("purged finished games", "rows", n)
 	}
+	// AIs' search / browsing history (their owners read it).
+	if n, err := j.st.PurgeBrowseLog(ctx, now.Add(-time.Duration(j.retention.AIBrowseDays)*24*time.Hour).UnixMilli()); err != nil {
+		j.log.Error("purge AI browsing history", "err", err)
+	} else if n > 0 {
+		j.log.Info("purged old AI browsing history", "rows", n)
+	}
 	if n, err := j.st.PurgePairTickets(ctx, now.UnixMilli()); err != nil {
 		j.log.Error("purge pairing codes", "err", err)
 	} else if n > 0 {

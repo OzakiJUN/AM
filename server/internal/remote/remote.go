@@ -3,6 +3,8 @@
 // gets the answer back. The server keeps nothing; it checks that an AI asks
 // a person (not blocked either way), that a person answers an AI, sizes and
 // a rate limit. Whether anything runs is decided on the person's device.
+// It also relays an owner's requests to the client running their AI
+// (Control / ControlResult), so the owner can set it up from anywhere.
 package remote
 
 import (
@@ -28,6 +30,8 @@ const (
 	maxImages = 2
 	maxResult = 900 << 10
 	perMinute = 30
+	// An owner's requests to their AI (a B站 QR login polls every 2 s).
+	controlPerMinute = 90
 	human     = int16(amv1.AccountType_ACCOUNT_TYPE_HUMAN)
 )
 
@@ -44,16 +48,16 @@ func New(st *store.Store, p push.Pusher) *Service {
 	return &Service{st: st, push: p, seen: map[int64][]time.Time{}}
 }
 
-func (s *Service) allow(aiID int64) bool {
+func (s *Service) allow(id int64, limit int) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
-	list := slices.DeleteFunc(s.seen[aiID], func(t time.Time) bool { return now.Sub(t) > time.Minute })
-	if len(list) >= perMinute {
-		s.seen[aiID] = list
+	list := slices.DeleteFunc(s.seen[id], func(t time.Time) bool { return now.Sub(t) > time.Minute })
+	if len(list) >= limit {
+		s.seen[id] = list
 		return false
 	}
-	s.seen[aiID] = append(list, now)
+	s.seen[id] = append(list, now)
 	return true
 }
 
@@ -99,7 +103,7 @@ func (s *Service) Request(ctx context.Context, ai *store.User, r *amv1.RemoteToo
 			return apperr.ErrBlocked
 		}
 	}
-	if !s.allow(ai.ID) {
+	if !s.allow(ai.ID, perMinute) {
 		return apperr.ErrRateLimited
 	}
 	owners := map[int64]*store.User{}
@@ -136,6 +140,55 @@ func (s *Service) Result(ctx context.Context, me *store.User, r *amv1.RemoteTool
 	}
 	s.push.ToUsers([]int64{ai.ID}, &amv1.ServerFrame{Msg: &amv1.ServerFrame_RemoteToolResult{RemoteToolResult: &amv1.RemoteToolResultPush{
 		RequestId: r.GetRequestId(), FromUserId: me.ID, Ok: r.GetOk(), Text: r.GetText(), Images: r.GetImages(),
+	}}}, 0)
+	return nil
+}
+
+// Control passes an owner's request on to the client that runs their AI
+// (their other device, or the server's host client): the Bilibili login of
+// its browser, for one. Only the AI's owner may ask.
+func (s *Service) Control(ctx context.Context, me *store.User, r *amv1.AIControlRequest) error {
+	if me.AccountType != human {
+		return apperr.ErrNoPermission
+	}
+	if r.GetRequestId() == "" || len(r.GetRequestId()) > maxID || r.GetAction() == "" || len(r.GetAction()) > maxTool {
+		return apperr.ErrBadRequest
+	}
+	if len(r.GetArgsJson()) > maxArgs {
+		return errTooBig
+	}
+	ai, err := s.st.GetUser(ctx, r.GetAiId())
+	if errors.Is(err, store.ErrNotFound) || (err == nil && (ai.Gone() || ai.AccountType == human)) {
+		return apperr.ErrUserNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if ai.OwnerID != me.ID {
+		return apperr.ErrNoPermission
+	}
+	if !s.allow(me.ID, controlPerMinute) {
+		return apperr.ErrRateLimited
+	}
+	s.push.ToUsers([]int64{ai.ID}, &amv1.ServerFrame{Msg: &amv1.ServerFrame_AiControl{AiControl: &amv1.AIControlPush{
+		RequestId: r.GetRequestId(), FromUserId: me.ID, Action: r.GetAction(), ArgsJson: r.GetArgsJson(),
+	}}}, 0)
+	return nil
+}
+
+// ControlResult passes the AI's client's answer back to its owner.
+func (s *Service) ControlResult(ctx context.Context, me *store.User, r *amv1.AIControlResult) error {
+	if me.AccountType == human || me.OwnerID == 0 {
+		return apperr.ErrNoPermission
+	}
+	if r.GetRequestId() == "" || len(r.GetRequestId()) > maxID {
+		return apperr.ErrBadRequest
+	}
+	if len(r.GetText()) > maxText {
+		return errTooBig
+	}
+	s.push.ToUsers([]int64{me.OwnerID}, &amv1.ServerFrame{Msg: &amv1.ServerFrame_AiControlResult{AiControlResult: &amv1.AIControlResultPush{
+		RequestId: r.GetRequestId(), AiId: me.ID, Ok: r.GetOk(), Text: r.GetText(),
 	}}}, 0)
 	return nil
 }

@@ -26,7 +26,7 @@ func (a *API) hostingView(v *hosting.View) *amv1.AIHosting {
 	if v == nil {
 		return nil
 	}
-	out := &amv1.AIHosting{Status: v.Status, RejectReason: v.RejectReason, RequestedAt: v.RequestedAt, State: v.State, Error: v.Error}
+	out := &amv1.AIHosting{Status: v.Status, RejectReason: v.RejectReason, RequestedAt: v.RequestedAt, State: v.State, Error: v.Error, Browser: a.hosting.Browser()}
 	if v.Status == "approved" {
 		out.WorkDir = a.hosting.WorkDir(v.AIID)
 	}

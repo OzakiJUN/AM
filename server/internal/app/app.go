@@ -87,6 +87,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 	}
 	acct := account.New(st, ids, cfg.Invites, hub, md)
 	acct.SetAILimit(cfg.Limits.MaxAIPerUser)
+	acct.SetBrowseLogLimit(cfg.Limits.MaxBrowseLog)
 	acct.SetDeviceLimits(cfg.Limits.MaxDevices, time.Duration(cfg.Limits.PairCodeMinutes)*time.Minute)
 	// New messages also reach the AIs' plugins (the tap is connected once the host exists).
 	tap := &plugin.Tap{Next: hub}
@@ -117,7 +118,7 @@ func New(ctx context.Context, cfg *config.Config, log *slog.Logger) (*App, error
 
 	var hosted *hosting.Service
 	if hc := cfg.Hosting; hc.Enabled {
-		hosted, err = hosting.New(hosting.Config{Enabled: true, MaxPerUser: hc.MaxPerUser, ClientPath: hc.ClientPath,
+		hosted, err = hosting.New(hosting.Config{Enabled: true, MaxPerUser: hc.MaxPerUser, ClientPath: hc.ClientPath, Browser: hc.AllowBrowser,
 			Dir: cfg.InDataDir("hosting"), Spawn: !hc.NoSpawn}, st, ids, acct, log)
 		if err != nil {
 			if plugins != nil {

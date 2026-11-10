@@ -1,7 +1,7 @@
 // Run the real autonomous tool loop with fake model/browser/network boundaries.
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
-const state = { requests: [], calls: [], sent: [], writes: [], step: 0 };
+const state = { requests: [], calls: [], sent: [], writes: [], browsed: [], step: 0 };
 globalThis.__amAutonomy = state;
 const savedStorage = globalThis.localStorage;
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
@@ -23,7 +23,7 @@ const server = await createServer({ server: { middlewareMode: true, hmr: false }
         onChunk('data: '+JSON.stringify({model:'reported-flash',choices:[{delta}]})+'\\n\\n');return 200;
       }`;
     if (id === '\0virtual:autonomy-tools') return `
-      export async function loadMcpTools(){return {defs:[],map:new Map(),errors:[]}};export function stopMcp(){};
+      export async function loadMcpTools(){return {defs:[],map:new Map(),errors:[]}};export function stopMcp(){};export const biliLogin={status:async()=>({login:true,name:'股肉-'})};
       export async function execTool(name,args,ctx){globalThis.__amAutonomy.calls.push({name,args,background:!!ctx.background});return {text:'标题：鱼类\\n地址：https://example.com/fish?token=secret\\n可以操作的元素：\\n[1] link 下一页\\n页面文字（开头）：星星鱼适合夜间钓。'}};`;
   },
 }] });
@@ -36,13 +36,16 @@ try {
   useProviders.setState({ loaded: true, list: [{ id: 'p', name: 'DeepSeek', kind: 'openai', baseUrl: 'https://api.deepseek.com/v1', key: 'fake' }] });
   const view = { status: 'online', convs: { '10': { id: '10', kind: 'dm', peerId: '1', members: [] } }, messages: { '10': [] }, replyTargets: {}, games: {}, users: { '1': { id: '1', type: 'human', name: '主人' } } };
   const run = { serverId: 'srv', ai: { user: { id: '2', name: '小鱼', ownerId: '1' } }, settings, busy: new Set(), again: new Set(), pending: new Map(), sends: new Map(), helper: { cmds: [], at: Date.now() }, memory: emptyMemory(), memoryAt: 0, memoryLoaded: true, memoryQueue: Promise.resolve(), s: {
-    view, nameOf: id => id === '1' ? '主人' : '小鱼', sendText: async (...args) => state.sent.push(args),
+    view, nameOf: id => id === '1' ? '主人' : '小鱼', sendText: async (...args) => state.sent.push(args), addBrowseLog: async (...args) => state.browsed.push(args),
     putClientState: async data => { state.writes.push(JSON.parse(new TextDecoder().decode(data))); return state.writes.length; },
   } };
   testRunner.runs.set('srv|2', run);
   await testRunner.reply(run, '10', { idle: true, silent: true, note: '按兴趣浏览并记住见闻，不发消息。' });
   assert.deepEqual(state.calls.map(c => c.name), ['browser_open']);
   assert.equal(state.calls[0].background, true, 'its own surfing uses the background browser');
+  // Its owner sees where it went (its own time = no chat).
+  assert.deepEqual(state.browsed, [['open', 'https://example.com/fish', '']]);
+  assert.match(state.requests[0].system ?? state.requests[0].messages[0].content, /browser_search/, 'its prompt tells it about its browser');
   const offered = state.requests[0].tools.map(t => t.function.name);
   assert.ok(offered.includes('browser_read') && !offered.includes('message_owner') && !offered.includes('run_command'));
   assert.equal(state.requests[1].messages.find(m => m.tool_calls)?.reasoning_content, 'private tool reasoning');

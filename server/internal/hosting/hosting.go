@@ -45,6 +45,8 @@ type Config struct {
 	Enabled    bool
 	MaxPerUser int
 	ClientPath string
+	// Browser: hosted AIs get a browser of their own (hosting.allow_browser).
+	Browser bool
 	// Dir: data/hosting.
 	Dir   string
 	Spawn bool
@@ -93,6 +95,9 @@ func New(cfg Config, st *store.Store, ids *idgen.Generator, acct *account.Servic
 
 // Enabled: people may ask for hosting.
 func (s *Service) Enabled() bool { return s.cfg.Enabled && s.cfg.MaxPerUser > 0 }
+
+// Browser: hosted AIs may use a browser of their own.
+func (s *Service) Browser() bool { return s.cfg.Browser }
 
 // SetEndpoint tells the host clients how to reach this server (loopback
 // address, plain or the certificate pin as hex). Called once TLS is up.

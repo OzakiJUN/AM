@@ -377,6 +377,14 @@ func (g *Gateway) handle(ctx context.Context, c *Conn, f *amv1.ClientFrame) *amv
 		if err = g.remote.Result(ctx, c.user, m.RemoteToolResult); err == nil {
 			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}
 		}
+	case *amv1.ClientFrame_AiControl:
+		if err = g.remote.Control(ctx, c.user, m.AiControl); err == nil {
+			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}
+		}
+	case *amv1.ClientFrame_AiControlResult:
+		if err = g.remote.ControlResult(ctx, c.user, m.AiControlResult); err == nil {
+			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}
+		}
 	case *amv1.ClientFrame_Auth:
 		err = apperr.New(http.StatusBadRequest, "already_authenticated", "already authenticated")
 	default:

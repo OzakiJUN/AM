@@ -99,3 +99,17 @@ func (c *Conn) RemoteToolResult(ctx context.Context, res *amv1.RemoteToolResult)
 	_, err := c.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_RemoteToolResult{RemoteToolResult: res}})
 	return err
 }
+
+// AIControl (an owner's connection) asks the client running their AI to do something.
+func (c *Conn) AIControl(ctx context.Context, requestID string, aiID int64, action, argsJSON string) error {
+	_, err := c.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_AiControl{AiControl: &amv1.AIControlRequest{
+		RequestId: requestID, AiId: aiID, Action: action, ArgsJson: argsJSON,
+	}}})
+	return err
+}
+
+// AIControlResult (the AI's connection) answers its owner.
+func (c *Conn) AIControlResult(ctx context.Context, res *amv1.AIControlResult) error {
+	_, err := c.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_AiControlResult{AiControlResult: res}})
+	return err
+}

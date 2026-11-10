@@ -136,6 +136,8 @@ type ClientFrame struct {
 	//	*ClientFrame_Ping
 	//	*ClientFrame_RemoteTool
 	//	*ClientFrame_RemoteToolResult
+	//	*ClientFrame_AiControl
+	//	*ClientFrame_AiControlResult
 	Msg           isClientFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -248,6 +250,24 @@ func (x *ClientFrame) GetRemoteToolResult() *RemoteToolResult {
 	return nil
 }
 
+func (x *ClientFrame) GetAiControl() *AIControlRequest {
+	if x != nil {
+		if x, ok := x.Msg.(*ClientFrame_AiControl); ok {
+			return x.AiControl
+		}
+	}
+	return nil
+}
+
+func (x *ClientFrame) GetAiControlResult() *AIControlResult {
+	if x != nil {
+		if x, ok := x.Msg.(*ClientFrame_AiControlResult); ok {
+			return x.AiControlResult
+		}
+	}
+	return nil
+}
+
 type isClientFrame_Msg interface {
 	isClientFrame_Msg()
 }
@@ -282,6 +302,16 @@ type ClientFrame_RemoteToolResult struct {
 	RemoteToolResult *RemoteToolResult `protobuf:"bytes,16,opt,name=remote_tool_result,json=remoteToolResult,proto3,oneof"`
 }
 
+type ClientFrame_AiControl struct {
+	// An owner asks the client running their AI to do something for it.
+	AiControl *AIControlRequest `protobuf:"bytes,17,opt,name=ai_control,json=aiControl,proto3,oneof"`
+}
+
+type ClientFrame_AiControlResult struct {
+	// The client running an AI answers its owner's ai_control.
+	AiControlResult *AIControlResult `protobuf:"bytes,18,opt,name=ai_control_result,json=aiControlResult,proto3,oneof"`
+}
+
 func (*ClientFrame_Auth) isClientFrame_Msg() {}
 
 func (*ClientFrame_Send) isClientFrame_Msg() {}
@@ -295,6 +325,10 @@ func (*ClientFrame_Ping) isClientFrame_Msg() {}
 func (*ClientFrame_RemoteTool) isClientFrame_Msg() {}
 
 func (*ClientFrame_RemoteToolResult) isClientFrame_Msg() {}
+
+func (*ClientFrame_AiControl) isClientFrame_Msg() {}
+
+func (*ClientFrame_AiControlResult) isClientFrame_Msg() {}
 
 type ServerFrame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -321,6 +355,8 @@ type ServerFrame struct {
 	//	*ServerFrame_AiShareRequest
 	//	*ServerFrame_Game
 	//	*ServerFrame_ClientUpdate
+	//	*ServerFrame_AiControl
+	//	*ServerFrame_AiControlResult
 	Msg           isServerFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -550,6 +586,24 @@ func (x *ServerFrame) GetClientUpdate() *ClientUpdatePush {
 	return nil
 }
 
+func (x *ServerFrame) GetAiControl() *AIControlPush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_AiControl); ok {
+			return x.AiControl
+		}
+	}
+	return nil
+}
+
+func (x *ServerFrame) GetAiControlResult() *AIControlResultPush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_AiControlResult); ok {
+			return x.AiControlResult
+		}
+	}
+	return nil
+}
+
 type isServerFrame_Msg interface {
 	isServerFrame_Msg()
 }
@@ -639,6 +693,14 @@ type ServerFrame_ClientUpdate struct {
 	ClientUpdate *ClientUpdatePush `protobuf:"bytes,42,opt,name=client_update,json=clientUpdate,proto3,oneof"`
 }
 
+type ServerFrame_AiControl struct {
+	AiControl *AIControlPush `protobuf:"bytes,43,opt,name=ai_control,json=aiControl,proto3,oneof"`
+}
+
+type ServerFrame_AiControlResult struct {
+	AiControlResult *AIControlResultPush `protobuf:"bytes,44,opt,name=ai_control_result,json=aiControlResult,proto3,oneof"`
+}
+
 func (*ServerFrame_Error) isServerFrame_Msg() {}
 
 func (*ServerFrame_Auth) isServerFrame_Msg() {}
@@ -678,6 +740,10 @@ func (*ServerFrame_AiShareRequest) isServerFrame_Msg() {}
 func (*ServerFrame_Game) isServerFrame_Msg() {}
 
 func (*ServerFrame_ClientUpdate) isServerFrame_Msg() {}
+
+func (*ServerFrame_AiControl) isServerFrame_Msg() {}
+
+func (*ServerFrame_AiControlResult) isServerFrame_Msg() {}
 
 type AuthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2123,6 +2189,279 @@ func (x *RemoteToolResultPush) GetImages() []string {
 	return nil
 }
 
+// From an AI's owner to whichever client runs it (their other device or
+// the server's host client), e.g. the Bilibili login of its browser.
+// request_id ≤ 64 characters, action ≤ 64, args_json ≤ 16 KiB. Errors:
+// user_not_found, no_permission (not my AI), rate_limited (more than 90 a minute).
+type AIControlRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	AiId          int64                  `protobuf:"varint,2,opt,name=ai_id,json=aiId,proto3" json:"ai_id,omitempty"`
+	Action        string                 `protobuf:"bytes,3,opt,name=action,proto3" json:"action,omitempty"`
+	ArgsJson      string                 `protobuf:"bytes,4,opt,name=args_json,json=argsJson,proto3" json:"args_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIControlRequest) Reset() {
+	*x = AIControlRequest{}
+	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIControlRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIControlRequest) ProtoMessage() {}
+
+func (x *AIControlRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIControlRequest.ProtoReflect.Descriptor instead.
+func (*AIControlRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *AIControlRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *AIControlRequest) GetAiId() int64 {
+	if x != nil {
+		return x.AiId
+	}
+	return 0
+}
+
+func (x *AIControlRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *AIControlRequest) GetArgsJson() string {
+	if x != nil {
+		return x.ArgsJson
+	}
+	return ""
+}
+
+// To the AI's sessions.
+type AIControlPush struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	RequestId string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	// Always the AI's owner.
+	FromUserId    int64  `protobuf:"varint,2,opt,name=from_user_id,json=fromUserId,proto3" json:"from_user_id,omitempty"`
+	Action        string `protobuf:"bytes,3,opt,name=action,proto3" json:"action,omitempty"`
+	ArgsJson      string `protobuf:"bytes,4,opt,name=args_json,json=argsJson,proto3" json:"args_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIControlPush) Reset() {
+	*x = AIControlPush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIControlPush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIControlPush) ProtoMessage() {}
+
+func (x *AIControlPush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIControlPush.ProtoReflect.Descriptor instead.
+func (*AIControlPush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *AIControlPush) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *AIControlPush) GetFromUserId() int64 {
+	if x != nil {
+		return x.FromUserId
+	}
+	return 0
+}
+
+func (x *AIControlPush) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *AIControlPush) GetArgsJson() string {
+	if x != nil {
+		return x.ArgsJson
+	}
+	return ""
+}
+
+// From the client running the AI back to its owner. text ≤ 64 KiB.
+type AIControlResult struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	RequestId string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Ok        bool                   `protobuf:"varint,2,opt,name=ok,proto3" json:"ok,omitempty"`
+	// The answer's JSON when ok, else why not.
+	Text          string `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIControlResult) Reset() {
+	*x = AIControlResult{}
+	mi := &file_am_v1_gateway_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIControlResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIControlResult) ProtoMessage() {}
+
+func (x *AIControlResult) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIControlResult.ProtoReflect.Descriptor instead.
+func (*AIControlResult) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *AIControlResult) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *AIControlResult) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *AIControlResult) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+// To the owner's devices.
+type AIControlResultPush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	AiId          int64                  `protobuf:"varint,2,opt,name=ai_id,json=aiId,proto3" json:"ai_id,omitempty"`
+	Ok            bool                   `protobuf:"varint,3,opt,name=ok,proto3" json:"ok,omitempty"`
+	Text          string                 `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIControlResultPush) Reset() {
+	*x = AIControlResultPush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIControlResultPush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIControlResultPush) ProtoMessage() {}
+
+func (x *AIControlResultPush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIControlResultPush.ProtoReflect.Descriptor instead.
+func (*AIControlResultPush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *AIControlResultPush) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *AIControlResultPush) GetAiId() int64 {
+	if x != nil {
+		return x.AiId
+	}
+	return 0
+}
+
+func (x *AIControlResultPush) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *AIControlResultPush) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
 // To an AI's owner: someone asks to talk with it.
 type AIShareRequestPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2134,7 +2473,7 @@ type AIShareRequestPush struct {
 
 func (x *AIShareRequestPush) Reset() {
 	*x = AIShareRequestPush{}
-	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	mi := &file_am_v1_gateway_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2146,7 +2485,7 @@ func (x *AIShareRequestPush) String() string {
 func (*AIShareRequestPush) ProtoMessage() {}
 
 func (x *AIShareRequestPush) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[27]
+	mi := &file_am_v1_gateway_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2159,7 +2498,7 @@ func (x *AIShareRequestPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIShareRequestPush.ProtoReflect.Descriptor instead.
 func (*AIShareRequestPush) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{27}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *AIShareRequestPush) GetAiId() int64 {
@@ -2189,7 +2528,7 @@ type ForwardRequest struct {
 
 func (x *ForwardRequest) Reset() {
 	*x = ForwardRequest{}
-	mi := &file_am_v1_gateway_proto_msgTypes[28]
+	mi := &file_am_v1_gateway_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2201,7 +2540,7 @@ func (x *ForwardRequest) String() string {
 func (*ForwardRequest) ProtoMessage() {}
 
 func (x *ForwardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[28]
+	mi := &file_am_v1_gateway_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2214,7 +2553,7 @@ func (x *ForwardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForwardRequest.ProtoReflect.Descriptor instead.
 func (*ForwardRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{28}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ForwardRequest) GetSourceConvId() int64 {
@@ -2249,7 +2588,7 @@ var File_am_v1_gateway_proto protoreflect.FileDescriptor
 
 const file_am_v1_gateway_proto_rawDesc = "" +
 	"\n" +
-	"\x13am/v1/gateway.proto\x12\x05am.v1\x1a\x12am/v1/common.proto\x1a\x11am/v1/event.proto\"\x89\x03\n" +
+	"\x13am/v1/gateway.proto\x12\x05am.v1\x1a\x12am/v1/common.proto\x1a\x11am/v1/event.proto\"\x89\x04\n" +
 	"\vClientFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12(\n" +
 	"\x04auth\x18\n" +
@@ -2260,8 +2599,11 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x04ping\x18\x0e \x01(\v2\v.am.v1.PingH\x00R\x04ping\x12;\n" +
 	"\vremote_tool\x18\x0f \x01(\v2\x18.am.v1.RemoteToolRequestH\x00R\n" +
 	"remoteTool\x12G\n" +
-	"\x12remote_tool_result\x18\x10 \x01(\v2\x17.am.v1.RemoteToolResultH\x00R\x10remoteToolResultB\x05\n" +
-	"\x03msg\"\xa3\b\n" +
+	"\x12remote_tool_result\x18\x10 \x01(\v2\x17.am.v1.RemoteToolResultH\x00R\x10remoteToolResult\x128\n" +
+	"\n" +
+	"ai_control\x18\x11 \x01(\v2\x17.am.v1.AIControlRequestH\x00R\taiControl\x12D\n" +
+	"\x11ai_control_result\x18\x12 \x01(\v2\x16.am.v1.AIControlResultH\x00R\x0faiControlResultB\x05\n" +
+	"\x03msg\"\xa4\t\n" +
 	"\vServerFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12$\n" +
 	"\x05error\x18\n" +
@@ -2286,7 +2628,10 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x12remote_tool_result\x18' \x01(\v2\x1b.am.v1.RemoteToolResultPushH\x00R\x10remoteToolResult\x12E\n" +
 	"\x10ai_share_request\x18( \x01(\v2\x19.am.v1.AIShareRequestPushH\x00R\x0eaiShareRequest\x12!\n" +
 	"\x04game\x18) \x01(\v2\v.am.v1.GameH\x00R\x04game\x12>\n" +
-	"\rclient_update\x18* \x01(\v2\x17.am.v1.ClientUpdatePushH\x00R\fclientUpdateB\x05\n" +
+	"\rclient_update\x18* \x01(\v2\x17.am.v1.ClientUpdatePushH\x00R\fclientUpdate\x125\n" +
+	"\n" +
+	"ai_control\x18+ \x01(\v2\x14.am.v1.AIControlPushH\x00R\taiControl\x12H\n" +
+	"\x11ai_control_result\x18, \x01(\v2\x1a.am.v1.AIControlResultPushH\x00R\x0faiControlResultB\x05\n" +
 	"\x03msg\"=\n" +
 	"\vAuthRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
@@ -2387,7 +2732,31 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"fromUserId\x12\x0e\n" +
 	"\x02ok\x18\x03 \x01(\bR\x02ok\x12\x12\n" +
 	"\x04text\x18\x04 \x01(\tR\x04text\x12\x16\n" +
-	"\x06images\x18\x05 \x03(\tR\x06images\"J\n" +
+	"\x06images\x18\x05 \x03(\tR\x06images\"{\n" +
+	"\x10AIControlRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x13\n" +
+	"\x05ai_id\x18\x02 \x01(\x03R\x04aiId\x12\x16\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\x12\x1b\n" +
+	"\targs_json\x18\x04 \x01(\tR\bargsJson\"\x85\x01\n" +
+	"\rAIControlPush\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12 \n" +
+	"\ffrom_user_id\x18\x02 \x01(\x03R\n" +
+	"fromUserId\x12\x16\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\x12\x1b\n" +
+	"\targs_json\x18\x04 \x01(\tR\bargsJson\"T\n" +
+	"\x0fAIControlResult\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x0e\n" +
+	"\x02ok\x18\x02 \x01(\bR\x02ok\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\"m\n" +
+	"\x13AIControlResultPush\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x13\n" +
+	"\x05ai_id\x18\x02 \x01(\x03R\x04aiId\x12\x0e\n" +
+	"\x02ok\x18\x03 \x01(\bR\x02ok\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\"J\n" +
 	"\x12AIShareRequestPush\x12\x13\n" +
 	"\x05ai_id\x18\x01 \x01(\x03R\x04aiId\x12\x1f\n" +
 	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04user\"\xb8\x01\n" +
@@ -2410,7 +2779,7 @@ func file_am_v1_gateway_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_am_v1_gateway_proto_goTypes = []any{
 	(FriendPush_Kind)(0),         // 0: am.v1.FriendPush.Kind
 	(ConvRemovedPush_Reason)(0),  // 1: am.v1.ConvRemovedPush.Reason
@@ -2441,20 +2810,24 @@ var file_am_v1_gateway_proto_goTypes = []any{
 	(*RemoteToolPush)(nil),       // 26: am.v1.RemoteToolPush
 	(*RemoteToolResult)(nil),     // 27: am.v1.RemoteToolResult
 	(*RemoteToolResultPush)(nil), // 28: am.v1.RemoteToolResultPush
-	(*AIShareRequestPush)(nil),   // 29: am.v1.AIShareRequestPush
-	(*ForwardRequest)(nil),       // 30: am.v1.ForwardRequest
-	(*Error)(nil),                // 31: am.v1.Error
-	(*Game)(nil),                 // 32: am.v1.Game
-	(*User)(nil),                 // 33: am.v1.User
-	(*Conversation)(nil),         // 34: am.v1.Conversation
-	(*Presence)(nil),             // 35: am.v1.Presence
-	(*TextMsg)(nil),              // 36: am.v1.TextMsg
-	(*ImageMsg)(nil),             // 37: am.v1.ImageMsg
-	(*FileMsg)(nil),              // 38: am.v1.FileMsg
-	(*EmojiPinAct)(nil),          // 39: am.v1.EmojiPinAct
-	(*StrikeAct)(nil),            // 40: am.v1.StrikeAct
-	(*Event)(nil),                // 41: am.v1.Event
-	(*ForwardEntry)(nil),         // 42: am.v1.ForwardEntry
+	(*AIControlRequest)(nil),     // 29: am.v1.AIControlRequest
+	(*AIControlPush)(nil),        // 30: am.v1.AIControlPush
+	(*AIControlResult)(nil),      // 31: am.v1.AIControlResult
+	(*AIControlResultPush)(nil),  // 32: am.v1.AIControlResultPush
+	(*AIShareRequestPush)(nil),   // 33: am.v1.AIShareRequestPush
+	(*ForwardRequest)(nil),       // 34: am.v1.ForwardRequest
+	(*Error)(nil),                // 35: am.v1.Error
+	(*Game)(nil),                 // 36: am.v1.Game
+	(*User)(nil),                 // 37: am.v1.User
+	(*Conversation)(nil),         // 38: am.v1.Conversation
+	(*Presence)(nil),             // 39: am.v1.Presence
+	(*TextMsg)(nil),              // 40: am.v1.TextMsg
+	(*ImageMsg)(nil),             // 41: am.v1.ImageMsg
+	(*FileMsg)(nil),              // 42: am.v1.FileMsg
+	(*EmojiPinAct)(nil),          // 43: am.v1.EmojiPinAct
+	(*StrikeAct)(nil),            // 44: am.v1.StrikeAct
+	(*Event)(nil),                // 45: am.v1.Event
+	(*ForwardEntry)(nil),         // 46: am.v1.ForwardEntry
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
 	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
@@ -2464,54 +2837,58 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	13, // 4: am.v1.ClientFrame.ping:type_name -> am.v1.Ping
 	25, // 5: am.v1.ClientFrame.remote_tool:type_name -> am.v1.RemoteToolRequest
 	27, // 6: am.v1.ClientFrame.remote_tool_result:type_name -> am.v1.RemoteToolResult
-	31, // 7: am.v1.ServerFrame.error:type_name -> am.v1.Error
-	5,  // 8: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
-	7,  // 9: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
-	10, // 10: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
-	12, // 11: am.v1.ServerFrame.mark_read:type_name -> am.v1.MarkReadResponse
-	14, // 12: am.v1.ServerFrame.pong:type_name -> am.v1.Pong
-	24, // 13: am.v1.ServerFrame.ack:type_name -> am.v1.Ack
-	15, // 14: am.v1.ServerFrame.event:type_name -> am.v1.EventPush
-	16, // 15: am.v1.ServerFrame.conv:type_name -> am.v1.ConvPush
-	17, // 16: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
-	18, // 17: am.v1.ServerFrame.conv_removed:type_name -> am.v1.ConvRemovedPush
-	19, // 18: am.v1.ServerFrame.join_request:type_name -> am.v1.JoinRequestPush
-	20, // 19: am.v1.ServerFrame.presence:type_name -> am.v1.PresencePush
-	21, // 20: am.v1.ServerFrame.client_state:type_name -> am.v1.ClientStatePush
-	22, // 21: am.v1.ServerFrame.server_moved:type_name -> am.v1.ServerMovedPush
-	26, // 22: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
-	28, // 23: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
-	29, // 24: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
-	32, // 25: am.v1.ServerFrame.game:type_name -> am.v1.Game
-	23, // 26: am.v1.ServerFrame.client_update:type_name -> am.v1.ClientUpdatePush
-	33, // 27: am.v1.AuthResponse.me:type_name -> am.v1.User
-	34, // 28: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
-	35, // 29: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
-	36, // 30: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
-	37, // 31: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
-	38, // 32: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
-	30, // 33: am.v1.SendRequest.forward:type_name -> am.v1.ForwardRequest
-	39, // 34: am.v1.SendRequest.emoji_pin:type_name -> am.v1.EmojiPinAct
-	40, // 35: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
-	41, // 36: am.v1.SendResponse.event:type_name -> am.v1.Event
-	9,  // 37: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
-	41, // 38: am.v1.SyncResponse.events:type_name -> am.v1.Event
-	41, // 39: am.v1.EventPush.event:type_name -> am.v1.Event
-	34, // 40: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
-	0,  // 41: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
-	33, // 42: am.v1.FriendPush.user:type_name -> am.v1.User
-	1,  // 43: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
-	33, // 44: am.v1.JoinRequestPush.user:type_name -> am.v1.User
-	33, // 45: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
-	35, // 46: am.v1.PresencePush.presence:type_name -> am.v1.Presence
-	33, // 47: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
-	33, // 48: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
-	42, // 49: am.v1.ForwardRequest.imported_entries:type_name -> am.v1.ForwardEntry
-	50, // [50:50] is the sub-list for method output_type
-	50, // [50:50] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	29, // 7: am.v1.ClientFrame.ai_control:type_name -> am.v1.AIControlRequest
+	31, // 8: am.v1.ClientFrame.ai_control_result:type_name -> am.v1.AIControlResult
+	35, // 9: am.v1.ServerFrame.error:type_name -> am.v1.Error
+	5,  // 10: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
+	7,  // 11: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
+	10, // 12: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
+	12, // 13: am.v1.ServerFrame.mark_read:type_name -> am.v1.MarkReadResponse
+	14, // 14: am.v1.ServerFrame.pong:type_name -> am.v1.Pong
+	24, // 15: am.v1.ServerFrame.ack:type_name -> am.v1.Ack
+	15, // 16: am.v1.ServerFrame.event:type_name -> am.v1.EventPush
+	16, // 17: am.v1.ServerFrame.conv:type_name -> am.v1.ConvPush
+	17, // 18: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
+	18, // 19: am.v1.ServerFrame.conv_removed:type_name -> am.v1.ConvRemovedPush
+	19, // 20: am.v1.ServerFrame.join_request:type_name -> am.v1.JoinRequestPush
+	20, // 21: am.v1.ServerFrame.presence:type_name -> am.v1.PresencePush
+	21, // 22: am.v1.ServerFrame.client_state:type_name -> am.v1.ClientStatePush
+	22, // 23: am.v1.ServerFrame.server_moved:type_name -> am.v1.ServerMovedPush
+	26, // 24: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
+	28, // 25: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
+	33, // 26: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
+	36, // 27: am.v1.ServerFrame.game:type_name -> am.v1.Game
+	23, // 28: am.v1.ServerFrame.client_update:type_name -> am.v1.ClientUpdatePush
+	30, // 29: am.v1.ServerFrame.ai_control:type_name -> am.v1.AIControlPush
+	32, // 30: am.v1.ServerFrame.ai_control_result:type_name -> am.v1.AIControlResultPush
+	37, // 31: am.v1.AuthResponse.me:type_name -> am.v1.User
+	38, // 32: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
+	39, // 33: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
+	40, // 34: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
+	41, // 35: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
+	42, // 36: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
+	34, // 37: am.v1.SendRequest.forward:type_name -> am.v1.ForwardRequest
+	43, // 38: am.v1.SendRequest.emoji_pin:type_name -> am.v1.EmojiPinAct
+	44, // 39: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
+	45, // 40: am.v1.SendResponse.event:type_name -> am.v1.Event
+	9,  // 41: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
+	45, // 42: am.v1.SyncResponse.events:type_name -> am.v1.Event
+	45, // 43: am.v1.EventPush.event:type_name -> am.v1.Event
+	38, // 44: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
+	0,  // 45: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
+	37, // 46: am.v1.FriendPush.user:type_name -> am.v1.User
+	1,  // 47: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
+	37, // 48: am.v1.JoinRequestPush.user:type_name -> am.v1.User
+	37, // 49: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
+	39, // 50: am.v1.PresencePush.presence:type_name -> am.v1.Presence
+	37, // 51: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
+	37, // 52: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
+	46, // 53: am.v1.ForwardRequest.imported_entries:type_name -> am.v1.ForwardEntry
+	54, // [54:54] is the sub-list for method output_type
+	54, // [54:54] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }
@@ -2529,6 +2906,8 @@ func file_am_v1_gateway_proto_init() {
 		(*ClientFrame_Ping)(nil),
 		(*ClientFrame_RemoteTool)(nil),
 		(*ClientFrame_RemoteToolResult)(nil),
+		(*ClientFrame_AiControl)(nil),
+		(*ClientFrame_AiControlResult)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[1].OneofWrappers = []any{
 		(*ServerFrame_Error)(nil),
@@ -2551,6 +2930,8 @@ func file_am_v1_gateway_proto_init() {
 		(*ServerFrame_AiShareRequest)(nil),
 		(*ServerFrame_Game)(nil),
 		(*ServerFrame_ClientUpdate)(nil),
+		(*ServerFrame_AiControl)(nil),
+		(*ServerFrame_AiControlResult)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[4].OneofWrappers = []any{
 		(*SendRequest_Text)(nil),
@@ -2566,7 +2947,7 @@ func file_am_v1_gateway_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_gateway_proto_rawDesc), len(file_am_v1_gateway_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   29,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

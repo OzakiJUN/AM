@@ -93,6 +93,10 @@ func testHosting(t *testing.T, a *app.App, base string) {
 	if string(hf.Providers) != providers {
 		t.Fatalf("providers %s", hf.Providers)
 	}
+	// No browser unless hosting.allow_browser.
+	if hf.Browser || hf.BrowserDir != "" {
+		t.Fatalf("browser without allow_browser: %+v", hf)
+	}
 	if st, err := os.Stat(hf.WorkDir); err != nil || !st.IsDir() {
 		t.Fatal("no work folder")
 	}

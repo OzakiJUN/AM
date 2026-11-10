@@ -30,9 +30,20 @@ assert.equal(h.computer.enabled, true);
 assert.deepEqual(h.computer.workDirs, [cfg.workDir]);
 assert.equal(h.computer.mcp.length, 0);
 for (const c of ['command', 'open', 'clipboard', 'screen', 'input', 'ui', 'browser', 'mcp'] as const) assert.equal(h.computer.levels[c], 'deny', c);
+assert.equal(cfg.browser, false, 'no browser unless the server says so');
 for (const c of ['files_read', 'files_write', 'files_delete'] as const) assert.equal(h.computer.levels[c], 'allow', c);
 assert.equal(h.computer.levels.social, 'deny', 'nobody can answer an ask');
 assert.equal(h.computer.levels.self, 'allow');
 assert.equal(s.computer.workDirs[0], 'C:\\Users\\weiqi', 'the saved settings are untouched');
+
+// The server allows a browser: the owner's level stays (ask = no), the rest as before.
+assert.equal(parseHostConfig(JSON.stringify({ ...file, browser: true }))!.browser, true);
+const b = hostedSettings(s, cfg.workDir, true);
+assert.equal(b.computer.levels.browser, 'allow');
+assert.equal(b.computer.levels.screen, 'deny');
+s.computer.levels.browser = 'ask';
+assert.equal(hostedSettings(s, cfg.workDir, true).computer.levels.browser, 'deny', 'nobody can answer an ask');
+s.computer.levels.browser = 'deny';
+assert.equal(hostedSettings(s, cfg.workDir, true).computer.levels.browser, 'deny', 'the owner said no');
 
 console.log('host mode ok');

@@ -1,13 +1,15 @@
 // Managing my AIs on the AI page (docs/design.md §9, §10): creating one,
 // its settings (persona, model, profile, which device runs it) and the model
 // providers I have keys for. The AI itself runs in lib/ai/runner.ts.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Cpu, Folder, Server, Gamepad2, Hash, ImageUp, KeyRound, LayoutGrid, Lock, Users, Monitor, Pencil, Plug, Plus, ShieldAlert, Store, Trash2, X } from 'lucide-react';
 import { CATEGORY_LABEL, GAME_TEMPLATES } from '@/lib/ai/agent';
 import { readLog, type LogEntry } from '@/lib/ai/agentState';
 import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
 import type { User } from '@/lib/types';
 import { biliLogin, listMcpTools, stopMcp, type BiliState } from '@/lib/ai/tools';
+import { HOST_DEVICE_ID } from '@/lib/ai/host';
+import type { AIHosting, BrowseEntry } from '@/lib/session';
 import QRCode from 'qrcode';
 import { usePrefs } from '@/lib/prefs';
 import { PROXY_MODE_LABEL, proxyServer, type ProxyMode } from '@/lib/ai/proxy';
@@ -137,9 +139,9 @@ export function AISettingsDialog({ open, onClose, aiId }: { open: boolean; onClo
         <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
           {tab === 'persona' && <PersonaTab draft={draft} set={set} save={save} />}
           {tab === 'model' && <ModelTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
-          {tab === 'computer' && <ComputerTab draft={draft} set={set} save={save} />}
+          {tab === 'computer' && <ComputerTab serverId={serverId} aiId={aiId} hosting={info.hosting} draft={draft} set={set} save={save} />}
           {tab === 'social' && <SocialTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} />}
-          {tab === 'log' && <LogTab logKey={`${serverId}|${aiId}`} />}
+          {tab === 'log' && <LogTab serverId={serverId} aiId={aiId} logKey={`${serverId}|${aiId}`} />}
           {tab === 'profile' && <ProfileTab serverId={serverId} aiId={aiId} onClose={onClose} />}
           {tab === 'run' && <RunTab serverId={serverId} aiId={aiId} draft={draft} set={set} save={save} onDeleted={onClose} />}
         </div>
@@ -263,8 +265,11 @@ function ModelTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: s
 }
 
 /** Operating this computer: on / off, work folders, what it may do. */
-function ComputerTab({ draft, set, save }: TabProps) {
+function ComputerTab({ serverId, aiId, hosting, draft, set, save }: TabProps & { serverId: string; aiId: string; hosting?: AIHosting }) {
   const c = draft.computer;
+  // Where it runs: this device (or nowhere yet), the server, or my other device.
+  const where = !draft.runner || draft.runner.id === deviceId() ? 'here' : draft.runner.id === HOST_DEVICE_ID ? 'host' : 'other';
+  const remote = useMemo(() => remoteBili(serverId, aiId), [serverId, aiId]);
   const setC = (x: Partial<AISettings['computer']>) => set({ computer: { ...c, ...x } });
   const setLevel = async (cat: ToolCategory, level: Level) => {
     if (level === 'allow' && CATEGORY_LABEL[cat].risky) {
@@ -343,7 +348,11 @@ function ComputerTab({ draft, set, save }: TabProps) {
           <Input type="number" min={1} max={60} value={c.yieldSeconds} onChange={(e) => setC({ yieldSeconds: Math.max(1, Math.min(60, Number(e.target.value) || 3)) })} />
         </Field>
       </div>
-      {inTauri && !isAndroid && c.enabled && c.levels.browser !== 'deny' && <><BrowserProxy /><BiliLogin /></>}
+      {where === 'here' && inTauri && !isAndroid && c.enabled && c.levels.browser !== 'deny' && <><BrowserWindow /><BrowserProxy /><BiliLogin api={biliLogin} hint="登录后它上网时能看到字幕和完整评论。这台电脑上的 AI 共用，最好用小号" /></>}
+      {where === 'host' && c.levels.browser !== 'deny' && (hosting?.browser
+        ? <BiliLogin api={remote} hint="登录存在服务器上它自己的浏览器里（看不见的那个），扫码就在这里扫。最好用小号" />
+        : <Field label="AI 浏览器" hint="托管在服务器上的 AI 要服主允许才能上网"><p className="text-[0.85rem] text-ink-soft dark:text-white/55">服务器没允许托管的 AI 用浏览器。服主可以在管理面板 → 设置 → AI 托管里打开「托管的 AI 可以用浏览器」，重启服务器后生效。</p></Field>)}
+      {where === 'other' && c.enabled && c.levels.browser !== 'deny' && <BiliLogin api={remote} hint={`登录存在运行它的「${draft.runner?.name ?? '那台设备'}」上，那台设备要开着 AM。最好用小号`} />}
       <div className="flex justify-end"><Button variant="primary" onClick={save}>保存</Button></div>
     </>
   );
@@ -357,6 +366,17 @@ const PROXY_HINT: Record<ProxyMode, string> = {
 };
 
 /** Whether the AI's browser on this device goes through a proxy (per device, all its AIs). */
+/** Whether the AI's browser shows its window here (this device; one browser either way). */
+function BrowserWindow() {
+  const visible = usePrefs((s) => s.aiBrowserVisible);
+  const setPrefs = usePrefs((s) => s.set);
+  return (
+    <Field label="上网时让我看到它的浏览器" hint="关着（默认）：它在后台上网，不弹窗口。打开：开一个 Edge / Chrome 窗口，你能看着它点。都是同一个浏览器、同一份 B 站登录；切换时浏览器重开一下。这台电脑上的 AI 共用">
+      <Toggle label="让我看到它的浏览器" checked={visible} onChange={(on) => setPrefs({ aiBrowserVisible: on })} />
+    </Field>
+  );
+}
+
 function BrowserProxy() {
   const pref = usePrefs((s) => s.aiProxy);
   const setPrefs = usePrefs((s) => s.set);
@@ -383,28 +403,47 @@ function BrowserProxy() {
   );
 }
 
-/** The AI browser's Bilibili login on this device (QR scan with the B站 app):
- * logged in, its surfing gets subtitles and full comments. Shared by every
- * AI this device runs; the cookies stay in the AI's background browser. */
-function BiliLogin() {
+type BiliApi = typeof biliLogin;
+
+/** The B站 login of the AI's browser where it runs elsewhere (my other device, the server), through the server. */
+function remoteBili(serverId: string, aiId: string): BiliApi {
+  const call = async <T,>(args: Record<string, string>): Promise<T> => {
+    const s = session(serverId);
+    if (!s) throw new Error('没连上服务器');
+    const r = await s.aiControl(aiId, 'bili', args);
+    if (!r.ok) throw new Error(r.text);
+    return JSON.parse(r.text) as T;
+  };
+  return {
+    status: () => call({ action: 'status' }),
+    start: () => call({ action: 'start' }),
+    poll: (key) => call({ action: 'poll', key }),
+    logout: () => call({ action: 'logout' }),
+  };
+}
+
+/** The AI browser's Bilibili login (QR scan with the B站 app): logged in,
+ * it gets subtitles and full comments. `api` = this device's browser, or the
+ * one where the AI runs (remoteBili). The cookies stay in that browser. */
+function BiliLogin({ api, hint }: { api: BiliApi; hint: string }) {
   const [state, setState] = useState<BiliState | null>(null);
   const [failed, setFailed] = useState('');
   const [scanning, setScanning] = useState(false);
   useEffect(() => {
     let live = true;
-    biliLogin.status().then((s) => live && setState(s)).catch((e) => live && setFailed(errorText(e)));
+    api.status().then((s) => live && setState(s)).catch((e) => live && setFailed(errorText(e)));
     return () => {
       live = false;
     };
-  }, []);
+  }, [api]);
   const logout = async () => {
     const ok = await ask({ title: '退出 B 站登录？', text: 'AI 浏览器里的 B 站登录会被清掉，之后看视频拿不到字幕。', ok: '退出' });
     if (ok === null) return;
-    setState(await biliLogin.logout());
+    setState(await api.logout());
     toast('已退出 B 站');
   };
   return (
-    <Field label="AI 浏览器登录 B 站" hint="登录后它冲浪时能看到字幕和完整评论。这台电脑上的 AI 共用，最好用小号">
+    <Field label="AI 浏览器登录 B 站" hint={hint}>
       <div className="flex items-center gap-3 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]" data-testid="bili-login">
         <span className="min-w-0 flex-1 truncate text-[0.88rem]">
           {failed ? <span className="text-rose-500">{failed}</span> : !state ? <Spinner /> : state.login ? `已登录：${state.name || 'B 站账号'}` : '没登录'}
@@ -415,12 +454,12 @@ function BiliLogin() {
           <Button size="sm" variant="soft" key="bili-in" onClick={() => setScanning(true)}>扫码登录</Button>
         )}
       </div>
-      <BiliQrDialog open={scanning} onClose={() => setScanning(false)} onDone={(s) => { setState(s); setFailed(''); setScanning(false); toast(`B 站已登录：${s.name}`); }} />
+      <BiliQrDialog api={api} open={scanning} onClose={() => setScanning(false)} onDone={(s) => { setState(s); setFailed(''); setScanning(false); toast(`B 站已登录：${s.name}`); }} />
     </Field>
   );
 }
 
-function BiliQrDialog({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (s: BiliState) => void }) {
+function BiliQrDialog({ api, open, onClose, onDone }: { api: BiliApi; open: boolean; onClose: () => void; onDone: (s: BiliState) => void }) {
   const [qr, setQr] = useState('');
   const [key, setKey] = useState('');
   const [code, setCode] = useState(86101);
@@ -430,7 +469,7 @@ function BiliQrDialog({ open, onClose, onDone }: { open: boolean; onClose: () =>
     setError('');
     setCode(86101);
     try {
-      const r = await biliLogin.start();
+      const r = await api.start();
       setKey(r.key);
       setQr(await QRCode.toDataURL(r.url, { margin: 1, width: 420, color: { dark: '#2a2440', light: '#ffffff' } }));
     } catch (e) {
@@ -448,7 +487,7 @@ function BiliQrDialog({ open, onClose, onDone }: { open: boolean; onClose: () =>
     if (!open || !key || code === 86038) return;
     let live = true;
     const t = setInterval(() => {
-      biliLogin.poll(key).then((r) => {
+      api.poll(key).then((r) => {
         if (!live) return;
         if (r.code === 0) done.current({ login: true, name: r.name ?? '' });
         else setCode(r.code);
@@ -823,12 +862,61 @@ const RESULT: Record<LogEntry['result'], { text: string; cls: string }> = {
   stopped: { text: '被叫停', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-200' },
 };
 
-/** What it did on this computer (kept on this device). */
-function LogTab({ logKey }: { logKey: string }) {
+const BROWSE_KIND: Record<BrowseEntry['kind'], string> = { search: '搜索', open: '网页', watch: '视频' };
+
+/** What it searched, opened and watched (kept on the server: I can read it from any device). */
+function BrowseHistory({ serverId, aiId }: { serverId: string; aiId: string }) {
+  const [list, setList] = useState<BrowseEntry[] | null>(null);
+  const [more, setMore] = useState(false);
+  const [failed, setFailed] = useState('');
+  useEffect(() => {
+    let live = true;
+    session(serverId)?.browseLog(aiId)
+      .then((l) => { if (live) { setList(l); setMore(l.length >= 100); } })
+      .catch((e) => live && setFailed(errorText(e)));
+    return () => {
+      live = false;
+    };
+  }, [serverId, aiId]);
+  const older = async () => {
+    const l = await session(serverId)!.browseLog(aiId, list?.at(-1)?.id ?? '');
+    setList((cur) => [...(cur ?? []), ...l]);
+    setMore(l.length >= 100);
+  };
+  return (
+    <section className="space-y-1.5" data-testid="browse-history">
+      <div className="text-[0.85rem] font-medium text-ink-soft dark:text-white/60">搜索和浏览记录<span className="ml-2 font-normal text-[0.75rem]">存在服务器上，哪台设备都能看</span></div>
+      {failed ? <p className="text-[0.85rem] text-rose-500">{failed}</p>
+        : !list ? <div className="flex justify-center py-3 text-ink-soft"><Spinner /></div>
+        : !list.length ? <p className="py-3 text-center text-[0.85rem] text-ink-soft dark:text-white/45">还没搜过、看过什么。</p>
+        : list.map((e) => (
+          <div key={e.id} className="flex items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2 text-[0.85rem] dark:bg-white/[0.04]">
+            <span className="shrink-0 rounded-md bg-accent/15 px-1.5 text-[0.72rem] text-accent">{BROWSE_KIND[e.kind] ?? e.kind}</span>
+            <span className="min-w-0 flex-1 truncate select-text" title={e.text}>{e.text}</span>
+            <span className="shrink-0 text-[0.75rem] text-ink-soft dark:text-white/45">{chatTime(e.at)} · {e.place || '自己上网'}</span>
+          </div>
+        ))}
+      {more && <div className="flex justify-center"><Button size="sm" variant="soft" onClick={older}>更早的</Button></div>}
+    </section>
+  );
+}
+
+/** Its search history (server), then what it did on this computer (kept on this device). */
+function LogTab({ serverId, aiId, logKey }: { serverId: string; aiId: string; logKey: string }) {
   const [list] = useState(() => readLog(logKey));
-  if (!list.length) return <p className="py-8 text-center text-ink-soft dark:text-white/45">还没有操作过电脑。这里只记在运行它的这台设备上。</p>;
+  return (
+    <div className="space-y-4">
+      <BrowseHistory serverId={serverId} aiId={aiId} />
+      <LocalLog list={list} />
+    </div>
+  );
+}
+
+function LocalLog({ list }: { list: LogEntry[] }) {
+  if (!list.length) return <p className="py-6 text-center text-[0.85rem] text-ink-soft dark:text-white/45">还没有在这台设备上操作过电脑。操作记录只记在运行它的那台设备上。</p>;
   return (
     <div className="space-y-1.5">
+      <div className="text-[0.85rem] font-medium text-ink-soft dark:text-white/60">操作记录<span className="ml-2 font-normal text-[0.75rem]">只记在运行它的这台设备上</span></div>
       {list.map((e, i) => (
         <div key={i} className="rounded-xl bg-black/[0.03] px-3 py-2 text-[0.85rem] dark:bg-white/[0.04]">
           <div className="flex items-center gap-2">

@@ -180,3 +180,14 @@ func (c *Client) FishingSync(ctx context.Context, req *amv1.FishingSyncRequest) 
 	out := &amv1.FishingData{}
 	return out, c.call(ctx, http.MethodPost, "/api/v1/fishing/sync", req, out)
 }
+
+// AddBrowseLog (an AI's session) records a search / page / video in its history.
+func (c *Client) AddBrowseLog(ctx context.Context, kind, text, place string) error {
+	return c.call(ctx, http.MethodPost, "/api/v1/me/browse-log", &amv1.AddBrowseLogRequest{Kind: kind, Text: text, Place: place}, nil)
+}
+
+// BrowseLog reads my AI's history, newest first, before an entry id (0 = newest).
+func (c *Client) BrowseLog(ctx context.Context, aiID, before int64) (*amv1.BrowseLogResponse, error) {
+	out := &amv1.BrowseLogResponse{}
+	return out, c.call(ctx, http.MethodGet, fmt.Sprintf("/api/v1/ai/%d/browse-log?before=%d", aiID, before), nil, out)
+}

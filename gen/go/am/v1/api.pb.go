@@ -2644,7 +2644,9 @@ type AIHosting struct {
 	State string `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
 	Error string `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
 	// Its own folder on the server for its file tools.
-	WorkDir       string `protobuf:"bytes,6,opt,name=work_dir,json=workDir,proto3" json:"work_dir,omitempty"`
+	WorkDir string `protobuf:"bytes,6,opt,name=work_dir,json=workDir,proto3" json:"work_dir,omitempty"`
+	// The server lets hosted AIs use a browser of their own (hosting.allow_browser).
+	Browser       bool `protobuf:"varint,7,opt,name=browser,proto3" json:"browser,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2721,6 +2723,201 @@ func (x *AIHosting) GetWorkDir() string {
 	return ""
 }
 
+func (x *AIHosting) GetBrowser() bool {
+	if x != nil {
+		return x.Browser
+	}
+	return false
+}
+
+// One thing an AI did with its browser (docs/design.md §9 搜索记录).
+type BrowseLogEntry struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	At    int64                  `protobuf:"varint,2,opt,name=at,proto3" json:"at,omitempty"`
+	// search | open | watch
+	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
+	// What it searched for (with the site), or the page / video address.
+	Text string `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	// Where: a conversation name, or "" = its own free time.
+	Place         string `protobuf:"bytes,5,opt,name=place,proto3" json:"place,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BrowseLogEntry) Reset() {
+	*x = BrowseLogEntry{}
+	mi := &file_am_v1_api_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BrowseLogEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BrowseLogEntry) ProtoMessage() {}
+
+func (x *BrowseLogEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BrowseLogEntry.ProtoReflect.Descriptor instead.
+func (*BrowseLogEntry) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *BrowseLogEntry) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *BrowseLogEntry) GetAt() int64 {
+	if x != nil {
+		return x.At
+	}
+	return 0
+}
+
+func (x *BrowseLogEntry) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *BrowseLogEntry) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *BrowseLogEntry) GetPlace() string {
+	if x != nil {
+		return x.Place
+	}
+	return ""
+}
+
+// POST /api/v1/me/browse-log (bot / ai accounts only) -> Empty.
+// kind: search | open | watch; text ≤ 500 characters, place ≤ 100.
+type AddBrowseLogRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	Place         string                 `protobuf:"bytes,3,opt,name=place,proto3" json:"place,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddBrowseLogRequest) Reset() {
+	*x = AddBrowseLogRequest{}
+	mi := &file_am_v1_api_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddBrowseLogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddBrowseLogRequest) ProtoMessage() {}
+
+func (x *AddBrowseLogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddBrowseLogRequest.ProtoReflect.Descriptor instead.
+func (*AddBrowseLogRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *AddBrowseLogRequest) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *AddBrowseLogRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *AddBrowseLogRequest) GetPlace() string {
+	if x != nil {
+		return x.Place
+	}
+	return ""
+}
+
+// GET /api/v1/ai/{id}/browse-log?before=<id>&limit=<n> (the owner only),
+// newest first, at most 100 per page.
+type BrowseLogResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*BrowseLogEntry      `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BrowseLogResponse) Reset() {
+	*x = BrowseLogResponse{}
+	mi := &file_am_v1_api_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BrowseLogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BrowseLogResponse) ProtoMessage() {}
+
+func (x *BrowseLogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_api_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BrowseLogResponse.ProtoReflect.Descriptor instead.
+func (*BrowseLogResponse) Descriptor() ([]byte, []int) {
+	return file_am_v1_api_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *BrowseLogResponse) GetEntries() []*BrowseLogEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
 // POST /api/v1/ai/{id}/host -> AIHosting
 type HostAIRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2733,7 +2930,7 @@ type HostAIRequest struct {
 
 func (x *HostAIRequest) Reset() {
 	*x = HostAIRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[43]
+	mi := &file_am_v1_api_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2745,7 +2942,7 @@ func (x *HostAIRequest) String() string {
 func (*HostAIRequest) ProtoMessage() {}
 
 func (x *HostAIRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[43]
+	mi := &file_am_v1_api_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2758,7 +2955,7 @@ func (x *HostAIRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HostAIRequest.ProtoReflect.Descriptor instead.
 func (*HostAIRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{43}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *HostAIRequest) GetProvidersJson() string {
@@ -2778,7 +2975,7 @@ type CreateAIRequest struct {
 
 func (x *CreateAIRequest) Reset() {
 	*x = CreateAIRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[44]
+	mi := &file_am_v1_api_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2790,7 +2987,7 @@ func (x *CreateAIRequest) String() string {
 func (*CreateAIRequest) ProtoMessage() {}
 
 func (x *CreateAIRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[44]
+	mi := &file_am_v1_api_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2803,7 +3000,7 @@ func (x *CreateAIRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAIRequest.ProtoReflect.Descriptor instead.
 func (*CreateAIRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{44}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CreateAIRequest) GetDisplayName() string {
@@ -2825,7 +3022,7 @@ type PutAISettingsRequest struct {
 
 func (x *PutAISettingsRequest) Reset() {
 	*x = PutAISettingsRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[45]
+	mi := &file_am_v1_api_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2837,7 +3034,7 @@ func (x *PutAISettingsRequest) String() string {
 func (*PutAISettingsRequest) ProtoMessage() {}
 
 func (x *PutAISettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[45]
+	mi := &file_am_v1_api_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2850,7 +3047,7 @@ func (x *PutAISettingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutAISettingsRequest.ProtoReflect.Descriptor instead.
 func (*PutAISettingsRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{45}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *PutAISettingsRequest) GetSettings() string {
@@ -2878,7 +3075,7 @@ type RunAIRequest struct {
 
 func (x *RunAIRequest) Reset() {
 	*x = RunAIRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[46]
+	mi := &file_am_v1_api_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2890,7 +3087,7 @@ func (x *RunAIRequest) String() string {
 func (*RunAIRequest) ProtoMessage() {}
 
 func (x *RunAIRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[46]
+	mi := &file_am_v1_api_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2903,7 +3100,7 @@ func (x *RunAIRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunAIRequest.ProtoReflect.Descriptor instead.
 func (*RunAIRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{46}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *RunAIRequest) GetDeviceName() string {
@@ -2926,7 +3123,7 @@ type CreateAIRoomRequest struct {
 
 func (x *CreateAIRoomRequest) Reset() {
 	*x = CreateAIRoomRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[47]
+	mi := &file_am_v1_api_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2938,7 +3135,7 @@ func (x *CreateAIRoomRequest) String() string {
 func (*CreateAIRoomRequest) ProtoMessage() {}
 
 func (x *CreateAIRoomRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[47]
+	mi := &file_am_v1_api_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2951,7 +3148,7 @@ func (x *CreateAIRoomRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAIRoomRequest.ProtoReflect.Descriptor instead.
 func (*CreateAIRoomRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{47}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *CreateAIRoomRequest) GetName() string {
@@ -2997,7 +3194,7 @@ type Sticker struct {
 
 func (x *Sticker) Reset() {
 	*x = Sticker{}
-	mi := &file_am_v1_api_proto_msgTypes[48]
+	mi := &file_am_v1_api_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3009,7 +3206,7 @@ func (x *Sticker) String() string {
 func (*Sticker) ProtoMessage() {}
 
 func (x *Sticker) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[48]
+	mi := &file_am_v1_api_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3022,7 +3219,7 @@ func (x *Sticker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sticker.ProtoReflect.Descriptor instead.
 func (*Sticker) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{48}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *Sticker) GetId() int64 {
@@ -3098,7 +3295,7 @@ type ListStickersResponse struct {
 
 func (x *ListStickersResponse) Reset() {
 	*x = ListStickersResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[49]
+	mi := &file_am_v1_api_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3110,7 +3307,7 @@ func (x *ListStickersResponse) String() string {
 func (*ListStickersResponse) ProtoMessage() {}
 
 func (x *ListStickersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[49]
+	mi := &file_am_v1_api_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3123,7 +3320,7 @@ func (x *ListStickersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStickersResponse.ProtoReflect.Descriptor instead.
 func (*ListStickersResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{49}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ListStickersResponse) GetStickers() []*Sticker {
@@ -3151,7 +3348,7 @@ type AddStickerRequest struct {
 
 func (x *AddStickerRequest) Reset() {
 	*x = AddStickerRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[50]
+	mi := &file_am_v1_api_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3163,7 +3360,7 @@ func (x *AddStickerRequest) String() string {
 func (*AddStickerRequest) ProtoMessage() {}
 
 func (x *AddStickerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[50]
+	mi := &file_am_v1_api_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3176,7 +3373,7 @@ func (x *AddStickerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddStickerRequest.ProtoReflect.Descriptor instead.
 func (*AddStickerRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{50}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AddStickerRequest) GetMediaId() int64 {
@@ -3213,7 +3410,7 @@ type UpdateStickerRequest struct {
 
 func (x *UpdateStickerRequest) Reset() {
 	*x = UpdateStickerRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[51]
+	mi := &file_am_v1_api_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3225,7 +3422,7 @@ func (x *UpdateStickerRequest) String() string {
 func (*UpdateStickerRequest) ProtoMessage() {}
 
 func (x *UpdateStickerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[51]
+	mi := &file_am_v1_api_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3238,7 +3435,7 @@ func (x *UpdateStickerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateStickerRequest.ProtoReflect.Descriptor instead.
 func (*UpdateStickerRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{51}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *UpdateStickerRequest) GetTags() []string {
@@ -3260,7 +3457,7 @@ type SetStickerPrivateRequest struct {
 
 func (x *SetStickerPrivateRequest) Reset() {
 	*x = SetStickerPrivateRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[52]
+	mi := &file_am_v1_api_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3272,7 +3469,7 @@ func (x *SetStickerPrivateRequest) String() string {
 func (*SetStickerPrivateRequest) ProtoMessage() {}
 
 func (x *SetStickerPrivateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[52]
+	mi := &file_am_v1_api_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3285,7 +3482,7 @@ func (x *SetStickerPrivateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetStickerPrivateRequest.ProtoReflect.Descriptor instead.
 func (*SetStickerPrivateRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{52}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *SetStickerPrivateRequest) GetPrivate() bool {
@@ -3319,7 +3516,7 @@ type LibrarySticker struct {
 
 func (x *LibrarySticker) Reset() {
 	*x = LibrarySticker{}
-	mi := &file_am_v1_api_proto_msgTypes[53]
+	mi := &file_am_v1_api_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3331,7 +3528,7 @@ func (x *LibrarySticker) String() string {
 func (*LibrarySticker) ProtoMessage() {}
 
 func (x *LibrarySticker) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[53]
+	mi := &file_am_v1_api_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3344,7 +3541,7 @@ func (x *LibrarySticker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LibrarySticker.ProtoReflect.Descriptor instead.
 func (*LibrarySticker) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{53}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *LibrarySticker) GetId() int64 {
@@ -3433,7 +3630,7 @@ type ListLibraryResponse struct {
 
 func (x *ListLibraryResponse) Reset() {
 	*x = ListLibraryResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[54]
+	mi := &file_am_v1_api_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3445,7 +3642,7 @@ func (x *ListLibraryResponse) String() string {
 func (*ListLibraryResponse) ProtoMessage() {}
 
 func (x *ListLibraryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[54]
+	mi := &file_am_v1_api_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3458,7 +3655,7 @@ func (x *ListLibraryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLibraryResponse.ProtoReflect.Descriptor instead.
 func (*ListLibraryResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{54}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ListLibraryResponse) GetItems() []*LibrarySticker {
@@ -3497,7 +3694,7 @@ type EditLibraryTagsRequest struct {
 
 func (x *EditLibraryTagsRequest) Reset() {
 	*x = EditLibraryTagsRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[55]
+	mi := &file_am_v1_api_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3509,7 +3706,7 @@ func (x *EditLibraryTagsRequest) String() string {
 func (*EditLibraryTagsRequest) ProtoMessage() {}
 
 func (x *EditLibraryTagsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[55]
+	mi := &file_am_v1_api_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3522,7 +3719,7 @@ func (x *EditLibraryTagsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditLibraryTagsRequest.ProtoReflect.Descriptor instead.
 func (*EditLibraryTagsRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{55}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *EditLibraryTagsRequest) GetAdd() []string {
@@ -3552,7 +3749,7 @@ type LookupStickersRequest struct {
 
 func (x *LookupStickersRequest) Reset() {
 	*x = LookupStickersRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[56]
+	mi := &file_am_v1_api_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3564,7 +3761,7 @@ func (x *LookupStickersRequest) String() string {
 func (*LookupStickersRequest) ProtoMessage() {}
 
 func (x *LookupStickersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[56]
+	mi := &file_am_v1_api_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3577,7 +3774,7 @@ func (x *LookupStickersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupStickersRequest.ProtoReflect.Descriptor instead.
 func (*LookupStickersRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{56}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *LookupStickersRequest) GetSha256() []string {
@@ -3597,7 +3794,7 @@ type LookupStickersResponse struct {
 
 func (x *LookupStickersResponse) Reset() {
 	*x = LookupStickersResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[57]
+	mi := &file_am_v1_api_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3609,7 +3806,7 @@ func (x *LookupStickersResponse) String() string {
 func (*LookupStickersResponse) ProtoMessage() {}
 
 func (x *LookupStickersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[57]
+	mi := &file_am_v1_api_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3622,7 +3819,7 @@ func (x *LookupStickersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupStickersResponse.ProtoReflect.Descriptor instead.
 func (*LookupStickersResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{57}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *LookupStickersResponse) GetLibraryIds() map[string]int64 {
@@ -3646,7 +3843,7 @@ type ResolveMusicRequest struct {
 
 func (x *ResolveMusicRequest) Reset() {
 	*x = ResolveMusicRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[58]
+	mi := &file_am_v1_api_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3658,7 +3855,7 @@ func (x *ResolveMusicRequest) String() string {
 func (*ResolveMusicRequest) ProtoMessage() {}
 
 func (x *ResolveMusicRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[58]
+	mi := &file_am_v1_api_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3671,7 +3868,7 @@ func (x *ResolveMusicRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveMusicRequest.ProtoReflect.Descriptor instead.
 func (*ResolveMusicRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{58}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ResolveMusicRequest) GetUrl() string {
@@ -3692,7 +3889,7 @@ type MusicTrack struct {
 
 func (x *MusicTrack) Reset() {
 	*x = MusicTrack{}
-	mi := &file_am_v1_api_proto_msgTypes[59]
+	mi := &file_am_v1_api_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3704,7 +3901,7 @@ func (x *MusicTrack) String() string {
 func (*MusicTrack) ProtoMessage() {}
 
 func (x *MusicTrack) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[59]
+	mi := &file_am_v1_api_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3717,7 +3914,7 @@ func (x *MusicTrack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MusicTrack.ProtoReflect.Descriptor instead.
 func (*MusicTrack) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{59}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *MusicTrack) GetNeteaseId() string {
@@ -3758,7 +3955,7 @@ type ResolveMusicResponse struct {
 
 func (x *ResolveMusicResponse) Reset() {
 	*x = ResolveMusicResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[60]
+	mi := &file_am_v1_api_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3770,7 +3967,7 @@ func (x *ResolveMusicResponse) String() string {
 func (*ResolveMusicResponse) ProtoMessage() {}
 
 func (x *ResolveMusicResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[60]
+	mi := &file_am_v1_api_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3783,7 +3980,7 @@ func (x *ResolveMusicResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveMusicResponse.ProtoReflect.Descriptor instead.
 func (*ResolveMusicResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{60}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ResolveMusicResponse) GetKind() string {
@@ -3841,7 +4038,7 @@ type PortraitPack struct {
 
 func (x *PortraitPack) Reset() {
 	*x = PortraitPack{}
-	mi := &file_am_v1_api_proto_msgTypes[61]
+	mi := &file_am_v1_api_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3853,7 +4050,7 @@ func (x *PortraitPack) String() string {
 func (*PortraitPack) ProtoMessage() {}
 
 func (x *PortraitPack) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[61]
+	mi := &file_am_v1_api_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3866,7 +4063,7 @@ func (x *PortraitPack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PortraitPack.ProtoReflect.Descriptor instead.
 func (*PortraitPack) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{61}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *PortraitPack) GetMediaIds() map[string]int64 {
@@ -3889,7 +4086,7 @@ type ShareRequests struct {
 
 func (x *ShareRequests) Reset() {
 	*x = ShareRequests{}
-	mi := &file_am_v1_api_proto_msgTypes[62]
+	mi := &file_am_v1_api_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3901,7 +4098,7 @@ func (x *ShareRequests) String() string {
 func (*ShareRequests) ProtoMessage() {}
 
 func (x *ShareRequests) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[62]
+	mi := &file_am_v1_api_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3914,7 +4111,7 @@ func (x *ShareRequests) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareRequests.ProtoReflect.Descriptor instead.
 func (*ShareRequests) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{62}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ShareRequests) GetUsers() []*User {
@@ -3933,7 +4130,7 @@ type DecideShareRequest struct {
 
 func (x *DecideShareRequest) Reset() {
 	*x = DecideShareRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[63]
+	mi := &file_am_v1_api_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3945,7 +4142,7 @@ func (x *DecideShareRequest) String() string {
 func (*DecideShareRequest) ProtoMessage() {}
 
 func (x *DecideShareRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[63]
+	mi := &file_am_v1_api_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3958,7 +4155,7 @@ func (x *DecideShareRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideShareRequest.ProtoReflect.Descriptor instead.
 func (*DecideShareRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{63}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *DecideShareRequest) GetApprove() bool {
@@ -3978,7 +4175,7 @@ type OpenGameRequest struct {
 
 func (x *OpenGameRequest) Reset() {
 	*x = OpenGameRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[64]
+	mi := &file_am_v1_api_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3990,7 +4187,7 @@ func (x *OpenGameRequest) String() string {
 func (*OpenGameRequest) ProtoMessage() {}
 
 func (x *OpenGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[64]
+	mi := &file_am_v1_api_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4003,7 +4200,7 @@ func (x *OpenGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenGameRequest.ProtoReflect.Descriptor instead.
 func (*OpenGameRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{64}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *OpenGameRequest) GetKind() string {
@@ -4029,7 +4226,7 @@ type ListGamesResponse struct {
 
 func (x *ListGamesResponse) Reset() {
 	*x = ListGamesResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[65]
+	mi := &file_am_v1_api_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4041,7 +4238,7 @@ func (x *ListGamesResponse) String() string {
 func (*ListGamesResponse) ProtoMessage() {}
 
 func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[65]
+	mi := &file_am_v1_api_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4054,7 +4251,7 @@ func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGamesResponse.ProtoReflect.Descriptor instead.
 func (*ListGamesResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{65}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ListGamesResponse) GetGames() []*Game {
@@ -4080,7 +4277,7 @@ type GameActRequest struct {
 
 func (x *GameActRequest) Reset() {
 	*x = GameActRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[66]
+	mi := &file_am_v1_api_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4092,7 +4289,7 @@ func (x *GameActRequest) String() string {
 func (*GameActRequest) ProtoMessage() {}
 
 func (x *GameActRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[66]
+	mi := &file_am_v1_api_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4105,7 +4302,7 @@ func (x *GameActRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameActRequest.ProtoReflect.Descriptor instead.
 func (*GameActRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{66}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *GameActRequest) GetAction() string {
@@ -4152,7 +4349,7 @@ type SetGameRequest struct {
 
 func (x *SetGameRequest) Reset() {
 	*x = SetGameRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[67]
+	mi := &file_am_v1_api_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4164,7 +4361,7 @@ func (x *SetGameRequest) String() string {
 func (*SetGameRequest) ProtoMessage() {}
 
 func (x *SetGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[67]
+	mi := &file_am_v1_api_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4177,7 +4374,7 @@ func (x *SetGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetGameRequest.ProtoReflect.Descriptor instead.
 func (*SetGameRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{67}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *SetGameRequest) GetAutoApprove() bool {
@@ -4196,7 +4393,7 @@ type DecideGameRequest struct {
 
 func (x *DecideGameRequest) Reset() {
 	*x = DecideGameRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[68]
+	mi := &file_am_v1_api_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4208,7 +4405,7 @@ func (x *DecideGameRequest) String() string {
 func (*DecideGameRequest) ProtoMessage() {}
 
 func (x *DecideGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[68]
+	mi := &file_am_v1_api_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4221,7 +4418,7 @@ func (x *DecideGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideGameRequest.ProtoReflect.Descriptor instead.
 func (*DecideGameRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{68}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *DecideGameRequest) GetApprove() bool {
@@ -4253,7 +4450,7 @@ type PluginConfigItem struct {
 
 func (x *PluginConfigItem) Reset() {
 	*x = PluginConfigItem{}
-	mi := &file_am_v1_api_proto_msgTypes[69]
+	mi := &file_am_v1_api_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4265,7 +4462,7 @@ func (x *PluginConfigItem) String() string {
 func (*PluginConfigItem) ProtoMessage() {}
 
 func (x *PluginConfigItem) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[69]
+	mi := &file_am_v1_api_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4278,7 +4475,7 @@ func (x *PluginConfigItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PluginConfigItem.ProtoReflect.Descriptor instead.
 func (*PluginConfigItem) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{69}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *PluginConfigItem) GetKey() string {
@@ -4379,7 +4576,7 @@ type AIPlugin struct {
 
 func (x *AIPlugin) Reset() {
 	*x = AIPlugin{}
-	mi := &file_am_v1_api_proto_msgTypes[70]
+	mi := &file_am_v1_api_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4391,7 +4588,7 @@ func (x *AIPlugin) String() string {
 func (*AIPlugin) ProtoMessage() {}
 
 func (x *AIPlugin) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[70]
+	mi := &file_am_v1_api_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4404,7 +4601,7 @@ func (x *AIPlugin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIPlugin.ProtoReflect.Descriptor instead.
 func (*AIPlugin) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{70}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *AIPlugin) GetId() int64 {
@@ -4530,7 +4727,7 @@ type ListPluginsResponse struct {
 
 func (x *ListPluginsResponse) Reset() {
 	*x = ListPluginsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[71]
+	mi := &file_am_v1_api_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4542,7 +4739,7 @@ func (x *ListPluginsResponse) String() string {
 func (*ListPluginsResponse) ProtoMessage() {}
 
 func (x *ListPluginsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[71]
+	mi := &file_am_v1_api_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4555,7 +4752,7 @@ func (x *ListPluginsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPluginsResponse.ProtoReflect.Descriptor instead.
 func (*ListPluginsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{71}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *ListPluginsResponse) GetPlugins() []*AIPlugin {
@@ -4604,7 +4801,7 @@ type UploadPluginsRequest struct {
 
 func (x *UploadPluginsRequest) Reset() {
 	*x = UploadPluginsRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[72]
+	mi := &file_am_v1_api_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4616,7 +4813,7 @@ func (x *UploadPluginsRequest) String() string {
 func (*UploadPluginsRequest) ProtoMessage() {}
 
 func (x *UploadPluginsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[72]
+	mi := &file_am_v1_api_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4629,7 +4826,7 @@ func (x *UploadPluginsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadPluginsRequest.ProtoReflect.Descriptor instead.
 func (*UploadPluginsRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{72}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *UploadPluginsRequest) GetMediaId() int64 {
@@ -4652,7 +4849,7 @@ type UpdatePluginRequest struct {
 
 func (x *UpdatePluginRequest) Reset() {
 	*x = UpdatePluginRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[73]
+	mi := &file_am_v1_api_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4664,7 +4861,7 @@ func (x *UpdatePluginRequest) String() string {
 func (*UpdatePluginRequest) ProtoMessage() {}
 
 func (x *UpdatePluginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[73]
+	mi := &file_am_v1_api_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4677,7 +4874,7 @@ func (x *UpdatePluginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePluginRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePluginRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{73}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *UpdatePluginRequest) GetEnabled() bool {
@@ -4721,7 +4918,7 @@ type MuseumArt struct {
 
 func (x *MuseumArt) Reset() {
 	*x = MuseumArt{}
-	mi := &file_am_v1_api_proto_msgTypes[74]
+	mi := &file_am_v1_api_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4733,7 +4930,7 @@ func (x *MuseumArt) String() string {
 func (*MuseumArt) ProtoMessage() {}
 
 func (x *MuseumArt) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[74]
+	mi := &file_am_v1_api_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4746,7 +4943,7 @@ func (x *MuseumArt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuseumArt.ProtoReflect.Descriptor instead.
 func (*MuseumArt) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{74}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *MuseumArt) GetId() int64 {
@@ -4858,7 +5055,7 @@ type MuseumVote struct {
 
 func (x *MuseumVote) Reset() {
 	*x = MuseumVote{}
-	mi := &file_am_v1_api_proto_msgTypes[75]
+	mi := &file_am_v1_api_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4870,7 +5067,7 @@ func (x *MuseumVote) String() string {
 func (*MuseumVote) ProtoMessage() {}
 
 func (x *MuseumVote) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[75]
+	mi := &file_am_v1_api_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4883,7 +5080,7 @@ func (x *MuseumVote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuseumVote.ProtoReflect.Descriptor instead.
 func (*MuseumVote) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{75}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *MuseumVote) GetId() int64 {
@@ -4961,7 +5158,7 @@ type MuseumView struct {
 
 func (x *MuseumView) Reset() {
 	*x = MuseumView{}
-	mi := &file_am_v1_api_proto_msgTypes[76]
+	mi := &file_am_v1_api_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4973,7 +5170,7 @@ func (x *MuseumView) String() string {
 func (*MuseumView) ProtoMessage() {}
 
 func (x *MuseumView) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[76]
+	mi := &file_am_v1_api_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4986,7 +5183,7 @@ func (x *MuseumView) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuseumView.ProtoReflect.Descriptor instead.
 func (*MuseumView) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{76}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *MuseumView) GetHall() []*MuseumArt {
@@ -5049,7 +5246,7 @@ type MuseumHangRequest struct {
 
 func (x *MuseumHangRequest) Reset() {
 	*x = MuseumHangRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[77]
+	mi := &file_am_v1_api_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5061,7 +5258,7 @@ func (x *MuseumHangRequest) String() string {
 func (*MuseumHangRequest) ProtoMessage() {}
 
 func (x *MuseumHangRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[77]
+	mi := &file_am_v1_api_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5074,7 +5271,7 @@ func (x *MuseumHangRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuseumHangRequest.ProtoReflect.Descriptor instead.
 func (*MuseumHangRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{77}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *MuseumHangRequest) GetEventId() int64 {
@@ -5125,7 +5322,7 @@ type MuseumActRequest struct {
 
 func (x *MuseumActRequest) Reset() {
 	*x = MuseumActRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[78]
+	mi := &file_am_v1_api_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5137,7 +5334,7 @@ func (x *MuseumActRequest) String() string {
 func (*MuseumActRequest) ProtoMessage() {}
 
 func (x *MuseumActRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[78]
+	mi := &file_am_v1_api_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5150,7 +5347,7 @@ func (x *MuseumActRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuseumActRequest.ProtoReflect.Descriptor instead.
 func (*MuseumActRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{78}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *MuseumActRequest) GetArtId() int64 {
@@ -5186,7 +5383,7 @@ type MuseumResult struct {
 
 func (x *MuseumResult) Reset() {
 	*x = MuseumResult{}
-	mi := &file_am_v1_api_proto_msgTypes[79]
+	mi := &file_am_v1_api_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5198,7 +5395,7 @@ func (x *MuseumResult) String() string {
 func (*MuseumResult) ProtoMessage() {}
 
 func (x *MuseumResult) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[79]
+	mi := &file_am_v1_api_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5211,7 +5408,7 @@ func (x *MuseumResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuseumResult.ProtoReflect.Descriptor instead.
 func (*MuseumResult) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{79}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *MuseumResult) GetDone() bool {
@@ -5245,7 +5442,7 @@ type MuseumVoteRequest struct {
 
 func (x *MuseumVoteRequest) Reset() {
 	*x = MuseumVoteRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[80]
+	mi := &file_am_v1_api_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5257,7 +5454,7 @@ func (x *MuseumVoteRequest) String() string {
 func (*MuseumVoteRequest) ProtoMessage() {}
 
 func (x *MuseumVoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[80]
+	mi := &file_am_v1_api_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5270,7 +5467,7 @@ func (x *MuseumVoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MuseumVoteRequest.ProtoReflect.Descriptor instead.
 func (*MuseumVoteRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{80}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *MuseumVoteRequest) GetAgree() bool {
@@ -5298,7 +5495,7 @@ type EmojiPin struct {
 
 func (x *EmojiPin) Reset() {
 	*x = EmojiPin{}
-	mi := &file_am_v1_api_proto_msgTypes[81]
+	mi := &file_am_v1_api_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5310,7 +5507,7 @@ func (x *EmojiPin) String() string {
 func (*EmojiPin) ProtoMessage() {}
 
 func (x *EmojiPin) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[81]
+	mi := &file_am_v1_api_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5323,7 +5520,7 @@ func (x *EmojiPin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmojiPin.ProtoReflect.Descriptor instead.
 func (*EmojiPin) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{81}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *EmojiPin) GetId() int64 {
@@ -5405,7 +5602,7 @@ type ListEmojiPinsResponse struct {
 
 func (x *ListEmojiPinsResponse) Reset() {
 	*x = ListEmojiPinsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[82]
+	mi := &file_am_v1_api_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5417,7 +5614,7 @@ func (x *ListEmojiPinsResponse) String() string {
 func (*ListEmojiPinsResponse) ProtoMessage() {}
 
 func (x *ListEmojiPinsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[82]
+	mi := &file_am_v1_api_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5430,7 +5627,7 @@ func (x *ListEmojiPinsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEmojiPinsResponse.ProtoReflect.Descriptor instead.
 func (*ListEmojiPinsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{82}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ListEmojiPinsResponse) GetPins() []*EmojiPin {
@@ -5458,7 +5655,7 @@ type HelperRunRequest struct {
 
 func (x *HelperRunRequest) Reset() {
 	*x = HelperRunRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[83]
+	mi := &file_am_v1_api_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5470,7 +5667,7 @@ func (x *HelperRunRequest) String() string {
 func (*HelperRunRequest) ProtoMessage() {}
 
 func (x *HelperRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[83]
+	mi := &file_am_v1_api_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5483,7 +5680,7 @@ func (x *HelperRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelperRunRequest.ProtoReflect.Descriptor instead.
 func (*HelperRunRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{83}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *HelperRunRequest) GetConvId() int64 {
@@ -5528,7 +5725,7 @@ type HelperRunResponse struct {
 
 func (x *HelperRunResponse) Reset() {
 	*x = HelperRunResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[84]
+	mi := &file_am_v1_api_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5540,7 +5737,7 @@ func (x *HelperRunResponse) String() string {
 func (*HelperRunResponse) ProtoMessage() {}
 
 func (x *HelperRunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[84]
+	mi := &file_am_v1_api_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5553,7 +5750,7 @@ func (x *HelperRunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelperRunResponse.ProtoReflect.Descriptor instead.
 func (*HelperRunResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{84}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *HelperRunResponse) GetTexts() []string {
@@ -5593,7 +5790,7 @@ type HelperCommand struct {
 
 func (x *HelperCommand) Reset() {
 	*x = HelperCommand{}
-	mi := &file_am_v1_api_proto_msgTypes[85]
+	mi := &file_am_v1_api_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5605,7 +5802,7 @@ func (x *HelperCommand) String() string {
 func (*HelperCommand) ProtoMessage() {}
 
 func (x *HelperCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[85]
+	mi := &file_am_v1_api_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5618,7 +5815,7 @@ func (x *HelperCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelperCommand.ProtoReflect.Descriptor instead.
 func (*HelperCommand) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{85}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *HelperCommand) GetName() string {
@@ -5673,7 +5870,7 @@ type HelperCommandsResponse struct {
 
 func (x *HelperCommandsResponse) Reset() {
 	*x = HelperCommandsResponse{}
-	mi := &file_am_v1_api_proto_msgTypes[86]
+	mi := &file_am_v1_api_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5685,7 +5882,7 @@ func (x *HelperCommandsResponse) String() string {
 func (*HelperCommandsResponse) ProtoMessage() {}
 
 func (x *HelperCommandsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[86]
+	mi := &file_am_v1_api_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5698,7 +5895,7 @@ func (x *HelperCommandsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelperCommandsResponse.ProtoReflect.Descriptor instead.
 func (*HelperCommandsResponse) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{86}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *HelperCommandsResponse) GetCommands() []*HelperCommand {
@@ -5718,7 +5915,7 @@ type FishingData struct {
 
 func (x *FishingData) Reset() {
 	*x = FishingData{}
-	mi := &file_am_v1_api_proto_msgTypes[87]
+	mi := &file_am_v1_api_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5730,7 +5927,7 @@ func (x *FishingData) String() string {
 func (*FishingData) ProtoMessage() {}
 
 func (x *FishingData) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[87]
+	mi := &file_am_v1_api_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5743,7 +5940,7 @@ func (x *FishingData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FishingData.ProtoReflect.Descriptor instead.
 func (*FishingData) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{87}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *FishingData) GetStateJson() string {
@@ -5766,7 +5963,7 @@ type FishingActionRequest struct {
 
 func (x *FishingActionRequest) Reset() {
 	*x = FishingActionRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[88]
+	mi := &file_am_v1_api_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5778,7 +5975,7 @@ func (x *FishingActionRequest) String() string {
 func (*FishingActionRequest) ProtoMessage() {}
 
 func (x *FishingActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[88]
+	mi := &file_am_v1_api_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5791,7 +5988,7 @@ func (x *FishingActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FishingActionRequest.ProtoReflect.Descriptor instead.
 func (*FishingActionRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{88}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *FishingActionRequest) GetAction() string {
@@ -5843,7 +6040,7 @@ type FishingSyncRequest struct {
 
 func (x *FishingSyncRequest) Reset() {
 	*x = FishingSyncRequest{}
-	mi := &file_am_v1_api_proto_msgTypes[89]
+	mi := &file_am_v1_api_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5855,7 +6052,7 @@ func (x *FishingSyncRequest) String() string {
 func (*FishingSyncRequest) ProtoMessage() {}
 
 func (x *FishingSyncRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_api_proto_msgTypes[89]
+	mi := &file_am_v1_api_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5868,7 +6065,7 @@ func (x *FishingSyncRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FishingSyncRequest.ProtoReflect.Descriptor instead.
 func (*FishingSyncRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_api_proto_rawDescGZIP(), []int{89}
+	return file_am_v1_api_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *FishingSyncRequest) GetMode() string {
@@ -6100,14 +6297,27 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\bsettings\x18\x02 \x01(\tR\bsettings\x12.\n" +
 	"\x13settings_updated_at\x18\x03 \x01(\x03R\x11settingsUpdatedAt\x12%\n" +
 	"\x0eshare_requests\x18\x04 \x01(\x05R\rshareRequests\x12*\n" +
-	"\ahosting\x18\x05 \x01(\v2\x10.am.v1.AIHostingR\ahosting\"\xb2\x01\n" +
+	"\ahosting\x18\x05 \x01(\v2\x10.am.v1.AIHostingR\ahosting\"\xcc\x01\n" +
 	"\tAIHosting\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12#\n" +
 	"\rreject_reason\x18\x02 \x01(\tR\frejectReason\x12!\n" +
 	"\frequested_at\x18\x03 \x01(\x03R\vrequestedAt\x12\x14\n" +
 	"\x05state\x18\x04 \x01(\tR\x05state\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x12\x19\n" +
-	"\bwork_dir\x18\x06 \x01(\tR\aworkDir\"6\n" +
+	"\bwork_dir\x18\x06 \x01(\tR\aworkDir\x12\x18\n" +
+	"\abrowser\x18\a \x01(\bR\abrowser\"n\n" +
+	"\x0eBrowseLogEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x0e\n" +
+	"\x02at\x18\x02 \x01(\x03R\x02at\x12\x12\n" +
+	"\x04kind\x18\x03 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\x12\x14\n" +
+	"\x05place\x18\x05 \x01(\tR\x05place\"S\n" +
+	"\x13AddBrowseLogRequest\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x14\n" +
+	"\x05place\x18\x03 \x01(\tR\x05place\"D\n" +
+	"\x11BrowseLogResponse\x12/\n" +
+	"\aentries\x18\x01 \x03(\v2\x15.am.v1.BrowseLogEntryR\aentries\"6\n" +
 	"\rHostAIRequest\x12%\n" +
 	"\x0eproviders_json\x18\x01 \x01(\tR\rprovidersJson\"4\n" +
 	"\x0fCreateAIRequest\x12!\n" +
@@ -6389,7 +6599,7 @@ func file_am_v1_api_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 92)
+var file_am_v1_api_proto_msgTypes = make([]protoimpl.MessageInfo, 95)
 var file_am_v1_api_proto_goTypes = []any{
 	(ProfileEditors)(0),              // 0: am.v1.ProfileEditors
 	(*RegisterRequest)(nil),          // 1: am.v1.RegisterRequest
@@ -6435,99 +6645,103 @@ var file_am_v1_api_proto_goTypes = []any{
 	(*ListAIResponse)(nil),           // 41: am.v1.ListAIResponse
 	(*AIAccount)(nil),                // 42: am.v1.AIAccount
 	(*AIHosting)(nil),                // 43: am.v1.AIHosting
-	(*HostAIRequest)(nil),            // 44: am.v1.HostAIRequest
-	(*CreateAIRequest)(nil),          // 45: am.v1.CreateAIRequest
-	(*PutAISettingsRequest)(nil),     // 46: am.v1.PutAISettingsRequest
-	(*RunAIRequest)(nil),             // 47: am.v1.RunAIRequest
-	(*CreateAIRoomRequest)(nil),      // 48: am.v1.CreateAIRoomRequest
-	(*Sticker)(nil),                  // 49: am.v1.Sticker
-	(*ListStickersResponse)(nil),     // 50: am.v1.ListStickersResponse
-	(*AddStickerRequest)(nil),        // 51: am.v1.AddStickerRequest
-	(*UpdateStickerRequest)(nil),     // 52: am.v1.UpdateStickerRequest
-	(*SetStickerPrivateRequest)(nil), // 53: am.v1.SetStickerPrivateRequest
-	(*LibrarySticker)(nil),           // 54: am.v1.LibrarySticker
-	(*ListLibraryResponse)(nil),      // 55: am.v1.ListLibraryResponse
-	(*EditLibraryTagsRequest)(nil),   // 56: am.v1.EditLibraryTagsRequest
-	(*LookupStickersRequest)(nil),    // 57: am.v1.LookupStickersRequest
-	(*LookupStickersResponse)(nil),   // 58: am.v1.LookupStickersResponse
-	(*ResolveMusicRequest)(nil),      // 59: am.v1.ResolveMusicRequest
-	(*MusicTrack)(nil),               // 60: am.v1.MusicTrack
-	(*ResolveMusicResponse)(nil),     // 61: am.v1.ResolveMusicResponse
-	(*PortraitPack)(nil),             // 62: am.v1.PortraitPack
-	(*ShareRequests)(nil),            // 63: am.v1.ShareRequests
-	(*DecideShareRequest)(nil),       // 64: am.v1.DecideShareRequest
-	(*OpenGameRequest)(nil),          // 65: am.v1.OpenGameRequest
-	(*ListGamesResponse)(nil),        // 66: am.v1.ListGamesResponse
-	(*GameActRequest)(nil),           // 67: am.v1.GameActRequest
-	(*SetGameRequest)(nil),           // 68: am.v1.SetGameRequest
-	(*DecideGameRequest)(nil),        // 69: am.v1.DecideGameRequest
-	(*PluginConfigItem)(nil),         // 70: am.v1.PluginConfigItem
-	(*AIPlugin)(nil),                 // 71: am.v1.AIPlugin
-	(*ListPluginsResponse)(nil),      // 72: am.v1.ListPluginsResponse
-	(*UploadPluginsRequest)(nil),     // 73: am.v1.UploadPluginsRequest
-	(*UpdatePluginRequest)(nil),      // 74: am.v1.UpdatePluginRequest
-	(*MuseumArt)(nil),                // 75: am.v1.MuseumArt
-	(*MuseumVote)(nil),               // 76: am.v1.MuseumVote
-	(*MuseumView)(nil),               // 77: am.v1.MuseumView
-	(*MuseumHangRequest)(nil),        // 78: am.v1.MuseumHangRequest
-	(*MuseumActRequest)(nil),         // 79: am.v1.MuseumActRequest
-	(*MuseumResult)(nil),             // 80: am.v1.MuseumResult
-	(*MuseumVoteRequest)(nil),        // 81: am.v1.MuseumVoteRequest
-	(*EmojiPin)(nil),                 // 82: am.v1.EmojiPin
-	(*ListEmojiPinsResponse)(nil),    // 83: am.v1.ListEmojiPinsResponse
-	(*HelperRunRequest)(nil),         // 84: am.v1.HelperRunRequest
-	(*HelperRunResponse)(nil),        // 85: am.v1.HelperRunResponse
-	(*HelperCommand)(nil),            // 86: am.v1.HelperCommand
-	(*HelperCommandsResponse)(nil),   // 87: am.v1.HelperCommandsResponse
-	(*FishingData)(nil),              // 88: am.v1.FishingData
-	(*FishingActionRequest)(nil),     // 89: am.v1.FishingActionRequest
-	(*FishingSyncRequest)(nil),       // 90: am.v1.FishingSyncRequest
-	nil,                              // 91: am.v1.LookupStickersResponse.LibraryIdsEntry
-	nil,                              // 92: am.v1.PortraitPack.MediaIdsEntry
-	(*User)(nil),                     // 93: am.v1.User
-	(*Activity)(nil),                 // 94: am.v1.Activity
-	(*Game)(nil),                     // 95: am.v1.Game
+	(*BrowseLogEntry)(nil),           // 44: am.v1.BrowseLogEntry
+	(*AddBrowseLogRequest)(nil),      // 45: am.v1.AddBrowseLogRequest
+	(*BrowseLogResponse)(nil),        // 46: am.v1.BrowseLogResponse
+	(*HostAIRequest)(nil),            // 47: am.v1.HostAIRequest
+	(*CreateAIRequest)(nil),          // 48: am.v1.CreateAIRequest
+	(*PutAISettingsRequest)(nil),     // 49: am.v1.PutAISettingsRequest
+	(*RunAIRequest)(nil),             // 50: am.v1.RunAIRequest
+	(*CreateAIRoomRequest)(nil),      // 51: am.v1.CreateAIRoomRequest
+	(*Sticker)(nil),                  // 52: am.v1.Sticker
+	(*ListStickersResponse)(nil),     // 53: am.v1.ListStickersResponse
+	(*AddStickerRequest)(nil),        // 54: am.v1.AddStickerRequest
+	(*UpdateStickerRequest)(nil),     // 55: am.v1.UpdateStickerRequest
+	(*SetStickerPrivateRequest)(nil), // 56: am.v1.SetStickerPrivateRequest
+	(*LibrarySticker)(nil),           // 57: am.v1.LibrarySticker
+	(*ListLibraryResponse)(nil),      // 58: am.v1.ListLibraryResponse
+	(*EditLibraryTagsRequest)(nil),   // 59: am.v1.EditLibraryTagsRequest
+	(*LookupStickersRequest)(nil),    // 60: am.v1.LookupStickersRequest
+	(*LookupStickersResponse)(nil),   // 61: am.v1.LookupStickersResponse
+	(*ResolveMusicRequest)(nil),      // 62: am.v1.ResolveMusicRequest
+	(*MusicTrack)(nil),               // 63: am.v1.MusicTrack
+	(*ResolveMusicResponse)(nil),     // 64: am.v1.ResolveMusicResponse
+	(*PortraitPack)(nil),             // 65: am.v1.PortraitPack
+	(*ShareRequests)(nil),            // 66: am.v1.ShareRequests
+	(*DecideShareRequest)(nil),       // 67: am.v1.DecideShareRequest
+	(*OpenGameRequest)(nil),          // 68: am.v1.OpenGameRequest
+	(*ListGamesResponse)(nil),        // 69: am.v1.ListGamesResponse
+	(*GameActRequest)(nil),           // 70: am.v1.GameActRequest
+	(*SetGameRequest)(nil),           // 71: am.v1.SetGameRequest
+	(*DecideGameRequest)(nil),        // 72: am.v1.DecideGameRequest
+	(*PluginConfigItem)(nil),         // 73: am.v1.PluginConfigItem
+	(*AIPlugin)(nil),                 // 74: am.v1.AIPlugin
+	(*ListPluginsResponse)(nil),      // 75: am.v1.ListPluginsResponse
+	(*UploadPluginsRequest)(nil),     // 76: am.v1.UploadPluginsRequest
+	(*UpdatePluginRequest)(nil),      // 77: am.v1.UpdatePluginRequest
+	(*MuseumArt)(nil),                // 78: am.v1.MuseumArt
+	(*MuseumVote)(nil),               // 79: am.v1.MuseumVote
+	(*MuseumView)(nil),               // 80: am.v1.MuseumView
+	(*MuseumHangRequest)(nil),        // 81: am.v1.MuseumHangRequest
+	(*MuseumActRequest)(nil),         // 82: am.v1.MuseumActRequest
+	(*MuseumResult)(nil),             // 83: am.v1.MuseumResult
+	(*MuseumVoteRequest)(nil),        // 84: am.v1.MuseumVoteRequest
+	(*EmojiPin)(nil),                 // 85: am.v1.EmojiPin
+	(*ListEmojiPinsResponse)(nil),    // 86: am.v1.ListEmojiPinsResponse
+	(*HelperRunRequest)(nil),         // 87: am.v1.HelperRunRequest
+	(*HelperRunResponse)(nil),        // 88: am.v1.HelperRunResponse
+	(*HelperCommand)(nil),            // 89: am.v1.HelperCommand
+	(*HelperCommandsResponse)(nil),   // 90: am.v1.HelperCommandsResponse
+	(*FishingData)(nil),              // 91: am.v1.FishingData
+	(*FishingActionRequest)(nil),     // 92: am.v1.FishingActionRequest
+	(*FishingSyncRequest)(nil),       // 93: am.v1.FishingSyncRequest
+	nil,                              // 94: am.v1.LookupStickersResponse.LibraryIdsEntry
+	nil,                              // 95: am.v1.PortraitPack.MediaIdsEntry
+	(*User)(nil),                     // 96: am.v1.User
+	(*Activity)(nil),                 // 97: am.v1.Activity
+	(*Game)(nil),                     // 98: am.v1.Game
 }
 var file_am_v1_api_proto_depIdxs = []int32{
-	93, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
+	96, // 0: am.v1.SessionResponse.me:type_name -> am.v1.User
 	11, // 1: am.v1.ListSessionsResponse.sessions:type_name -> am.v1.DeviceSession
-	93, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
+	96, // 2: am.v1.PairRedeemResponse.me:type_name -> am.v1.User
 	13, // 3: am.v1.ListInvitesResponse.invites:type_name -> am.v1.Invite
 	0,  // 4: am.v1.ServerProfile.layout_editors:type_name -> am.v1.ProfileEditors
-	93, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
-	93, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
-	93, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
-	93, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
-	93, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
-	94, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
+	96, // 5: am.v1.ListFriendsResponse.friends:type_name -> am.v1.User
+	96, // 6: am.v1.ListFriendsResponse.incoming:type_name -> am.v1.User
+	96, // 7: am.v1.ListFriendsResponse.outgoing:type_name -> am.v1.User
+	96, // 8: am.v1.ListUsersResponse.users:type_name -> am.v1.User
+	96, // 9: am.v1.ListBlocksResponse.users:type_name -> am.v1.User
+	97, // 10: am.v1.SetPresenceRequest.activity:type_name -> am.v1.Activity
 	25, // 11: am.v1.ListLoginRecordsResponse.records:type_name -> am.v1.LoginRecord
 	28, // 12: am.v1.ListChannelsResponse.channels:type_name -> am.v1.ChannelInfo
 	37, // 13: am.v1.ListJoinRequestsResponse.requests:type_name -> am.v1.JoinRequestInfo
-	93, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
-	93, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
+	96, // 14: am.v1.JoinRequestInfo.user:type_name -> am.v1.User
+	96, // 15: am.v1.JoinRequestInfo.inviter:type_name -> am.v1.User
 	42, // 16: am.v1.ListAIResponse.ais:type_name -> am.v1.AIAccount
-	93, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
+	96, // 17: am.v1.AIAccount.user:type_name -> am.v1.User
 	43, // 18: am.v1.AIAccount.hosting:type_name -> am.v1.AIHosting
-	49, // 19: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
-	54, // 20: am.v1.ListLibraryResponse.items:type_name -> am.v1.LibrarySticker
-	91, // 21: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
-	60, // 22: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
-	92, // 23: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
-	93, // 24: am.v1.ShareRequests.users:type_name -> am.v1.User
-	95, // 25: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
-	70, // 26: am.v1.AIPlugin.config_items:type_name -> am.v1.PluginConfigItem
-	71, // 27: am.v1.ListPluginsResponse.plugins:type_name -> am.v1.AIPlugin
-	75, // 28: am.v1.MuseumView.hall:type_name -> am.v1.MuseumArt
-	75, // 29: am.v1.MuseumView.second:type_name -> am.v1.MuseumArt
-	75, // 30: am.v1.MuseumView.store:type_name -> am.v1.MuseumArt
-	76, // 31: am.v1.MuseumView.votes:type_name -> am.v1.MuseumVote
-	82, // 32: am.v1.ListEmojiPinsResponse.pins:type_name -> am.v1.EmojiPin
-	86, // 33: am.v1.HelperCommandsResponse.commands:type_name -> am.v1.HelperCommand
-	34, // [34:34] is the sub-list for method output_type
-	34, // [34:34] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	44, // 19: am.v1.BrowseLogResponse.entries:type_name -> am.v1.BrowseLogEntry
+	52, // 20: am.v1.ListStickersResponse.stickers:type_name -> am.v1.Sticker
+	57, // 21: am.v1.ListLibraryResponse.items:type_name -> am.v1.LibrarySticker
+	94, // 22: am.v1.LookupStickersResponse.library_ids:type_name -> am.v1.LookupStickersResponse.LibraryIdsEntry
+	63, // 23: am.v1.ResolveMusicResponse.tracks:type_name -> am.v1.MusicTrack
+	95, // 24: am.v1.PortraitPack.media_ids:type_name -> am.v1.PortraitPack.MediaIdsEntry
+	96, // 25: am.v1.ShareRequests.users:type_name -> am.v1.User
+	98, // 26: am.v1.ListGamesResponse.games:type_name -> am.v1.Game
+	73, // 27: am.v1.AIPlugin.config_items:type_name -> am.v1.PluginConfigItem
+	74, // 28: am.v1.ListPluginsResponse.plugins:type_name -> am.v1.AIPlugin
+	78, // 29: am.v1.MuseumView.hall:type_name -> am.v1.MuseumArt
+	78, // 30: am.v1.MuseumView.second:type_name -> am.v1.MuseumArt
+	78, // 31: am.v1.MuseumView.store:type_name -> am.v1.MuseumArt
+	79, // 32: am.v1.MuseumView.votes:type_name -> am.v1.MuseumVote
+	85, // 33: am.v1.ListEmojiPinsResponse.pins:type_name -> am.v1.EmojiPin
+	89, // 34: am.v1.HelperCommandsResponse.commands:type_name -> am.v1.HelperCommand
+	35, // [35:35] is the sub-list for method output_type
+	35, // [35:35] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_api_proto_init() }
@@ -6538,16 +6752,16 @@ func file_am_v1_api_proto_init() {
 	file_am_v1_common_proto_init()
 	file_am_v1_api_proto_msgTypes[21].OneofWrappers = []any{}
 	file_am_v1_api_proto_msgTypes[30].OneofWrappers = []any{}
-	file_am_v1_api_proto_msgTypes[50].OneofWrappers = []any{}
-	file_am_v1_api_proto_msgTypes[69].OneofWrappers = []any{}
-	file_am_v1_api_proto_msgTypes[73].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[53].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[72].OneofWrappers = []any{}
+	file_am_v1_api_proto_msgTypes[76].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_api_proto_rawDesc), len(file_am_v1_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   92,
+			NumMessages:   95,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"strconv"
 
 	amv1 "github.com/OzakiJUN/am/gen/go/am/v1"
 	"github.com/OzakiJUN/am/server/internal/account"
@@ -292,4 +293,34 @@ func (a *API) decideShareRequest(w http.ResponseWriter, r *http.Request, _ *stor
 		return
 	}
 	a.ok(w, c)
+}
+
+// POST /api/v1/me/browse-log: the AI's client records a search / page / video.
+func (a *API) addBrowseLog(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	req := &amv1.AddBrowseLogRequest{}
+	if !a.read(w, r, req) {
+		return
+	}
+	if err := a.acct.AddBrowseLog(r.Context(), me, req); err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, &amv1.Empty{})
+}
+
+// GET /api/v1/ai/{id}/browse-log?before=&limit=: the owner reads it.
+func (a *API) browseLog(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	before, _ := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	out, err := a.acct.BrowseLog(r.Context(), me, id, before, limit)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, out)
 }

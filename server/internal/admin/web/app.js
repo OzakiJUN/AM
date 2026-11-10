@@ -1177,7 +1177,7 @@ async function renderHosting(root, page) {
     } catch (e) { fail(e); return; }
     if (currentPage !== page) return;
     if (!data.enabled) {
-      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, 'AI 托管已关闭（config.toml 的 [hosting]：enabled、max_per_user）。')));
+      box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, 'AI 托管已关闭（config.toml 的 [hosting] enabled，或「设置」里每人最多托管 0 个）。')));
       if (!data.items.length) return;
     } else if (!data.items.length) {
       box.replaceChildren(el('div', { class: 'panel' }, el('p', { class: 'empty' }, hostingStatus === 'pending' ? '没有等待审核的申请。' : '这里还没有。')));
@@ -1418,6 +1418,12 @@ const SETTINGS = [
   { title: '留存', items: [
     { k: 'retention.evidence_days', label: '删除记录保留天数', help: '被删除消息的原内容保留多久，法规要求至少 180 天', type: 'int', min: 1, warnBelow: 180 },
     { k: 'retention.login_record_days', label: '登录记录保留天数', help: '登录时间、IP、设备，法规要求至少 180 天', type: 'int', min: 1, warnBelow: 180 },
+    { k: 'retention.ai_browse_days', label: 'AI 搜索记录保留天数', help: 'AI 搜过什么、开过哪些网页和视频，主人在 AI 设置 →「记录」里看', type: 'int', min: 1 },
+    { k: 'limits.max_browse_log', label: '每个 AI 最多留几条搜索记录', help: '多了先删最早的', type: 'int', min: 1 },
+  ] },
+  { title: 'AI 托管', items: [
+    { k: 'hosting.max_per_user', label: '每人最多托管几个 AI', help: '0 = 谁都不能托管。站点管理员也算', type: 'int', min: 0, max: 50 },
+    { k: 'hosting.allow_browser', label: '托管的 AI 可以用浏览器', help: '在这台电脑上给它开一个看不见的 Edge / Chrome（它自己的资料夹，碰不到你的登录），用来搜索、看网页、看 B 站视频。重启服务器后生效', type: 'bool' },
   ] },
   { title: '表情包', items: [
     { k: 'stickers.library', label: '公共表情库', help: '大家加进收藏的表情会出现在别人的「大家的」里，可以搜索和收藏，标签大家一起补。关掉后只剩各人自己的收藏。', type: 'bool' },
