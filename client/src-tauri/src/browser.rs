@@ -100,8 +100,39 @@ fn find_exe() -> R<PathBuf> {
     list.into_iter().find(|p| p.exists()).ok_or_else(|| "找不到 Edge 或 Chrome 浏览器".into())
 }
 
+/// One start at a time: two calls starting the same profile at once (the
+/// B站 login status and 「扫码登录」, or the AI surfing meanwhile) would fight
+/// over the profile, and the loser hands itself to the winner and exits.
+static STARTING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// The DevTools address a browser on this profile wrote (it may be gone).
+fn port_file_ws(profile: &Path) -> Option<String> {
+    let t = std::fs::read_to_string(profile.join("DevToolsActivePort")).ok()?;
+    let mut l = t.lines();
+    let port = l.next()?.trim().parse::<u16>().ok()?;
+    Some(format!("ws://127.0.0.1:{port}{}", l.next()?.trim()))
+}
+
+/// A browser left running on this profile (by an AM that crashed or was
+/// killed) owns it: a new one would hand itself over and exit. Close it.
+async fn close_leftover(profile: &Path) {
+    let Some(ws) = port_file_ws(profile) else { return };
+    let Ok(Ok((mut conn, _))) = tokio::time::timeout(Duration::from_secs(2), tokio_tungstenite::connect_async(&ws)).await else { return };
+    let _ = tokio::time::timeout(Duration::from_secs(2), call(&mut conn, 1, "Browser.close", json!({}), None)).await;
+    drop(conn);
+    // Wait until it is really gone (its port stops answering).
+    for _ in 0..50 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        if !matches!(tokio::time::timeout(Duration::from_millis(500), tokio_tungstenite::connect_async(&ws)).await, Ok(Ok(_))) {
+            break;
+        }
+    }
+    tokio::time::sleep(Duration::from_millis(300)).await;
+}
+
 /// The DevTools address of the running browser, starting it when needed.
 async fn ensure(b: &Browser) -> R<String> {
+    let _one = STARTING.lock().await;
     {
         let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
         if let Some(i) = g.iter().position(|(p, _)| p == &b.profile) {
@@ -119,6 +150,7 @@ async fn ensure(b: &Browser) -> R<String> {
     if b.proxy.is_some() {
         tokio::time::sleep(Duration::from_millis(300)).await; // let the old one let go of the profile
     }
+    close_leftover(&b.profile).await;
     let mut r = launch(b, None).await?;
     if b.background {
         // Headless Chrome says so in its user agent, and some sites then
@@ -127,6 +159,7 @@ async fn ensure(b: &Browser) -> R<String> {
             if ua.contains("HeadlessChrome") {
                 let _ = r.child.kill();
                 let _ = r.child.wait();
+                tokio::time::sleep(Duration::from_millis(300)).await;
                 r = launch(b, Some(&ua.replace("HeadlessChrome", "Chrome"))).await?;
             }
         }
@@ -175,20 +208,22 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
             cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         }
     }
-    let child = cmd.spawn().map_err(|e| format!("打不开浏览器：{e}"))?;
+    let mut child = cmd.spawn().map_err(|e| format!("打不开浏览器：{e}"))?;
     // The file holds the port and the browser's DevTools path, one per line.
-    for _ in 0..100 {
-        if let Ok(t) = std::fs::read_to_string(&port_file) {
-            let mut l = t.lines();
-            if let (Some(port), Some(path)) = (l.next().and_then(|p| p.trim().parse::<u16>().ok()), l.next()) {
-                return Ok(Running { child, ws: format!("ws://127.0.0.1:{port}{}", path.trim()), proxy });
-            }
+    // A first start on a new profile can be slow (antivirus, first-run setup).
+    for _ in 0..250 {
+        if let Some(ws) = port_file_ws(&b.profile) {
+            return Ok(Running { child, ws, proxy });
+        }
+        if let Ok(Some(_)) = child.try_wait() {
+            // It handed itself to another browser on the same profile and quit.
+            return Err("AI 的浏览器一开就退出了：它的资料夹被另一个浏览器占着。关掉 AM（托盘里退出）再打开试试".into());
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    let mut child = child;
     let _ = child.kill();
-    Err("浏览器开了，但连不上它".into())
+    let _ = child.wait();
+    Err("浏览器开了，但 25 秒内没连上它".into())
 }
 
 /// The running browser's user agent.
@@ -613,10 +648,12 @@ pub async fn bili(b: &Browser, action: &str, key: &str) -> R<Value> {
 }
 
 /// Closes the AI's browsers (both).
+/// Also called when AM quits, so the headless one does not outlive it.
 pub fn close() {
     if let Ok(mut g) = BROWSERS.lock() {
         for (_, mut r) in g.drain(..) {
             let _ = r.child.kill();
+            let _ = r.child.wait();
         }
     }
 }
@@ -772,6 +809,44 @@ mod tests {
         assert_ne!(pid(&dir), first);
         assert!(Proxy::parse("http://a:1 --no-sandbox").is_err() && Proxy::parse("ftp://a:1").is_err());
         assert_eq!(Proxy::parse("socks5://127.0.0.1:1080").unwrap(), Proxy::Server("socks5://127.0.0.1:1080".into()));
+        close();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A browser left over from an earlier AM holds the profile (the cause of
+    /// 「浏览器开了，但连不上它」), and two calls start it at the same time.
+    #[tokio::test]
+    async fn starts_despite_a_leftover_and_at_the_same_time() {
+        if std::env::var("AM_BROWSER").is_err() {
+            return;
+        }
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let dir = std::env::temp_dir().join(format!("am-leftover-{}", std::process::id()));
+        let b = Browser::new(dir.clone(), true);
+        // The leftover: running on the profile, but not ours any more.
+        let mut orphan = launch(&b, None).await.unwrap();
+        assert!(port_file_ws(&dir).is_some());
+        // Two calls at once (status + 扫码登录): one browser, both get it.
+        let b2 = Browser::new(dir.clone(), true);
+        let (x, y) = tokio::join!(ensure(&b), ensure(&b2));
+        let (x, y) = (x.unwrap(), y.unwrap());
+        assert_eq!(x, y);
+        assert_ne!(x, orphan.ws, "the leftover was closed and a new one started");
+        assert_eq!(BROWSERS.lock().unwrap().iter().filter(|(p, _)| p == &dir).count(), 1);
+        // The leftover is gone.
+        let mut gone = false;
+        for _ in 0..30 {
+            if orphan.child.try_wait().unwrap().is_some() {
+                gone = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert!(gone, "the leftover browser still runs");
+        cdp(&b, "Page.navigate", json!({ "url": "data:text/html,<title>ok</title>" })).await.unwrap();
+        settle(&b).await;
+        assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("ok".into()));
         close();
         let _ = std::fs::remove_dir_all(&dir);
     }
