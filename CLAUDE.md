@@ -355,13 +355,18 @@ update the docs in the same commit.
   bar); `FoldColumn` fills the screen, big `Dialog`s are full-screen. The back
   button goes through `lib/back.ts` (`useBack`, pure `BackStack`, tested):
   anything that opens on a phone (dialog, chat, page) registers there. The
-  Android project is `src-tauri/gen/android` (committed; `MainActivity.kt` pads
-  by system-bar / keyboard insets); desktop-only Rust (tray, F12, trash, host
+  Android project is `src-tauri/gen/android` (committed). `MainActivity.kt`:
+  edge-to-edge, the page pads itself by the bar heights (CSS `--safe-top` /
+  `--safe-bottom`), and the `AMAndroid` JS bridge (insets, bar icon colour,
+  keep-alive, battery, `installApk`) used by `lib/android.ts`;
+  `KeepAliveService.kt` = foreground service for 后台保持连接
+  (`prefs.androidKeepAlive`). Desktop-only Rust (tray, F12, trash, host
   mode) is behind `cfg(desktop)`; secrets use `android-native-keyring-store`;
-  camera QR = `tauri-plugin-barcode-scanner` (`scanQRCamera`,
-  `capabilities/mobile.json`); `isAndroid` (lib/platform.ts) hides computer
-  features, phones never run AIs (`runHere` refuses), updates open the
-  release's `AM-android.apk`. CI `client-android` signs it with the secret
+  camera QR is our own page (`app/QrScanner.tsx` + `lib/qrScan.ts`,
+  getUserMedia + jsQR; no Google ML Kit, it crashed on phones without Google
+  services); `isAndroid` (lib/platform.ts) hides computer features, phones
+  never run AIs (`runHere` refuses), updates download the release's
+  `AM-android.apk` (`update_download_apk`) and hand it to the installer. CI `client-android` signs it with the secret
   `ANDROID_SIGNING_KEY` (`am-server android-keygen`, docs/release.md 安卓).
   Local Android builds need the SDK + NDK 27 (`NDK_HOME`); Gradle 9 is
   fetched from GitHub, so only CI builds the APK in the cloud session.

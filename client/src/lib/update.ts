@@ -11,6 +11,7 @@
 
 import { create } from 'zustand';
 import { inTauri, isAndroid, openUrl } from './platform';
+import { android } from './android';
 import { usePrefs } from './prefs';
 import { session, useApp } from './store';
 import { apkOf, compareVersions, isRelease, loadManifest, MANIFEST, type Manifest, RELEASE_PUBLIC_KEY, releaseUrls, SIGNATURE, updateFileOf } from './release';
@@ -113,15 +114,7 @@ export async function installUpdate(): Promise<void> {
   const why = cannotUpdate();
   if (why) throw new Error(why);
   if (!m || !updateAvailable(st)) throw new Error('已经是最新版了');
-  // Android: the system installs APKs; open the verified release's APK in
-  // the browser, which downloads it and hands it to the installer (the
-  // phone only accepts it when it is signed with the same key).
-  if (isAndroid) {
-    const apk = apkOf(m);
-    if (!apk) throw new Error(`${m.version} 没有安卓版`);
-    await openUrl(releaseUrls(apk.name, 'v' + m.version)[0]);
-    return;
-  }
+  if (isAndroid) return installApk(m);
   const { invoke, Channel } = await import('@tauri-apps/api/core');
   // An installed AM runs the installer; the portable AM.exe swaps itself (update.rs).
   const portable = (await invoke<string>('update_mode')) === 'portable';
@@ -142,6 +135,39 @@ export async function installUpdate(): Promise<void> {
     useUpdate.setState({ status: 'error', error: e instanceof Error ? e.message : String(e) });
     throw e;
   }
+}
+
+/** Android: the APK downloaded for a version (kept while AM runs). */
+let apkPath: { version: string; path: string } | null = null;
+
+/**
+ * Android: downloads the verified release's APK (GitHub, then the mirrors;
+ * size and SHA-256 from the signed manifest) and hands it to the system
+ * installer, which only accepts it signed with the same key as this app.
+ * Without the bridge (old app) it opens the download in the browser.
+ */
+async function installApk(m: Manifest): Promise<void> {
+  const apk = apkOf(m);
+  if (!apk) throw new Error(`${m.version} 没有安卓版`);
+  const urls = releaseUrls(apk.name, 'v' + m.version);
+  const bridge = android();
+  if (!bridge) return openUrl(urls[0]);
+  if (apkPath?.version !== m.version) {
+    const { invoke, Channel } = await import('@tauri-apps/api/core');
+    useUpdate.setState({ status: 'downloading', error: '', done: 0, total: apk.size });
+    try {
+      const on = new Channel<number>();
+      on.onmessage = (done) => useUpdate.setState({ done });
+      apkPath = { version: m.version, path: await invoke<string>('update_download_apk', { urls, version: m.version, size: apk.size, sha256: apk.sha256, onProgress: on }) };
+    } catch (e) {
+      useUpdate.setState({ status: 'error', error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+  }
+  useUpdate.setState({ status: 'idle' });
+  const r = bridge.installApk(apkPath.path);
+  if (r === 'permission') throw new Error('先在打开的设置里允许 AM「安装未知应用」，回来再点一次「下载并安装」');
+  if (r) throw new Error(r);
 }
 
 /** Checks after start and every 6 hours while prefs.updateCheck is on. */

@@ -54,6 +54,12 @@ body,
   height: 100%;
   margin: 0;
 }
+/* Android draws the page behind the status / gesture bars (lib/android.ts). */
+#root {
+  box-sizing: border-box;
+  padding-top: var(--safe-top, 0px);
+  padding-bottom: var(--safe-bottom, 0px);
+}
 body {
   font-family: var(--font-sans);
   color: var(--color-ink);

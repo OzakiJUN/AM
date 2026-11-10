@@ -1,7 +1,0 @@
-{
-  "identifier": "mobile",
-  "description": "Android only: the camera QR scanner for join and pairing codes",
-  "windows": ["main"],
-  "platforms": ["android"],
-  "permissions": ["barcode-scanner:default"]
-}

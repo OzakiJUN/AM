@@ -46,15 +46,8 @@ export async function scanQRFromFile(file: Blob): Promise<string | null> {
   return jsQR(img.data, img.width, img.height)?.data ?? null;
 }
 
-/** Android: scans a QR code with the camera (null = cancelled). */
-export async function scanQRCamera(): Promise<string | null> {
-  const s = await import('@tauri-apps/plugin-barcode-scanner');
-  let p = await s.checkPermissions();
-  if (p !== 'granted') p = await s.requestPermissions();
-  if (p !== 'granted') throw new Error('AM 没有相机权限：在手机设置里允许后再试');
-  const r = await s.scan({ windowed: false, formats: [s.Format.QRCode] });
-  return r?.content || null;
-}
+/** Scans a QR code with the camera (null = cancelled): lib/qrScan.ts. */
+export { scanQRCamera } from './qrScan';
 
 /** Returns an error for the settings test. Background callers can ignore it. */
 export async function notify(title: string, body: string, { force = false }: { force?: boolean } = {}): Promise<string | undefined> {

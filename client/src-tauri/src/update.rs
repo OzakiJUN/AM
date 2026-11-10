@@ -102,6 +102,39 @@ pub async fn download(net: &Net, sources: Vec<Source>, version: String, portable
     Err(format!("下载新版本失败：{}", errs.join("；")))
 }
 
+/// Android: the APK of a verified release into `dir` (the app's cache
+/// folder); returns its path. Same checks as `download`.
+pub async fn download_apk(dir: PathBuf, urls: Vec<String>, version: String, size: u64, sha256: String, on: Channel<u64>) -> Result<String, String> {
+    if version.is_empty() || !version.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
+        return Err("bad version".into());
+    }
+    tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
+    // Older downloads are not needed any more.
+    if let Ok(mut rd) = tokio::fs::read_dir(&dir).await {
+        while let Ok(Some(e)) = rd.next_entry().await {
+            let _ = tokio::fs::remove_file(e.path()).await;
+        }
+    }
+    let path = dir.join(format!("AM-{version}.apk"));
+    let mut errs = Vec::new();
+    for url in urls {
+        if !url.starts_with("https://") {
+            errs.push(format!("{url}: 只能用 https"));
+            continue;
+        }
+        match crate::ai_http::public_get(&url).await {
+            Ok(r) if r.status().as_u16() == 200 => match save(r, &path, size, &sha256, &on).await {
+                Ok(()) => return Ok(path.to_string_lossy().into_owned()),
+                Err(e) => errs.push(format!("{url}: {e}")),
+            },
+            Ok(r) => errs.push(format!("{url}: HTTP {}", r.status().as_u16())),
+            Err(e) => errs.push(format!("{url}: {e}")),
+        }
+        let _ = tokio::fs::remove_file(&path).await;
+    }
+    Err(format!("下载新版本失败：{}", errs.join("；")))
+}
+
 async fn save(mut resp: reqwest::Response, path: &PathBuf, size: u64, sha256: &str, on: &Channel<u64>) -> Result<(), String> {
     let mut f = tokio::fs::File::create(path).await.map_err(|e| e.to_string())?;
     let mut h = Sha256::new();

@@ -8,10 +8,7 @@
 4. **工坊小组件**（第五阶段）：运行时、联网白名单、别人没装也能看（服务器存组件包 + 验签 + 截图兜底），设计见 design.md 第 13 节；布局格式已经留好字段。
 5. 「正在听歌 / 打游戏」以后可以由客户端自动识别（现在要手动选）。
 7. **bot / AI 账号的管理放到 AI 栏**（第二阶段做 bot 时）：主页、资料、在哪些频道等都在 AI 栏里设置（design.md 第 10 节）。
-8. **安卓端第二批**（第一批 2026-11-09 做完：手机布局、返回键、Keystore、扫码、APK，见 design.md 第 5 节「手机和安卓」）：
-   - 后台收消息：常驻通知（前台服务）把连接留住，要写安卓原生代码。
-   - 应用内一键下载并安装新版 APK（现在跳浏览器下载）。
-   - 等 Weiqi 生成 `ANDROID_SIGNING_KEY`（docs/release.md「安卓签名钥匙」）并在真手机上试第一批。
+8. **安卓端**：第一批（2026-11-09）和第二批（2026-11-10：后台保持连接、应用内更新、自己的扫码页、状态栏透出背景）做完了，见 design.md 第 5 节「手机和安卓」。签名钥匙 Weiqi 2026-11-10 已生成（证书 SHA-256 `19BE45DD61E0118DBB666986A1BDBCC34422BFAE458FE174905AD459ADA4B70B`，发版后核对 APK）。等 Weiqi 在手机上试第二批。
 9. **自动更新**：做完了（2026-11-02，见 docs/release.md）。0.1.0（2026-11-02）和 0.1.1（2026-11-03）已发。从 0.1.0 升到 0.1.1 是第一次真正的自动更新，等 Weiqi 反馈服务器一键更新和客户端（免安装版换 exe）好不好用。
 10. **AI 第 2 批收尾**（design.md 第 9 节「操作电脑」）：2a、2b 已完成，等 Weiqi 在 Windows 上整批测试（界面自动化、自己的浏览器、MCP 只有桌面版能用）。用真的 DeepSeek key 测一遍工具调用（云端开发环境要先放开 api.deepseek.com）。游戏只接有 AI 接口的（Minecraft、环世界的 MCP 模板，已做），截图 + 虚拟手柄不做了（Weiqi 定的）。
 11. **以后做 AI 直播 / 语音时参考**：dsh-game-bridge（DeepSeek Harness 的游戏插件：DXcam 截屏 + RapidOCR，虚拟 Xbox 手柄 ViGEmBus + SendInput；F12 一键收回控制、游戏窗口不在前台就不动、反作弊游戏直接拒绝、默认只演练不真按、操作留记录——第 2 批的「让鼠标」和急停照这个思路），ZerolanLiveRobot（B 站弹幕 + 看屏幕 + mineflayer 操作 Minecraft）、DeepSeek Harness（DeepSeek 开源的 agent 框架，插件式，开发者预览版）、AI-XiaoPi（弹幕 → 模型 → TTS 的直播助手）、digital-human-livestream（LiveTalking 二次开发：B 站弹幕 → DeepSeek → EdgeTTS → wav2lip / MuseTalk 数字人，要 CUDA 显卡）。以后做 AI 直播 / 语音时再细看。

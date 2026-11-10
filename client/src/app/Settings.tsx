@@ -6,6 +6,7 @@ import { current, removeServer, switchServer, useApp, useCurrent } from '@/lib/s
 import { usePrefs } from '@/lib/prefs';
 import { useNarrow } from '@/lib/layout';
 import { inTauri, isAndroid, notify, openUrl } from '@/lib/platform';
+import { android } from '@/lib/android';
 import { CATEGORY_LABEL, REMOTE_CATEGORIES } from '@/lib/ai/agent';
 import type { Level, ToolCategory } from '@/lib/ai/persona';
 import { newAllow, useRemote, type RemoteAllow } from '@/lib/ai/remote';
@@ -416,6 +417,30 @@ function Servers() {
   );
 }
 
+/** Android: 后台保持连接 (KeepAliveService via lib/android.ts) and battery optimisation. */
+function KeepAlive() {
+  const keep = usePrefs((p) => p.androidKeepAlive);
+  const setPrefs = usePrefs((p) => p.set);
+  const [free, setFree] = useState(() => android()?.batteryUnrestricted() ?? true);
+  useEffect(() => {
+    const again = () => setFree(android()?.batteryUnrestricted() ?? true);
+    document.addEventListener('visibilitychange', again);
+    return () => document.removeEventListener('visibilitychange', again);
+  }, []);
+  return (
+    <>
+      <Row title="后台保持连接" desc="AM 切到后台后保持和服务器的连接，新消息马上提醒你。通知栏里会一直有一条「AM 在后台保持连接」。从最近任务里划掉 AM 就会断开。">
+        <Toggle label="后台保持连接" checked={keep} onChange={(v) => setPrefs({ androidKeepAlive: v })} />
+      </Row>
+      {keep && !free && (
+        <Row title="不让系统休眠 AM" desc="有的手机还是会在后台冻结 AM。允许 AM「不优化电池」后最稳；国产手机可能还要在系统的「应用启动管理 / 后台运行」里把 AM 设成允许后台运行。">
+          <Button size="sm" variant="soft" onClick={() => android()?.askBatteryUnrestricted()}>去设置</Button>
+        </Row>
+      )}
+    </>
+  );
+}
+
 function Notify() {
   const [on, setOn] = useState(() => localStorage.getItem('am-notify') !== 'off');
   const [testResult, setTestResult] = useState('');
@@ -424,7 +449,7 @@ function Notify() {
   return (
     <div className="max-w-3xl">
       <h2 className="text-[1.4rem] font-semibold">{isAndroid ? '通知' : '通知与窗口'}</h2>
-      <Row title={isAndroid ? '通知' : '桌面通知'} desc={isAndroid ? 'AM 在屏幕上时不弹通知；切到后台后提醒（后台久了系统可能断开连接，那时收不到）。测试通知会强制发送。' : '窗口打开时不弹通知；最小化或收到托盘后提醒。测试通知会强制发送。'}>
+      <Row title={isAndroid ? '通知' : '桌面通知'} desc={isAndroid ? 'AM 在屏幕上时不弹通知，切到后台后提醒（要一直收到，打开下面的「后台保持连接」）。测试通知会强制发送。' : '窗口打开时不弹通知；最小化或收到托盘后提醒。测试通知会强制发送。'}>
         {on && <Button size="sm" variant="soft" onClick={async () => {
           const error = await notify('AM 通知测试', '能看到这条，就说明系统通知已显示。', { force: true });
           setTestResult(error ? '发送失败：' + error : '已向系统发送测试通知。');
@@ -432,6 +457,7 @@ function Notify() {
         <Toggle label="桌面通知" checked={on} onChange={(v) => { setOn(v); localStorage.setItem('am-notify', v ? 'on' : 'off'); }} />
       </Row>
       {on && testResult && <p role="status" className="text-sm text-ink-soft">{testResult}</p>}
+      {isAndroid && <KeepAlive />}
       {inTauri && !isAndroid && (
         <Row title="点窗口的关闭按钮时" desc="收到托盘：AM 继续在后台收消息，在这台设备上运行的 AI 也保持在线；右下角托盘图标点一下打开，右键可以退出">
           <Segmented id="close-to-tray" value={closeToTray ? 'tray' : 'quit'} onChange={(x) => setPrefs({ closeToTray: x === 'tray' })} options={[
@@ -470,10 +496,10 @@ function UpdateBox() {
       ) : (
         <>
           <Row title={newer ? `有新版本 ${u.latest!.version}` : u.latest ? '已经是最新版' : '还没检查过'} desc={
-            (u.checkedAt ? `上次检查：${new Date(u.checkedAt).toLocaleString()}。` : '') + (isAndroid ? '新版本信息先验签（内置公钥）。点「去下载」用浏览器下载新的安装包，装上就是新版，聊天记录和登录都在。' : '新版本先验签（内置公钥）再换上：免安装版直接换掉 AM.exe（位置和名字不变），安装版运行安装程序。从 GitHub 下载，下不动时走镜像或你连着的服务器存的那份。')
+            (u.checkedAt ? `上次检查：${new Date(u.checkedAt).toLocaleString()}。` : '') + (isAndroid ? '新版本先验签（内置公钥）、核对大小和 SHA-256，再交给系统安装，覆盖旧版，登录和设置都在。第一次会让你允许 AM「安装未知应用」。' : '新版本先验签（内置公钥）再换上：免安装版直接换掉 AM.exe（位置和名字不变），安装版运行安装程序。从 GitHub 下载，下不动时走镜像或你连着的服务器存的那份。')
           }>
             <Button size="sm" variant="soft" disabled={busy} onClick={() => checkGitHub()}>检查更新</Button>
-            {newer && <Button size="sm" disabled={busy} onClick={() => installUpdate().catch(toastError)}>{isAndroid ? '去下载' : '下载并安装'}</Button>}
+            {newer && <Button size="sm" disabled={busy} onClick={() => installUpdate().catch(toastError)}>下载并安装</Button>}
           </Row>
           {u.status === 'downloading' && u.total > 0 && (
             <div className="py-2">
