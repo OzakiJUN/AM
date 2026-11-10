@@ -39,6 +39,10 @@ type HostFile struct {
 	WorkDir   string          `json:"workDir"`
 	// The client's own browser data (not shared with a normal AM client on this computer).
 	DataDir string `json:"dataDir"`
+	// The AI may use a browser of its own (hosting.allow_browser), with its
+	// profile in BrowserDir; without it the client refuses every browser tool.
+	Browser    bool   `json:"browser"`
+	BrowserDir string `json:"browserDir,omitempty"`
 }
 
 type proc struct {
@@ -310,7 +314,10 @@ func (m *manager) runOnce(ctx context.Context, p *proc) error {
 		return s
 	}
 	hf := HostFile{Version: 1, Server: ep, AIID: strconv.FormatInt(p.ai, 10), Token: token, Providers: providers,
-		WorkDir: abs(work), DataDir: abs(filepath.Join(dir, "webview"))}
+		WorkDir: abs(work), DataDir: abs(filepath.Join(dir, "webview")), Browser: m.s.cfg.Browser}
+	if hf.Browser {
+		hf.BrowserDir = abs(filepath.Join(dir, "browser"))
+	}
 	b, _ := json.Marshal(hf)
 	file := filepath.Join(dir, "host.json")
 	if err := os.WriteFile(file, b, 0o600); err != nil {

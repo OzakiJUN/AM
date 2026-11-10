@@ -40,10 +40,30 @@ export interface AIHosting {
   error: string;
   /** Its own folder on the server for files. */
   workDir: string;
+  /** The server lets hosted AIs use a browser of their own. */
+  browser: boolean;
+}
+
+/** One thing an AI did with its browser (its owner reads them: docs/design.md §9 搜索记录). */
+export interface BrowseEntry {
+  id: string;
+  at: number;
+  kind: 'search' | 'open' | 'watch';
+  text: string;
+  /** A conversation's name, or '' = its own free time. */
+  place: string;
+}
+
+/** The owner asks the client running their AI to do something (B站 login, ...). */
+export interface AIControlAsk {
+  requestId: string;
+  fromUserId: string;
+  action: string;
+  argsJson: string;
 }
 
 const toHosting = (h: api.AIHosting | undefined): AIHosting | undefined =>
-  h && h.status ? { status: h.status as AIHosting['status'], rejectReason: h.rejectReason, requestedAt: Number(h.requestedAt), state: h.state, error: h.error, workDir: h.workDir } : undefined;
+  h && h.status ? { status: h.status as AIHosting['status'], rejectReason: h.rejectReason, requestedAt: Number(h.requestedAt), state: h.state, error: h.error, workDir: h.workDir, browser: h.browser } : undefined;
 
 export interface ServerRecord {
   id: string;
@@ -486,6 +506,9 @@ export class Session {
   /** Someone's AI asks this device to run a computer tool (lib/ai/remote.ts decides). */
   onRemoteTool?: (r: RemoteToolAsk) => void;
   private remoteWaits = new Map<string, { from: string; done: (r: RemoteToolAnswer) => void }>();
+  /** (An AI's session) its owner asks the client running it to do something (lib/ai/control.ts). */
+  onAIControl?: (r: AIControlAsk) => void;
+  private controlWaits = new Map<string, { ai: string; done: (r: { ok: boolean; text: string }) => void }>();
   /** Several connection attempts failed (lib/store.ts tries the addresses used before). */
   onUnreachable?: () => void;
 
@@ -1054,6 +1077,21 @@ export class Session {
         if (p.fromAi) this.onRemoteTool?.({ requestId: p.requestId, ai: toUser(p.fromAi), tool: p.tool, argsJson: p.argsJson });
         break;
       }
+      case 'aiControl': {
+        const p = f.msg.value;
+        this.onAIControl?.({ requestId: p.requestId, fromUserId: s(p.fromUserId), action: p.action, argsJson: p.argsJson });
+        break;
+      }
+      case 'aiControlResult': {
+        const p = f.msg.value;
+        const w = this.controlWaits.get(p.requestId);
+        // Only the AI I asked may answer.
+        if (w && w.ai === s(p.aiId)) {
+          this.controlWaits.delete(p.requestId);
+          w.done({ ok: p.ok, text: p.text });
+        }
+        break;
+      }
       case 'remoteToolResult': {
         const p = f.msg.value;
         const w = this.remoteWaits.get(p.requestId);
@@ -1446,6 +1484,43 @@ export class Session {
     await this.request({ case: 'remoteToolResult', value: create(gw.RemoteToolResultSchema, {
       requestId: ask.requestId, toAiId: BigInt(ask.ai.id), ok: r.ok, text: r.text.slice(0, 60_000), images: r.images.slice(0, 2),
     }) });
+  }
+
+  // ---- my AI, run elsewhere (docs/design.md §9) ----
+
+  /** Asks the client running my AI (my other device, the server's host client) to do something; resolves with its answer. */
+  async aiControl(aiId: string, action: string, args: unknown, timeoutMs = 40_000): Promise<{ ok: boolean; text: string }> {
+    const requestId = randomId();
+    const answer = new Promise<{ ok: boolean; text: string }>((resolve) => {
+      const timer = setTimeout(() => {
+        this.controlWaits.delete(requestId);
+        resolve({ ok: false, text: '运行它的地方没有回应（可能没在运行，或者不在线）' });
+      }, timeoutMs);
+      this.controlWaits.set(requestId, { ai: aiId, done: (r) => { clearTimeout(timer); resolve(r); } });
+    });
+    try {
+      await this.request({ case: 'aiControl', value: create(gw.AIControlRequestSchema, { requestId, aiId: BigInt(aiId), action, argsJson: JSON.stringify(args ?? {}) }) });
+    } catch (e) {
+      this.controlWaits.delete(requestId);
+      throw e;
+    }
+    return answer;
+  }
+
+  /** (The AI's session) answers its owner. */
+  async aiControlResult(ask: AIControlAsk, ok: boolean, text: string) {
+    await this.request({ case: 'aiControlResult', value: create(gw.AIControlResultSchema, { requestId: ask.requestId, ok, text: text.slice(0, 60_000) }) });
+  }
+
+  /** (The AI's session) records a search / page / video in its history. */
+  async addBrowseLog(kind: BrowseEntry['kind'], text: string, place: string) {
+    await this.call('POST', '/api/v1/me/browse-log', null, { schema: api.AddBrowseLogRequestSchema, value: { kind, text: [...text].slice(0, 500).join(''), place: [...place].slice(0, 100).join('') } });
+  }
+
+  /** My AI's history, newest first, older than `before` (an entry id). */
+  async browseLog(aiId: string, before = ''): Promise<BrowseEntry[]> {
+    const r = await this.call('GET', `/api/v1/ai/${aiId}/browse-log?before=${before || 0}`, api.BrowseLogResponseSchema);
+    return r.entries.map((e) => ({ id: s(e.id), at: Number(e.at), kind: e.kind as BrowseEntry['kind'], text: e.text, place: e.place }));
   }
 
   // ---- stickers (my collection, lib/stickers.ts) ----

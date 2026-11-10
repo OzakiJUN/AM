@@ -96,12 +96,16 @@ type Limits struct {
 	MaxAIPerUser           int `toml:"max_ai_per_user"`
 	MaxStickers            int `toml:"max_stickers"`
 	MaxGamesPerConv        int `toml:"max_games_per_conv"`
+	// Entries kept per AI in its search / browsing history.
+	MaxBrowseLog int `toml:"max_browse_log"`
 }
 
 type Retention struct {
 	EvidenceDays    int `toml:"evidence_days"`
 	LoginRecordDays int `toml:"login_record_days"`
 	GamesDays       int `toml:"games_days"`
+	// What AIs searched / opened / watched (their owners read it).
+	AIBrowseDays int `toml:"ai_browse_days"`
 }
 
 // Stickers configures the shared sticker library (docs/design.md §11).
@@ -130,6 +134,9 @@ type Hosting struct {
 	Enabled    bool   `toml:"enabled"`
 	MaxPerUser int    `toml:"max_per_user"`
 	ClientPath string `toml:"client_path"`
+	// AllowBrowser: hosted AIs may use a browser of their own (headless,
+	// its own profile in the AI's hosting folder); nothing else of the computer.
+	AllowBrowser bool `toml:"allow_browser"`
 	// NoSpawn: keep the records but start no clients (tests).
 	NoSpawn bool `toml:"-"`
 }
@@ -421,6 +428,12 @@ func (c *Config) validate() error {
 	}
 	if c.Retention.GamesDays < 1 {
 		return errors.New("retention.games_days must be >= 1")
+	}
+	if c.Retention.AIBrowseDays < 1 {
+		return errors.New("retention.ai_browse_days must be >= 1")
+	}
+	if c.Limits.MaxBrowseLog < 1 {
+		return errors.New("limits.max_browse_log must be >= 1")
 	}
 	if c.Stickers.SyncKBps < 0 || c.Stickers.SyncKBps > 1048576 {
 		return errors.New("stickers.sync_kbps must be 0-1048576")

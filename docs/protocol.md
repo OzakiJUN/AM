@@ -170,9 +170,10 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/users/{id}/portraits` | — | `PortraitPack`：这个 bot / AI 自己的形象包（空 = 默认形象）。图片所有人都能读 |
+| GET | `/api/v1/ai/{id}/browse-log?before=<id>&limit=<n>` | — | `BrowseLogResponse`：我的 AI 的搜索和浏览记录（`entries`：`id`、`at`、`kind` = search / open / watch、`text` = 搜了什么（带网站）或网址、`place` = 在哪个聊天，空 = 它自己上网），新的在前，一页最多 100 条，`before` 是上一页最后一条的 `id`。不是我的 AI `user_not_found`。保留 `retention.ai_browse_days` 天、每个 AI 最多 `limits.max_browse_log` 条 |
 | POST | `/api/v1/ai/{id}/share-request` | `Empty` | `Empty`：申请和别人的 bot / AI 聊（进它的共享聊天）。只有真人、不是主人（`no_permission`）；没有主人或已删除 `user_not_found`；重复申请只算一条。主人的设备收到 `ai_share_request` |
 
-不是我的 AI（或已删除）一律 `user_not_found`。删除、离开或被封的账号在 `User.gone` 里是 `true`（旧消息照样显示它，客户端列表里不再列出删掉的 bot / AI）。AI 的个人主页（`PUT /api/v1/users/{id}/profile`）主人也能存。`AIAccount.share_requests` 是还没处理的申请数。`User.portraits_at` 是形象包最后一次改动的时间（毫秒，0 = 没有自己的），客户端按它缓存形象包。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。`AIAccount.hosting` 是托管情况（没托管就没有）：`state` 是服务器上客户端的状态（off / starting / running / error），`work_dir` 是它在服务器上的文件夹。托管期间 `settings.runner` 是 `{"id":"server-host","name":"服务器托管"}`；主人用 `run` 让自己的设备运行它就结束托管。
+不是我的 AI（或已删除）一律 `user_not_found`。删除、离开或被封的账号在 `User.gone` 里是 `true`（旧消息照样显示它，客户端列表里不再列出删掉的 bot / AI）。AI 的个人主页（`PUT /api/v1/users/{id}/profile`）主人也能存。`AIAccount.share_requests` 是还没处理的申请数。`User.portraits_at` 是形象包最后一次改动的时间（毫秒，0 = 没有自己的），客户端按它缓存形象包。AI 账号不占主人的设备名额；主人被封或退出后 AI 的登录失效。`AIAccount.hosting` 是托管情况（没托管就没有）：`state` 是服务器上客户端的状态（off / starting / running / error），`work_dir` 是它在服务器上的文件夹，`browser` = 服务器允许托管的 AI 用自己的浏览器（`hosting.allow_browser`）。托管期间 `settings.runner` 是 `{"id":"server-host","name":"服务器托管"}`；主人用 `run` 让自己的设备运行它就结束托管。
 
 AI 自己（以 AI 的身份登录，托管的客户端用）：
 
@@ -180,6 +181,7 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
 | --- | --- | --- | --- |
 | GET | `/api/v1/me/ai` | — | `AIAccount`：自己的设置（只有 bot / AI 账号，否则 `no_permission`） |
 | PUT | `/api/v1/me/ai/settings` | `PutAISettingsRequest` | `AIAccount`：存自己的设置（人格自己改的时候），和主人存一样检查 `base_updated_at`（`state_conflict`） |
+| POST | `/api/v1/me/browse-log` | `AddBrowseLogRequest` | `Empty`：运行 AI 的客户端记一条搜索 / 打开网页 / 看视频（`kind` = search / open / watch，`text` 最多 500 字、`place` 最多 100 字，`too_long`；别的 `kind` `bad_request`）。只有有主人的 bot / AI 账号，否则 `no_permission`；超过 `limits.max_browse_log` 条先删最早的 |
 
 插件挂在内置 bot 上，只在管理面板里管（面板接口是内部的，不在这里）；插件发的消息是内置 bot 发的（`client_msg_id` 以 `plugin-` 开头）。`AIPlugin`、`ListPluginsResponse`、`UploadPluginsRequest`、`UpdatePluginRequest` 这些消息留在 proto 里不再用（编号不复用）。AI 发的文字消息可以带 `TextMsg.mood`（情绪名，小写字母和下划线，最多 16 个字符），真人发的会被清空。
 
@@ -361,6 +363,12 @@ kind `fishing` 复用游戏开局、加入、离座、结束和推送接口，�
 - AI 账号的连接发 `remote_tool{request_id, to_user_id, tool, args_json}`：服务器回 `ack`，把 `remote_tool{request_id, from_ai, tool, args_json}` 推给那个人的所有在线设备。只能发给真人；双方（AI 或它的主人）有一方屏蔽了对方 `blocked`；真人发 `no_permission`；每个 AI 每分钟最多 30 个 `rate_limited`；`args_json` 最多 16 KiB。
 - 那个人的某台设备（打开了允许的那台）回 `remote_tool_result{request_id, to_ai_id, ok, text, images}`：服务器回 `ack`，把 `remote_tool_result{request_id, from_user_id, ...}` 推给那个 AI。只有真人能回；`text` 最多 64 KiB，`images` 最多 2 张，合计 900 KiB 以内（`too_long`）。
 - 服务器什么都不记，也不判断能不能做：允不允许、问不问人都在对方设备上决定（docs/design.md §9）。
+
+### 主人让运行 AI 的那个客户端做事（转发）
+
+- 主人的连接发 `ai_control{request_id, ai_id, action, args_json}`：服务器回 `ack`，把 `ai_control{request_id, from_user_id, action, args_json}` 推给那个 AI 的连接（运行它的那台设备，或者服务器上托管它的客户端）。只有它的主人（别人 `no_permission`，AI 不在或已删除 `user_not_found`）；每个主人每分钟最多 90 个 `rate_limited`；`args_json` 最多 16 KiB。
+- 运行它的客户端回 `ai_control_result{request_id, ok, text}`（ok 时 `text` 是回答的 JSON，不 ok 是原因，最多 64 KiB）：服务器回 `ack`，把 `ai_control_result{request_id, ai_id, ok, text}` 推给主人的设备。只有有主人的 bot / AI 账号能回。
+- 现在只有一个 `action`：`bili`，`args_json` = `{"action":"status" | "start" | "poll" | "logout", "key": "…"}`，就是那台的「AI 浏览器登录 B 站」（回答和本机的一样：`{login, name}`、`{url, key}`、`{code, message, …}`）。服务器只转发，什么都不记。
 
 ## 错误码
 

@@ -126,8 +126,17 @@ update the docs in the same commit.
   (`host_config`, hidden window with its own WebView data dir, no single
   instance / tray / F12) → `lib/ai/host.ts` → runner `startHosted` (settings
   through `/api/v1/me/ai`); what it may do is `hostedSettings` in
-  `lib/ai/hostMode.ts` (pure, tested: files only in its work folder).
+  `lib/ai/hostMode.ts` (pure, tested: files only in its work folder; its
+  own headless browser only with `hosting.allow_browser` → host.json
+  `browser` / `browserDir`, which Rust `ai_browser` enforces too).
   `account.OnAIRun` ends hosting when the owner runs the AI again.
+- An owner reaches the client running their AI (other device / host client)
+  through `ai_control` / `ai_control_result` frames (`remote.Control`, relay
+  only, owner checked); the runner answers in `onControl` (for now the B站
+  login, `remoteBili` in AISettings). An AI's search history (search / open /
+  watch, `browseEntry` in agent.ts) goes to `POST /api/v1/me/browse-log`
+  (`ai_browse_log`, `retention.ai_browse_days`, `limits.max_browse_log`);
+  the owner reads it in AISettings 「记录」 (`GET /api/v1/ai/{id}/browse-log`).
 - Built-in bot (docs/design.md §10 内置 bot): `server/internal/helper` makes
   one bot account with no owner (`server_settings.helper_user_id`; not
   counted, not put into public channels: `store.notServerBot`) and answers
@@ -262,7 +271,7 @@ update the docs in the same commit.
   profile, DevTools protocol; test with `AM_BROWSER=<chrome> AM_BROWSER_HEADLESS=1
   cargo test`; a second headless, muted `ai-browser-bg` for its own surfing;
   `browser_search` / `browser_watch` (B站 / YouTube details, subtitles, danmaku,
-  comments, frames) / `browser_look`; B站 QR login of the background browser = `bili` / `agent_bili`, run in a side tab, UI 「AI 浏览器登录 B 站」 in AISettings; proxy per device `prefs.aiProxy` → `lib/ai/proxy.ts` (pure, tested: system / off / on / auto, the AI may pass `proxy`), the browser restarts when the proxy changes), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
+  comments, frames) / `browser_look`; B站 QR login of the background browser = `bili` / `agent_bili`, run in a side tab, UI 「AI 浏览器登录 B 站」 in AISettings, copied to the window browser before it goes to B站 (`share_bili`); proxy per device `prefs.aiProxy` → `lib/ai/proxy.ts` (pure, tested: system / off / on / auto, the AI may pass `proxy`), the browser restarts when the proxy changes), MCP stdio client `mcp.rs` (servers in `computer.mcp`, tools
   named `mcp__<server>__<tool>`, category `mcp`). New tool categories need
   `ToolCategory`, `DEFAULT_LEVELS` and `CATEGORY_LABEL`. Tools flagged `own`
   (self / social: its status, bio, page note, channels, messaging the owner)

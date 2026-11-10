@@ -420,6 +420,34 @@ message AIHosting {
   string error = 5;
   // Its own folder on the server for its file tools.
   string work_dir = 6;
+  // The server lets hosted AIs use a browser of their own (hosting.allow_browser).
+  bool browser = 7;
+}
+
+// One thing an AI did with its browser (docs/design.md §9 搜索记录).
+message BrowseLogEntry {
+  int64 id = 1;
+  int64 at = 2;
+  // search | open | watch
+  string kind = 3;
+  // What it searched for (with the site), or the page / video address.
+  string text = 4;
+  // Where: a conversation name, or "" = its own free time.
+  string place = 5;
+}
+
+// POST /api/v1/me/browse-log (bot / ai accounts only) -> Empty.
+// kind: search | open | watch; text ≤ 500 characters, place ≤ 100.
+message AddBrowseLogRequest {
+  string kind = 1;
+  string text = 2;
+  string place = 3;
+}
+
+// GET /api/v1/ai/{id}/browse-log?before=<id>&limit=<n> (the owner only),
+// newest first, at most 100 per page.
+message BrowseLogResponse {
+  repeated BrowseLogEntry entries = 1;
 }
 
 // POST /api/v1/ai/{id}/host -> AIHosting

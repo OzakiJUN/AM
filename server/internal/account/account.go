@@ -48,6 +48,7 @@ type Service struct {
 	maxDevices int
 	pairTTL    time.Duration
 	maxAI      int
+	maxBrowse  int
 	// Random id of this server process (ServerInfo.instance_id).
 	instance string
 }

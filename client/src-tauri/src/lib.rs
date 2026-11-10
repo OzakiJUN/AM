@@ -182,17 +182,40 @@ async fn agent_ui_activate(handle: i64) -> Res<()> {
 // data folder: the visible one, and the background one for its free time.
 
 /// One of the AI's browsers; `proxy` = "system" / "direct" / an address,
-/// absent = keep what it runs with.
+/// absent = keep what it runs with. In host mode only the headless one, in
+/// the folder am-server gave it, and only when the server allows a browser.
 fn ai_browser(app: &tauri::AppHandle, background: bool, proxy: Option<&str>) -> Res<browser::Browser> {
-    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
     let proxy = proxy.map(browser::Proxy::parse).transpose()?;
+    if let Some(host) = host_file() {
+        let v: serde_json::Value = serde_json::from_str(host).unwrap_or_default();
+        let dir = v.get("browserDir").and_then(|d| d.as_str()).filter(|d| !d.is_empty());
+        return match (v.get("browser").and_then(|b| b.as_bool()), dir) {
+            (Some(true), Some(dir)) => Ok(browser::Browser::new(std::path::PathBuf::from(dir), true).with_proxy(proxy)),
+            _ => Err("服务器没允许托管的 AI 用浏览器".into()),
+        };
+    }
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
     Ok(browser::Browser::new(dir.join(if background { "ai-browser-bg" } else { "ai-browser" }), background).with_proxy(proxy))
+}
+
+/// The window browser goes to B站 with the background one's login (that is
+/// where the QR login lands); nothing to do in host mode (one browser).
+async fn with_bili_login(app: &tauri::AppHandle, b: &browser::Browser, url: Option<&str>) {
+    if b.background || !url.is_some_and(browser::is_bili) {
+        return;
+    }
+    if let Ok(bg) = ai_browser(app, true, None) {
+        if let Err(e) = browser::share_bili(&bg, b).await {
+            eprintln!("bili login not copied: {e}");
+        }
+    }
 }
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 async fn agent_browser(app: tauri::AppHandle, action: String, url: Option<String>, n: Option<u32>, text: Option<String>, submit: Option<bool>, pages: Option<f64>, background: Option<bool>, proxy: Option<String>) -> Res<String> {
     let b = ai_browser(&app, background.unwrap_or(false), proxy.as_deref())?;
+    with_bili_login(&app, &b, url.as_deref()).await;
     match action.as_str() {
         "open" => browser::open(&b, url.as_deref().unwrap_or("")).await,
         "read" => browser::snapshot(&b).await,
@@ -217,8 +240,13 @@ struct BrowserMedia {
 /// Bilibili login for the AI's background browser (docs/design.md §9 上网冲浪).
 #[tauri::command]
 async fn agent_bili(app: tauri::AppHandle, action: String, key: Option<String>) -> Res<serde_json::Value> {
-    // Always the background browser: that is where the AI surfs.
-    browser::bili(&ai_browser(&app, true, None)?, &action, key.as_deref().unwrap_or("")).await
+    // Always the background browser: that is where the AI surfs (the window
+    // one copies its login when it goes to B站).
+    let r = browser::bili(&ai_browser(&app, true, None)?, &action, key.as_deref().unwrap_or("")).await;
+    if matches!(action.as_str(), "logout" | "poll") {
+        browser::bili_changed();
+    }
+    r
 }
 
 /// Watching a video page (details, subtitles, danmaku, comments, frames) or
@@ -226,6 +254,7 @@ async fn agent_bili(app: tauri::AppHandle, action: String, key: Option<String>) 
 #[tauri::command]
 async fn agent_browser_media(app: tauri::AppHandle, action: String, url: Option<String>, frames: Option<u32>, background: Option<bool>, proxy: Option<String>) -> Res<BrowserMedia> {
     let b = ai_browser(&app, background.unwrap_or(false), proxy.as_deref())?;
+    with_bili_login(&app, &b, url.as_deref()).await;
     match action.as_str() {
         "watch" => {
             let (text, images) = browser::watch(&b, url.as_deref(), frames.unwrap_or(0)).await?;

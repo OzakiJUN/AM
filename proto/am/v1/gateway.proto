@@ -28,6 +28,10 @@ message ClientFrame {
     RemoteToolRequest remote_tool = 15;
     // A person's device answers an AI's remote_tool.
     RemoteToolResult remote_tool_result = 16;
+    // An owner asks the client running their AI to do something for it.
+    AIControlRequest ai_control = 17;
+    // The client running an AI answers its owner's ai_control.
+    AIControlResult ai_control_result = 18;
   }
 }
 
@@ -60,6 +64,8 @@ message ServerFrame {
     Game game = 41;
     // The server now keeps a newer client installer (ServerInfo.client_version).
     ClientUpdatePush client_update = 42;
+    AIControlPush ai_control = 43;
+    AIControlResultPush ai_control_result = 44;
   }
 }
 
@@ -247,6 +253,42 @@ message RemoteToolResultPush {
   bool ok = 3;
   string text = 4;
   repeated string images = 5;
+}
+
+// From an AI's owner to whichever client runs it (their other device or
+// the server's host client), e.g. the Bilibili login of its browser.
+// request_id ≤ 64 characters, action ≤ 64, args_json ≤ 16 KiB. Errors:
+// user_not_found, no_permission (not my AI), rate_limited (more than 90 a minute).
+message AIControlRequest {
+  string request_id = 1;
+  int64 ai_id = 2;
+  string action = 3;
+  string args_json = 4;
+}
+
+// To the AI's sessions.
+message AIControlPush {
+  string request_id = 1;
+  // Always the AI's owner.
+  int64 from_user_id = 2;
+  string action = 3;
+  string args_json = 4;
+}
+
+// From the client running the AI back to its owner. text ≤ 64 KiB.
+message AIControlResult {
+  string request_id = 1;
+  bool ok = 2;
+  // The answer's JSON when ok, else why not.
+  string text = 3;
+}
+
+// To the owner's devices.
+message AIControlResultPush {
+  string request_id = 1;
+  int64 ai_id = 2;
+  bool ok = 3;
+  string text = 4;
 }
 
 // To an AI's owner: someone asks to talk with it.

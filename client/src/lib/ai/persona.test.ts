@@ -48,6 +48,11 @@ const hp = appPrompt(['use_helper'], [], [{ name: '资讯', usage: '资讯 [关�
 assert.match(hp, /「大管家」.*use_helper/);
 assert.match(hp, /· \/资讯 \[关键词\]：马上查一次/);
 assert.doesNotMatch(appPrompt([], [], [{ name: '资讯', usage: '资讯', help: 'x' }]), /use_helper/, 'no tool, no list');
+// Its browser: what it can do, which B站 account; hosted without one says why.
+assert.match(appPrompt(['browser_search'], [], [], '小助手', { bili: '股肉-' }), /browser_search[\s\S]*「股肉-」/);
+assert.match(appPrompt(['browser_search']), /没登录/);
+assert.match(appPrompt([], [], [], '小助手', { hostedOff: true }), /服主没开/);
+assert.doesNotMatch(appPrompt([]), /浏览器/);
 const ap = appPrompt(['list_games', 'set_my_status'], [{ name: '五子棋', kind: '小游戏', detail: '连五个赢' }]);
 assert.ok(ap.includes('· 五子棋（小游戏）：连五个赢') && ap.includes('open_game') && ap.includes('状态') && !ap.includes('个人主页'), ap);
 assert.equal(elsewherePrompt([], []), '');

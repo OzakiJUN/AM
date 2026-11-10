@@ -182,6 +182,49 @@ func testAIAccounts(t *testing.T, a *app.App, base string) {
 	}
 	wantCode(t, aiWS.RemoteTool(ctx, "r2", bob.me.Id, "list_dir", "{}"), "blocked")
 
+	// The owner asks the client running the AI (B站 login and the like):
+	// only its owner may ask, the answer goes back to the owner only.
+	if err := ownerPush.AIControl(ctx, "c1", ai.User.Id, "bili", `{"action":"status"}`); err != nil {
+		t.Fatal(err)
+	}
+	cp := waitPush(t, aiWS, "ai control", func(f *amv1.ServerFrame) bool { return f.GetAiControl() != nil }).GetAiControl()
+	if cp.RequestId != "c1" || cp.FromUserId != owner.me.Id || cp.Action != "bili" || cp.ArgsJson != `{"action":"status"}` {
+		t.Fatalf("control push: %+v", cp)
+	}
+	if err := aiWS.AIControlResult(ctx, &amv1.AIControlResult{RequestId: "c1", Ok: true, Text: `{"login":false}`}); err != nil {
+		t.Fatal(err)
+	}
+	cr := waitPush(t, ownerPush, "ai control result", func(f *amv1.ServerFrame) bool { return f.GetAiControlResult() != nil }).GetAiControlResult()
+	if cr.RequestId != "c1" || cr.AiId != ai.User.Id || !cr.Ok || cr.Text != `{"login":false}` {
+		t.Fatalf("control result: %+v", cr)
+	}
+	wantCode(t, bobWS.AIControl(ctx, "c2", ai.User.Id, "bili", "{}"), "no_permission")
+	wantCode(t, ownerPush.AIControlResult(ctx, &amv1.AIControlResult{RequestId: "c3"}), "no_permission")
+
+	// Its search history: the AI writes, only its owner reads, newest first, capped.
+	for _, e := range [][3]string{{"search", "B 站：猫", ""}, {"open", "https://example.com/a", "和主人的私聊"}, {"watch", "https://www.bilibili.com/video/BV1xx", ""}} {
+		if err := second.AddBrowseLog(ctx, e[0], e[1], e[2]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wantCode(t, second.AddBrowseLog(ctx, "delete", "x", ""), "bad_request")
+	wantCode(t, owner.cli.AddBrowseLog(ctx, "search", "x", ""), "no_permission")
+	log := must(owner.cli.BrowseLog(ctx, ai.User.Id, 0)).Entries
+	if len(log) != 3 || log[0].Kind != "watch" || log[2].Text != "B 站：猫" || log[1].Place != "和主人的私聊" {
+		t.Fatalf("browse log: %+v", log)
+	}
+	if older := must(owner.cli.BrowseLog(ctx, ai.User.Id, log[0].Id)).Entries; len(older) != 2 || older[0].Id != log[1].Id {
+		t.Fatalf("older page: %+v", older)
+	}
+	_, err = bob.cli.BrowseLog(ctx, ai.User.Id, 0)
+	wantCode(t, err, "user_not_found")
+	a.Account.SetBrowseLogLimit(2)
+	must(0, second.AddBrowseLog(ctx, "search", "第四条", ""))
+	if log := must(owner.cli.BrowseLog(ctx, ai.User.Id, 0)).Entries; len(log) != 2 || log[0].Text != "第四条" {
+		t.Fatalf("cap: %+v", log)
+	}
+	a.Account.SetBrowseLogLimit(1000)
+
 	// Owner banned: the AI stops.
 	if err := a.Account.SetBanned(ctx, 0, owner.me.Id, true, "test"); err != nil {
 		t.Fatal(err)

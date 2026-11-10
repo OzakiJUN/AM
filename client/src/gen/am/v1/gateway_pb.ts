@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file am/v1/gateway.proto.
  */
 export const file_am_v1_gateway: GenFile = /*@__PURE__*/
-  fileDesc("ChNhbS92MS9nYXRld2F5LnByb3RvEgVhbS52MSLCAgoLQ2xpZW50RnJhbWUSDgoGcmVxX2lkGAEgASgEEiIKBGF1dGgYCiABKAsyEi5hbS52MS5BdXRoUmVxdWVzdEgAEiIKBHNlbmQYCyABKAsyEi5hbS52MS5TZW5kUmVxdWVzdEgAEiIKBHN5bmMYDCABKAsyEi5hbS52MS5TeW5jUmVxdWVzdEgAEisKCW1hcmtfcmVhZBgNIAEoCzIWLmFtLnYxLk1hcmtSZWFkUmVxdWVzdEgAEhsKBHBpbmcYDiABKAsyCy5hbS52MS5QaW5nSAASLwoLcmVtb3RlX3Rvb2wYDyABKAsyGC5hbS52MS5SZW1vdGVUb29sUmVxdWVzdEgAEjUKEnJlbW90ZV90b29sX3Jlc3VsdBgQIAEoCzIXLmFtLnYxLlJlbW90ZVRvb2xSZXN1bHRIAEIFCgNtc2ci2QYKC1NlcnZlckZyYW1lEg4KBnJlcV9pZBgBIAEoBBIdCgVlcnJvchgKIAEoCzIMLmFtLnYxLkVycm9ySAASIwoEYXV0aBgLIAEoCzITLmFtLnYxLkF1dGhSZXNwb25zZUgAEiMKBHNlbmQYDCABKAsyEy5hbS52MS5TZW5kUmVzcG9uc2VIABIjCgRzeW5jGA0gASgLMhMuYW0udjEuU3luY1Jlc3BvbnNlSAASLAoJbWFya19yZWFkGA4gASgLMhcuYW0udjEuTWFya1JlYWRSZXNwb25zZUgAEhsKBHBvbmcYDyABKAsyCy5hbS52MS5Qb25nSAASGQoDYWNrGBAgASgLMgouYW0udjEuQWNrSAASIQoFZXZlbnQYHiABKAsyEC5hbS52MS5FdmVudFB1c2hIABIfCgRjb252GB8gASgLMg8uYW0udjEuQ29udlB1c2hIABIjCgZmcmllbmQYICABKAsyES5hbS52MS5GcmllbmRQdXNoSAASLgoMY29udl9yZW1vdmVkGCEgASgLMhYuYW0udjEuQ29udlJlbW92ZWRQdXNoSAASLgoMam9pbl9yZXF1ZXN0GCIgASgLMhYuYW0udjEuSm9pblJlcXVlc3RQdXNoSAASJwoIcHJlc2VuY2UYIyABKAsyEy5hbS52MS5QcmVzZW5jZVB1c2hIABIuCgxjbGllbnRfc3RhdGUYJCABKAsyFi5hbS52MS5DbGllbnRTdGF0ZVB1c2hIABIuCgxzZXJ2ZXJfbW92ZWQYJSABKAsyFi5hbS52MS5TZXJ2ZXJNb3ZlZFB1c2hIABIsCgtyZW1vdGVfdG9vbBgmIAEoCzIVLmFtLnYxLlJlbW90ZVRvb2xQdXNoSAASOQoScmVtb3RlX3Rvb2xfcmVzdWx0GCcgASgLMhsuYW0udjEuUmVtb3RlVG9vbFJlc3VsdFB1c2hIABI1ChBhaV9zaGFyZV9yZXF1ZXN0GCggASgLMhkuYW0udjEuQUlTaGFyZVJlcXVlc3RQdXNoSAASGwoEZ2FtZRgpIAEoCzILLmFtLnYxLkdhbWVIABIwCg1jbGllbnRfdXBkYXRlGCogASgLMhcuYW0udjEuQ2xpZW50VXBkYXRlUHVzaEgAQgUKA21zZyItCgtBdXRoUmVxdWVzdBINCgV0b2tlbhgBIAEoCRIPCgdhZGRyZXNzGAIgASgJIqYBCgxBdXRoUmVzcG9uc2USFwoCbWUYASABKAsyCy5hbS52MS5Vc2VyEioKDWNvbnZlcnNhdGlvbnMYAiADKAsyEy5hbS52MS5Db252ZXJzYXRpb24SFQoNaXNfc2l0ZV9hZG1pbhgDIAEoCBIiCglwcmVzZW5jZXMYBCADKAsyDy5hbS52MS5QcmVzZW5jZRIWCg5wdWJsaWNfYWRkcmVzcxgFIAEoCSKWAgoLU2VuZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxIVCg1jbGllbnRfbXNnX2lkGAIgASgJEh4KBHRleHQYCiABKAsyDi5hbS52MS5UZXh0TXNnSAASIAoFaW1hZ2UYCyABKAsyDy5hbS52MS5JbWFnZU1zZ0gAEh4KBGZpbGUYDCABKAsyDi5hbS52MS5GaWxlTXNnSAASKAoHZm9yd2FyZBgNIAEoCzIVLmFtLnYxLkZvcndhcmRSZXF1ZXN0SAASJwoJZW1vamlfcGluGBYgASgLMhIuYW0udjEuRW1vamlQaW5BY3RIABIiCgZzdHJpa2UYFCABKAsyEC5hbS52MS5TdHJpa2VBY3RIAEIGCgRib2R5IisKDFNlbmRSZXNwb25zZRIbCgVldmVudBgBIAEoCzIMLmFtLnYxLkV2ZW50IkAKC1N5bmNSZXF1ZXN0EiIKB2N1cnNvcnMYASADKAsyES5hbS52MS5TeW5jQ3Vyc29yEg0KBWxpbWl0GAIgASgFIjAKClN5bmNDdXJzb3ISDwoHY29udl9pZBgBIAEoAxIRCglhZnRlcl9zZXEYAiABKAMiPgoMU3luY1Jlc3BvbnNlEhwKBmV2ZW50cxgBIAMoCzIMLmFtLnYxLkV2ZW50EhAKCGhhc19tb3JlGAIgAygDIi8KD01hcmtSZWFkUmVxdWVzdBIPCgdjb252X2lkGAEgASgDEgsKA3NlcRgCIAEoAyISChBNYXJrUmVhZFJlc3BvbnNlIgYKBFBpbmciBgoEUG9uZyIoCglFdmVudFB1c2gSGwoFZXZlbnQYASABKAsyDC5hbS52MS5FdmVudCI1CghDb252UHVzaBIpCgxjb252ZXJzYXRpb24YASABKAsyEy5hbS52MS5Db252ZXJzYXRpb24imQEKCkZyaWVuZFB1c2gSJAoEa2luZBgBIAEoDjIWLmFtLnYxLkZyaWVuZFB1c2guS2luZBIZCgR1c2VyGAIgASgLMgsuYW0udjEuVXNlciJKCgRLaW5kEhQKEEtJTkRfVU5TUEVDSUZJRUQQABIZChVLSU5EX1JFUVVFU1RfUkVDRUlWRUQQARIRCg1LSU5EX0FDQ0VQVEVEEAIirQEKD0NvbnZSZW1vdmVkUHVzaBIPCgdjb252X2lkGAEgASgDEi0KBnJlYXNvbhgCIAEoDjIdLmFtLnYxLkNvbnZSZW1vdmVkUHVzaC5SZWFzb24iWgoGUmVhc29uEhYKElJFQVNPTl9VTlNQRUNJRklFRBAAEg8KC1JFQVNPTl9MRUZUEAESEQoNUkVBU09OX0tJQ0tFRBACEhQKEFJFQVNPTl9ESVNTT0xWRUQQAyJbCg9Kb2luUmVxdWVzdFB1c2gSDwoHY29udl9pZBgBIAEoAxIZCgR1c2VyGAIgASgLMgsuYW0udjEuVXNlchIcCgdpbnZpdGVyGAMgASgLMgsuYW0udjEuVXNlciIxCgxQcmVzZW5jZVB1c2gSIQoIcHJlc2VuY2UYASABKAsyDy5hbS52MS5QcmVzZW5jZSIlCg9DbGllbnRTdGF0ZVB1c2gSEgoKdXBkYXRlZF9hdBgBIAEoAyIiCg9TZXJ2ZXJNb3ZlZFB1c2gSDwoHYWRkcmVzcxgBIAEoCSIjChBDbGllbnRVcGRhdGVQdXNoEg8KB3ZlcnNpb24YASABKAkiBQoDQWNrIlwKEVJlbW90ZVRvb2xSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSEgoKdG9fdXNlcl9pZBgCIAEoAxIMCgR0b29sGAMgASgJEhEKCWFyZ3NfanNvbhgEIAEoCSJjCg5SZW1vdGVUb29sUHVzaBISCgpyZXF1ZXN0X2lkGAEgASgJEhwKB2Zyb21fYWkYAiABKAsyCy5hbS52MS5Vc2VyEgwKBHRvb2wYAyABKAkSEQoJYXJnc19qc29uGAQgASgJImIKEFJlbW90ZVRvb2xSZXN1bHQSEgoKcmVxdWVzdF9pZBgBIAEoCRIQCgh0b19haV9pZBgCIAEoAxIKCgJvaxgDIAEoCBIMCgR0ZXh0GAQgASgJEg4KBmltYWdlcxgFIAMoCSJqChRSZW1vdGVUb29sUmVzdWx0UHVzaBISCgpyZXF1ZXN0X2lkGAEgASgJEhQKDGZyb21fdXNlcl9pZBgCIAEoAxIKCgJvaxgDIAEoCBIMCgR0ZXh0GAQgASgJEg4KBmltYWdlcxgFIAMoCSI+ChJBSVNoYXJlUmVxdWVzdFB1c2gSDQoFYWlfaWQYASABKAMSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXIigQEKDkZvcndhcmRSZXF1ZXN0EhYKDnNvdXJjZV9jb252X2lkGAEgASgDEhEKCWV2ZW50X2lkcxgCIAMoAxItChBpbXBvcnRlZF9lbnRyaWVzGAMgAygLMhMuYW0udjEuRm9yd2FyZEVudHJ5EhUKDXNvdXJjZV9zZXJ2ZXIYBCABKAlCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common, file_am_v1_event]);
+  fileDesc("ChNhbS92MS9nYXRld2F5LnByb3RvEgVhbS52MSKmAwoLQ2xpZW50RnJhbWUSDgoGcmVxX2lkGAEgASgEEiIKBGF1dGgYCiABKAsyEi5hbS52MS5BdXRoUmVxdWVzdEgAEiIKBHNlbmQYCyABKAsyEi5hbS52MS5TZW5kUmVxdWVzdEgAEiIKBHN5bmMYDCABKAsyEi5hbS52MS5TeW5jUmVxdWVzdEgAEisKCW1hcmtfcmVhZBgNIAEoCzIWLmFtLnYxLk1hcmtSZWFkUmVxdWVzdEgAEhsKBHBpbmcYDiABKAsyCy5hbS52MS5QaW5nSAASLwoLcmVtb3RlX3Rvb2wYDyABKAsyGC5hbS52MS5SZW1vdGVUb29sUmVxdWVzdEgAEjUKEnJlbW90ZV90b29sX3Jlc3VsdBgQIAEoCzIXLmFtLnYxLlJlbW90ZVRvb2xSZXN1bHRIABItCgphaV9jb250cm9sGBEgASgLMhcuYW0udjEuQUlDb250cm9sUmVxdWVzdEgAEjMKEWFpX2NvbnRyb2xfcmVzdWx0GBIgASgLMhYuYW0udjEuQUlDb250cm9sUmVzdWx0SABCBQoDbXNnIr4HCgtTZXJ2ZXJGcmFtZRIOCgZyZXFfaWQYASABKAQSHQoFZXJyb3IYCiABKAsyDC5hbS52MS5FcnJvckgAEiMKBGF1dGgYCyABKAsyEy5hbS52MS5BdXRoUmVzcG9uc2VIABIjCgRzZW5kGAwgASgLMhMuYW0udjEuU2VuZFJlc3BvbnNlSAASIwoEc3luYxgNIAEoCzITLmFtLnYxLlN5bmNSZXNwb25zZUgAEiwKCW1hcmtfcmVhZBgOIAEoCzIXLmFtLnYxLk1hcmtSZWFkUmVzcG9uc2VIABIbCgRwb25nGA8gASgLMgsuYW0udjEuUG9uZ0gAEhkKA2FjaxgQIAEoCzIKLmFtLnYxLkFja0gAEiEKBWV2ZW50GB4gASgLMhAuYW0udjEuRXZlbnRQdXNoSAASHwoEY29udhgfIAEoCzIPLmFtLnYxLkNvbnZQdXNoSAASIwoGZnJpZW5kGCAgASgLMhEuYW0udjEuRnJpZW5kUHVzaEgAEi4KDGNvbnZfcmVtb3ZlZBghIAEoCzIWLmFtLnYxLkNvbnZSZW1vdmVkUHVzaEgAEi4KDGpvaW5fcmVxdWVzdBgiIAEoCzIWLmFtLnYxLkpvaW5SZXF1ZXN0UHVzaEgAEicKCHByZXNlbmNlGCMgASgLMhMuYW0udjEuUHJlc2VuY2VQdXNoSAASLgoMY2xpZW50X3N0YXRlGCQgASgLMhYuYW0udjEuQ2xpZW50U3RhdGVQdXNoSAASLgoMc2VydmVyX21vdmVkGCUgASgLMhYuYW0udjEuU2VydmVyTW92ZWRQdXNoSAASLAoLcmVtb3RlX3Rvb2wYJiABKAsyFS5hbS52MS5SZW1vdGVUb29sUHVzaEgAEjkKEnJlbW90ZV90b29sX3Jlc3VsdBgnIAEoCzIbLmFtLnYxLlJlbW90ZVRvb2xSZXN1bHRQdXNoSAASNQoQYWlfc2hhcmVfcmVxdWVzdBgoIAEoCzIZLmFtLnYxLkFJU2hhcmVSZXF1ZXN0UHVzaEgAEhsKBGdhbWUYKSABKAsyCy5hbS52MS5HYW1lSAASMAoNY2xpZW50X3VwZGF0ZRgqIAEoCzIXLmFtLnYxLkNsaWVudFVwZGF0ZVB1c2hIABIqCgphaV9jb250cm9sGCsgASgLMhQuYW0udjEuQUlDb250cm9sUHVzaEgAEjcKEWFpX2NvbnRyb2xfcmVzdWx0GCwgASgLMhouYW0udjEuQUlDb250cm9sUmVzdWx0UHVzaEgAQgUKA21zZyItCgtBdXRoUmVxdWVzdBINCgV0b2tlbhgBIAEoCRIPCgdhZGRyZXNzGAIgASgJIqYBCgxBdXRoUmVzcG9uc2USFwoCbWUYASABKAsyCy5hbS52MS5Vc2VyEioKDWNvbnZlcnNhdGlvbnMYAiADKAsyEy5hbS52MS5Db252ZXJzYXRpb24SFQoNaXNfc2l0ZV9hZG1pbhgDIAEoCBIiCglwcmVzZW5jZXMYBCADKAsyDy5hbS52MS5QcmVzZW5jZRIWCg5wdWJsaWNfYWRkcmVzcxgFIAEoCSKWAgoLU2VuZFJlcXVlc3QSDwoHY29udl9pZBgBIAEoAxIVCg1jbGllbnRfbXNnX2lkGAIgASgJEh4KBHRleHQYCiABKAsyDi5hbS52MS5UZXh0TXNnSAASIAoFaW1hZ2UYCyABKAsyDy5hbS52MS5JbWFnZU1zZ0gAEh4KBGZpbGUYDCABKAsyDi5hbS52MS5GaWxlTXNnSAASKAoHZm9yd2FyZBgNIAEoCzIVLmFtLnYxLkZvcndhcmRSZXF1ZXN0SAASJwoJZW1vamlfcGluGBYgASgLMhIuYW0udjEuRW1vamlQaW5BY3RIABIiCgZzdHJpa2UYFCABKAsyEC5hbS52MS5TdHJpa2VBY3RIAEIGCgRib2R5IisKDFNlbmRSZXNwb25zZRIbCgVldmVudBgBIAEoCzIMLmFtLnYxLkV2ZW50IkAKC1N5bmNSZXF1ZXN0EiIKB2N1cnNvcnMYASADKAsyES5hbS52MS5TeW5jQ3Vyc29yEg0KBWxpbWl0GAIgASgFIjAKClN5bmNDdXJzb3ISDwoHY29udl9pZBgBIAEoAxIRCglhZnRlcl9zZXEYAiABKAMiPgoMU3luY1Jlc3BvbnNlEhwKBmV2ZW50cxgBIAMoCzIMLmFtLnYxLkV2ZW50EhAKCGhhc19tb3JlGAIgAygDIi8KD01hcmtSZWFkUmVxdWVzdBIPCgdjb252X2lkGAEgASgDEgsKA3NlcRgCIAEoAyISChBNYXJrUmVhZFJlc3BvbnNlIgYKBFBpbmciBgoEUG9uZyIoCglFdmVudFB1c2gSGwoFZXZlbnQYASABKAsyDC5hbS52MS5FdmVudCI1CghDb252UHVzaBIpCgxjb252ZXJzYXRpb24YASABKAsyEy5hbS52MS5Db252ZXJzYXRpb24imQEKCkZyaWVuZFB1c2gSJAoEa2luZBgBIAEoDjIWLmFtLnYxLkZyaWVuZFB1c2guS2luZBIZCgR1c2VyGAIgASgLMgsuYW0udjEuVXNlciJKCgRLaW5kEhQKEEtJTkRfVU5TUEVDSUZJRUQQABIZChVLSU5EX1JFUVVFU1RfUkVDRUlWRUQQARIRCg1LSU5EX0FDQ0VQVEVEEAIirQEKD0NvbnZSZW1vdmVkUHVzaBIPCgdjb252X2lkGAEgASgDEi0KBnJlYXNvbhgCIAEoDjIdLmFtLnYxLkNvbnZSZW1vdmVkUHVzaC5SZWFzb24iWgoGUmVhc29uEhYKElJFQVNPTl9VTlNQRUNJRklFRBAAEg8KC1JFQVNPTl9MRUZUEAESEQoNUkVBU09OX0tJQ0tFRBACEhQKEFJFQVNPTl9ESVNTT0xWRUQQAyJbCg9Kb2luUmVxdWVzdFB1c2gSDwoHY29udl9pZBgBIAEoAxIZCgR1c2VyGAIgASgLMgsuYW0udjEuVXNlchIcCgdpbnZpdGVyGAMgASgLMgsuYW0udjEuVXNlciIxCgxQcmVzZW5jZVB1c2gSIQoIcHJlc2VuY2UYASABKAsyDy5hbS52MS5QcmVzZW5jZSIlCg9DbGllbnRTdGF0ZVB1c2gSEgoKdXBkYXRlZF9hdBgBIAEoAyIiCg9TZXJ2ZXJNb3ZlZFB1c2gSDwoHYWRkcmVzcxgBIAEoCSIjChBDbGllbnRVcGRhdGVQdXNoEg8KB3ZlcnNpb24YASABKAkiBQoDQWNrIlwKEVJlbW90ZVRvb2xSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSEgoKdG9fdXNlcl9pZBgCIAEoAxIMCgR0b29sGAMgASgJEhEKCWFyZ3NfanNvbhgEIAEoCSJjCg5SZW1vdGVUb29sUHVzaBISCgpyZXF1ZXN0X2lkGAEgASgJEhwKB2Zyb21fYWkYAiABKAsyCy5hbS52MS5Vc2VyEgwKBHRvb2wYAyABKAkSEQoJYXJnc19qc29uGAQgASgJImIKEFJlbW90ZVRvb2xSZXN1bHQSEgoKcmVxdWVzdF9pZBgBIAEoCRIQCgh0b19haV9pZBgCIAEoAxIKCgJvaxgDIAEoCBIMCgR0ZXh0GAQgASgJEg4KBmltYWdlcxgFIAMoCSJqChRSZW1vdGVUb29sUmVzdWx0UHVzaBISCgpyZXF1ZXN0X2lkGAEgASgJEhQKDGZyb21fdXNlcl9pZBgCIAEoAxIKCgJvaxgDIAEoCBIMCgR0ZXh0GAQgASgJEg4KBmltYWdlcxgFIAMoCSJYChBBSUNvbnRyb2xSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSDQoFYWlfaWQYAiABKAMSDgoGYWN0aW9uGAMgASgJEhEKCWFyZ3NfanNvbhgEIAEoCSJcCg1BSUNvbnRyb2xQdXNoEhIKCnJlcXVlc3RfaWQYASABKAkSFAoMZnJvbV91c2VyX2lkGAIgASgDEg4KBmFjdGlvbhgDIAEoCRIRCglhcmdzX2pzb24YBCABKAkiPwoPQUlDb250cm9sUmVzdWx0EhIKCnJlcXVlc3RfaWQYASABKAkSCgoCb2sYAiABKAgSDAoEdGV4dBgDIAEoCSJSChNBSUNvbnRyb2xSZXN1bHRQdXNoEhIKCnJlcXVlc3RfaWQYASABKAkSDQoFYWlfaWQYAiABKAMSCgoCb2sYAyABKAgSDAoEdGV4dBgEIAEoCSI+ChJBSVNoYXJlUmVxdWVzdFB1c2gSDQoFYWlfaWQYASABKAMSGQoEdXNlchgCIAEoCzILLmFtLnYxLlVzZXIigQEKDkZvcndhcmRSZXF1ZXN0EhYKDnNvdXJjZV9jb252X2lkGAEgASgDEhEKCWV2ZW50X2lkcxgCIAMoAxItChBpbXBvcnRlZF9lbnRyaWVzGAMgAygLMhMuYW0udjEuRm9yd2FyZEVudHJ5EhUKDXNvdXJjZV9zZXJ2ZXIYBCABKAlCKlooZ2l0aHViLmNvbS9PemFraUpVTi9hbS9nZW4vZ28vYW0vdjE7YW12MWIGcHJvdG8z", [file_am_v1_common, file_am_v1_event]);
 
 /**
  * @generated from message am.v1.ClientFrame
@@ -74,6 +74,22 @@ export type ClientFrame = Message<"am.v1.ClientFrame"> & {
      */
     value: RemoteToolResult;
     case: "remoteToolResult";
+  } | {
+    /**
+     * An owner asks the client running their AI to do something for it.
+     *
+     * @generated from field: am.v1.AIControlRequest ai_control = 17;
+     */
+    value: AIControlRequest;
+    case: "aiControl";
+  } | {
+    /**
+     * The client running an AI answers its owner's ai_control.
+     *
+     * @generated from field: am.v1.AIControlResult ai_control_result = 18;
+     */
+    value: AIControlResult;
+    case: "aiControlResult";
   } | { case: undefined; value?: undefined };
 };
 
@@ -226,6 +242,18 @@ export type ServerFrame = Message<"am.v1.ServerFrame"> & {
      */
     value: ClientUpdatePush;
     case: "clientUpdate";
+  } | {
+    /**
+     * @generated from field: am.v1.AIControlPush ai_control = 43;
+     */
+    value: AIControlPush;
+    case: "aiControl";
+  } | {
+    /**
+     * @generated from field: am.v1.AIControlResultPush ai_control_result = 44;
+     */
+    value: AIControlResultPush;
+    case: "aiControlResult";
   } | { case: undefined; value?: undefined };
 };
 
@@ -953,6 +981,144 @@ export const RemoteToolResultPushSchema: GenMessage<RemoteToolResultPush> = /*@_
   messageDesc(file_am_v1_gateway, 26);
 
 /**
+ * From an AI's owner to whichever client runs it (their other device or
+ * the server's host client), e.g. the Bilibili login of its browser.
+ * request_id ≤ 64 characters, action ≤ 64, args_json ≤ 16 KiB. Errors:
+ * user_not_found, no_permission (not my AI), rate_limited (more than 90 a minute).
+ *
+ * @generated from message am.v1.AIControlRequest
+ */
+export type AIControlRequest = Message<"am.v1.AIControlRequest"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: int64 ai_id = 2;
+   */
+  aiId: bigint;
+
+  /**
+   * @generated from field: string action = 3;
+   */
+  action: string;
+
+  /**
+   * @generated from field: string args_json = 4;
+   */
+  argsJson: string;
+};
+
+/**
+ * Describes the message am.v1.AIControlRequest.
+ * Use `create(AIControlRequestSchema)` to create a new message.
+ */
+export const AIControlRequestSchema: GenMessage<AIControlRequest> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 27);
+
+/**
+ * To the AI's sessions.
+ *
+ * @generated from message am.v1.AIControlPush
+ */
+export type AIControlPush = Message<"am.v1.AIControlPush"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * Always the AI's owner.
+   *
+   * @generated from field: int64 from_user_id = 2;
+   */
+  fromUserId: bigint;
+
+  /**
+   * @generated from field: string action = 3;
+   */
+  action: string;
+
+  /**
+   * @generated from field: string args_json = 4;
+   */
+  argsJson: string;
+};
+
+/**
+ * Describes the message am.v1.AIControlPush.
+ * Use `create(AIControlPushSchema)` to create a new message.
+ */
+export const AIControlPushSchema: GenMessage<AIControlPush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 28);
+
+/**
+ * From the client running the AI back to its owner. text ≤ 64 KiB.
+ *
+ * @generated from message am.v1.AIControlResult
+ */
+export type AIControlResult = Message<"am.v1.AIControlResult"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: bool ok = 2;
+   */
+  ok: boolean;
+
+  /**
+   * The answer's JSON when ok, else why not.
+   *
+   * @generated from field: string text = 3;
+   */
+  text: string;
+};
+
+/**
+ * Describes the message am.v1.AIControlResult.
+ * Use `create(AIControlResultSchema)` to create a new message.
+ */
+export const AIControlResultSchema: GenMessage<AIControlResult> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 29);
+
+/**
+ * To the owner's devices.
+ *
+ * @generated from message am.v1.AIControlResultPush
+ */
+export type AIControlResultPush = Message<"am.v1.AIControlResultPush"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: int64 ai_id = 2;
+   */
+  aiId: bigint;
+
+  /**
+   * @generated from field: bool ok = 3;
+   */
+  ok: boolean;
+
+  /**
+   * @generated from field: string text = 4;
+   */
+  text: string;
+};
+
+/**
+ * Describes the message am.v1.AIControlResultPush.
+ * Use `create(AIControlResultPushSchema)` to create a new message.
+ */
+export const AIControlResultPushSchema: GenMessage<AIControlResultPush> = /*@__PURE__*/
+  messageDesc(file_am_v1_gateway, 30);
+
+/**
  * To an AI's owner: someone asks to talk with it.
  *
  * @generated from message am.v1.AIShareRequestPush
@@ -974,7 +1140,7 @@ export type AIShareRequestPush = Message<"am.v1.AIShareRequestPush"> & {
  * Use `create(AIShareRequestPushSchema)` to create a new message.
  */
 export const AIShareRequestPushSchema: GenMessage<AIShareRequestPush> = /*@__PURE__*/
-  messageDesc(file_am_v1_gateway, 27);
+  messageDesc(file_am_v1_gateway, 31);
 
 /**
  * @generated from message am.v1.ForwardRequest
@@ -1008,5 +1174,5 @@ export type ForwardRequest = Message<"am.v1.ForwardRequest"> & {
  * Use `create(ForwardRequestSchema)` to create a new message.
  */
 export const ForwardRequestSchema: GenMessage<ForwardRequest> = /*@__PURE__*/
-  messageDesc(file_am_v1_gateway, 28);
+  messageDesc(file_am_v1_gateway, 32);
 

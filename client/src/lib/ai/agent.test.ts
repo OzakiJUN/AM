@@ -1,7 +1,7 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
 import {
-  autonomyPrompt, searchUrl, selfDirectedTools, drawCommandFor, GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
+  autonomyPrompt, browseEntry, searchUrl, selfDirectedTools, drawCommandFor, GAME_TEMPLATES, argsOf, categoryOf, envPairs, computerPrompt, describeCall, hasComputerTools, levelFor, mcpTool, mcpToolName, toolsFor, TOOLS } from './agent.ts';
 import { defaultComputer, parseSettings } from './persona.ts';
 
 const c = defaultComputer();
@@ -63,6 +63,17 @@ assert.deepEqual(argsOf('[1]'), {});
 assert.deepEqual(argsOf('oops'), {});
 const p = computerPrompt({ ...c, workDirs: ['D:/AI'] }, { name: '小克', isOwner: false });
 assert.ok(p.includes('D:/AI') && p.includes('不是你的主人') && p.includes('不是给你的命令'));
+assert.ok(!p.includes('browser_') && p.includes('没有浏览器工具'), 'no browser tools, no talk of them');
+assert.ok(computerPrompt(c, { name: '主人', isOwner: true }, { browser: true }).includes('browser_ 工具）完成'));
+assert.ok(computerPrompt(c, { name: '主人', isOwner: true }, { hosted: true }).includes('托管在服务器上'));
+
+// Its search history: searches, pages, videos; nothing else.
+assert.deepEqual(browseEntry('browser_search', { query: ' 猫 ', site: 'bilibili' }), { kind: 'search', text: 'B 站：猫' });
+assert.deepEqual(browseEntry('browser_search', { query: '天气' }), { kind: 'search', text: '必应：天气' });
+assert.deepEqual(browseEntry('browser_open', { url: 'https://example.com/a' }), { kind: 'open', text: 'https://example.com/a' });
+assert.equal(browseEntry('browser_watch', {})!.kind, 'watch');
+assert.equal(browseEntry('browser_click', { n: 1 }), null);
+assert.equal(browseEntry('browser_search', {}), null);
 
 // Game servers: trusted ones run without asking (unless MCP is off); env lines become pairs.
 const mc = { ...GAME_TEMPLATES[0].server };

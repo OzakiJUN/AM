@@ -94,6 +94,8 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/ai/{id}/room", a.authed(a.createAIRoom))
 	mux.HandleFunc("GET /api/v1/users/{id}/portraits", a.authed(a.getPortraits))
 	mux.HandleFunc("PUT /api/v1/ai/{id}/portraits", a.authed(a.putPortraits))
+	mux.HandleFunc("GET /api/v1/ai/{id}/browse-log", a.authed(a.browseLog))
+	mux.HandleFunc("POST /api/v1/me/browse-log", a.authed(a.addBrowseLog))
 	mux.HandleFunc("POST /api/v1/ai/{id}/share-request", a.authed(a.requestShare))
 	mux.HandleFunc("GET /api/v1/ai/{id}/share-requests", a.authed(a.listShareRequests))
 	mux.HandleFunc("POST /api/v1/ai/{id}/share-requests/{user}", a.authed(a.decideShareRequest))

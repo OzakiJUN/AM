@@ -25,6 +25,8 @@ export interface ToolCtx {
   self?: SelfApi;
   /** Its own free time: the background browser (headless, muted, no window). */
   background?: boolean;
+  /** Where this turn happens (a chat's name; '' = its free time), for its search history. */
+  place?: string;
 }
 
 /** What the AI can do as itself (implemented by the runner with the AI's session). */

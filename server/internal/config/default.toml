@@ -77,6 +77,9 @@ max_stickers = 1000
 # How many board games (五子棋, 黑白棋, 谁是卧底) may be open or running at
 # once in one channel or shared AI room. 0 = games are turned off.
 max_games_per_conv = 3
+# How many entries of an AI's search / browsing history are kept (per AI;
+# the oldest go first).
+max_browse_log = 1000
 
 [retention]
 # How long admin-deleted content is kept in the evidence store before it is
@@ -86,6 +89,9 @@ evidence_days = 180
 login_record_days = 180
 # How long finished board games stay in a channel's game history (对局记录).
 games_days = 180
+# How long an AI's search / browsing history (what it searched, opened and
+# watched; its owner reads it in the AI's settings → 记录) is kept.
+ai_browse_days = 30
 
 [media]
 # Images whose fingerprint is within this distance of a blocked image are
@@ -142,7 +148,8 @@ max_per_ai = 30
 # page), and am-server runs the AM client without a window for that AI, so
 # the owner's computer can be off. The owner's model keys are stored here.
 # The AI only gets its own work folder (data/hosting/ai-<id>/work) for files;
-# screen, mouse, keyboard, commands and the browser are off.
+# Screen, mouse, keyboard and commands are off; the browser only with
+# allow_browser below.
 # Windows only for now (it runs the desktop client).
 enabled = true
 # How many AIs one person may have hosted (0 = nobody).
@@ -150,6 +157,11 @@ max_per_user = 1
 # The AM client (AM.exe) on this computer. Empty = look next to am-server
 # and where the installer puts it.
 client_path = ""
+# Hosted AIs may search and read the web with a browser of their own: Edge /
+# Chrome without a window, its own profile in data/hosting/ai-<id>/browser,
+# never your logins. Off = no browser for hosted AIs. Hosted clients restart
+# when the server restarts, which is when a change takes effect.
+allow_browser = false
 
 [museum]
 # Each channel's picture museum (docs/design.md §13 博物馆): a first hall of
