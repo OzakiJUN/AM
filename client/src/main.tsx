@@ -12,6 +12,7 @@ import { watchTheme } from './lib/theme';
 import { watchClosePref } from './lib/prefs';
 import { readHostConfig, runHost } from './lib/ai/host';
 import { startUpdates } from './lib/update';
+import { startAndroid } from './lib/android';
 import './styles.css';
 
 // Host mode (am-server runs one AI with this client, no window): nothing else starts.
@@ -30,6 +31,7 @@ void readHostConfig().then((host) => {
   startAgentKeys();
   watchClosePref();
   startUpdates();
+  startAndroid();
   // No browser context menu (we show our own); keep it for text fields.
   window.addEventListener('contextmenu', (e) => {
     const t = e.target as HTMLElement;

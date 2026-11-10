@@ -59,6 +59,7 @@ jobs:
           npm install --no-save --package-lock=false playwright
           npx playwright install --with-deps chromium
           node e2e/fishing-browser.mjs
+          node e2e/qr-scan.mjs
       - uses: actions/upload-artifact@v7
         if: always()
         with:

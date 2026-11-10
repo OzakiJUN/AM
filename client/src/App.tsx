@@ -5,6 +5,7 @@ import { Backdrop } from '@/app/Backdrop';
 import { Shell } from '@/app/Shell';
 import { Welcome } from '@/app/Welcome';
 import { AgentHost } from '@/app/AgentHost';
+import { QrScannerHost } from '@/app/QrScanner';
 
 export default function App() {
   const view = useApp((s) => s.view);
@@ -26,6 +27,7 @@ export default function App() {
       <AgentHost />
       <AskHost />
       <MenuHost />
+      <QrScannerHost />
       <ToastHost />
     </>
   );

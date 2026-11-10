@@ -364,7 +364,7 @@ export function Dialog({ open, onClose, title, children, width = 440 }: {
             role="dialog"
             aria-modal="true"
             className={cx('glass-strong max-h-full w-full overflow-y-auto shadow-2xl', full ? 'h-full rounded-none p-4' : narrow ? 'rounded-3xl p-5' : 'rounded-3xl p-6')}
-            style={{ maxWidth: full ? undefined : width }}
+            style={full ? { paddingTop: 'calc(var(--safe-top, 0px) + 1rem)', paddingBottom: 'calc(var(--safe-bottom, 0px) + 1rem)' } : { maxWidth: width }}
             initial={full ? { opacity: 0, y: 40 } : { opacity: 0, scale: 0.94, y: 12 }}
             animate={full ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
             exit={full ? { opacity: 0, y: 30, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } } : { opacity: 0, scale: 0.97, y: 6, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
@@ -558,7 +558,7 @@ export function toastError(e: unknown) {
 export function ToastHost() {
   const list = useToasts((s) => s.list);
   return (
-    <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2" aria-live="polite">
+    <div className="pointer-events-none fixed left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2" style={{ bottom: 'calc(var(--safe-bottom, 0px) + 1.5rem)' }} aria-live="polite">
       <AnimatePresence>
         {list.map((t) => (
           <motion.div

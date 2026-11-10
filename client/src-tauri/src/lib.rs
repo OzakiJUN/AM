@@ -287,6 +287,15 @@ async fn update_download(net: State<'_, Net>, sources: Vec<update::Source>, vers
     update::download(&net, sources, version, portable, size, sha256, on_progress).await
 }
 
+/// Android: downloads the verified release's APK into the app's cache
+/// folder (cache/AM-update, where the installer may read it through the
+/// FileProvider); the page then calls AMAndroid.installApk(path).
+#[tauri::command]
+async fn update_download_apk(app: tauri::AppHandle, urls: Vec<String>, version: String, size: u64, sha256: String, on_progress: Channel<u64>) -> Res<String> {
+    let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("AM-update");
+    update::download_apk(dir, urls, version, size, sha256, on_progress).await
+}
+
 /// "installed" or "portable" (which file an update needs).
 #[tauri::command]
 fn update_mode() -> &'static str {
@@ -470,6 +479,7 @@ pub fn run() {
     if !host {
         update::after_update();
     }
+    #[cfg_attr(mobile, allow(unused_mut))]
     let mut builder = tauri::Builder::default().setup(move |app| {
         // The main window is made here (tauri.conf: create = false): in host
         // mode hidden, with its own browser data (localStorage) so it never
@@ -517,11 +527,6 @@ pub fn run() {
                 .build(),
         );
     }
-    #[cfg(target_os = "android")]
-    {
-        // Camera QR codes for join / pairing codes (Welcome.tsx).
-        builder = builder.plugin(tauri_plugin_barcode_scanner::init());
-    }
     builder
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -565,7 +570,7 @@ pub fn run() {
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
             agent_browser, agent_browser_media, agent_bili, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
-            update_download, update_install, update_mode
+            update_download, update_download_apk, update_install, update_mode
         ])
         .build(tauri::generate_context!())
         .expect("error while running AM")

@@ -356,7 +356,7 @@ function toBody(e: ev.Event): MessageBody | null {
     case 'text':
       return { kind: 'text', text: b.value.text, replyTo: s(b.value.replyTo) || undefined, mood: b.value.mood || undefined, mentions: b.value.mentions.length ? b.value.mentions.map(s) : undefined };
     case 'forward':
-      return { kind: 'forward', entries: b.value.entries.map((entry): ForwardEntry => ({ struck: entry.struck, sourceConvId: s(entry.sourceConvId), sourceName: entry.sourceName, sourceEventId: s(entry.sourceEventId), senderId: s(entry.senderId), senderName: entry.senderName, time: Number(entry.sentAt), body: toBody(create(ev.EventSchema, { body: entry.body })) ?? { kind: 'deleted', byId: '', reason: '' } })) };
+      return { kind: 'forward', entries: b.value.entries.map((entry): ForwardEntry => ({ sourceServer: entry.sourceServer, imported: entry.imported, struck: entry.struck, sourceConvId: s(entry.sourceConvId), sourceName: entry.sourceName, sourceEventId: s(entry.sourceEventId), senderId: s(entry.senderId), senderName: entry.senderName, time: Number(entry.sentAt), body: toBody(create(ev.EventSchema, { body: entry.body })) ?? { kind: 'deleted', byId: '', reason: '' } })) };
     case 'image':
       return { kind: 'image', mediaId: s(b.value.mediaId), w: b.value.width, h: b.value.height, stickerTags: b.value.stickerTags.length ? b.value.stickerTags : undefined, madeWith: b.value.madeWith || undefined, nsfw: b.value.nsfw || undefined };
     case 'file':
@@ -1179,6 +1179,18 @@ export class Session {
   async placeEmoji(convId: string, targetId: string, emoji: string, x: number, y: number, removeId = '', onBubble = false) {
     const response = await this.request({ case: 'send', value: create(gw.SendRequestSchema, { convId: BigInt(convId), clientMsgId: randomId(), body: { case: 'emojiPin', value: { targetEventId: BigInt(targetId || '0'), emoji, x, y, removePinId: BigInt(removeId || '0'), onBubble } } }) });
     if (response.msg.case === 'send' && response.msg.value.event) this.applyEvents([response.msg.value.event], false);
+  }
+
+  exportForwardSnapshot(convId: string, eventIds: string[]) {
+    return this.call('POST', `/api/v1/conversations/${convId}/forward-export`, ev.ForwardMsgSchema,
+      { schema: gw.ForwardRequestSchema, value: { eventIds: eventIds.map(BigInt) } });
+  }
+
+  async importForwardSnapshot(convId: string, sourceServer: string, snapshot: ev.ForwardMsg, clientMsgId: string) {
+    const event = await this.call('POST', `/api/v1/conversations/${convId}/forward-import`, ev.EventSchema, {
+      schema: gw.SendRequestSchema, value: { clientMsgId, body: { case: 'forward', value: { importedEntries: snapshot.entries, sourceServer } } },
+    });
+    this.applyEvents([event], false);
   }
 
   async forwardMessages(convId: string, sourceConvId: string, messages: Message[]) {

@@ -325,7 +325,10 @@ AI 自己（以 AI 的身份登录，托管的客户端用）：
   - `GET /api/v1/conversations/{id}/messages/{event}` 返回一条 `Event`，仅当前会话成员可读。客户端用它读取较早的引用，已删原文只返回删除记录，不返回内容。
 - 图片：先上传，再发 `image{media_id}`，宽高由服务器填（也可以直接发我表情里的或公共表情库里的图，不用自己上传）。从表情面板发的带 `sticker_tags`（表情的标签，最多 10 个、每个 20 字，服务器会去空格、去重）。bot / AI 发的图可以带 `made_with`（怎么做的，比如「NovelAI V5」，最多 30 字）、`nsfw`、`made_for`（谁让它画的，要是这个会话的成员，否则去掉；电子厕所认它当罪犯）和 `made_from`（让它画的那句话，最多 200 字；用来给图起名）；人发的图这几项都会被去掉。
 - 文件：先上传，再发 `file{media_id, name}`，`name` 为空时用上传时的文件名。
-- 转发记录请求是 `SendRequest.forward{source_conv_id,event_ids}`，服务器校验原会话访问权，去重后按 seq 排序，把内容写成 `Event.forward.entries`。记录里的 `source_conv_id/source_name/source_event_id/sender_id/sender_name/sent_at/struck` 都由服务器填写。每条 entry 的正文是文字、图片或文件，原会话的通知 mentions 不会转成当前会话的提醒。被删除或无权访问的原消息不能转发。
+- 转发记录请求是 `SendRequest.forward{source_conv_id,event_ids}`，服务器校验原会话访问权，去重后按 seq 排序，把内容写成 `Event.forward.entries`。本服原生记录里的 `source_conv_id/source_name/source_event_id/sender_id/sender_name/sent_at/struck` 都由服务器填写。每条 entry 的正文是文字、图片或文件，原会话的通知 mentions 不会转成当前会话的提醒。被删除或无权访问的原消息不能转发。
+- `POST /api/v1/conversations/{id}/forward-export` 接受 `ForwardRequest{event_ids}`，返回 `ForwardMsg`。要求源会话成员权限，按原消息 seq 排序、去重、检查删除和条数限制，只读、不产生新消息。拒绝携带 `imported_entries/source_server` 的导出请求。
+- 跨服客户端先复制所有附件到目标，再向目标 `POST /api/v1/conversations/{id}/forward-import` 提交 `SendRequest{client_msg_id,forward:{source_server,imported_entries}}`，返回已保存的 `Event` 并照常广播。导入不能混带 `source_conv_id/event_ids`。单独的 HTTP 导入端点支持批量文字，体积上限为 `max_forward_messages * (max_text_length * 6 + 8192) + 8192` 字节，不改变其他 HTTP 请求和 WebSocket 的限制。重试使用相同 `client_msg_id`，复用已有消息。
+- 导入条目必须带有效的来源 ID、作者、会话名称和时间，最多 `max_forward_messages` 条，文本遵守目标的长度限制。每条 `ForwardEntry` 保存 `source_server` 和服务端强制的 `imported=true`。这些外服来源、作者和时间由转发者提供，不能视为目标服务器认证的本服身份。本服再次转发时也保留该标记。导入清除外服文字的 `reply_to/mentions`，图片和文件只接受当前发送者自己的本服上传，尺寸和大小以本服媒体记录为准。目标不会抓取外服 URL，下载继续经过目标会话权限检查。
 - emoji 操作是 `SendRequest.emoji_pin`，新增时给 `target_event_id/emoji/x/y/on_bubble`。`on_bubble=true` 时 x、y 都在 0–1 之间，否则 x 是横向比例、y 是相对消息行顶部的像素偏移（-4000 到 4000）。`target_event_id=0` 表示会话起点，只能用于空白区域。
 - 移除贴纸发送 `emoji_pin.remove_pin_id`，仅贴的人、会话管理员或站点管理员可用。新增和移除都以 `Event.emoji_pin` 广播，不产生新的聊天气泡。
 - `GET /api/v1/conversations/{id}/emoji-pins` 返回 `ListEmojiPinsResponse`，仅当前会话成员可读。快照含移除记录和 `revision`（最后一次操作的 event id），客户端只采纳更新的版本。

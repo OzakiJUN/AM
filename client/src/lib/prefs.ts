@@ -32,7 +32,9 @@ interface Prefs {
   updateCheck: boolean;
   /** Whether the AI's browser on this device goes through a proxy (lib/ai/proxy.ts). */
   aiProxy: ProxyPref;
-  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'workshopMirror' | 'closeToTray' | 'updateCheck' | 'aiProxy'>>) => void;
+  /** Android: keep AM connected in the background (lib/android.ts, KeepAliveService). */
+  androidKeepAlive: boolean;
+  set: (p: Partial<Pick<Prefs, 'listFolded' | 'membersFolded' | 'profileSync' | 'syncDelay' | 'stickerSync' | 'musicVolume' | 'workshopMirror' | 'closeToTray' | 'updateCheck' | 'aiProxy' | 'androidKeepAlive'>>) => void;
 }
 
 export const usePrefs = create<Prefs>()(
@@ -51,6 +53,7 @@ export const usePrefs = create<Prefs>()(
       closeToTray: true,
       updateCheck: true,
       aiProxy: DEFAULT_PROXY,
+      androidKeepAlive: true,
       set: (p) => set(p),
     }),
     { name: 'am-prefs' },

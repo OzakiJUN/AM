@@ -1,6 +1,6 @@
 [package]
 name = "am-client"
-version = "0.1.3"
+version = "0.1.4"
 description = "AM (AI Message) desktop client"
 edition = "2021"
 publish = false
@@ -39,8 +39,6 @@ trash = "5"
 # Android (docs/design.md §7 / release.md 安卓): passwords in the Android Keystore.
 [target.'cfg(target_os = "android")'.dependencies]
 android-native-keyring-store = "1"
-# Scanning join / pairing QR codes with the camera.
-tauri-plugin-barcode-scanner = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.56"

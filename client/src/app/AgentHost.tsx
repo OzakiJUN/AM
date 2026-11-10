@@ -14,7 +14,7 @@ export function AgentHost() {
   const risky = ask && CATEGORY_LABEL[ask.category].risky;
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex flex-col items-center gap-2">
+      <div className="pointer-events-none fixed inset-x-0 z-50 flex flex-col items-center gap-2" style={{ top: 'calc(var(--safe-top, 0px) + 0.75rem)' }}>
         <AnimatePresence>
           {list.map(([key, a]) => (
             <motion.div
