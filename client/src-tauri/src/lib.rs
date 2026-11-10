@@ -567,6 +567,14 @@ pub fn run() {
             agent_browser, agent_browser_media, agent_bili, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
             update_download, update_install, update_mode
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running AM");
+        .build(tauri::generate_context!())
+        .expect("error while running AM")
+        .run(|_app, ev| {
+            // Quitting: the AI's browsers (the background one has no window,
+            // nobody would ever close it) and MCP servers go too.
+            if let tauri::RunEvent::Exit = ev {
+                browser::close();
+                mcp::stop("");
+            }
+        });
 }
