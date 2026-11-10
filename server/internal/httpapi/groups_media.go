@@ -34,6 +34,47 @@ func (a *API) getMessage(w http.ResponseWriter, r *http.Request, _ *store.Sessio
 	a.ok(w, ev)
 }
 
+func (a *API) importForward(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	req := &amv1.SendRequest{}
+	if !a.readLimit(w, r, req, a.msg.ForwardImportBytes()) {
+		return
+	}
+	if len(req.GetForward().GetImportedEntries()) == 0 {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	req.ConvId = id
+	result, err := a.msg.Send(r.Context(), me, req, 0)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, result)
+}
+
+func (a *API) exportForward(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
+	id, ok := pathID(r, "id")
+	if !ok {
+		a.fail(w, apperr.ErrBadRequest)
+		return
+	}
+	req := &amv1.ForwardRequest{}
+	if !a.read(w, r, req) {
+		return
+	}
+	result, err := a.msg.ExportForward(r.Context(), me, id, req)
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.ok(w, result)
+}
+
 func (a *API) listEmojiPins(w http.ResponseWriter, r *http.Request, _ *store.Session, me *store.User) {
 	id, ok := pathID(r, "id")
 	if !ok {

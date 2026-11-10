@@ -2177,11 +2177,14 @@ func (x *AIShareRequestPush) GetUser() *User {
 }
 
 type ForwardRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SourceConvId  int64                  `protobuf:"varint,1,opt,name=source_conv_id,json=sourceConvId,proto3" json:"source_conv_id,omitempty"`
-	EventIds      []int64                `protobuf:"varint,2,rep,packed,name=event_ids,json=eventIds,proto3" json:"event_ids,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	SourceConvId int64                  `protobuf:"varint,1,opt,name=source_conv_id,json=sourceConvId,proto3" json:"source_conv_id,omitempty"`
+	EventIds     []int64                `protobuf:"varint,2,rep,packed,name=event_ids,json=eventIds,proto3" json:"event_ids,omitempty"`
+	// Cross-server copies. Media must already be uploaded by the sender here.
+	ImportedEntries []*ForwardEntry `protobuf:"bytes,3,rep,name=imported_entries,json=importedEntries,proto3" json:"imported_entries,omitempty"`
+	SourceServer    string          `protobuf:"bytes,4,opt,name=source_server,json=sourceServer,proto3" json:"source_server,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ForwardRequest) Reset() {
@@ -2226,6 +2229,20 @@ func (x *ForwardRequest) GetEventIds() []int64 {
 		return x.EventIds
 	}
 	return nil
+}
+
+func (x *ForwardRequest) GetImportedEntries() []*ForwardEntry {
+	if x != nil {
+		return x.ImportedEntries
+	}
+	return nil
+}
+
+func (x *ForwardRequest) GetSourceServer() string {
+	if x != nil {
+		return x.SourceServer
+	}
+	return ""
 }
 
 var File_am_v1_gateway_proto protoreflect.FileDescriptor
@@ -2373,10 +2390,12 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x06images\x18\x05 \x03(\tR\x06images\"J\n" +
 	"\x12AIShareRequestPush\x12\x13\n" +
 	"\x05ai_id\x18\x01 \x01(\x03R\x04aiId\x12\x1f\n" +
-	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04user\"S\n" +
+	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04user\"\xb8\x01\n" +
 	"\x0eForwardRequest\x12$\n" +
 	"\x0esource_conv_id\x18\x01 \x01(\x03R\fsourceConvId\x12\x1b\n" +
-	"\tevent_ids\x18\x02 \x03(\x03R\beventIdsB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
+	"\tevent_ids\x18\x02 \x03(\x03R\beventIds\x12>\n" +
+	"\x10imported_entries\x18\x03 \x03(\v2\x13.am.v1.ForwardEntryR\x0fimportedEntries\x12#\n" +
+	"\rsource_server\x18\x04 \x01(\tR\fsourceServerB*Z(github.com/OzakiJUN/am/gen/go/am/v1;amv1b\x06proto3"
 
 var (
 	file_am_v1_gateway_proto_rawDescOnce sync.Once
@@ -2435,6 +2454,7 @@ var file_am_v1_gateway_proto_goTypes = []any{
 	(*EmojiPinAct)(nil),          // 39: am.v1.EmojiPinAct
 	(*StrikeAct)(nil),            // 40: am.v1.StrikeAct
 	(*Event)(nil),                // 41: am.v1.Event
+	(*ForwardEntry)(nil),         // 42: am.v1.ForwardEntry
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
 	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
@@ -2486,11 +2506,12 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	35, // 46: am.v1.PresencePush.presence:type_name -> am.v1.Presence
 	33, // 47: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
 	33, // 48: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
-	49, // [49:49] is the sub-list for method output_type
-	49, // [49:49] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	42, // 49: am.v1.ForwardRequest.imported_entries:type_name -> am.v1.ForwardEntry
+	50, // [50:50] is the sub-list for method output_type
+	50, // [50:50] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }

@@ -258,4 +258,7 @@ message AIShareRequestPush {
 message ForwardRequest {
   int64 source_conv_id = 1;
   repeated int64 event_ids = 2;
+  // Cross-server copies. Media must already be uploaded by the sender here.
+  repeated ForwardEntry imported_entries = 3;
+  string source_server = 4;
 }
