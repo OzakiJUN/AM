@@ -259,7 +259,9 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
     let mut cmd = std::process::Command::new(find_exe()?);
     cmd.arg("--remote-debugging-port=0")
         .arg(format!("--user-data-dir={}", b.profile.display()))
-        .args(["--no-first-run", "--no-default-browser-check"]);
+        .args(["--no-first-run", "--no-default-browser-check"])
+        // Its log goes to am-browser.log (on Windows it prints nothing otherwise).
+        .args(["--enable-logging=stderr", "--v=0"]);
     if b.background || std::env::var("AM_BROWSER_HEADLESS").is_ok() {
         cmd.args(["--headless=new", "--mute-audio", "--window-size=1280,900"]);
     }
