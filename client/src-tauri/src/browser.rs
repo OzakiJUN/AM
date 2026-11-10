@@ -133,6 +133,7 @@ async fn close_leftover(profile: &Path) {
 /// The DevTools address of the running browser, starting it when needed.
 async fn ensure(b: &Browser) -> R<String> {
     let _one = STARTING.lock().await;
+    let mut replaced = None;
     {
         let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
         if let Some(i) = g.iter().position(|(p, _)| p == &b.profile) {
@@ -140,18 +141,18 @@ async fn ensure(b: &Browser) -> R<String> {
             if alive && b.proxy.as_ref().is_none_or(|p| p == &g[i].1.proxy) {
                 return Ok(g[i].1.ws.clone());
             }
-            let (_, mut old) = g.remove(i); // closed by the owner, or another proxy wanted
+            let (_, old) = g.remove(i); // closed by the owner, or another proxy wanted
             if alive {
-                let _ = old.child.kill();
-                let _ = old.child.wait();
+                replaced = Some(old);
             }
         }
     }
-    if b.proxy.is_some() {
-        tokio::time::sleep(Duration::from_millis(300)).await; // let the old one let go of the profile
+    if let Some(mut old) = replaced {
+        stop(&mut old, &b.profile).await;
     }
     close_leftover(&b.profile).await;
-    let mut r = match launch(b, None).await {
+    let ua = if b.background { normal_ua(&find_exe()?) } else { None };
+    let mut r = match launch(b, ua.as_deref()).await {
         // A leftover holds the profile but cannot be asked to close (an
         // older AM deleted its port file): end the processes running on
         // this profile (only those: the owner's own browser is not touched)
@@ -159,7 +160,7 @@ async fn ensure(b: &Browser) -> R<String> {
         Err(e) if e.starts_with(HANDED_OVER) => {
             kill_profile_processes(&b.profile).await;
             tokio::time::sleep(Duration::from_millis(800)).await;
-            launch(b, None).await?
+            launch(b, ua.as_deref()).await?
         }
         r => r?,
     };
@@ -168,9 +169,7 @@ async fn ensure(b: &Browser) -> R<String> {
         // refuse it: start it again under the normal browser's name.
         if let Ok(ua) = version_ua(&r.ws).await {
             if ua.contains("HeadlessChrome") {
-                let _ = r.child.kill();
-                let _ = r.child.wait();
-                tokio::time::sleep(Duration::from_millis(300)).await;
+                stop(&mut r, &b.profile).await;
                 r = launch(b, Some(&ua.replace("HeadlessChrome", "Chrome"))).await?;
             }
         }
@@ -178,6 +177,45 @@ async fn ensure(b: &Browser) -> R<String> {
     let ws = r.ws.clone();
     BROWSERS.lock().map_err(|_| "浏览器状态出错")?.push((b.profile.clone(), r));
     Ok(ws)
+}
+
+/// Stops one of our browsers and every helper process it started on its
+/// profile, so the next start finds the profile free. (Killing only the
+/// main process can leave Edge's helpers holding the profile on Windows.)
+async fn stop(r: &mut Running, profile: &Path) {
+    let _ = r.child.kill();
+    let _ = r.child.wait();
+    kill_profile_processes(profile).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+}
+
+/// The user agent of the normal (not headless) browser, from the version
+/// folder next to the exe (Edge and Chrome install as
+/// Application\msedge.exe + Application\142.0.3595.53\…). With it the
+/// background browser starts under the right name at once instead of
+/// starting, reading its agent and starting again.
+fn normal_ua(exe: &Path) -> Option<String> {
+    let major = std::fs::read_dir(exe.parent()?)
+        .ok()?
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().into_string().ok()?;
+            let parts: Vec<u32> = name.split('.').map(|p| p.parse().ok()).collect::<Option<_>>()?;
+            (parts.len() == 4 && e.path().is_dir()).then_some(parts[0])
+        })
+        .max()?;
+    let os = if cfg!(windows) {
+        "Windows NT 10.0; Win64; x64"
+    } else if cfg!(target_os = "macos") {
+        "Macintosh; Intel Mac OS X 10_15_7"
+    } else {
+        "X11; Linux x86_64"
+    };
+    let edge = exe.file_stem()?.to_string_lossy().to_lowercase().contains("edge");
+    Some(format!(
+        "Mozilla/5.0 ({os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36{}",
+        if edge { format!(" Edg/{major}.0.0.0") } else { String::new() }
+    ))
 }
 
 /// Start of the error when a new browser hands itself to one already
@@ -932,6 +970,21 @@ mod tests {
         settle(&b).await;
         assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("ok2".into()));
         close();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn normal_user_agent_from_the_version_folder() {
+        let dir = std::env::temp_dir().join(format!("am-ua-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("141.0.3537.85")).unwrap();
+        std::fs::create_dir_all(dir.join("142.0.3595.53")).unwrap();
+        std::fs::create_dir_all(dir.join("SetupMetrics")).unwrap();
+        std::fs::write(dir.join("143.0.0.1"), "a file, not a version folder").unwrap();
+        let ua = normal_ua(&dir.join("msedge.exe")).unwrap();
+        assert!(ua.contains("Chrome/142.0.0.0") && ua.ends_with("Edg/142.0.0.0") && !ua.contains("Headless"), "{ua}");
+        let ua = normal_ua(&dir.join("chrome.exe")).unwrap();
+        assert!(ua.ends_with("Safari/537.36") && !ua.contains("Edg/"), "{ua}");
+        assert!(normal_ua(&dir.join("none").join("msedge.exe")).is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
