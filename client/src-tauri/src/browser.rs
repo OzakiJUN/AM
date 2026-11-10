@@ -133,14 +133,21 @@ async fn close_leftover(profile: &Path) {
 /// The DevTools address of the running browser, starting it when needed.
 async fn ensure(b: &Browser) -> R<String> {
     let _one = STARTING.lock().await;
+    // Ours already? The process we started may only have been a launcher
+    // (Edge 157 on Windows starts the real browser and quits), so it counts
+    // as running while its DevTools port answers.
+    let known = {
+        let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
+        g.iter_mut().find(|(p, _)| p == &b.profile).map(|(_, r)| (r.ws.clone(), r.proxy.clone(), matches!(r.child.try_wait(), Ok(None))))
+    };
     let mut replaced = None;
-    {
+    if let Some((ws, proxy, child_alive)) = known {
+        let alive = child_alive || port_alive(&ws).await;
+        if alive && b.proxy.as_ref().is_none_or(|p| p == &proxy) {
+            return Ok(ws);
+        }
         let mut g = BROWSERS.lock().map_err(|_| "浏览器状态出错")?;
         if let Some(i) = g.iter().position(|(p, _)| p == &b.profile) {
-            let alive = g[i].1.child.try_wait().map_err(|e| e.to_string())?.is_none();
-            if alive && b.proxy.as_ref().is_none_or(|p| p == &g[i].1.proxy) {
-                return Ok(g[i].1.ws.clone());
-            }
             let (_, old) = g.remove(i); // closed by the owner, or another proxy wanted
             if alive {
                 replaced = Some(old);
@@ -222,27 +229,45 @@ fn normal_ua(exe: &Path) -> Option<String> {
 /// running on the profile and quits.
 const HANDED_OVER: &str = "AI 的浏览器一开就退出了";
 
-/// Ends every browser process started on this profile (its command line
-/// has `--user-data-dir=<profile>`).
-async fn kill_profile_processes(profile: &Path) {
+/// The command that ends every browser process started on this profile
+/// (its command line has `--user-data-dir=<profile>`, exactly: the visible
+/// browser's "ai-browser" must not match the background "ai-browser-bg").
+fn kill_cmd(profile: &Path) -> std::process::Command {
     let p = profile.display().to_string();
     #[cfg(windows)]
     {
+        use base64::Engine;
+        use std::os::windows::process::CommandExt;
+        // After the path: a quote, a space or the end, never "-bg".
         let script = format!(
-            "Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -and $_.CommandLine.Contains('{}') }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}",
-            format!("--user-data-dir={p}").replace('\'', "''")
+            "$re = '--user-data-dir=.?' + [regex]::Escape('{}') + '(?:[^\\w-]|$)'; Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -and $_.CommandLine -match $re }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}",
+            p.replace('\'', "''")
         );
-        let _ = tokio::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
-            .status()
-            .await;
+        // -EncodedCommand (UTF-16LE, base64): no quoting trouble on the command line.
+        let utf16: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        let mut c = std::process::Command::new("powershell");
+        c.args(["-NoProfile", "-NonInteractive", "-EncodedCommand", &base64::engine::general_purpose::STANDARD.encode(utf16)])
+            .creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        c
     }
     #[cfg(not(windows))]
     {
-        let pattern: String = format!("--user-data-dir={p}").chars().map(|c| if c.is_ascii_alphanumeric() || c == '/' || c == '-' || c == '=' || c == '_' { c.to_string() } else { format!("\\{c}") }).collect();
-        let _ = tokio::process::Command::new("pkill").args(["-f", "--", &pattern]).status().await;
+        let path: String = p.chars().map(|c| if c.is_ascii_alphanumeric() || c == '/' || c == '-' || c == '_' { c.to_string() } else { format!("\\{c}") }).collect();
+        let mut c = std::process::Command::new("pkill");
+        c.args(["-f", "--", &format!("--user-data-dir={path}( |$)")]);
+        c
     }
+}
+
+/// Ends every browser process started on this profile.
+async fn kill_profile_processes(profile: &Path) {
+    let _ = tokio::process::Command::from(kill_cmd(profile)).status().await;
+}
+
+/// Whether the browser behind a DevTools address still answers.
+async fn port_alive(ws: &str) -> bool {
+    let Some(port) = ws.strip_prefix("ws://127.0.0.1:").and_then(|r| r.split('/').next()).and_then(|p| p.parse::<u16>().ok()) else { return false };
+    matches!(tokio::time::timeout(Duration::from_millis(800), tokio::net::TcpStream::connect(("127.0.0.1", port))).await, Ok(Ok(_)))
 }
 
 /// The last lines the browser wrote (browser.log in its profile).
@@ -303,19 +328,27 @@ async fn launch(b: &Browser, ua: Option<&str>) -> R<Running> {
     let mut child = cmd.spawn().map_err(|e| format!("打不开浏览器：{e}"))?;
     // The file holds the port and the browser's DevTools path, one per line.
     // A first start on a new profile can be slow (antivirus, first-run setup).
+    // The process we started may be a launcher that starts the real browser
+    // and quits (Edge 157 on Windows): keep waiting for the port file. If it
+    // quit and no browser shows up, it handed itself to another browser
+    // already running on the profile.
+    let mut quit_ticks = 0;
     for _ in 0..250 {
         if let Some(ws) = port_file_ws(&b.profile) {
             return Ok(Running { child, ws, proxy });
         }
         if let Ok(Some(_)) = child.try_wait() {
-            // It handed itself to another browser on the same profile and quit.
-            let said = log_tail(&b.profile);
-            return Err(format!("{HANDED_OVER}：它的资料夹被另一个浏览器占着。{}", if said.is_empty() { String::new() } else { format!("浏览器说：{said}") }));
+            quit_ticks += 1;
+            if quit_ticks > 100 {
+                let said = log_tail(&b.profile);
+                return Err(format!("{HANDED_OVER}：它的资料夹被另一个浏览器占着。{}", if said.is_empty() { String::new() } else { format!("浏览器说：{said}") }));
+            }
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     let _ = child.kill();
     let _ = child.wait();
+    kill_profile_processes(&b.profile).await;
     Err("浏览器开了，但 25 秒内没连上它".into())
 }
 
@@ -744,9 +777,11 @@ pub async fn bili(b: &Browser, action: &str, key: &str) -> R<Value> {
 /// Also called when AM quits, so the headless one does not outlive it.
 pub fn close() {
     if let Ok(mut g) = BROWSERS.lock() {
-        for (_, mut r) in g.drain(..) {
+        for (profile, mut r) in g.drain(..) {
             let _ = r.child.kill();
             let _ = r.child.wait();
+            // The real browser, when what we started was only a launcher.
+            let _ = kill_cmd(&profile).status();
         }
     }
 }
@@ -972,6 +1007,43 @@ mod tests {
         settle(&b).await;
         assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("ok2".into()));
         close();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Edge 157's msedge.exe is only a launcher: it starts the real browser
+    /// and exits 0. AM must keep waiting for the port file, reuse that
+    /// browser while its port answers, and close it by its profile.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn starts_through_a_launcher_that_exits() {
+        let Ok(real) = std::env::var("AM_BROWSER") else { return };
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let dir = std::env::temp_dir().join(format!("am-launcher-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("launcher.sh");
+        std::fs::write(&script, format!("#!/bin/sh\nsetsid '{real}' \"$@\" >/dev/null 2>&1 &\nexit 0\n")).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::env::set_var("AM_BROWSER", &script);
+        let b = Browser::new(dir.join("profile"), true);
+        let first = ensure(&b).await;
+        std::env::set_var("AM_BROWSER", &real);
+        let ws = first.unwrap();
+        assert_eq!(ensure(&b).await.unwrap(), ws, "a second start instead of the running browser");
+        cdp(&b, "Page.navigate", json!({ "url": "data:text/html,<title>ok3</title>" })).await.unwrap();
+        settle(&b).await;
+        assert_eq!(eval(&b, "document.title").await.unwrap(), Value::String("ok3".into()));
+        close();
+        let mut gone = false;
+        for _ in 0..30 {
+            if !port_alive(&ws).await {
+                gone = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert!(gone, "the real browser still runs after close()");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
