@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { channelTurnIsDirected, addressed, namesOf, splitBubbles, typingMs, gameRemark, FOLLOW_UP_SECONDS, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
+import { channelTurnIsDirected, addressed, namesOf, autoStatus, extractActions, pickSticker, replyDelay, timeNote, lunarDay, shareDue, splitBubbles, typingMs, gameRemark, FOLLOW_UP_SECONDS, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
 
 const s = defaultChannels();
 const me = 'ai';
@@ -145,6 +145,43 @@ assert.equal(typingMs('长'.repeat(500), 1), 9000);
 assert.ok(gameRemark(0, 100_000, 0.1));
 assert.ok(!gameRemark(0, 100_000, 0.9));
 assert.ok(!gameRemark(50_000, 100_000, 0));
+
+// Stickers and reactions written in its reply.
+assert.deepEqual(extractActions('笑死我了 [sticker:笑死]'), { text: '笑死我了', sticker: '笑死' });
+assert.deepEqual(extractActions('[react:😂]'), { text: '', react: '😂' });
+assert.deepEqual(extractActions('好耶【表情包：开心 撒花】\n[贴：👍]'), { text: '好耶', sticker: '开心 撒花', react: '👍' });
+assert.deepEqual(extractActions('[react:🍕] 吃吗'), { text: '吃吗' }, 'not one of the emoji people can use');
+assert.deepEqual(extractActions('普通的话'), { text: '普通的话' });
+const pack = [{ id: 'a', tags: ['猫猫', '震惊'] }, { id: 'b', tags: ['笑死', '哈哈'] }, { id: 'c', tags: ['笑'] }];
+assert.equal(pickSticker(pack, '笑死', 0)?.id, 'b');
+assert.equal(pickSticker(pack, '震惊的猫', 0)?.id, 'a', 'contained either way');
+assert.equal(pickSticker(pack, '生气', 0), null);
+assert.equal(pickSticker([], '笑', 0), null);
+// Late when busy or asleep, with a reason.
+assert.equal(replyDelay({ busy: '', asleep: false, random: 0.5 }).ms, 0);
+assert.ok(replyDelay({ busy: '在吃饭', asleep: false, random: 0 }).ms === 15_000 && replyDelay({ busy: '在吃饭', asleep: false, random: 0 }).aside.includes('在吃饭'));
+assert.ok(replyDelay({ busy: '', asleep: true, random: 1 }).ms === 120_000);
+// Time as a person feels it (local time of this test machine).
+assert.match(timeNote(new Date(2026, 10, 11, 10, 40)), /11 月 11 日 星期三 上午 10:40.*双十一/);
+assert.match(timeNote(new Date(2026, 10, 13, 20, 0)), /周五晚上/);
+assert.match(timeNote(new Date(2026, 10, 14, 23, 30)), /周末.*很晚了/);
+if (lunarDay(new Date(2026, 8, 25, 12)) === '8-15') {
+  assert.match(timeNote(new Date(2026, 8, 25, 12)), /中秋节/);
+  assert.match(timeNote(new Date(2026, 1, 16, 20)), /除夕/);
+  assert.match(timeNote(new Date(2026, 1, 17, 9)), /春节/);
+} else console.log('(no Chinese calendar in this Node: lunar festivals not checked)');
+// Sharing what it found: something new, someone around, not too often.
+const share = { now: 10 * 3600_000, lastShare: 0, asleep: false, hasFinding: true, someoneAround: true, random: 0 };
+assert.ok(shareDue(share));
+assert.ok(!shareDue({ ...share, lastShare: share.now - 3600_000 }));
+assert.ok(!shareDue({ ...share, hasFinding: false }));
+assert.ok(!shareDue({ ...share, random: 0.5 }));
+
+// Its status follows what it does in its browser.
+assert.deepEqual(autoStatus('browser_watch', {}, '视频：【猫】一只会开门的猫猫，真的太聪明了吧\nUP 主：x'), { text: '在看：【猫】一只会开门的猫猫，真的太聪明了', minutes: 10 });
+assert.equal(autoStatus('browser_search', { site: 'bilibili' }, '')?.text, '在刷 B 站');
+assert.equal(autoStatus('browser_watch', {}, '没有标题')?.text, '在看视频');
+assert.equal(autoStatus('browser_click', {}, ''), null);
 
 const continued = { ...question, toMe: follow([answer, question]) };
 assert.equal(decide({ now, s: { ...s, mode: 'mention' }, recent: [answer, continued], me, mySends: Array(40).fill(now - 100), random: 0, random2: 0 }).act, 'reply');

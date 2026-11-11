@@ -286,7 +286,13 @@ update the docs in the same commit.
   frames (`message.Typing` relays, `Session.sendTyping` / `view.typing`,
   `TypingLine` in Chat.tsx), channel replies don't stream: split by
   `splitBubbles`, delayed by `typingMs`; game turns re-check after each turn
-  and `wakeGames` every tick; `gameRemark` now and then. @-mentions: `lib/mentions.ts`. Portrait pokes hit-test the
+  and `wakeGames` every tick; `gameRemark` now and then. Batch 2: `[sticker:…]`
+  / `[react:😂]` in replies (`extractActions`, `pickSticker`, `findSticker`),
+  late when busy / asleep (`replyDelay`, `busyWith`, `ReplyOpts.aside`),
+  sharing surf finds (`unsharedFind` / `markShared`, `shareDue`), status from
+  what it does (`autoStatus`, `showDoing`), `Persona.style`, `moodNote`,
+  `timeNote` (lunar festivals via `Intl` Chinese calendar), channel lore in
+  memory (`lore`). @-mentions: `lib/mentions.ts`. Portrait pokes hit-test the
   picture's alpha (`hitPortrait`) and send "[戳一戳] …".
 - AI batch 3: silent persona evolution (`maybeEvolve` in runner, pure helpers
   `evolvePrompt` / `parseEvolved` / `adoptPersona`), offline `catchUp`,

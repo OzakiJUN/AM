@@ -1,7 +1,7 @@
 // An AI's persona and settings (docs/design.md §9), kept as JSON on the
 // server (only the owner reads it: GET/PUT /api/v1/ai). Pure.
-import { FOLLOW_UP_SECONDS, defaultChannels, defaultGames, defaultProactive, defaultRoutine, type ChannelSettings, type GameSettings, type ProactiveSettings, type RoutineSettings } from './social.ts';
-import { MOODS, splitMoodTag } from '../portraits.ts';
+import { FOLLOW_UP_SECONDS, REACTIONS, timeNote, defaultChannels, defaultGames, defaultProactive, defaultRoutine, type ChannelSettings, type GameSettings, type ProactiveSettings, type RoutineSettings } from './social.ts';
+import { MOOD_LABEL, MOODS, splitMoodTag } from '../portraits.ts';
 import type { ChatMsg } from './providers.ts';
 
 export interface Persona {
@@ -13,6 +13,8 @@ export interface Persona {
   examples: string;
   /** First message when a chat starts. */
   greeting: string;
+  /** How it types: pet phrases, punctuation, slang ("句尾不加句号，爱说「草」"). */
+  style?: string;
 }
 
 export interface AISettings {
@@ -165,17 +167,31 @@ export function parseSettings(json: string): AISettings {
 }
 
 /** The system prompt: persona, who is talking, and the mood tag rule. */
-export function systemPrompt(o: { name: string; owner: string; persona: Persona; now: Date }): string {
+export function systemPrompt(o: { name: string; owner: string; persona: Persona; now: Date; mood?: { key: string; at: number } }): string {
   const p = o.persona;
   return [
     `你叫「${o.name}」（这是主人给你起的名字，别人问起就这么说），你是「${o.owner}」的 AI，在一个叫 AM 的聊天软件里和人聊天。`,
     p.intro && `你是：${p.intro}`,
     p.system,
+    p.style?.trim() && `你的说话习惯（打字风格、口头禅）：${p.style.trim()}`,
     p.examples && `说话的样子参考：\n${p.examples}`,
-    `现在是 ${o.now.toLocaleString('zh-CN', { hour12: false })}。`,
+    timeNote(o.now),
+    moodNote(o.mood, o.now.getTime()),
     '如果收到「[戳一戳] …」，那是对方在你的立绘上戳了你一下（脸、头、身上或脚），按你的性格自然地反应，一两句就好。',
     `每条回复必须以情绪标签开头，格式 [mood:xxx]，xxx 从这些里选一个最符合你此刻心情的：${MOODS.join(', ')}。标签后面直接接你要说的话，不要解释标签。`,
   ].filter(Boolean).join('\n\n');
+}
+
+/**
+ * How it still feels after its last message (a mood fades in 20 minutes);
+ * '' for calm moods or when it has passed.
+ */
+export function moodNote(mood: { key: string; at: number } | undefined, now: number): string {
+  if (!mood || mood.key === 'neutral' || mood.key === 'thinking') return '';
+  const min = Math.floor((now - mood.at) / 60_000);
+  const label = (MOOD_LABEL as Record<string, string>)[mood.key];
+  if (!label || min < 0 || min >= 20) return '';
+  return `你刚才（${min < 1 ? '刚刚' : `${min} 分钟前`}）的心情是「${label}」，现在还带着一点：说话可以有这个情绪的余韵，除非有新的事让你心情变了；慢慢就会过去。`;
 }
 
 /**
@@ -184,7 +200,10 @@ export function systemPrompt(o: { name: string; owner: string; persona: Persona;
  */
 export function appPrompt(tools: string[], plugins: { name: string; kind: string; detail: string }[] = [], helper: { name: string; usage: string; help: string }[] = [], helperName = '小助手', web: { bili?: string; hostedOff?: boolean } = {}): string {
   const has = (n: string) => tools.includes(n);
-  const lines: string[] = [];
+  const lines: string[] = [
+    '- 发表情包：在回复里任何位置写 [sticker:关键词]（比如 [sticker:笑死]、[sticker:无语 猫]），会按关键词从你的表情和服务器的公共表情库里挑一张发出去。可以配一句话，也可以只发表情包不说话。像真人一样偶尔用，别每句都发。',
+    `- 贴表情：写 [react:😂] 就在对方那条消息上贴一个表情（只能用这些：${REACTIONS.join(' ')}）。只想简单回应（好笑、赞同、收到）时可以只贴表情、不说话，就像群里大家常做的。`,
+  ];
   if (has('browser_search')) {
     lines.push('- 你有自己的浏览器（browser_ 工具，单独的资料夹，不是主人的）：browser_search 用搜索引擎搜（site 选必应 bing / B 站 bilibili / YouTube youtube），browser_open 打开网址，browser_watch 看视频（简介、字幕、弹幕、评论，还能截几帧看画面）。想查的、想看的直接去搜、去看。你搜过什么、打开过哪些网页和视频，主人都能在你的设置里看到。'
       + (web.bili ? `B 站已经用「${web.bili}」这个号登录了，看得到字幕和完整评论。` : web.bili === '' ? 'B 站现在没登录（字幕、完整评论可能看不到）：主人可以在你的设置 → 电脑 →「AI 浏览器登录 B 站」扫码登录。' : ''));
@@ -225,7 +244,7 @@ export function elsewherePrompt(lines: string[], games: string[]): string {
 export function channelPrompt(o: { channel: string; members: string[] }): string {
   return [
     `你现在在频道「${o.channel}」里，和好几个人一起聊天。频道里有：${o.members.join('、') || '（不清楚）'}。每条消息前面的「名字：」是说话的人。`,
-    '像群里的普通成员一样说话：一两句、口语化；不是每句话都要接，别抢话、别刷屏；可以接话、发表自己的想法、提问，聊冷了也可以开个新话题。有具体的新信息或观点时再接话。',
+    '像群里的普通成员一样说话：短、口语化，像发微信（一两句就好，不用把话说得很完整，也不用总结）；可以接梗、吐槽、附和、提问、发表情包，聊冷了也可以开个新话题；不是每句话都要接，别抢话、别刷屏。',
     '正在和同一个人聊时，自然地接着回答，不要要求对方每句都 @ 你。明确回复或点名别人的消息不要抢答。',
     '想叫谁就写「@名字」。',
     '如果这次没必要说话，就只回复 [skip]，不要写别的字。',
@@ -332,7 +351,7 @@ export function parseEvolved(text: string, old: Persona): Persona | null {
   }
   const o = v as Record<string, unknown>;
   const str = (k: string, max: number) => (typeof o[k] === 'string' ? (o[k] as string).trim().slice(0, max) : '');
-  const next = { intro: str('intro', 60) || old.intro, system: str('system', 1500), examples: str('examples', 600) || old.examples, greeting: old.greeting };
+  const next = { intro: str('intro', 60) || old.intro, system: str('system', 1500), examples: str('examples', 600) || old.examples, greeting: old.greeting, ...(old.style ? { style: old.style } : {}) };
   // An empty or tiny prompt means something went wrong: keep the old one.
   if (next.system.length < Math.min(20, old.system.length)) return null;
   if (next.intro === old.intro && next.system === old.system && next.examples === old.examples) return null;

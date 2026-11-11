@@ -2,6 +2,8 @@
 // a channel, and its day (getting up, meals, play, going to bed). Pure and
 // tested; lib/ai/runner.ts does the talking.
 
+import { CHAT_EMOJI } from '../chatTools.ts';
+
 /** How an AI behaves in the channels it is in. */
 export interface ChannelSettings {
   /** mention = called by name / @ or continuing a chat; active = also joins by itself. */
@@ -319,4 +321,127 @@ export function shouldJoin(raw: string): boolean {
     const match = raw.match(/\{[\s\S]*\}/);
     return !!match && JSON.parse(match[0]).reply === true;
   } catch { return false; }
+}
+
+// ---------- like a person, batch 2 (docs/design.md §9 像群友) ----------
+
+/** Emoji it may stick on a message: the same as people can. */
+export const REACTIONS = CHAT_EMOJI;
+
+/**
+ * What it wants to do besides talking, written in its reply: `[sticker:笑死]`
+ * (send a sticker found by these words) and `[react:😂]` (stick an emoji on
+ * the message it answers). Both are taken out of the text; a reaction that
+ * isn't one of REACTIONS is dropped.
+ */
+export function extractActions(text: string): { text: string; sticker?: string; react?: string } {
+  let sticker: string | undefined;
+  let react: string | undefined;
+  let out = text.replace(/[[［【]\s*(?:sticker|表情包|表情)\s*[:：]\s*([^\]］】\n]{1,20})[\]］】]/gi, (_, q: string) => {
+    sticker ??= q.trim();
+    return '';
+  });
+  out = out.replace(/[[［【]\s*(?:react|reaction|贴)\s*[:：]\s*([^\]］】\n]{1,8})[\]］】]/gi, (_, e: string) => {
+    const emoji = e.trim();
+    if (!react && REACTIONS.includes(emoji)) react = emoji;
+    return '';
+  });
+  return { text: out.replace(/[ \t]+\n/g, '\n').trim(), ...(sticker ? { sticker } : {}), ...(react ? { react } : {}) };
+}
+
+/**
+ * The sticker that fits `query` best: a tag equal to a word scores 3, a tag
+ * containing one or contained in one 2 (2+ characters); `random` 0–1 breaks
+ * ties. null = nothing fits.
+ */
+export function pickSticker<T extends { tags: string[] }>(cands: T[], query: string, random: number): T | null {
+  const words = query.toLowerCase().split(/[\s,，、/|]+/).filter(Boolean);
+  if (!words.length) return null;
+  let best: T[] = [];
+  let top = 0;
+  for (const c of cands) {
+    let score = 0;
+    for (const tag of c.tags.map((t) => t.toLowerCase())) {
+      for (const w of words) {
+        if (tag === w) score += 3;
+        else if ([...w].length >= 2 && [...tag].length >= 2 && (tag.includes(w) || w.includes(tag))) score += 2;
+      }
+    }
+    if (score > top) {
+      top = score;
+      best = [c];
+    } else if (score === top && score > 0) best.push(c);
+  }
+  return best.length ? best[Math.min(best.length - 1, Math.floor(random * best.length))] : null;
+}
+
+/**
+ * How long it takes to notice a message meant for it: busy (eating, playing)
+ * 15–60 s, asleep 30–120 s, else at once; `aside` tells it why it is late.
+ */
+export function replyDelay(o: { busy: string; asleep: boolean; random: number }): { ms: number; aside: string } {
+  if (o.asleep) return { ms: Math.round(30_000 + 90_000 * o.random), aside: '你本来在睡觉，被消息吵醒了：迷迷糊糊地回，简短一点，可以抱怨一句被吵醒。' };
+  if (o.busy) return { ms: Math.round(15_000 + 45_000 * o.random), aside: `你刚才在忙（${o.busy}），现在才看到消息，可以顺口提一句刚才在干嘛。` };
+  return { ms: 0, aside: '' };
+}
+
+const SOLAR: Record<string, string> = {
+  '1-1': '元旦', '2-14': '情人节', '3-8': '妇女节', '4-1': '愚人节', '5-1': '劳动节', '5-4': '青年节', '6-1': '儿童节',
+  '9-10': '教师节', '10-1': '国庆节', '10-31': '万圣夜', '11-11': '双十一（光棍节）', '12-24': '平安夜', '12-25': '圣诞节', '12-31': '跨年夜',
+};
+const LUNAR: Record<string, string> = { '1-1': '春节', '1-15': '元宵节', '5-5': '端午节', '7-7': '七夕', '8-15': '中秋节', '9-9': '重阳节' };
+const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
+
+/** Chinese lunar month-day ("8-15"), '' when this device's ICU has no Chinese calendar (or a leap month). */
+export function lunarDay(d: Date): string {
+  try {
+    const parts = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', { month: 'numeric', day: 'numeric' }).formatToParts(d);
+    const m = parts.find((p) => p.type === 'month')?.value ?? '';
+    const day = parts.find((p) => p.type === 'day')?.value ?? '';
+    return /^\d+$/.test(m) && /^\d+$/.test(day) ? `${Number(m)}-${Number(day)}` : '';
+  } catch {
+    return '';
+  }
+}
+
+/** The date and time as a person feels it: weekday, part of the day, weekend, festivals (solar and lunar, 除夕). */
+export function timeNote(d: Date): string {
+  const h = d.getHours();
+  const part = h < 5 ? '凌晨' : h < 9 ? '早上' : h < 12 ? '上午' : h < 14 ? '中午' : h < 18 ? '下午' : h < 23 ? '晚上' : '深夜';
+  const hm = `${String(h).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const lines = [`现在是 ${d.getMonth() + 1} 月 ${d.getDate()} 日 星期${WEEKDAY[d.getDay()]} ${part} ${hm}。`];
+  const days: string[] = [];
+  const solar = SOLAR[`${d.getMonth() + 1}-${d.getDate()}`];
+  if (solar) days.push(solar);
+  const lunar = LUNAR[lunarDay(d)];
+  if (lunar) days.push(lunar);
+  if (lunarDay(new Date(d.getTime() + 24 * 3600_000)) === '1-1') days.push('除夕');
+  if (days.length) lines.push(`今天是${days.join('、')}，聊天时可以自然地带一嘴。`);
+  const dow = d.getDay();
+  if (dow === 5 && h >= 17) lines.push('周五晚上了，大家多半比较放松。');
+  else if (dow === 6 || dow === 0) lines.push('今天是周末。');
+  else if (dow === 1 && h < 12) lines.push('周一上午，大家可能有点没精神。');
+  if (h >= 23 || h < 5) lines.push('已经很晚了：说话短一点，带点困意，可以提醒别人早点睡。');
+  return lines.join('');
+}
+
+/**
+ * Whether to share something it found while surfing now (checked every 30 s):
+ * only awake, with something unshared, at most every 3 hours, spread out.
+ */
+export function shareDue(o: { now: number; lastShare: number; asleep: boolean; hasFinding: boolean; someoneAround: boolean; random: number }): boolean {
+  return !o.asleep && o.hasFinding && o.someoneAround && o.now - o.lastShare > 3 * HOUR && o.random < 0.05;
+}
+
+/**
+ * What its status says by itself after using its browser ("在看：…", "在刷 B 站"),
+ * and for how long; null = nothing to show.
+ */
+export function autoStatus(tool: string, args: Record<string, unknown>, result: string): { text: string; minutes: number } | null {
+  if (tool === 'browser_watch') {
+    const title = /^(?:视频|页面)：(.+)$/m.exec(result)?.[1]?.trim();
+    return { text: title ? `在看：${[...title].slice(0, 18).join('')}` : '在看视频', minutes: 10 };
+  }
+  if (tool === 'browser_search') return { text: args.site === 'bilibili' ? '在刷 B 站' : args.site === 'youtube' ? '在刷 YouTube' : '在网上冲浪', minutes: 6 };
+  return null;
 }
