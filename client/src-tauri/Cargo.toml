@@ -1,6 +1,6 @@
 [package]
 name = "am-client"
-version = "0.1.7"
+version = "0.1.8"
 description = "AM (AI Message) desktop client"
 edition = "2021"
 publish = false
