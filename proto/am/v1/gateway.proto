@@ -32,6 +32,8 @@ message ClientFrame {
     AIControlRequest ai_control = 17;
     // The client running an AI answers its owner's ai_control.
     AIControlResult ai_control_result = 18;
+    // I am writing in a conversation (send every few seconds while I do).
+    TypingRequest typing = 19;
   }
 }
 
@@ -66,6 +68,8 @@ message ServerFrame {
     ClientUpdatePush client_update = 42;
     AIControlPush ai_control = 43;
     AIControlResultPush ai_control_result = 44;
+    // Someone in one of my conversations is writing (shown a few seconds).
+    TypingPush typing = 45;
   }
 }
 
@@ -289,6 +293,18 @@ message AIControlResultPush {
   int64 ai_id = 2;
   bool ok = 3;
   string text = 4;
+}
+
+// "Is writing…": nothing is stored. The server passes it to the other
+// members at most once every 2 seconds per person and conversation (more
+// are dropped quietly); invisible people's are dropped. Errors: not_member.
+message TypingRequest {
+  int64 conv_id = 1;
+}
+
+message TypingPush {
+  int64 conv_id = 1;
+  int64 user_id = 2;
 }
 
 // To an AI's owner: someone asks to talk with it.

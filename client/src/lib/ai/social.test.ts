@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { channelTurnIsDirected, addressed, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
+import { channelTurnIsDirected, addressed, namesOf, splitBubbles, typingMs, gameRemark, FOLLOW_UP_SECONDS, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
 
 const s = defaultChannels();
 const me = 'ai';
@@ -113,6 +113,39 @@ assert.ok(!follow([answer, question], 0));
 assert.ok(!follow([{ ...answer, time: now - 300001 }, question]));
 assert.ok(follow([question], 0, true));
 assert.ok(!follow([{ ...question, toOthers: true }], 300, true));
+// Right after what it said (its own remark, or its answer to this person), no @ needed;
+// only this person's messages in between; not when it was answering someone else.
+const remark = msg(me, 5000, { ai: true });
+assert.ok(follow([remark, question]));
+assert.ok(follow([remark, msg('bob', 3000, { text: '真的吗' }), question]));
+assert.ok(!follow([remark, msg('carol', 3000, { text: '我也觉得' }), question]));
+assert.ok(!follow([{ ...remark, replyToSender: 'carol' }, question]));
+assert.ok(!follow([{ ...remark, time: now - 300001 }, question]), 'older than the window');
+assert.ok(follow([{ ...remark, time: now - 1700_000 }, question], FOLLOW_UP_SECONDS), 'half an hour by default');
+assert.equal(s.followUpSeconds, 1800);
+
+// Its names: full name, without 大/小/阿/老, nicknames of 2+ characters.
+assert.deepEqual(namesOf('大肥鱼', ['鱼鱼', '鱼']), ['大肥鱼', '肥鱼', '鱼鱼']);
+assert.ok(addressed('肥鱼你在干嘛', undefined, me, '大肥鱼'));
+assert.ok(addressed('鱼鱼来下棋', undefined, me, '大肥鱼', ['鱼鱼']));
+assert.ok(!addressed('今天吃鱼', undefined, me, '大肥鱼', ['鱼']));
+assert.ok(!addressed('肥鱼呢', ['carol'], me, '大肥鱼'), '@ someone else wins');
+assert.deepEqual(namesOf('小克'), ['小克'], '克 alone is too short');
+
+// Group replies: paragraphs as separate messages, short bits kept together, at most 3.
+assert.deepEqual(splitBubbles('一句话'), ['一句话']);
+assert.deepEqual(splitBubbles('哈哈\n这个我知道，是上周出的新版本\n\n不过听说有点卡'), ['哈哈\n这个我知道，是上周出的新版本', '不过听说有点卡']);
+assert.equal(splitBubbles('第一段比较长的一句话\n第二段也比较长的一句话\n第三段同样很长的话\n第四段还是很长的话').length, 3);
+assert.deepEqual(splitBubbles('  \n '), []);
+// Typing time grows with length, stays human.
+assert.equal(typingMs('好', 0), 1200);
+assert.ok(typingMs('这是一句二十个字左右的回复，看看要打多久呢', 0.5) > 3000);
+assert.equal(typingMs('长'.repeat(500), 1), 9000);
+// Game remarks: sometimes, not twice within 90 s.
+assert.ok(gameRemark(0, 100_000, 0.1));
+assert.ok(!gameRemark(0, 100_000, 0.9));
+assert.ok(!gameRemark(50_000, 100_000, 0));
+
 const continued = { ...question, toMe: follow([answer, question]) };
 assert.equal(decide({ now, s: { ...s, mode: 'mention' }, recent: [answer, continued], me, mySends: Array(40).fill(now - 100), random: 0, random2: 0 }).act, 'reply');
 assert.equal(decideWith([question], 0, Array(30).fill(now - 1000)).act, 'no');

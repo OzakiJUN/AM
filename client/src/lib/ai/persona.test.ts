@@ -59,4 +59,9 @@ assert.ok(ap.includes('· 五子棋（小游戏）：连五个赢') && ap.includ
 assert.equal(elsewherePrompt([], []), '');
 const ep = elsewherePrompt(['「大厅」Weiqi：我赢了'], ['和 Weiqi 下五子棋：Weiqi（黑）赢了']);
 assert.ok(ep.includes('桌游：\n和 Weiqi') && ep.includes('最近的聊天：\n「大厅」'), ep);
+// The old 300 s follow-up default becomes half an hour; a chosen value stays.
+assert.equal(parseSettings(JSON.stringify({ channels: { followUpSeconds: 300 } })).channels.followUpSeconds, 1800);
+assert.equal(parseSettings(JSON.stringify({ channels: { followUpSeconds: 600 } })).channels.followUpSeconds, 600);
+assert.deepEqual(parseSettings('').channels.nicknames, []);
+
 console.log('ai persona ok');

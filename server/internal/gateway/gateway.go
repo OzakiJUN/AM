@@ -377,6 +377,10 @@ func (g *Gateway) handle(ctx context.Context, c *Conn, f *amv1.ClientFrame) *amv
 		if err = g.remote.Result(ctx, c.user, m.RemoteToolResult); err == nil {
 			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}
 		}
+	case *amv1.ClientFrame_Typing:
+		if err = g.msg.Typing(ctx, c.user, m.Typing); err == nil {
+			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}
+		}
 	case *amv1.ClientFrame_AiControl:
 		if err = g.remote.Control(ctx, c.user, m.AiControl); err == nil {
 			return &amv1.ServerFrame{ReqId: id, Msg: &amv1.ServerFrame_Ack{Ack: &amv1.Ack{}}}

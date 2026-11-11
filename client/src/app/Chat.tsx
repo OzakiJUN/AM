@@ -598,6 +598,31 @@ function ImageViewer({ mediaId, onClose }: { mediaId: string | null; onClose: ()
 
 const EMOJI = '😀😂🤣😊😍🥰😘😎🤔😅😭😡🥺😴🤯👍👎👏🙏💪🎉❤️🔥✨💯🤝👀🫡🥳😇😋🤗😏😬🙄😱🤤'.match(/\p{Extended_Pictographic}️?/gu)!;
 
+/** "大肥鱼 正在输入…" above the box while someone else is writing here. */
+function TypingLine({ v, convId }: { v: SessionView; convId: string }) {
+  const names = Object.keys(v.typing?.[convId] ?? {}).filter((id) => id !== v.me?.id).map((id) => v.users[id]?.name ?? '有人');
+  const text = !names.length ? '' : names.length <= 2 ? `${names.join('、')} 正在输入…` : `${names.slice(0, 2).join('、')} 等 ${names.length} 人正在输入…`;
+  return (
+    <AnimatePresence>
+      {text && (
+        <motion.div
+          key="typing"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 4 }}
+          transition={ease}
+          className="mb-1.5 flex items-center gap-1.5 px-1 text-[0.78rem] text-ink-soft dark:text-white/50"
+          role="status"
+          data-testid="typing"
+        >
+          <span className="inline-flex gap-0.5" aria-hidden>{[0, 1, 2].map((i) => <motion.span key={i} className="h-1 w-1 rounded-full bg-ink-soft/70" animate={{ y: [0, -2.5, 0] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }} />)}</span>
+          <span className="truncate">{text}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function Composer({ v, conv, blocked, replyId, onCancelReply }: { v: SessionView; conv: Conversation; blocked: boolean; replyId?: string; onCancelReply: () => void }) {
   const narrow = useNarrow();
   const [text, setText] = useState('');
@@ -631,6 +656,7 @@ function Composer({ v, conv, blocked, replyId, onCancelReply }: { v: SessionView
   };
   const onText = (value: string, caret: number) => {
     setText(value);
+    if (value.trim()) current().sendTyping(conv.id);
     const q = conv.kind === 'group' ? mentionQuery(value, caret) : null;
     setAt(q ? { ...q, index: 0 } : null);
   };
@@ -704,6 +730,7 @@ function Composer({ v, conv, blocked, replyId, onCancelReply }: { v: SessionView
   const placeholder = conv.left ? '你已经不在这个频道里了' : muted ? '你被禁言了' : blocked ? '你屏蔽了对方，取消屏蔽后才能发消息' : v.status !== 'online' ? '正在连接服务器…' : narrow ? '说点什么…' : '说点什么…（Enter 发送，Shift+Enter 换行）';
   return (
     <div className="relative shrink-0 px-4 pb-4">
+      <TypingLine v={v} convId={conv.id} />
       {replyId && (
         <div className="mb-2 flex items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm">
           <Reply size={16} />

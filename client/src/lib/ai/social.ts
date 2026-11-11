@@ -6,8 +6,10 @@
 export interface ChannelSettings {
   /** mention = called by name / @ or continuing a chat; active = also joins by itself. */
   mode: 'mention' | 'active';
-  /** Same person's conversation continues without another @; 0 disables (default 300). */
+  /** Same person's conversation continues without another @; 0 disables (default 1800). */
   followUpSeconds?: number;
+  /** What people call it besides its name (肥鱼, 鱼鱼…): calling it so counts as talking to it. */
+  nicknames?: string[];
   /** 0–1: the model's preference for joining a discussion. */
   chattiness: number;
   /** Wait for a pause, but evaluate continuous discussion by maxBatchSeconds. */
@@ -21,7 +23,10 @@ export interface ChannelSettings {
   maxAIChain: number;
 }
 
-export const defaultChannels = (): ChannelSettings => ({ mode: 'active', followUpSeconds: 300, chattiness: 0.5, batchSeconds: 5, maxBatchSeconds: 20, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6 });
+/** How long a chat with one person goes on without another @ (seconds; was 300 before 2026-11-11). */
+export const FOLLOW_UP_SECONDS = 1800;
+
+export const defaultChannels = (): ChannelSettings => ({ mode: 'active', followUpSeconds: FOLLOW_UP_SECONDS, nicknames: [], chattiness: 0.5, batchSeconds: 5, maxBatchSeconds: 20, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6 });
 
 /** Its day. Times are "HH:MM" on the device that runs it; each event moves by up to `jitterMinutes`. */
 export interface RoutineSettings {
@@ -55,11 +60,19 @@ export interface Said {
   text?: string;
 }
 
-/** The message @-mentions the AI or calls it by name. */
-export function addressed(text: string, mentions: string[] | undefined, aiId: string, aiName: string): boolean {
-  if (mentions?.length) return mentions.includes(aiId);
+/** The names it answers to: its name, the name without a leading 大 / 小 / 阿 / 老, and its nicknames (2+ characters). */
+export function namesOf(aiName: string, nicknames: string[] = []): string[] {
   const name = aiName.trim();
-  return name.length >= 2 && text.toLowerCase().includes(name.toLowerCase());
+  const short = name.replace(/^[大小阿老]/u, '');
+  const all = [name, ...(short !== name ? [short] : []), ...nicknames.map((n) => n.trim())];
+  return [...new Set(all.filter((n) => [...n].length >= 2).map((n) => n.toLowerCase()))];
+}
+
+/** The message @-mentions the AI or calls it by one of its names. */
+export function addressed(text: string, mentions: string[] | undefined, aiId: string, aiName: string, nicknames: string[] = []): boolean {
+  if (mentions?.length) return mentions.includes(aiId);
+  const t = text.toLowerCase();
+  return namesOf(aiName, nicknames).some((n) => t.includes(n));
 }
 
 /** Skip pure reactions; a short real question or a number can still matter. */
@@ -69,17 +82,53 @@ export function discussionText(text: string): boolean {
 }
 
 /** Reconstruct a conversation from message history, including the AI's quoted replies. */
-export function channelTurnIsDirected(recent: Said[], me: string, now: number, followUpSeconds = 300, room = false): boolean {
+export function channelTurnIsDirected(recent: Said[], me: string, now: number, followUpSeconds = FOLLOW_UP_SECONDS, room = false): boolean {
   const last = recent.at(-1);
   if (!last || last.senderId === me) return false;
   if (last.toMe) return true;
   if (last.ai || last.toOthers) return false;
   if (room) return true;
   if (followUpSeconds <= 0 || !discussionText(last.text ?? '')) return false;
-  return recent.slice(0, -1).some((m) => m.time <= last.time && now - m.time <= followUpSeconds * 1000 && (
+  const fresh = (m: Said) => m.time <= last.time && now - m.time <= followUpSeconds * 1000;
+  // Right after what it said (only this person's own messages in between),
+  // unless it was answering someone else: the way people answer in a group.
+  const before = recent.slice(0, -1).reverse().find((m) => m.senderId !== last.senderId);
+  if (before?.senderId === me && fresh(before) && (!before.replyToSender || before.replyToSender === last.senderId)) return true;
+  return recent.slice(0, -1).some((m) => fresh(m) && (
     (m.senderId === me && m.replyToSender === last.senderId) ||
     (m.senderId === last.senderId && m.toMe)
   ));
+}
+
+/**
+ * A group reply as a person would send it: paragraphs as separate messages
+ * (at most `max`; short ones stay together, the rest goes in the last one).
+ */
+export function splitBubbles(text: string, max = 3): string[] {
+  const parts = text.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) return parts.length ? parts : [];
+  const out: string[] = [];
+  for (const p of parts) {
+    const prev = out.at(-1);
+    if (prev !== undefined && ([...prev].length < 8 || [...p].length < 4)) out[out.length - 1] = `${prev}\n${p}`;
+    else out.push(p);
+  }
+  if (out.length > max) out.splice(max - 1, out.length, out.slice(max - 1).join('\n'));
+  return out;
+}
+
+/**
+ * How long a person would take to type `text` (ms): about 6 characters a
+ * second plus a moment to think, between 1.2 and 9 seconds; `random` 0–1.
+ */
+export function typingMs(text: string, random: number): number {
+  const chars = [...text].length;
+  return Math.round(Math.min(9000, Math.max(1200, 600 + chars * 170 * (0.8 + 0.4 * random))));
+}
+
+/** Whether to say something during a game turn: now and then (35 %), never twice within 90 s. */
+export function gameRemark(lastAt: number, now: number, random: number): boolean {
+  return now - lastAt >= 90_000 && random < 0.35;
 }
 
 export type Decision = { act: 'reply' | 'maybe' | 'no'; delay: number; why: string };

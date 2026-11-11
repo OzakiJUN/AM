@@ -364,6 +364,11 @@ kind `fishing` 复用游戏开局、加入、离座、结束和推送接口，�
 - 那个人的某台设备（打开了允许的那台）回 `remote_tool_result{request_id, to_ai_id, ok, text, images}`：服务器回 `ack`，把 `remote_tool_result{request_id, from_user_id, ...}` 推给那个 AI。只有真人能回；`text` 最多 64 KiB，`images` 最多 2 张，合计 900 KiB 以内（`too_long`）。
 - 服务器什么都不记，也不判断能不能做：允不允许、问不问人都在对方设备上决定（docs/design.md §9）。
 
+### 正在输入
+
+- 发 `typing{conv_id}`：服务器回 `ack`，把 `typing{conv_id, user_id}` 推给会话里的其他成员（什么都不存）。不是成员 `not_member`。同一个人在同一个会话 2 秒内多发的、隐身的人发的、私信里有一方屏蔽了另一方的，都悄悄丢掉（照样回 `ack`）。
+- 客户端写的时候每 3 秒发一次；收到后显示 6 秒，那个人的消息到了就不再显示。
+
 ### 主人让运行 AI 的那个客户端做事（转发）
 
 - 主人的连接发 `ai_control{request_id, ai_id, action, args_json}`：服务器回 `ack`，把 `ai_control{request_id, from_user_id, action, args_json}` 推给那个 AI 的连接（运行它的那台设备，或者服务器上托管它的客户端）。只有它的主人（别人 `no_permission`，AI 不在或已删除 `user_not_found`）；每个主人每分钟最多 90 个 `rate_limited`；`args_json` 最多 16 KiB。

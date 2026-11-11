@@ -280,7 +280,13 @@ update the docs in the same commit.
   the day plan, `[status:…]` / `[skip]` parsing are pure in `lib/ai/social.ts`
   (tested); the runner debounces channel turns (`considerChannel`), ticks the
   routine every 30 s, prompts in `persona.ts` (`channelPrompt`,
-  `routinePrompt`). @-mentions: `lib/mentions.ts`. Portrait pokes hit-test the
+  `routinePrompt`). Group-member feel (2026-11-11): right-after replies and
+  nicknames count as talking to it (`channelTurnIsDirected`, `namesOf`,
+  `channels.nicknames`, follow-up 1800 s), "正在输入…" through `typing`
+  frames (`message.Typing` relays, `Session.sendTyping` / `view.typing`,
+  `TypingLine` in Chat.tsx), channel replies don't stream: split by
+  `splitBubbles`, delayed by `typingMs`; game turns re-check after each turn
+  and `wakeGames` every tick; `gameRemark` now and then. @-mentions: `lib/mentions.ts`. Portrait pokes hit-test the
   picture's alpha (`hitPortrait`) and send "[戳一戳] …".
 - AI batch 3: silent persona evolution (`maybeEvolve` in runner, pure helpers
   `evolvePrompt` / `parseEvolved` / `adoptPersona`), offline `catchUp`,

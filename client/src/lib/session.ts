@@ -112,6 +112,8 @@ export interface SessionView {
   icon: string;
   /** Board games in my conversations that I have seen (id -> my view of it). */
   games: Record<string, Game>;
+  /** Who is writing where right now: conversation id -> user id -> until (ms). */
+  typing: Record<string, Record<string, number>>;
 }
 
 /** A profile page: the widget board and what the viewer may do with it. */
@@ -469,6 +471,10 @@ export function previewText(m: Message, name: (id: string) => string): string {
   }
 }
 
+/** How often I tell others I am writing, and how long theirs shows without a new one. */
+const TYPING_EVERY_MS = 3000;
+const TYPING_SHOWN_MS = 6000;
+
 function randomId() {
   const b = new Uint8Array(12);
   crypto.getRandomValues(b);
@@ -524,7 +530,7 @@ export class Session {
       users: {}, convs: {}, messages: {}, replyTargets: {}, pins: {}, hasOlder: {}, isAdmin: false, blocked: [], joinRequests: {}, downloadUrl: '', plugins: false, hosting: false, commands: [], helperId: '', clientVersion: '',
       presence: {},
       icon: '',
-      games: {},
+      games: {}, typing: {},
     };
   }
 
@@ -1043,6 +1049,11 @@ export class Session {
         this.emit();
         break;
       }
+      case 'typing': {
+        const p = f.msg.value;
+        this.setTyping(s(p.convId), s(p.userId), Date.now() + TYPING_SHOWN_MS);
+        break;
+      }
       case 'presence': {
         const p = f.msg.value.presence;
         if (!p) break;
@@ -1289,6 +1300,8 @@ export class Session {
 
   private applyEvents(events: ev.Event[], live: boolean) {
     if (!events.length) return;
+    // Whoever just sent something is no longer writing it.
+    for (const e of events) if (this.view.typing?.[s(e.convId)]?.[s(e.senderId)]) this.setTyping(s(e.convId), s(e.senderId), 0);
     const touched = new Map<string, Message[]>();
     const get = (id: string) => {
       let l = touched.get(id);
@@ -1484,6 +1497,32 @@ export class Session {
     await this.request({ case: 'remoteToolResult', value: create(gw.RemoteToolResultSchema, {
       requestId: ask.requestId, toAiId: BigInt(ask.ai.id), ok: r.ok, text: r.text.slice(0, 60_000), images: r.images.slice(0, 2),
     }) });
+  }
+
+  // ---- "is writing…" (docs/design.md §6 正在输入) ----
+
+  private typingSent = new Map<string, number>();
+  private typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  /** Someone is writing until `until` (0 = stopped); cleared by itself when it runs out. */
+  private setTyping(convId: string, userId: string, until: number) {
+    const conv = { ...(this.view.typing?.[convId] ?? {}) };
+    if (until > Date.now()) conv[userId] = until;
+    else delete conv[userId];
+    this.patch({ typing: { ...this.view.typing, [convId]: conv } });
+    const key = `${convId}|${userId}`;
+    clearTimeout(this.typingTimers.get(key));
+    if (until > Date.now()) this.typingTimers.set(key, setTimeout(() => this.setTyping(convId, userId, 0), until - Date.now() + 50));
+    else this.typingTimers.delete(key);
+  }
+
+  /** Tells the others I am writing here (at most every 3 s; errors don't matter). */
+  sendTyping(convId: string) {
+    if (this.view.status !== 'online') return;
+    const last = this.typingSent.get(convId) ?? 0;
+    if (Date.now() - last < TYPING_EVERY_MS) return;
+    this.typingSent.set(convId, Date.now());
+    void this.request({ case: 'typing', value: create(gw.TypingRequestSchema, { convId: BigInt(convId) }) }).catch(() => {});
   }
 
   // ---- my AI, run elsewhere (docs/design.md §9) ----
