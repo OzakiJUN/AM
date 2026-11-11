@@ -3,7 +3,7 @@
 // "正在输入…", does not stream, and comes as one message per paragraph.
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
-const state = { requests: 0, replies: [], typing: 0, sent: [], acts: [] };
+const state = { requests: 0, replies: [], typing: 0, sent: [], acts: [], pins: [], stickers: [], presence: [] };
 globalThis.__amHuman = state;
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, plugins: [{
@@ -50,6 +50,11 @@ try {
       return view.games[id];
     },
     putClientState: async () => 1, listGames: async () => [],
+    placeEmoji: async (convId, target, emoji, x, y, remove, onBubble) => { state.pins.push({ target, emoji, onBubble }); },
+    listStickers: async () => [{ mediaId: 'm-own', tags: ['猫猫'] }],
+    stickerLibrary: async (q) => ({ items: [{ mediaId: 'm-lib', tags: ['笑死', '哈哈'] }], next: 0, disabled: false }),
+    sendSticker: async (convId, st) => { state.stickers.push(st); },
+    setPresence: async (invisible, activity) => { state.presence.push(activity); },
   } };
   testRunner.runs.set('srv|2', run);
 
@@ -78,5 +83,24 @@ try {
   assert.equal(state.acts.length, 2, 'its turn again: played without being told');
   await new Promise((r) => setTimeout(r, 300));
   assert.equal(state.acts.length, 2, 'then the other player');
-  console.log('AI like a person: typing shown, no streaming in channels, paragraph messages, game turns never lost');
+  // 3. A reaction on the message it answers, words, then a sticker from the library.
+  state.sent.length = 0;
+  const t2 = { id: 'm2', seq: 2, senderId: '1', time: Date.now(), body: { kind: 'text', text: '@大肥鱼 我又输了', mentions: ['2'] } };
+  view.messages['20'] = [trigger, t2];
+  state.replies.push('[mood:laugh] [react:😂] 笑死 [sticker:笑死]');
+  await testRunner.reply(run, '20', { must: true, trigger: t2 });
+  assert.deepEqual(state.pins, [{ target: 'm2', emoji: '😂', onBubble: true }]);
+  assert.deepEqual(state.sent.map((m) => m.text), ['笑死']);
+  assert.deepEqual(state.stickers, [{ mediaId: 'm-lib', tags: ['笑死', '哈哈'] }]);
+  assert.equal(run.mood.key, 'laugh', 'the mood lingers for its next replies');
+  // Only a reaction: nothing said.
+  state.sent.length = 0;
+  state.replies.push('[react:👍]');
+  await testRunner.reply(run, '20', { must: true, trigger: t2 });
+  assert.equal(state.sent.length, 0);
+  assert.equal(state.pins.at(-1).emoji, '👍');
+  // 4. Playing shows in its status.
+  assert.ok(state.presence.some((a) => a?.kind === 'playing' && a.text === '五子棋'), JSON.stringify(state.presence));
+
+  console.log('AI like a person: typing shown, no streaming in channels, paragraph messages, game turns never lost, reactions, stickers, mood, status');
 } finally { await server.close(); }

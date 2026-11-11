@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { EVOLVE_KEEP, adoptPersona, appPrompt, elsewherePrompt, defaultSettings, evolvePrompt, parseEvolved, parseSettings, previewText, systemPrompt, toChat, TEMPLATES } from './persona.ts';
+import { EVOLVE_KEEP, adoptPersona, appPrompt, moodNote, elsewherePrompt, defaultSettings, evolvePrompt, parseEvolved, parseSettings, previewText, systemPrompt, toChat, TEMPLATES } from './persona.ts';
 
 // Settings survive missing / unknown fields.
 assert.equal(parseSettings('').contextSize, 30);
@@ -63,5 +63,20 @@ assert.ok(ep.includes('桌游：\n和 Weiqi') && ep.includes('最近的聊天：
 assert.equal(parseSettings(JSON.stringify({ channels: { followUpSeconds: 300 } })).channels.followUpSeconds, 1800);
 assert.equal(parseSettings(JSON.stringify({ channels: { followUpSeconds: 600 } })).channels.followUpSeconds, 600);
 assert.deepEqual(parseSettings('').channels.nicknames, []);
+
+// Its typing style, the time as a person feels it, a mood that lingers.
+const sp = systemPrompt({ name: '大肥鱼', owner: '主人', persona: { ...defaultSettings().persona, style: '句尾不加句号，爱说「草」' }, now: new Date(2026, 10, 11, 23, 30), mood: { key: 'angry', at: new Date(2026, 10, 11, 23, 25).getTime() } });
+assert.match(sp, /说话习惯.*爱说「草」/);
+assert.match(sp, /星期三.*很晚了/);
+assert.match(sp, /5 分钟前.*生气/);
+assert.equal(moodNote({ key: 'angry', at: 0 }, 25 * 60_000), '', 'faded after 20 minutes');
+assert.equal(moodNote({ key: 'neutral', at: 0 }, 60_000), '');
+assert.equal(moodNote(undefined, 0), '');
+// Stickers and reactions are always offered.
+assert.match(appPrompt([]), /\[sticker:关键词\][\s\S]*\[react:😂\]/);
+
+// Its owner's typing style survives a silent persona evolution.
+const evolved = parseEvolved('{"intro":"新的","system":"你是主人的好朋友，比以前更开朗了，说话轻松随意，爱开玩笑，也会关心人。","examples":""}', { ...defaultSettings().persona, style: '爱说草' });
+assert.equal(evolved?.style, '爱说草');
 
 console.log('ai persona ok');

@@ -21,12 +21,19 @@ export interface Memory {
   events: { at: number; text: string; id?: string }[];
   /** Workshop items it has learnt about (ids). */
   plugins: string[];
+  /** Each channel's in-jokes, nicknames and running gags (channel id -> short lines). */
+  lore?: Record<string, string[]>;
+  /** Its own finds (activity event ids) it has already told people about. */
+  shared?: string[];
 }
 
 export const MAX_NOTE = 150;
 export const MAX_EVENT = 80;
 export const MAX_EVENTS = 30;
 export const MAX_PEOPLE = 30;
+export const MAX_LORE = 6;
+export const MAX_LORE_TEXT = 40;
+export const MAX_LORE_PLACES = 10;
 /** Leave room under the server's 32 KiB. */
 export const MAX_BYTES = 28_000;
 
@@ -47,6 +54,9 @@ export function parseMemory(text: string): Memory {
       people: v.people && typeof v.people === 'object' ? v.people : {},
       events: Array.isArray(v.events) ? v.events.filter((e) => e && typeof e.text === 'string') : [],
       plugins: Array.isArray(v.plugins) ? v.plugins.filter((p) => typeof p === 'string') : [],
+      lore: Object.fromEntries(Object.entries(v.lore && typeof v.lore === 'object' ? v.lore : {})
+        .filter(([, l]) => Array.isArray(l)).map(([id, l]) => [id, (l as unknown[]).filter((x): x is string => typeof x === 'string')])),
+      shared: Array.isArray(v.shared) ? v.shared.filter((x) => typeof x === 'string').slice(-20) : [],
     };
   } catch {
     return emptyMemory();
@@ -55,7 +65,8 @@ export function parseMemory(text: string): Memory {
 
 /** Keeps it under MAX_BYTES: oldest events, then the people not seen longest, go first. */
 export function trimMemory(m: Memory, maxBytes = MAX_BYTES): Memory {
-  const out: Memory = { ...m, people: { ...m.people }, events: m.events.slice(-MAX_EVENTS) };
+  const lore = Object.entries(m.lore ?? {}).filter(([, l]) => l.length).slice(-MAX_LORE_PLACES);
+  const out: Memory = { ...m, people: { ...m.people }, events: m.events.slice(-MAX_EVENTS), lore: Object.fromEntries(lore.map(([id, l]) => [id, l.slice(-MAX_LORE)])), shared: (m.shared ?? []).slice(-20) };
   const ids = () => Object.keys(out.people).sort((a, b) => out.people[a].at - out.people[b].at);
   while (Object.keys(out.people).length > MAX_PEOPLE) delete out.people[ids()[0]];
   const size = () => new TextEncoder().encode(JSON.stringify(out)).length;
@@ -79,7 +90,7 @@ export interface Who {
 }
 
 /** What it remembers, for the system prompt: the people here first, then the rest, then recent events. */
-export function memoryPrompt(m: Memory, present: Who[]): string {
+export function memoryPrompt(m: Memory, present: Who[], place = ''): string {
   const here = new Set(present.map((p) => p.id));
   const line = (id: string, n: PersonNote) => {
     const p = present.find((x) => x.id === id);
@@ -93,6 +104,8 @@ export function memoryPrompt(m: Memory, present: Who[]): string {
   const parts: string[] = [];
   if (mine.length) parts.push('你记得的这里的人：\n' + mine.map(([id, n]) => line(id, n)).join('\n'));
   if (others.length) parts.push('你记得的别的人：\n' + others.map(([id, n]) => line(id, n)).join('\n'));
+  const lore = place ? m.lore?.[place] ?? [] : [];
+  if (lore.length) parts.push('这个频道里的梗、外号和大家常说的（聊到时自然地用上，别硬塞）：\n' + lore.map((l) => `- ${l}`).join('\n'));
   const ev = m.events.slice(-15);
   if (ev.length) parts.push('你记得的最近的事：\n' + ev.map((e) => `- ${new Date(e.at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })} ${e.text}`).join('\n'));
   if (!parts.length) return '';
@@ -107,25 +120,27 @@ export function memoryPrompt(m: Memory, present: Who[]): string {
  * chat. `lines` are "名字（id）：话"; it answers with notes per person id
  * (the whole new note) and short new events.
  */
-export function rememberPrompt(o: { place: string; lines: string[]; people: Who[]; memory: Memory }): string {
+export function rememberPrompt(o: { place: string; lines: string[]; people: Who[]; memory: Memory; channel?: string }): string {
   const people = o.people.map((p) => {
     const n = o.memory.people[p.id]?.notes;
     return `- id ${p.id}：${p.name}${p.owner ? '（你的主人）' : ''}${p.ai ? '（AI）' : ''}，现在的笔记：${n || '（还没有）'}`;
   }).join('\n');
+  const lore = o.channel ? o.memory.lore?.[o.channel] ?? [] : null;
   return [
     `你在「${o.place}」聊了一会儿。整理一下你要记住的东西（只写有用的，比如对方的喜好、身份、约好的事、发生了什么、你们的梗；客套话不用记）。`,
     `这里的人：\n${people}`,
+    ...(lore ? [`这个频道现在记着的梗和外号：${lore.length ? lore.join('；') : '（还没有）'}`] : []),
     `刚才的聊天：\n${o.lines.join('\n')}`,
-    `只输出一个 JSON，不要别的字：{"people":{"<id>":"这个人的完整新笔记（把旧笔记里还有用的也写进去，${MAX_NOTE} 字以内）"},"events":["新发生的、值得记住的事（每条 ${MAX_EVENT} 字以内，最多 3 条）"]}。没有要改的人就不写，没有新事件就给空数组。`,
+    `只输出一个 JSON，不要别的字：{"people":{"<id>":"这个人的完整新笔记（把旧笔记里还有用的也写进去，${MAX_NOTE} 字以内）"},"events":["新发生的、值得记住的事（每条 ${MAX_EVENT} 字以内，最多 3 条）"]${lore ? `,"lore":["这个频道的梗、外号、大家常说的话的完整新列表（最多 ${MAX_LORE} 条，每条 ${MAX_LORE_TEXT} 字以内；没有变化就不写这个字段）"]` : ''}}。没有要改的人就不写，没有新事件就给空数组。`,
   ].join('\n\n');
 }
 
 /** Merges the model's answer into the memory; a bad answer changes nothing. */
-export function applyRemember(m: Memory, raw: string, people: Who[], now: number): Memory {
+export function applyRemember(m: Memory, raw: string, people: Who[], now: number, channel = ''): Memory {
   const s = raw.indexOf('{');
   const e = raw.lastIndexOf('}');
   if (s < 0 || e <= s) return m;
-  let v: { people?: Record<string, unknown>; events?: unknown[] };
+  let v: { people?: Record<string, unknown>; events?: unknown[]; lore?: unknown };
   try {
     v = JSON.parse(raw.slice(s, e + 1));
   } catch {
@@ -139,6 +154,11 @@ export function applyRemember(m: Memory, raw: string, people: Who[], now: number
   }
   for (const ev of (Array.isArray(v.events) ? v.events : []).slice(0, 3)) {
     if (typeof ev === 'string' && ev.trim()) out.events.push({ at: now, text: clip(ev, MAX_EVENT) });
+  }
+  if (channel && Array.isArray(v.lore)) {
+    const lore = v.lore.filter((x): x is string => typeof x === 'string' && !!x.trim()).map((x) => clip(x, MAX_LORE_TEXT)).slice(0, MAX_LORE);
+    const rest = Object.fromEntries(Object.entries(out.lore ?? {}).filter(([id]) => id !== channel));
+    out.lore = lore.length ? { ...rest, [channel]: lore } : rest;
   }
   return trimMemory(out);
 }
@@ -187,4 +207,16 @@ export function rememberActivity(m: Memory, id: string, text: string, at: number
     events = events.filter((e) => !drop.has(e));
   }
   return trimMemory({ ...m, events });
+}
+
+/** Its newest find from free-time surfing (last 24 h) not told to anyone yet. */
+export function unsharedFind(m: Memory, now: number): { id: string; text: string } | null {
+  const shared = new Set(m.shared ?? []);
+  const e = [...m.events].reverse().find((x) => x.id?.startsWith('leisure:') && !shared.has(x.id) && now - x.at < 24 * 3600_000);
+  return e?.id ? { id: e.id, text: e.text } : null;
+}
+
+/** Remembers that a find was shared (the last 20). */
+export function markShared(m: Memory, id: string): Memory {
+  return { ...m, shared: [...(m.shared ?? []).filter((x) => x !== id), id].slice(-20) };
 }

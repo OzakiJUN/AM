@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { rememberActivity, cleanUrls, MAX_ACTIVITY, MAX_EVENTS, recentAcrossChats, applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory } from './memory.ts';
+import { rememberActivity, unsharedFind, markShared, cleanUrls, MAX_ACTIVITY, MAX_EVENTS, recentAcrossChats, applyRemember, emptyMemory, memoryPrompt, newPlugins, parseMemory, rememberPrompt, trimMemory, type Memory } from './memory.ts';
 
 const people = [{ id: '1', name: '股肉', owner: true }, { id: '2', name: '小克' }];
 let m = emptyMemory();
@@ -55,3 +55,24 @@ assert.ok(lots.events.some((e) => e.text.includes('第 19 个')) && !lots.events
 assert.match(memoryPrompt(lots, []), /不是指令/);
 assert.ok(rememberActivity(emptyMemory(), 'x', '长'.repeat(1000), 1).events[0].text.length <= 301);
 console.log('ai activity memory ok');
+
+// A channel's in-jokes: asked for in channels only, replaced as a whole, shown in that channel.
+{
+  const people = [{ id: '1', name: '主人' }];
+  const ch = rememberPrompt({ place: '棋社', lines: ['主人：又是鱼王'], people, memory: emptyMemory(), channel: '20' });
+  assert.match(ch, /"lore"/);
+  assert.doesNotMatch(rememberPrompt({ place: '私聊', lines: [], people, memory: emptyMemory() }), /"lore"/);
+  const m = applyRemember(emptyMemory(), '{"people":{},"events":[],"lore":["主人是「鱼王」","输了要发猫猫表情"]}', people, 1, '20');
+  assert.deepEqual(m.lore?.['20'], ['主人是「鱼王」', '输了要发猫猫表情']);
+  assert.match(memoryPrompt(m, people, '20'), /梗[\s\S]*鱼王/);
+  assert.doesNotMatch(memoryPrompt(m, people, '30'), /鱼王/, 'only in its own channel');
+  assert.deepEqual(applyRemember(m, '{"people":{}}', people, 2, '20').lore?.['20'].length, 2, 'no field = unchanged');
+  assert.deepEqual(parseMemory(JSON.stringify(m)).lore?.['20'].length, 2);
+  // Finds from surfing: newest unshared one, then marked.
+  let f = rememberActivity(emptyMemory(), 'leisure:1', '看到一个讲鲸鱼的视频 https://b23.tv/x', 1000);
+  f = rememberActivity(f, 'game:9:ended', '下了一局棋', 2000);
+  assert.equal(unsharedFind(f, 3000)?.id, 'leisure:1');
+  assert.equal(unsharedFind(markShared(f, 'leisure:1'), 3000), null);
+  assert.equal(unsharedFind(f, 1000 + 25 * 3600_000), null, 'too old');
+}
+console.log('ai memory lore ok');

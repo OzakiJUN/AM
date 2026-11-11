@@ -171,6 +171,9 @@ function PersonaTab({ draft, set, save }: TabProps) {
       <Field label="性格和说话方式" hint="直接写给它看的话，比如「你是……，说话……」">
         <textarea value={p.system} onChange={(e) => setP({ system: e.target.value })} maxLength={4000} className={textarea} rows={5} />
       </Field>
+      <Field label="说话习惯" hint="打字风格和口头禅，比如「句尾不加句号，爱说『草』『笑死』，偶尔打错字也不改」。群里它会说得更短">
+        <Input value={p.style ?? ''} onChange={(e) => setP({ style: e.target.value })} maxLength={200} placeholder="句尾不加句号，爱说「草」" />
+      </Field>
       <Field label="示例对话" hint="一行一句，「我：」开头是你说的，「它：」开头是它说的">
         <textarea value={p.examples} onChange={(e) => setP({ examples: e.target.value })} maxLength={2000} className={textarea} rows={3} />
       </Field>
