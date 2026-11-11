@@ -9,6 +9,7 @@ import type { Level, McpServer, ToolCategory } from '@/lib/ai/persona';
 import type { User } from '@/lib/types';
 import { biliLogin, listMcpTools, stopMcp, type BiliState } from '@/lib/ai/tools';
 import { HOST_DEVICE_ID } from '@/lib/ai/host';
+import { FOLLOW_UP_SECONDS } from '@/lib/ai/social';
 import type { AIHosting, BrowseEntry } from '@/lib/session';
 import QRCode from 'qrcode';
 import { usePrefs } from '@/lib/prefs';
@@ -525,6 +526,18 @@ function BiliQrDialog({ api, open, onClose, onDone }: { api: BiliApi; open: bool
 }
 
 /** Which channels it is in, how much it talks there, and its day. */
+/** What people call it besides its name: saying one counts as talking to it. */
+function Nicknames({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [text, setText] = useState(value.join('、'));
+  useEffect(() => setText(value.join('、')), [value.join('、')]);
+  const commit = () => onChange([...new Set(text.split(/[,，、;；\s]+/).map((x) => x.trim()).filter((x) => [...x].length >= 2))].slice(0, 10));
+  return (
+    <Field label="别人怎么叫它" hint="比如 肥鱼、鱼鱼（两个字以上，用顿号或空格隔开）。群里有人这样叫就算在跟它说话。名字去掉开头的「大 / 小 / 阿 / 老」也自动认">
+      <Input value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} placeholder="肥鱼、鱼鱼" maxLength={120} aria-label="别人怎么叫它" />
+    </Field>
+  );
+}
+
 /** People who asked to chat with my AI: 同意 = into its shared chat (made if there is none). */
 function ShareRequests({ serverId, aiId }: { serverId: string; aiId: string }) {
   const count = useAI((s) => s.byServer[serverId]?.find((a) => a.user.id === aiId)?.shareRequests ?? 0);
@@ -685,7 +698,8 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
         <Field label="停顿几秒后判断">{num(ch.batchSeconds, 1, 30, (batchSeconds) => setCh({ batchSeconds }), '消息批量判断停顿秒数')}</Field>
         <Field label="连续聊天最多等几秒" hint="受发言冷却时间限制">{num(ch.maxBatchSeconds, 1, 120, (maxBatchSeconds) => setCh({ maxBatchSeconds }), '消息批量判断最长等待秒数')}</Field>
       </div>}
-      <Field label="连续对话保持（秒）" hint="默认 300 秒，同一个人接着说不用再 @；0 关闭。专属共享聊天默认直接回应。">{num(ch.followUpSeconds ?? 300, 0, 900, (followUpSeconds) => setCh({ followUpSeconds }), '连续对话保持秒数')}</Field>
+      <Nicknames value={ch.nicknames ?? []} onChange={(nicknames) => setCh({ nicknames })} />
+      <Field label="连续对话保持（秒）" hint="默认 1800 秒（半小时）：和它聊着的人接着说、或者紧接着它的话说，不用再 @；0 关闭。专属共享聊天默认直接回应。">{num(ch.followUpSeconds ?? FOLLOW_UP_SECONDS, 0, 7200, (followUpSeconds) => setCh({ followUpSeconds }), '连续对话保持秒数')}</Field>
       <div className="grid grid-cols-3 gap-3">
         <Field label="两句之间至少（秒）" hint="主动接话的间隔，真人点名或连续对话不受限">{num(ch.minGapSeconds, 0, 3600, (minGapSeconds) => setCh({ minGapSeconds }), '两句之间至少几秒')}</Field>
         <Field label="每小时最多几句" hint="限制主动接话，真人点名或连续对话不受限">{num(ch.maxPerHour, 1, 200, (maxPerHour) => setCh({ maxPerHour }), '每小时最多几句')}</Field>

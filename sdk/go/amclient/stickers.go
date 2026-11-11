@@ -113,3 +113,9 @@ func (c *Conn) AIControlResult(ctx context.Context, res *amv1.AIControlResult) e
 	_, err := c.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_AiControlResult{AiControlResult: res}})
 	return err
 }
+
+// Typing tells the conversation's other members I am writing.
+func (c *Conn) Typing(ctx context.Context, convID int64) error {
+	_, err := c.Request(ctx, &amv1.ClientFrame{Msg: &amv1.ClientFrame_Typing{Typing: &amv1.TypingRequest{ConvId: convID}}})
+	return err
+}

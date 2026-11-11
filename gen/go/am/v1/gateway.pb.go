@@ -138,6 +138,7 @@ type ClientFrame struct {
 	//	*ClientFrame_RemoteToolResult
 	//	*ClientFrame_AiControl
 	//	*ClientFrame_AiControlResult
+	//	*ClientFrame_Typing
 	Msg           isClientFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -268,6 +269,15 @@ func (x *ClientFrame) GetAiControlResult() *AIControlResult {
 	return nil
 }
 
+func (x *ClientFrame) GetTyping() *TypingRequest {
+	if x != nil {
+		if x, ok := x.Msg.(*ClientFrame_Typing); ok {
+			return x.Typing
+		}
+	}
+	return nil
+}
+
 type isClientFrame_Msg interface {
 	isClientFrame_Msg()
 }
@@ -312,6 +322,11 @@ type ClientFrame_AiControlResult struct {
 	AiControlResult *AIControlResult `protobuf:"bytes,18,opt,name=ai_control_result,json=aiControlResult,proto3,oneof"`
 }
 
+type ClientFrame_Typing struct {
+	// I am writing in a conversation (send every few seconds while I do).
+	Typing *TypingRequest `protobuf:"bytes,19,opt,name=typing,proto3,oneof"`
+}
+
 func (*ClientFrame_Auth) isClientFrame_Msg() {}
 
 func (*ClientFrame_Send) isClientFrame_Msg() {}
@@ -329,6 +344,8 @@ func (*ClientFrame_RemoteToolResult) isClientFrame_Msg() {}
 func (*ClientFrame_AiControl) isClientFrame_Msg() {}
 
 func (*ClientFrame_AiControlResult) isClientFrame_Msg() {}
+
+func (*ClientFrame_Typing) isClientFrame_Msg() {}
 
 type ServerFrame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -357,6 +374,7 @@ type ServerFrame struct {
 	//	*ServerFrame_ClientUpdate
 	//	*ServerFrame_AiControl
 	//	*ServerFrame_AiControlResult
+	//	*ServerFrame_Typing
 	Msg           isServerFrame_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -604,6 +622,15 @@ func (x *ServerFrame) GetAiControlResult() *AIControlResultPush {
 	return nil
 }
 
+func (x *ServerFrame) GetTyping() *TypingPush {
+	if x != nil {
+		if x, ok := x.Msg.(*ServerFrame_Typing); ok {
+			return x.Typing
+		}
+	}
+	return nil
+}
+
 type isServerFrame_Msg interface {
 	isServerFrame_Msg()
 }
@@ -701,6 +728,11 @@ type ServerFrame_AiControlResult struct {
 	AiControlResult *AIControlResultPush `protobuf:"bytes,44,opt,name=ai_control_result,json=aiControlResult,proto3,oneof"`
 }
 
+type ServerFrame_Typing struct {
+	// Someone in one of my conversations is writing (shown a few seconds).
+	Typing *TypingPush `protobuf:"bytes,45,opt,name=typing,proto3,oneof"`
+}
+
 func (*ServerFrame_Error) isServerFrame_Msg() {}
 
 func (*ServerFrame_Auth) isServerFrame_Msg() {}
@@ -744,6 +776,8 @@ func (*ServerFrame_ClientUpdate) isServerFrame_Msg() {}
 func (*ServerFrame_AiControl) isServerFrame_Msg() {}
 
 func (*ServerFrame_AiControlResult) isServerFrame_Msg() {}
+
+func (*ServerFrame_Typing) isServerFrame_Msg() {}
 
 type AuthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2462,6 +2496,105 @@ func (x *AIControlResultPush) GetText() string {
 	return ""
 }
 
+// "Is writing…": nothing is stored. The server passes it to the other
+// members at most once every 2 seconds per person and conversation (more
+// are dropped quietly); invisible people's are dropped. Errors: not_member.
+type TypingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConvId        int64                  `protobuf:"varint,1,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TypingRequest) Reset() {
+	*x = TypingRequest{}
+	mi := &file_am_v1_gateway_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TypingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TypingRequest) ProtoMessage() {}
+
+func (x *TypingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TypingRequest.ProtoReflect.Descriptor instead.
+func (*TypingRequest) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *TypingRequest) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+type TypingPush struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConvId        int64                  `protobuf:"varint,1,opt,name=conv_id,json=convId,proto3" json:"conv_id,omitempty"`
+	UserId        int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TypingPush) Reset() {
+	*x = TypingPush{}
+	mi := &file_am_v1_gateway_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TypingPush) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TypingPush) ProtoMessage() {}
+
+func (x *TypingPush) ProtoReflect() protoreflect.Message {
+	mi := &file_am_v1_gateway_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TypingPush.ProtoReflect.Descriptor instead.
+func (*TypingPush) Descriptor() ([]byte, []int) {
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *TypingPush) GetConvId() int64 {
+	if x != nil {
+		return x.ConvId
+	}
+	return 0
+}
+
+func (x *TypingPush) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
 // To an AI's owner: someone asks to talk with it.
 type AIShareRequestPush struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2473,7 +2606,7 @@ type AIShareRequestPush struct {
 
 func (x *AIShareRequestPush) Reset() {
 	*x = AIShareRequestPush{}
-	mi := &file_am_v1_gateway_proto_msgTypes[31]
+	mi := &file_am_v1_gateway_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2485,7 +2618,7 @@ func (x *AIShareRequestPush) String() string {
 func (*AIShareRequestPush) ProtoMessage() {}
 
 func (x *AIShareRequestPush) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[31]
+	mi := &file_am_v1_gateway_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2498,7 +2631,7 @@ func (x *AIShareRequestPush) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIShareRequestPush.ProtoReflect.Descriptor instead.
 func (*AIShareRequestPush) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{31}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *AIShareRequestPush) GetAiId() int64 {
@@ -2528,7 +2661,7 @@ type ForwardRequest struct {
 
 func (x *ForwardRequest) Reset() {
 	*x = ForwardRequest{}
-	mi := &file_am_v1_gateway_proto_msgTypes[32]
+	mi := &file_am_v1_gateway_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2540,7 +2673,7 @@ func (x *ForwardRequest) String() string {
 func (*ForwardRequest) ProtoMessage() {}
 
 func (x *ForwardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_am_v1_gateway_proto_msgTypes[32]
+	mi := &file_am_v1_gateway_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2553,7 +2686,7 @@ func (x *ForwardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForwardRequest.ProtoReflect.Descriptor instead.
 func (*ForwardRequest) Descriptor() ([]byte, []int) {
-	return file_am_v1_gateway_proto_rawDescGZIP(), []int{32}
+	return file_am_v1_gateway_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ForwardRequest) GetSourceConvId() int64 {
@@ -2588,7 +2721,7 @@ var File_am_v1_gateway_proto protoreflect.FileDescriptor
 
 const file_am_v1_gateway_proto_rawDesc = "" +
 	"\n" +
-	"\x13am/v1/gateway.proto\x12\x05am.v1\x1a\x12am/v1/common.proto\x1a\x11am/v1/event.proto\"\x89\x04\n" +
+	"\x13am/v1/gateway.proto\x12\x05am.v1\x1a\x12am/v1/common.proto\x1a\x11am/v1/event.proto\"\xb9\x04\n" +
 	"\vClientFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12(\n" +
 	"\x04auth\x18\n" +
@@ -2602,8 +2735,9 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\x12remote_tool_result\x18\x10 \x01(\v2\x17.am.v1.RemoteToolResultH\x00R\x10remoteToolResult\x128\n" +
 	"\n" +
 	"ai_control\x18\x11 \x01(\v2\x17.am.v1.AIControlRequestH\x00R\taiControl\x12D\n" +
-	"\x11ai_control_result\x18\x12 \x01(\v2\x16.am.v1.AIControlResultH\x00R\x0faiControlResultB\x05\n" +
-	"\x03msg\"\xa4\t\n" +
+	"\x11ai_control_result\x18\x12 \x01(\v2\x16.am.v1.AIControlResultH\x00R\x0faiControlResult\x12.\n" +
+	"\x06typing\x18\x13 \x01(\v2\x14.am.v1.TypingRequestH\x00R\x06typingB\x05\n" +
+	"\x03msg\"\xd1\t\n" +
 	"\vServerFrame\x12\x15\n" +
 	"\x06req_id\x18\x01 \x01(\x04R\x05reqId\x12$\n" +
 	"\x05error\x18\n" +
@@ -2631,7 +2765,8 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"\rclient_update\x18* \x01(\v2\x17.am.v1.ClientUpdatePushH\x00R\fclientUpdate\x125\n" +
 	"\n" +
 	"ai_control\x18+ \x01(\v2\x14.am.v1.AIControlPushH\x00R\taiControl\x12H\n" +
-	"\x11ai_control_result\x18, \x01(\v2\x1a.am.v1.AIControlResultPushH\x00R\x0faiControlResultB\x05\n" +
+	"\x11ai_control_result\x18, \x01(\v2\x1a.am.v1.AIControlResultPushH\x00R\x0faiControlResult\x12+\n" +
+	"\x06typing\x18- \x01(\v2\x11.am.v1.TypingPushH\x00R\x06typingB\x05\n" +
 	"\x03msg\"=\n" +
 	"\vAuthRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x18\n" +
@@ -2756,7 +2891,13 @@ const file_am_v1_gateway_proto_rawDesc = "" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12\x13\n" +
 	"\x05ai_id\x18\x02 \x01(\x03R\x04aiId\x12\x0e\n" +
 	"\x02ok\x18\x03 \x01(\bR\x02ok\x12\x12\n" +
-	"\x04text\x18\x04 \x01(\tR\x04text\"J\n" +
+	"\x04text\x18\x04 \x01(\tR\x04text\"(\n" +
+	"\rTypingRequest\x12\x17\n" +
+	"\aconv_id\x18\x01 \x01(\x03R\x06convId\">\n" +
+	"\n" +
+	"TypingPush\x12\x17\n" +
+	"\aconv_id\x18\x01 \x01(\x03R\x06convId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\x03R\x06userId\"J\n" +
 	"\x12AIShareRequestPush\x12\x13\n" +
 	"\x05ai_id\x18\x01 \x01(\x03R\x04aiId\x12\x1f\n" +
 	"\x04user\x18\x02 \x01(\v2\v.am.v1.UserR\x04user\"\xb8\x01\n" +
@@ -2779,7 +2920,7 @@ func file_am_v1_gateway_proto_rawDescGZIP() []byte {
 }
 
 var file_am_v1_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_am_v1_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_am_v1_gateway_proto_goTypes = []any{
 	(FriendPush_Kind)(0),         // 0: am.v1.FriendPush.Kind
 	(ConvRemovedPush_Reason)(0),  // 1: am.v1.ConvRemovedPush.Reason
@@ -2814,20 +2955,22 @@ var file_am_v1_gateway_proto_goTypes = []any{
 	(*AIControlPush)(nil),        // 30: am.v1.AIControlPush
 	(*AIControlResult)(nil),      // 31: am.v1.AIControlResult
 	(*AIControlResultPush)(nil),  // 32: am.v1.AIControlResultPush
-	(*AIShareRequestPush)(nil),   // 33: am.v1.AIShareRequestPush
-	(*ForwardRequest)(nil),       // 34: am.v1.ForwardRequest
-	(*Error)(nil),                // 35: am.v1.Error
-	(*Game)(nil),                 // 36: am.v1.Game
-	(*User)(nil),                 // 37: am.v1.User
-	(*Conversation)(nil),         // 38: am.v1.Conversation
-	(*Presence)(nil),             // 39: am.v1.Presence
-	(*TextMsg)(nil),              // 40: am.v1.TextMsg
-	(*ImageMsg)(nil),             // 41: am.v1.ImageMsg
-	(*FileMsg)(nil),              // 42: am.v1.FileMsg
-	(*EmojiPinAct)(nil),          // 43: am.v1.EmojiPinAct
-	(*StrikeAct)(nil),            // 44: am.v1.StrikeAct
-	(*Event)(nil),                // 45: am.v1.Event
-	(*ForwardEntry)(nil),         // 46: am.v1.ForwardEntry
+	(*TypingRequest)(nil),        // 33: am.v1.TypingRequest
+	(*TypingPush)(nil),           // 34: am.v1.TypingPush
+	(*AIShareRequestPush)(nil),   // 35: am.v1.AIShareRequestPush
+	(*ForwardRequest)(nil),       // 36: am.v1.ForwardRequest
+	(*Error)(nil),                // 37: am.v1.Error
+	(*Game)(nil),                 // 38: am.v1.Game
+	(*User)(nil),                 // 39: am.v1.User
+	(*Conversation)(nil),         // 40: am.v1.Conversation
+	(*Presence)(nil),             // 41: am.v1.Presence
+	(*TextMsg)(nil),              // 42: am.v1.TextMsg
+	(*ImageMsg)(nil),             // 43: am.v1.ImageMsg
+	(*FileMsg)(nil),              // 44: am.v1.FileMsg
+	(*EmojiPinAct)(nil),          // 45: am.v1.EmojiPinAct
+	(*StrikeAct)(nil),            // 46: am.v1.StrikeAct
+	(*Event)(nil),                // 47: am.v1.Event
+	(*ForwardEntry)(nil),         // 48: am.v1.ForwardEntry
 }
 var file_am_v1_gateway_proto_depIdxs = []int32{
 	4,  // 0: am.v1.ClientFrame.auth:type_name -> am.v1.AuthRequest
@@ -2839,56 +2982,58 @@ var file_am_v1_gateway_proto_depIdxs = []int32{
 	27, // 6: am.v1.ClientFrame.remote_tool_result:type_name -> am.v1.RemoteToolResult
 	29, // 7: am.v1.ClientFrame.ai_control:type_name -> am.v1.AIControlRequest
 	31, // 8: am.v1.ClientFrame.ai_control_result:type_name -> am.v1.AIControlResult
-	35, // 9: am.v1.ServerFrame.error:type_name -> am.v1.Error
-	5,  // 10: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
-	7,  // 11: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
-	10, // 12: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
-	12, // 13: am.v1.ServerFrame.mark_read:type_name -> am.v1.MarkReadResponse
-	14, // 14: am.v1.ServerFrame.pong:type_name -> am.v1.Pong
-	24, // 15: am.v1.ServerFrame.ack:type_name -> am.v1.Ack
-	15, // 16: am.v1.ServerFrame.event:type_name -> am.v1.EventPush
-	16, // 17: am.v1.ServerFrame.conv:type_name -> am.v1.ConvPush
-	17, // 18: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
-	18, // 19: am.v1.ServerFrame.conv_removed:type_name -> am.v1.ConvRemovedPush
-	19, // 20: am.v1.ServerFrame.join_request:type_name -> am.v1.JoinRequestPush
-	20, // 21: am.v1.ServerFrame.presence:type_name -> am.v1.PresencePush
-	21, // 22: am.v1.ServerFrame.client_state:type_name -> am.v1.ClientStatePush
-	22, // 23: am.v1.ServerFrame.server_moved:type_name -> am.v1.ServerMovedPush
-	26, // 24: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
-	28, // 25: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
-	33, // 26: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
-	36, // 27: am.v1.ServerFrame.game:type_name -> am.v1.Game
-	23, // 28: am.v1.ServerFrame.client_update:type_name -> am.v1.ClientUpdatePush
-	30, // 29: am.v1.ServerFrame.ai_control:type_name -> am.v1.AIControlPush
-	32, // 30: am.v1.ServerFrame.ai_control_result:type_name -> am.v1.AIControlResultPush
-	37, // 31: am.v1.AuthResponse.me:type_name -> am.v1.User
-	38, // 32: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
-	39, // 33: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
-	40, // 34: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
-	41, // 35: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
-	42, // 36: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
-	34, // 37: am.v1.SendRequest.forward:type_name -> am.v1.ForwardRequest
-	43, // 38: am.v1.SendRequest.emoji_pin:type_name -> am.v1.EmojiPinAct
-	44, // 39: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
-	45, // 40: am.v1.SendResponse.event:type_name -> am.v1.Event
-	9,  // 41: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
-	45, // 42: am.v1.SyncResponse.events:type_name -> am.v1.Event
-	45, // 43: am.v1.EventPush.event:type_name -> am.v1.Event
-	38, // 44: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
-	0,  // 45: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
-	37, // 46: am.v1.FriendPush.user:type_name -> am.v1.User
-	1,  // 47: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
-	37, // 48: am.v1.JoinRequestPush.user:type_name -> am.v1.User
-	37, // 49: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
-	39, // 50: am.v1.PresencePush.presence:type_name -> am.v1.Presence
-	37, // 51: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
-	37, // 52: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
-	46, // 53: am.v1.ForwardRequest.imported_entries:type_name -> am.v1.ForwardEntry
-	54, // [54:54] is the sub-list for method output_type
-	54, // [54:54] is the sub-list for method input_type
-	54, // [54:54] is the sub-list for extension type_name
-	54, // [54:54] is the sub-list for extension extendee
-	0,  // [0:54] is the sub-list for field type_name
+	33, // 9: am.v1.ClientFrame.typing:type_name -> am.v1.TypingRequest
+	37, // 10: am.v1.ServerFrame.error:type_name -> am.v1.Error
+	5,  // 11: am.v1.ServerFrame.auth:type_name -> am.v1.AuthResponse
+	7,  // 12: am.v1.ServerFrame.send:type_name -> am.v1.SendResponse
+	10, // 13: am.v1.ServerFrame.sync:type_name -> am.v1.SyncResponse
+	12, // 14: am.v1.ServerFrame.mark_read:type_name -> am.v1.MarkReadResponse
+	14, // 15: am.v1.ServerFrame.pong:type_name -> am.v1.Pong
+	24, // 16: am.v1.ServerFrame.ack:type_name -> am.v1.Ack
+	15, // 17: am.v1.ServerFrame.event:type_name -> am.v1.EventPush
+	16, // 18: am.v1.ServerFrame.conv:type_name -> am.v1.ConvPush
+	17, // 19: am.v1.ServerFrame.friend:type_name -> am.v1.FriendPush
+	18, // 20: am.v1.ServerFrame.conv_removed:type_name -> am.v1.ConvRemovedPush
+	19, // 21: am.v1.ServerFrame.join_request:type_name -> am.v1.JoinRequestPush
+	20, // 22: am.v1.ServerFrame.presence:type_name -> am.v1.PresencePush
+	21, // 23: am.v1.ServerFrame.client_state:type_name -> am.v1.ClientStatePush
+	22, // 24: am.v1.ServerFrame.server_moved:type_name -> am.v1.ServerMovedPush
+	26, // 25: am.v1.ServerFrame.remote_tool:type_name -> am.v1.RemoteToolPush
+	28, // 26: am.v1.ServerFrame.remote_tool_result:type_name -> am.v1.RemoteToolResultPush
+	35, // 27: am.v1.ServerFrame.ai_share_request:type_name -> am.v1.AIShareRequestPush
+	38, // 28: am.v1.ServerFrame.game:type_name -> am.v1.Game
+	23, // 29: am.v1.ServerFrame.client_update:type_name -> am.v1.ClientUpdatePush
+	30, // 30: am.v1.ServerFrame.ai_control:type_name -> am.v1.AIControlPush
+	32, // 31: am.v1.ServerFrame.ai_control_result:type_name -> am.v1.AIControlResultPush
+	34, // 32: am.v1.ServerFrame.typing:type_name -> am.v1.TypingPush
+	39, // 33: am.v1.AuthResponse.me:type_name -> am.v1.User
+	40, // 34: am.v1.AuthResponse.conversations:type_name -> am.v1.Conversation
+	41, // 35: am.v1.AuthResponse.presences:type_name -> am.v1.Presence
+	42, // 36: am.v1.SendRequest.text:type_name -> am.v1.TextMsg
+	43, // 37: am.v1.SendRequest.image:type_name -> am.v1.ImageMsg
+	44, // 38: am.v1.SendRequest.file:type_name -> am.v1.FileMsg
+	36, // 39: am.v1.SendRequest.forward:type_name -> am.v1.ForwardRequest
+	45, // 40: am.v1.SendRequest.emoji_pin:type_name -> am.v1.EmojiPinAct
+	46, // 41: am.v1.SendRequest.strike:type_name -> am.v1.StrikeAct
+	47, // 42: am.v1.SendResponse.event:type_name -> am.v1.Event
+	9,  // 43: am.v1.SyncRequest.cursors:type_name -> am.v1.SyncCursor
+	47, // 44: am.v1.SyncResponse.events:type_name -> am.v1.Event
+	47, // 45: am.v1.EventPush.event:type_name -> am.v1.Event
+	40, // 46: am.v1.ConvPush.conversation:type_name -> am.v1.Conversation
+	0,  // 47: am.v1.FriendPush.kind:type_name -> am.v1.FriendPush.Kind
+	39, // 48: am.v1.FriendPush.user:type_name -> am.v1.User
+	1,  // 49: am.v1.ConvRemovedPush.reason:type_name -> am.v1.ConvRemovedPush.Reason
+	39, // 50: am.v1.JoinRequestPush.user:type_name -> am.v1.User
+	39, // 51: am.v1.JoinRequestPush.inviter:type_name -> am.v1.User
+	41, // 52: am.v1.PresencePush.presence:type_name -> am.v1.Presence
+	39, // 53: am.v1.RemoteToolPush.from_ai:type_name -> am.v1.User
+	39, // 54: am.v1.AIShareRequestPush.user:type_name -> am.v1.User
+	48, // 55: am.v1.ForwardRequest.imported_entries:type_name -> am.v1.ForwardEntry
+	56, // [56:56] is the sub-list for method output_type
+	56, // [56:56] is the sub-list for method input_type
+	56, // [56:56] is the sub-list for extension type_name
+	56, // [56:56] is the sub-list for extension extendee
+	0,  // [0:56] is the sub-list for field type_name
 }
 
 func init() { file_am_v1_gateway_proto_init() }
@@ -2908,6 +3053,7 @@ func file_am_v1_gateway_proto_init() {
 		(*ClientFrame_RemoteToolResult)(nil),
 		(*ClientFrame_AiControl)(nil),
 		(*ClientFrame_AiControlResult)(nil),
+		(*ClientFrame_Typing)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[1].OneofWrappers = []any{
 		(*ServerFrame_Error)(nil),
@@ -2932,6 +3078,7 @@ func file_am_v1_gateway_proto_init() {
 		(*ServerFrame_ClientUpdate)(nil),
 		(*ServerFrame_AiControl)(nil),
 		(*ServerFrame_AiControlResult)(nil),
+		(*ServerFrame_Typing)(nil),
 	}
 	file_am_v1_gateway_proto_msgTypes[4].OneofWrappers = []any{
 		(*SendRequest_Text)(nil),
@@ -2947,7 +3094,7 @@ func file_am_v1_gateway_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_am_v1_gateway_proto_rawDesc), len(file_am_v1_gateway_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   33,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

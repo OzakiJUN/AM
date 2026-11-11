@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -55,6 +57,9 @@ type Service struct {
 	retention config.Retention
 	now       func() time.Time
 	sent      []func(sender *store.User, ev *amv1.Event)
+	// Last "is writing" passed on, per person and conversation (Typing).
+	typingMu sync.Mutex
+	typing   map[[2]int64]time.Time
 }
 
 // OnSent adds a function called with every message a user sent (after it
@@ -535,6 +540,70 @@ func (s *Service) MarkRead(ctx context.Context, me *store.User, req *amv1.MarkRe
 		seq = conv.LastSeq
 	}
 	return s.st.SetReadSeq(ctx, conv.ID, me.ID, seq)
+}
+
+// typingEvery is how often one person's "is writing" in one conversation is passed on.
+const typingEvery = 2 * time.Second
+
+// Typing passes "I am writing" to the conversation's other members. Nothing
+// is stored; too frequent ones and invisible people's are dropped quietly.
+func (s *Service) Typing(ctx context.Context, me *store.User, req *amv1.TypingRequest) error {
+	conv, err := s.st.GetConvForUser(ctx, req.GetConvId(), me.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return apperr.ErrNotMember
+	}
+	if err != nil {
+		return err
+	}
+	// Fresh: invisible may have been turned on since this connection logged in.
+	if u, err := s.st.GetUser(ctx, me.ID); err != nil || u.Invisible {
+		return err
+	}
+	now := s.now()
+	key := [2]int64{me.ID, conv.ID}
+	s.typingMu.Lock()
+	if s.typing == nil {
+		s.typing = map[[2]int64]time.Time{}
+	}
+	if last, ok := s.typing[key]; ok && now.Sub(last) < typingEvery {
+		s.typingMu.Unlock()
+		return nil
+	}
+	if len(s.typing) > 10000 {
+		for k, t := range s.typing {
+			if now.Sub(t) > time.Minute {
+				delete(s.typing, k)
+			}
+		}
+	}
+	s.typing[key] = now
+	s.typingMu.Unlock()
+	ids, err := s.st.MemberIDs(ctx, []int64{conv.ID})
+	if err != nil {
+		return err
+	}
+	var others []int64
+	for _, id := range ids[conv.ID] {
+		if id != me.ID {
+			others = append(others, id)
+		}
+	}
+	// A DM: not to someone who blocked me or whom I blocked (blocks stop DMs both ways).
+	if len(others) == 1 {
+		for _, p := range [][2]int64{{me.ID, others[0]}, {others[0], me.ID}} {
+			blocked, err := s.st.BlockedIDs(ctx, p[0])
+			if err != nil {
+				return err
+			}
+			if slices.Contains(blocked, p[1]) {
+				return nil
+			}
+		}
+	}
+	if len(others) > 0 {
+		s.push.ToUsers(others, &amv1.ServerFrame{Msg: &amv1.ServerFrame_Typing{Typing: &amv1.TypingPush{ConvId: conv.ID, UserId: me.ID}}}, 0)
+	}
+	return nil
 }
 
 // ToProto rebuilds a protocol Event from a row. client_msg_id is only

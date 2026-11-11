@@ -1,6 +1,6 @@
 // An AI's persona and settings (docs/design.md §9), kept as JSON on the
 // server (only the owner reads it: GET/PUT /api/v1/ai). Pure.
-import { defaultChannels, defaultGames, defaultProactive, defaultRoutine, type ChannelSettings, type GameSettings, type ProactiveSettings, type RoutineSettings } from './social.ts';
+import { FOLLOW_UP_SECONDS, defaultChannels, defaultGames, defaultProactive, defaultRoutine, type ChannelSettings, type GameSettings, type ProactiveSettings, type RoutineSettings } from './social.ts';
 import { MOODS, splitMoodTag } from '../portraits.ts';
 import type { ChatMsg } from './providers.ts';
 
@@ -152,6 +152,8 @@ export function parseSettings(json: string): AISettings {
   try {
     const v = JSON.parse(json) as Partial<AISettings>;
     const c = { ...d.computer, ...v.computer };
+    // 300 s was the default until 2026-11-11: saved settings carried it along; now half an hour.
+    if (v.channels?.followUpSeconds === 300) v.channels = { ...v.channels, followUpSeconds: FOLLOW_UP_SECONDS };
     return {
       ...d, ...v, persona: { ...d.persona, ...v.persona }, computer: { ...c, levels: { ...DEFAULT_LEVELS, ...c.levels } },
       channels: { ...d.channels, ...v.channels }, routine: { ...d.routine, ...v.routine }, catchUp: { ...d.catchUp, ...v.catchUp },

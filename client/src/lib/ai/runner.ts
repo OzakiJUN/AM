@@ -25,7 +25,7 @@ import {
   systemPrompt, toChat,
   type AISettings, type RoutineMoment,
 } from './persona';
-import { addressed, channelTurnIsDirected, batchDelay, shouldJoin, dayPlan, decide, discussionText, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
+import { addressed, channelTurnIsDirected, batchDelay, FOLLOW_UP_SECONDS, gameRemark, splitBubbles, typingMs, shouldJoin, dayPlan, decide, dueEvents, isAsleep, isSkip, proactive, splitStatusTag, wantsToJoin, type Said } from './social';
 import { activityText } from '../presence';
 import { buildRequest, errorOf, streamReader, type AgentMsg, type ToolCall } from './providers';
 import { biliLogin, execTool, loadMcpTools, stopMcp, type SelfApi, type ToolCtx } from './tools';
@@ -549,6 +549,14 @@ interface ReplyOpts {
   batchAfter?: number;
 }
 
+/** Says "正在输入…" in the chat now and about every 3 s until stopped. */
+function keepTyping(run: Run, convId: string): () => void {
+  const send = () => run.s.sendTyping(convId);
+  send();
+  const t = setInterval(send, 3100);
+  return () => clearInterval(t);
+}
+
 /** Ids of channel members written as "@name" in the text. */
 function mentionsIn(run: Run, conv: Conversation, text: string): string[] {
   return conv.members
@@ -587,6 +595,8 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
   }
   if (o.trigger && conv.aiId === run.ai.user.id && !roomAllowed(run, convId, o.trigger.senderId)) return;
   run.busy.add(convId);
+  const begun = Date.now();
+  let stopTyping = () => {};
   const streamKey = k(run.serverId, convId);
   const errKey = k(run.serverId, run.ai.user.id);
   try {
@@ -636,7 +646,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       system += '\n\n' + (room ? roomPrompt({ room: conv.name, members: names }) : channelPrompt({ channel: conv.name, members: names }));
       if (o.must) system += '\n这条消息是在与你对话，请回应。';
       if (o.trigger && o.must) system += '\n请回答这条发给你的消息：' + s.nameOf(o.trigger.senderId) + '：' + textOf(o.trigger);
-      if (casual) system += '\n这次没有人点名你。只有能解答尚未解决的问题、补充具体的新信息或观点、纠正有影响的错误，或自然地提出相关见解时才发言。如果别人已经答了，或者你只是附和、复述、寒暄，就只输出 [skip]。';
+      if (casual) system += '\n这次没有人点名你，你就是群里的一员，看到大家在聊这些。像普通群友一样：觉得有意思、有话想说、能接梗、想吐槽、能帮上忙或者好奇想问一句，就自然地说一两句；没什么想说的、别人在互相说悄悄话，或者你刚说过差不多的，就只输出 [skip]。别抢着回答别人点名问别人的问题，也别每条都接。';
     }
     // What AM lets it do (tools + installed plugins), who is talking, and its one memory.
     await loadHelperCommands(run);
@@ -661,11 +671,15 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       const batch = msgs.filter((m) => m.seq > (o.batchAfter ?? o.trigger!.seq - 1)).map((m) => `${s.nameOf(m.senderId)}（消息 ${m.id}）：${conversationText(run, convId, m)}`).join('\n');
       const reader = streamReader(p.kind);
       let judgment = '';
-      const check = buildRequest(p, { model: st.model, temperature: 0.2, maxTokens: 150, system: system + '\n只判断这批讨论是否值得你接话，暂时不要生成回复。可以解答问题、补充具体观点、自然地参与大家正在讨论的事；不要仅附和、复述、回复已经解决的问题，也别把群友互相说的话都当成在问你。话多少偏好为 ' + Math.round(st.channels.chattiness * 100) + '/100。只输出 JSON {"reply":true} 或 {"reply":false}。\n只针对以下这批新消息作决定，之前的聊天用于理解上下文：\n' + batch, messages: chat });
+      const check = buildRequest(p, { model: st.model, temperature: 0.2, maxTokens: 150, system: system + '\n先别回复，只判断你现在想不想在群里说一句。像群友一样：话题有意思、你有话想说、能接梗或吐槽、能帮上忙、想问一句，就 true；跟你没关系、别人在点名问别人、两个人在私聊式地互相说，或者你刚说过差不多的，就 false。你的「话多少」是 ' + Math.round(st.channels.chattiness * 100) + '/100：越高越爱插嘴（70 以上有点意思的话题大多会接，30 以下只在很有必要时开口）。只输出 JSON {"reply":true} 或 {"reply":false}。\n只针对以下这批新消息作决定，之前的聊天用于理解上下文：\n' + batch, messages: chat });
       const status = await aiRequest(check.url, check.headers, check.body, (chunk) => { judgment += reader.feed(chunk); });
       if (status >= 400) throw new Error(`接话判断失败（${status}）`);
       if (!shouldJoin(judgment) || stale()) return;
     }
+    // "正在输入…" for everyone while it writes (not for silent turns); in
+    // channels nothing streams on this device either: the message comes whole.
+    if (!o.silent) stopTyping = keepTyping(run, convId);
+    const live = !o.silent && !casual && !group;
     // One browser: a window only when this device's owner wants to watch it (never hosted; Rust insists too).
     const visible = !isHosted(run.serverId) && usePrefs.getState().aiBrowserVisible === true;
     const ctx: ToolCtx = { computer: comp, scale: 1, mcp: mcp.map, owner: agentKey, self: selfApi(run, convId, !!o.idle), background: !!o.idle, visible, place: o.idle ? '' : placeOf(run, conv) };
@@ -681,10 +695,10 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
         const req = buildRequest(p, { model: st.model, temperature: st.temperature, maxTokens: st.maxTokens, thinking: st.thinking, thinkingBudget: st.thinkingBudget, messages: turn, system, tools });
         const reader = streamReader(p.kind);
         let text = '';
-        if (!o.silent && !casual) patch('streams', streamKey, '');
+        if (live) patch('streams', streamKey, '');
         const status = await aiRequest(req.url, req.headers, req.body, (chunk) => {
           text += reader.feed(chunk);
-          if (o.silent || casual) return;
+          if (!live) return;
           // "[skip]" must never flash up as if it were going to say something.
           const shown = previewText(splitStatusTag(text).text);
           patch('streams', streamKey, /^\s*\[?\s*s(k(ip?)?)?$/i.test(shown) ? '' : shown);
@@ -752,10 +766,20 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
       if (group || o.note) return;
       throw new Error('模型没有回复内容');
     }
-    if (casual && (!discussionText(text) || msgs.some((m) => textOf(m)?.trim() === text.trim()))) return;
-    await s.sendText(convId, text.trim(), mood, group ? mentionsIn(run, conv, text) : undefined, o.replyTo ?? o.trigger?.id);
+    if (casual && msgs.some((m) => textOf(m)?.trim() === text.trim())) return;
+    // In a channel, like a person: one message per paragraph, each after the
+    // time it takes to type it (the first one minus the time spent thinking).
+    const parts = group ? splitBubbles(text.trim()) : [text.trim()];
+    for (let i = 0; i < parts.length; i++) {
+      if (group) {
+        const wait = typingMs(parts[i], Math.random()) - (i === 0 ? Date.now() - begun : 0);
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        if (runs.get(errKey) !== run || s.view.status !== 'online' || (i === 0 && stale())) return;
+      }
+      await s.sendText(convId, parts[i], mood, group ? mentionsIn(run, conv, parts[i]) : undefined, i === 0 ? o.replyTo ?? o.trigger?.id : undefined);
+    }
     if (finalReasoning) {
-      const sent = [...(s.view.messages[convId] ?? [])].reverse().find(m => m.senderId === run.ai.user.id && !m.pending && !m.failed && m.body.kind === 'text' && m.body.text === text.trim());
+      const sent = [...(s.view.messages[convId] ?? [])].reverse().find(m => m.senderId === run.ai.user.id && !m.pending && !m.failed && m.body.kind === 'text' && m.body.text === parts[0]);
       if (sent) {
         const cache = run.reasoning ??= new Map();
         cache.set(sent.id, { source: `${p.id}|${st.model}`, text: finalReasoning });
@@ -768,6 +792,7 @@ async function reply(run: Run, convId: string, o: ReplyOpts = {}) {
   } catch (e) {
     patch('errors', errKey, errorText(e));
   } finally {
+    stopTyping();
     patch('streams', streamKey, undefined);
     run.busy.delete(convId);
     if (run.again.delete(convId)) void reply(run, convId);
@@ -781,7 +806,7 @@ function channelHistory(run: Run, convId: string, msgs: Message[]): Said[] {
   return msgs.map((x) => {
     const body = x.body;
     const quoted = replyTarget(x, s.view.messages[convId] ?? [], s.view.replyTargets[convId]);
-    const toMe = x.senderId !== me && body.kind === 'text' && (quoted?.senderId === me || addressed(body.text, body.mentions, me, run.ai.user.name));
+    const toMe = x.senderId !== me && body.kind === 'text' && (quoted?.senderId === me || addressed(body.text, body.mentions, me, run.ai.user.name, run.settings.channels.nicknames));
     return {
       senderId: x.senderId, time: x.time,
       ai: (s.view.users[x.senderId]?.type ?? 'human') !== 'human', toMe,
@@ -800,7 +825,7 @@ async function considerChannel(run: Run, convId: string, trigger: Message) {
   const msgs = (s.view.messages[convId] ?? []).filter((x) => !x.pending && !x.failed && x.seq <= trigger.seq && textOf(x) !== null);
   if (msgs.at(-1)?.id !== trigger.id) return;
   const recent = channelHistory(run, convId, msgs);
-  recent[recent.length - 1].toMe = channelTurnIsDirected(recent, me, Date.now(), run.settings.channels.followUpSeconds ?? 300, s.view.convs[convId]?.aiId === me);
+  recent[recent.length - 1].toMe = channelTurnIsDirected(recent, me, Date.now(), run.settings.channels.followUpSeconds ?? FOLLOW_UP_SECONDS, s.view.convs[convId]?.aiId === me);
   const d = decide({
     now: Date.now(), s: run.settings.channels, recent, me, mySends: run.sends.get(convId) ?? [],
     asleep: isAsleep(run.settings.routine, minuteOfDay()), random: Math.random(), random2: Math.random(),
@@ -988,6 +1013,10 @@ async function pageTool(run: Run, tool: string, a: Record<string, unknown>): Pro
 const gameTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const gameSeen = new Set<string>();
 const gameBusy = new Set<string>();
+/** Turns in a row in which nothing happened (the model and the fallback both failed), per game. */
+const gameStuck = new Map<string, { updatedAt: number; n: number }>();
+/** When it last said something during a game, per game. */
+const gameRemarks = new Map<string, number>();
 
 const gk = (run: Run, id: string) => `${k(run.serverId, run.ai.user.id)}|${id}`;
 
@@ -1058,13 +1087,42 @@ async function gameTurn(run: Run, id: string) {
   if (!g || g.status !== 'playing' || !g.waitingOn.includes(me) || gameBusy.has(key)) return;
   gameBusy.add(key);
   try {
+    // Now and then a word in the chat, like people at a table (not in 谁是卧底: its words are the game).
+    const remark = g.kind !== 'undercover' && gameRemark(gameRemarks.get(key) ?? 0, Date.now(), Math.random());
+    if (remark) gameRemarks.set(key, Date.now());
     const note = `（系统提示：你在这里玩一局桌游，现在轮到你。）\n${gameText(g, me, (u) => run.s.nameOf(u))}\n`
-      + '现在就用工具行动，不用先问别人。下棋时不要在聊天里说话，结束后也不必例行汇报，行动完只回 [skip]。';
-    await reply(run, g.convId, { note, silent: true }).catch(() => {});
+      + (remark
+        ? '现在就用工具行动，不用先问别人。行动完可以在聊天里随口说一句很短的话（比如猜中了、被猜中了、快赢了、这步好险），像真人一样，别解释规则；不想说就只回 [skip]。'
+        : '现在就用工具行动，不用先问别人。这步不用在聊天里说话，行动完只回 [skip]。');
+    await reply(run, g.convId, { note, silent: !remark }).catch(() => {});
     const now = run.s.view.games[id];
     if (now && now.status === 'playing' && now.waitingOn.includes(me) && now.updatedAt === g.updatedAt) await fallbackMove(run, now);
   } finally {
     gameBusy.delete(key);
+  }
+  // Its turn may have come round again while it was still busy (the push
+  // was ignored then): look again, unless nothing happens however often it tries.
+  const cur = run.s.view.games[id];
+  if (!cur || cur.status !== 'playing' || !cur.waitingOn.includes(me)) {
+    gameStuck.delete(key);
+    return;
+  }
+  const st = gameStuck.get(key);
+  const n = st && st.updatedAt === cur.updatedAt ? st.n + 1 : cur.updatedAt === g.updatedAt ? 1 : 0;
+  gameStuck.set(key, { updatedAt: cur.updatedAt, n });
+  if (n < 3) onGame(run, cur);
+}
+
+/** Every 30 s: a game waiting on it for 20 s with nothing scheduled (a lost push) gets its turn. */
+function wakeGames(run: Run) {
+  const me = run.ai.user.id;
+  for (const g of Object.values(run.s.view.games)) {
+    const key = gk(run, g.id);
+    if (g.kind === 'fishing' || g.status !== 'playing' || !g.waitingOn.includes(me) || gameTimers.has(key) || gameBusy.has(key)) continue;
+    if (Date.now() - g.updatedAt < 20_000) continue;
+    const st = gameStuck.get(key);
+    if (st && st.updatedAt === g.updatedAt && st.n >= 3) continue;
+    onGame(run, g);
   }
 }
 
@@ -1269,7 +1327,7 @@ async function catchUp(run: Run) {
     if (!after.length) continue;
     const group = conv.kind === 'group';
     const asked = group
-      ? after.filter((m) => s.view.users[m.senderId]?.type === 'human' && channelTurnIsDirected(channelHistory(run, conv.id, msgs.filter((x) => x.seq <= m.seq)), me, m.time, run.settings.channels.followUpSeconds ?? 300, conv.aiId === me)).at(-1)
+      ? after.filter((m) => s.view.users[m.senderId]?.type === 'human' && channelTurnIsDirected(channelHistory(run, conv.id, msgs.filter((x) => x.seq <= m.seq)), me, m.time, run.settings.channels.followUpSeconds ?? FOLLOW_UP_SECONDS, conv.aiId === me)).at(-1)
       : run.settings.whoCanChat === 'owner' && after.at(-1)!.senderId !== run.ai.user.ownerId ? undefined : after.at(-1);
     if (asked) todo.push({ convId: conv.id, msg: asked, group, when: asked.time });
   }
@@ -1333,6 +1391,7 @@ function canSurf(run: Run): boolean {
 
 async function tickRoutine(run: Run) {
   if (run.s.view.status !== 'online') return;
+  wakeGames(run);
   await tickFishingExhibits(run).catch(() => {});
   await tickProactive(run).catch(() => {});
   if (run.statusUntil && Date.now() > run.statusUntil) {
