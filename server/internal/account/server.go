@@ -46,7 +46,7 @@ func (s *Service) server() ServerMeta {
 // ServerInfo answers GET /api/v1/server.
 func (s *Service) ServerInfo() *amv1.ServerInfo {
 	m := s.server()
-	return &amv1.ServerInfo{Name: m.Name, Version: m.Version, DownloadUrl: m.DownloadURL, Icon: s.iconURL(), InstanceId: s.instance}
+	return &amv1.ServerInfo{Name: m.Name, Version: m.Version, DownloadUrl: m.DownloadURL, Icon: s.iconURL(), InstanceId: s.instance, MaxUploadBytes: s.media.MaxUploadBytes()}
 }
 
 // InstanceID is the random id of this server process.

@@ -80,6 +80,9 @@ func New(st *store.Store, ids *idgen.Generator, dataDir string, maxUploadMB, blo
 	}, nil
 }
 
+// MaxUploadBytes is the configured per-file upload limit.
+func (s *Service) MaxUploadBytes() int64 { return s.maxBytes }
+
 func (s *Service) blobPath(sha string) string {
 	return filepath.Join(s.root, "blobs", sha[:2], sha)
 }

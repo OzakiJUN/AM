@@ -136,3 +136,10 @@ assert.ok(toolsFor({ ...c, vision: true }).some((t) => t.name === 'browser_look'
 assert.ok(selfDirectedTools(c, toolsFor(c), choices).some((t) => t.name === 'browser_watch'), 'surfing tools in free time');
 assert.match(describeCall('browser_search', { query: '猫', site: 'bilibili' }), /B 站搜「猫」/);
 console.log('agent web ok');
+
+// Listing and sending do not require model vision; disabled browsers expose none.
+for (const name of ['browser_images', 'send_picture', 'keep_picture']) {
+  assert.ok(toolsFor({ ...c, vision: false }).some(t => t.name === name));
+  assert.ok(!toolsFor({ ...c, levels: { ...c.levels, browser: 'deny' } }).some(t => t.name === name));
+  assert.ok(!toolsFor({ ...c, enabled: false }).some(t => t.name === name));
+}

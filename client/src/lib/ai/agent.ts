@@ -93,6 +93,9 @@ export const TOOLS: ToolDef[] = [
     description: '看视频：打开视频页（不给 url 就看当前页面），读出标题、UP 主 / 作者、简介、标签、播放数据、字幕（有的话），B 站还有按时间挑的弹幕和热门评论。frames 大于 0 时再截几帧画面（1–4，你能看图时才有用）。',
     parameters: obj({ url: str('视频网址，可选'), frames: num('截几帧画面，0–4，默认 0') }),
   },
+  { name: 'browser_images', category: 'browser', description: '列出当前网页的图片：编号、尺寸、说明或标题，跳过小图标。页面变化后重新列出再选图。', parameters: obj({}) },
+  { name: 'send_picture', category: 'browser', description: '把当前网页第 n 张图发到当前聊天，可配 text 和出处链接。先 browser_images 选编号；不填 n 则截当前可见网页。screenshot=true 时截图片本身，不下载原图；可先滚动网页把评论等一起截下。下载原图失败会自动截图。不能用于独处冲浪；那时用 keep_picture。', parameters: obj({ n: num('browser_images 的图片编号，可不填'), screenshot: { type: 'boolean', description: '强制截图' }, text: str('配的一句话，可不填') }) },
+  { name: 'keep_picture', category: 'browser', description: '把网页图片或截图上传服务器暂存，不发消息。参数和 send_picture 一样；最多存 5 张、24 小时有效，之后分享这次见闻时会附上。', parameters: obj({ n: num('图片编号；不填截当前网页'), screenshot: { type: 'boolean' }, text: str('记下想说的话，可不填') }) },
   { name: 'browser_look', category: 'browser', description: '截一张浏览器当前页面的图来看（你能看图时才有）。', parameters: obj({}) },
   {
     name: 'set_my_status', category: 'self', own: true,
@@ -317,6 +320,9 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'browser_back': return '浏览器后退';
     case 'browser_search': return `在${({ bilibili: ' B 站', youtube: ' YouTube' } as Record<string, string>)[String(args.site)] ?? '必应'}搜「${short(args.query, 40)}」`;
     case 'browser_watch': return `看视频${args.url ? ' ' + short(args.url) : ''}${Number(args.frames) > 0 ? `（截 ${args.frames} 帧）` : ''}`;
+    case 'browser_images': return '列出网页图片';
+    case 'send_picture': return args.n ? `发网页第 ${args.n} 张图` : '发网页截图';
+    case 'keep_picture': return args.n ? `暂存网页第 ${args.n} 张图` : '暂存网页截图';
     case 'browser_look': return '截浏览器页面的图';
     case 'set_my_status': return args.activity === 'none' ? '清空自己的状态' : `把状态改成「${short(args.text, 32)}」`;
     case 'set_my_bio': return `把签名改成「${short(args.text, 40)}」`;

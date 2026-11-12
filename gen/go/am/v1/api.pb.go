@@ -898,8 +898,10 @@ type ServerInfo struct {
 	// none). The signed manifest is GET /api/v1/update/release.json (+ .sig),
 	// the installer GET /api/v1/update/client (docs/release.md).
 	ClientVersion string `protobuf:"bytes,10,opt,name=client_version,json=clientVersion,proto3" json:"client_version,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Per-file upload limit (limits.max_upload_mb), in bytes.
+	MaxUploadBytes int64 `protobuf:"varint,11,opt,name=max_upload_bytes,json=maxUploadBytes,proto3" json:"max_upload_bytes,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ServerInfo) Reset() {
@@ -1000,6 +1002,13 @@ func (x *ServerInfo) GetClientVersion() string {
 		return x.ClientVersion
 	}
 	return ""
+}
+
+func (x *ServerInfo) GetMaxUploadBytes() int64 {
+	if x != nil {
+		return x.MaxUploadBytes
+	}
+	return 0
 }
 
 // GET /api/v1/server/profile: the server's profile page. Set up by the site
@@ -6171,7 +6180,7 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\fused_by_name\x18\x04 \x01(\tR\n" +
 	"usedByName\x12\x1b\n" +
 	"\tjoin_code\x18\x05 \x01(\tR\bjoinCode\x12\x19\n" +
-	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\xa6\x02\n" +
+	"\bjoin_url\x18\x06 \x01(\tR\ajoinUrl\"\xd0\x02\n" +
 	"\n" +
 	"ServerInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
@@ -6185,7 +6194,8 @@ const file_am_v1_api_proto_rawDesc = "" +
 	"\bcommands\x18\b \x03(\tR\bcommands\x12\x1b\n" +
 	"\thelper_id\x18\t \x01(\x03R\bhelperId\x12%\n" +
 	"\x0eclient_version\x18\n" +
-	" \x01(\tR\rclientVersion\"\x95\x02\n" +
+	" \x01(\tR\rclientVersion\x12(\n" +
+	"\x10max_upload_bytes\x18\v \x01(\x03R\x0emaxUploadBytes\"\x95\x02\n" +
 	"\rServerProfile\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +

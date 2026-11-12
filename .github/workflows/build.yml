@@ -82,6 +82,7 @@ jobs:
           npm ci
           VERSION="${RELEASE_VERSION:-${GITHUB_REF_NAME//\//-}-$(git rev-parse --short HEAD)}"
           AM_VERSION="$VERSION" npx tauri build --bundles nsis
+          AM_BROWSER="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" AM_BROWSER_HEADLESS=1 cargo test --manifest-path src-tauri/Cargo.toml picture -- --nocapture
           mkdir -p ../dist
           cp src-tauri/target/release/am-client.exe ../dist/AM.exe
           cp src-tauri/target/release/bundle/nsis/*-setup.exe ../dist/AM-setup.exe

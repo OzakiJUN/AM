@@ -6,6 +6,8 @@
 // so it survives moving the AI to another device. Pure and tested; the
 // runner (lib/ai/runner.ts) loads it, asks the model to update it, saves it.
 
+import { livePictures, type KeptPicture } from './pictures.ts';
+
 export interface PersonNote {
   /** The name when last written (the account id is the key). */
   name: string;
@@ -25,6 +27,7 @@ export interface Memory {
   lore?: Record<string, string[]>;
   /** Its own finds (activity event ids) it has already told people about. */
   shared?: string[];
+  pictures?: KeptPicture[];
 }
 
 export const MAX_NOTE = 150;
@@ -50,6 +53,7 @@ export function parseMemory(text: string): Memory {
     const v = JSON.parse(text) as Partial<Memory>;
     return {
       v: 1,
+      pictures: livePictures(v.pictures, Date.now()),
       cursors: Object.fromEntries(Object.entries(v.cursors ?? {}).filter(([id, seq]) => /^\d+$/.test(id) && Number.isSafeInteger(seq) && seq >= 0)),
       people: v.people && typeof v.people === 'object' ? v.people : {},
       events: Array.isArray(v.events) ? v.events.filter((e) => e && typeof e.text === 'string') : [],
@@ -66,7 +70,7 @@ export function parseMemory(text: string): Memory {
 /** Keeps it under MAX_BYTES: oldest events, then the people not seen longest, go first. */
 export function trimMemory(m: Memory, maxBytes = MAX_BYTES): Memory {
   const lore = Object.entries(m.lore ?? {}).filter(([, l]) => l.length).slice(-MAX_LORE_PLACES);
-  const out: Memory = { ...m, people: { ...m.people }, events: m.events.slice(-MAX_EVENTS), lore: Object.fromEntries(lore.map(([id, l]) => [id, l.slice(-MAX_LORE)])), shared: (m.shared ?? []).slice(-20) };
+  const out: Memory = { ...m, pictures: livePictures(m.pictures, Date.now()), people: { ...m.people }, events: m.events.slice(-MAX_EVENTS), lore: Object.fromEntries(lore.map(([id, l]) => [id, l.slice(-MAX_LORE)])), shared: (m.shared ?? []).slice(-20) };
   const ids = () => Object.keys(out.people).sort((a, b) => out.people[a].at - out.people[b].at);
   while (Object.keys(out.people).length > MAX_PEOPLE) delete out.people[ids()[0]];
   const size = () => new TextEncoder().encode(JSON.stringify(out)).length;

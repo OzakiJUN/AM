@@ -208,6 +208,7 @@ async fn agent_browser(app: tauri::AppHandle, action: String, url: Option<String
     match action.as_str() {
         "open" => browser::open(&b, url.as_deref().unwrap_or("")).await,
         "read" => browser::snapshot(&b).await,
+        "images" => browser::images(&b).await,
         "click" => browser::click(&b, n.ok_or("缺少元素编号")?).await,
         "type" => browser::type_text(&b, n.ok_or("缺少元素编号")?, text.as_deref().unwrap_or(""), submit.unwrap_or(false)).await,
         "scroll" => browser::scroll(&b, pages.unwrap_or(1.0)).await,
@@ -246,6 +247,12 @@ async fn agent_browser_media(app: tauri::AppHandle, action: String, url: Option<
         "shot" => Ok(BrowserMedia { text: String::new(), images: vec![browser::screenshot(&b).await?] }),
         _ => Err(format!("不认识的浏览器操作 {action}")),
     }
+}
+
+#[tauri::command]
+async fn agent_browser_picture(app: tauri::AppHandle, n: Option<u32>, screenshot: Option<bool>, max_bytes: u64, background: Option<bool>, visible: Option<bool>, proxy: Option<String>) -> Res<browser::BrowserPicture> {
+    let b = ai_browser(&app, visible.unwrap_or(false), background.unwrap_or(false), proxy.as_deref())?;
+    browser::picture(&b, n, screenshot.unwrap_or(false), max_bytes).await
 }
 
 // MCP tool servers (mcp.rs); `key` keeps each AI's servers apart.
@@ -581,7 +588,7 @@ pub fn run() {
             save_edited_image, server_info, register_server, set_token, api, upload, download, media_bytes, secret_get, secret_set,
             secret_delete, ai_request, ai_get, web_get_bytes, agent_list_dir, agent_read_file, agent_write_file, agent_trash, agent_run, agent_open,
             agent_screenshot, agent_input, agent_stop_key, agent_ui_windows, agent_ui_tree, agent_ui_act, agent_ui_activate,
-            agent_browser, agent_browser_media, agent_bili, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
+            agent_browser, agent_browser_media, agent_browser_picture, agent_bili, mcp_tools, mcp_call, mcp_stop, set_close_to_tray, windows_notify, ws_open, ws_send, ws_close, host_config, host_exit,
             update_download, update_download_apk, update_install, update_mode
         ])
         .build(tauri::generate_context!())

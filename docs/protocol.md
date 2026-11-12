@@ -58,7 +58,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
 | GET | `/api/v1/health` | — | `{"ok":true}`（无需登录） |
-| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（这个服务器开没开插件：插件挂在内置 bot 上，管理员在管理面板里传，docs/plugins.md）、`hosting`（能不能把 AI 托管到服务器）、`commands`（内置 bot 的指令名和别名，包括它的插件的命令，不带 `/`；AI 不接这些话）、`helper_id`（内置 bot 的账号）、`client_version`（这个服务器存着哪个版本的客户端安装包，"" = 没有；docs/release.md）（无需登录） |
+| GET | `/api/v1/server` | — | `ServerInfo`：服务器名、版本、客户端下载页、图标地址、`instance_id`（这次运行的随机 id，用来确认一个新地址连到的是同一台服务器）、`plugins`（这个服务器开没开插件：插件挂在内置 bot 上，管理员在管理面板里传，docs/plugins.md）、`hosting`（能不能把 AI 托管到服务器）、`commands`（内置 bot 的指令名和别名，包括它的插件的命令，不带 `/`；AI 不接这些话）、`helper_id`（内置 bot 的账号）、`max_upload_bytes`（`limits.max_upload_mb` 换算的每文件上传字节上限；64 位整数字符串）、`client_version`（这个服务器存着哪个版本的客户端安装包，"" = 没有；docs/release.md）（无需登录） |
 | GET | `/api/v1/update/release.json` | — | 服务器存的那份客户端版本的发布清单（原样，和 GitHub 上的一样；没有时 `not_found`）。客户端用内置公钥验签 |
 | GET | `/api/v1/update/release.json.sig` | — | 上面清单的签名（Ed25519，base64） |
 | GET | `/api/v1/update/client` | — | 客户端安装包 `AM-setup.exe`（支持 Range）。客户端按清单里的大小和 SHA-256 检查，对不上不装 |
@@ -134,7 +134,7 @@ AMP-AE7P-ASES-LEFR-9PSV-M97C-58GE-G7B8-PGS2-MM5Q-RL2H-3J8K-2FZ8-W2MR-GAM9-AAAA-C
 | GET | `/api/v1/media/{id}` | 原文件 |
 | GET | `/api/v1/media/{id}/thumb` | 缩略图（长边 320）；GIF 为静态首帧 |
 
-- 大小上限 `limits.max_upload_mb`。图片（JPEG / PNG / GIF / WebP）自动生成缩略图和感知指纹，命中黑名单的拒收。
+- 大小上限 `limits.max_upload_mb`；`ServerInfo.max_upload_bytes` 公布同一配置的字节数。新客户端网页发图需此字段，旧服务器缺省为 0 时提示更新服务器；服务端继续最终校验。图片（JPEG / PNG / GIF / WebP）自动生成缩略图和感知指纹，命中黑名单的拒收。
 - 只有上传者本人能把媒体发进消息或设为头像。
 - 谁能下载：上传者；任何人的头像对所有登录用户可见；群头像对群成员可见；消息里的媒体对该会话成员可见（被管理员删除后不再可见）。
 - 非图片文件以附件方式下载，不会在浏览器里直接打开。

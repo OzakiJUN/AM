@@ -1438,6 +1438,20 @@ export class Session {
     this.emit();
   }
 
+  /** Fresh limit, so browser downloads obey this server's configuration. */
+  async uploadLimit(): Promise<number> {
+    const info = await this.call('GET', '/api/v1/server', api.ServerInfoSchema);
+    const limit = Number(info.maxUploadBytes);
+    if (!Number.isSafeInteger(limit) || limit <= 0) throw new Error('服务器未提供上传上限，请先更新服务器');
+    return limit;
+  }
+
+  /** Send an already uploaded picture without uploading it again. */
+  sendPicture(convId: string, mediaId: string) {
+    return this.sendBody(convId, { case: 'image', value: create(ev.ImageMsgSchema, { mediaId: BigInt(mediaId) }) },
+      { kind: 'image', mediaId, w: 0, h: 0 });
+  }
+
   async upload(file: File, stickerSync = false) {
     const r = await this.t.upload(file, stickerSync);
     if (r.status >= 400) throw errorFromBody(r.status, r.body);
