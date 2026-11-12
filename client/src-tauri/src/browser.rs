@@ -733,6 +733,23 @@ fn picture_mime(bytes: &[u8]) -> Option<&'static str> {
     else { None }
 }
 
+fn picture_client(ua: &str, proxy: Proxy) -> R<reqwest::Client> {
+    // reqwest is built with rustls-no-provider, as in net.rs: configure ring
+    // explicitly rather than relying on process-global initialization.
+    let tls = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions().map_err(|e| e.to_string())?
+        .with_root_certificates(rustls::RootCertStore { roots: webpki_roots::TLS_SERVER_ROOTS.to_vec() })
+        .with_no_client_auth();
+    let mut builder = reqwest::Client::builder().tls_backend_preconfigured(tls).timeout(Duration::from_secs(20)).user_agent(ua);
+    builder = match proxy {
+        Proxy::Direct => builder.no_proxy(),
+        Proxy::Server(p) => builder.proxy(reqwest::Proxy::all(p).map_err(|e| e.to_string())?),
+        Proxy::System => builder,
+    };
+    // Do not forward source-site cookies to a redirect's destination.
+    builder.redirect(reqwest::redirect::Policy::none()).build().map_err(|e| e.to_string())
+}
+
 async fn original(b: &Browser, src: &str, source: &str, max_bytes: u64) -> R<(String, String)> {
     use base64::Engine;
     let url = reqwest::Url::parse(src).map_err(|e| e.to_string())?;
@@ -741,14 +758,7 @@ async fn original(b: &Browser, src: &str, source: &str, max_bytes: u64) -> R<(St
     // Reuse the browser's actual proxy. Some CDNs require both Referer and
     // login cookies; only cookies for this exact image URL are requested.
     let proxy = BROWSERS.lock().map_err(|e| e.to_string())?.iter().find(|(path, _)| path == &b.profile).map(|(_, r)| r.proxy.clone()).unwrap_or(Proxy::System);
-    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(20)).user_agent(ua);
-    builder = match proxy {
-        Proxy::Direct => builder.no_proxy(),
-        Proxy::Server(p) => builder.proxy(reqwest::Proxy::all(p).map_err(|e| e.to_string())?),
-        Proxy::System => builder,
-    };
-    // Do not forward source-site cookies to a redirect's destination.
-    let client = builder.redirect(reqwest::redirect::Policy::none()).build().map_err(|e| e.to_string())?;
+    let client = picture_client(&ua, proxy)?;
     let mut target = url;
     for _ in 0..6 {
         let cookies = cdp(b, "Network.getCookies", json!({"urls":[target.as_str()]})).await?;
@@ -937,6 +947,11 @@ mod tests {
         fn drop(&mut self) {
             close();
         }
+    }
+
+    #[tokio::test]
+    async fn picture_downloader_builds_without_global_crypto_provider() {
+        assert!(picture_client("AM-picture-test", Proxy::Direct).is_ok());
     }
 
     #[test]
