@@ -685,6 +685,145 @@ pub async fn screenshot(b: &Browser) -> R<String> {
     shot["data"].as_str().map(str::to_owned).ok_or_else(|| "截不到图".into())
 }
 
+// Image indices belong to the last listing of this profile and page. Keeping
+// the DOM index and URL lets us reject stale numbers after a SPA changes it.
+#[derive(Clone, serde::Deserialize)]
+struct PagePicture {
+    dom: usize,
+    src: String,
+    title: String,
+    width: u32,
+    height: u32,
+}
+#[derive(Clone, serde::Deserialize)]
+struct PictureList {
+    source: String,
+    pictures: Vec<PagePicture>,
+}
+static PICTURES: Mutex<Vec<(PathBuf, PictureList)>> = Mutex::new(Vec::new());
+
+pub async fn images(b: &Browser) -> R<String> {
+    let value = eval(b, r#"(() => ({source:location.href,pictures:Array.from(document.images).map((im,dom)=>{
+      const r=im.getBoundingClientRect(),s=getComputedStyle(im);
+      if(s.display==='none'||s.visibility==='hidden'||r.width<80||r.height<80||im.naturalWidth<80||im.naturalHeight<80)return null;
+      return {dom,src:im.currentSrc||im.src,title:(im.alt||im.title||im.closest('figure')?.querySelector('figcaption')?.innerText||document.title).slice(0,300),width:im.naturalWidth,height:im.naturalHeight};
+    }).filter(Boolean).slice(0,200)}))()"#).await?;
+    let list: PictureList = serde_json::from_value(value).map_err(|e| e.to_string())?;
+    let text = list.pictures.iter().enumerate().map(|(i, p)| format!("[{}] {}×{} {}", i + 1, p.width, p.height, p.title)).collect::<Vec<_>>().join("\n");
+    let mut all = PICTURES.lock().map_err(|e| e.to_string())?;
+    all.retain(|(path, _)| path != &b.profile);
+    all.push((b.profile.clone(), list));
+    Ok(if text.is_empty() { "当前网页没有可选的大图，可以直接截网页。".into() } else { text })
+}
+
+#[derive(serde::Serialize)]
+pub struct BrowserPicture {
+    data: String,
+    mime: String,
+    source: String,
+    title: String,
+    captured: bool,
+}
+
+fn picture_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(b"\x89PNG\r\n\x1a\n") { Some("image/png") }
+    else if bytes.starts_with(b"\xff\xd8\xff") { Some("image/jpeg") }
+    else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") { Some("image/gif") }
+    else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" { Some("image/webp") }
+    else { None }
+}
+
+fn picture_client(ua: &str, proxy: Proxy) -> R<reqwest::Client> {
+    // reqwest is built with rustls-no-provider, as in net.rs: configure ring
+    // explicitly rather than relying on process-global initialization.
+    let tls = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions().map_err(|e| e.to_string())?
+        .with_root_certificates(rustls::RootCertStore { roots: webpki_roots::TLS_SERVER_ROOTS.to_vec() })
+        .with_no_client_auth();
+    let mut builder = reqwest::Client::builder().tls_backend_preconfigured(tls).timeout(Duration::from_secs(20)).user_agent(ua);
+    builder = match proxy {
+        Proxy::Direct => builder.no_proxy(),
+        Proxy::Server(p) => builder.proxy(reqwest::Proxy::all(p).map_err(|e| e.to_string())?),
+        Proxy::System => builder,
+    };
+    // Do not forward source-site cookies to a redirect's destination.
+    builder.redirect(reqwest::redirect::Policy::none()).build().map_err(|e| e.to_string())
+}
+
+async fn original(b: &Browser, src: &str, source: &str, max_bytes: u64) -> R<(String, String)> {
+    use base64::Engine;
+    let url = reqwest::Url::parse(src).map_err(|e| e.to_string())?;
+    if !["http", "https"].contains(&url.scheme()) { return Err("图片地址不是 HTTP(S)，改用截图".into()); }
+    let ua = eval(b, "navigator.userAgent").await?.as_str().unwrap_or("Mozilla/5.0").to_owned();
+    // Reuse the browser's actual proxy. Some CDNs require both Referer and
+    // login cookies; only cookies for this exact image URL are requested.
+    let proxy = BROWSERS.lock().map_err(|e| e.to_string())?.iter().find(|(path, _)| path == &b.profile).map(|(_, r)| r.proxy.clone()).unwrap_or(Proxy::System);
+    let client = picture_client(&ua, proxy)?;
+    let mut target = url;
+    for _ in 0..6 {
+        let cookies = cdp(b, "Network.getCookies", json!({"urls":[target.as_str()]})).await?;
+        let cookie = cookies["cookies"].as_array().map(|v| v.iter().filter_map(|c| Some(format!("{}={}", c["name"].as_str()?, c["value"].as_str()?))).collect::<Vec<_>>().join("; ")).unwrap_or_default();
+        let mut request = client.get(target.clone()).header(reqwest::header::REFERER, source);
+        if !cookie.is_empty() { request = request.header(reqwest::header::COOKIE, cookie); }
+        let mut response = request.send().await.map_err(|e| e.to_string())?;
+        if response.status().is_redirection() {
+            let next = response.headers().get(reqwest::header::LOCATION).and_then(|v| v.to_str().ok()).ok_or("图片跳转没有地址")?;
+            target = target.join(next).map_err(|e| e.to_string())?;
+            if !["http", "https"].contains(&target.scheme()) { return Err("图片跳转地址不受支持".into()); }
+            continue;
+        }
+        if !response.status().is_success() { return Err(format!("下载图片返回 {}", response.status())); }
+        if response.content_length().is_some_and(|n| n > max_bytes) { return Err("原图超过服务器上传上限".into()); }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+            if bytes.len() as u64 + chunk.len() as u64 > max_bytes { return Err("原图超过服务器上传上限".into()); }
+            bytes.extend_from_slice(&chunk);
+        }
+        let mime = picture_mime(&bytes).ok_or("不支持的原图格式，改用截图")?;
+        return Ok((base64::engine::general_purpose::STANDARD.encode(bytes), mime.into()));
+    }
+    Err("图片跳转太多".into())
+}
+
+/// Get original bytes with the source page as Referer; fall back to a CDP
+/// element screenshot, which also works for CORS-blocked, SVG or blob images.
+/// No index means the visible page, including any comments/text on screen.
+pub async fn picture(b: &Browser, n: Option<u32>, force_shot: bool, max_bytes: u64) -> R<BrowserPicture> {
+    use base64::Engine;
+    if max_bytes == 0 { return Err("服务器未提供上传上限".into()); }
+    let page = eval(b, "({source:location.href,title:document.title})").await?;
+    let source = page["source"].as_str().unwrap_or_default().to_owned();
+    let selected = if let Some(n) = n {
+        let all = PICTURES.lock().map_err(|e| e.to_string())?;
+        let list = all.iter().find(|(p, _)| p == &b.profile).map(|(_, l)| l).ok_or("先用 browser_images 列出图片")?;
+        if list.source != source { return Err("页面变了，请重新 browser_images".into()); }
+        Some(list.pictures.get(n.checked_sub(1).ok_or("图片编号从 1 开始")? as usize).cloned().ok_or("没有这个图片编号")?)
+    } else { None };
+    let title = selected.as_ref().map(|p| p.title.clone()).unwrap_or_else(|| page["title"].as_str().unwrap_or_default().into());
+    let mut clip = None;
+    if let Some(p) = &selected {
+        let js = format!(r#"(() => {{const im=document.images[{}];if(!im||(im.currentSrc||im.src)!=={})return null;im.scrollIntoView({{block:'center',inline:'center'}});const r=im.getBoundingClientRect();return {{x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:1}};}})()"#, p.dom, serde_json::to_string(&p.src).map_err(|e| e.to_string())?);
+        let rect = eval(b, &js).await?;
+        if rect.is_null() || rect["width"].as_f64().unwrap_or(0.0) <= 0.0 || rect["height"].as_f64().unwrap_or(0.0) <= 0.0 { return Err("图片变了，请重新 browser_images".into()); }
+        if !force_shot {
+            if let Ok((data, mime)) = original(b, &p.src, &source, max_bytes).await {
+                return Ok(BrowserPicture {data, mime, source, title, captured:false});
+            }
+        }
+        let rect = eval(b, &js).await?;
+        if eval(b, "location.href").await?.as_str() != Some(source.as_str()) || rect.is_null() { return Err("页面或图片变了，请重新 browser_images".into()); }
+        clip = Some(rect);
+    }
+    let mut params = json!({"format":"png","captureBeyondViewport":true});
+    if let Some(rect) = clip { params["clip"] = rect; }
+    let shot = cdp(b, "Page.captureScreenshot", params).await?;
+    let data = shot["data"].as_str().ok_or("截不到网页图片")?.to_owned();
+    // CDP returns base64. Check decoded length before crossing the bridge.
+    let bytes = base64::engine::general_purpose::STANDARD.decode(&data).map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > max_bytes { return Err("截图超过服务器上传上限，请缩小网页内容后重试".into()); }
+    Ok(BrowserPicture {data, mime:"image/png".into(), source, title, captured:true})
+}
+
 /// What to do in a side tab.
 enum SideJob<'a> {
     /// Open the page, run this (a promise) and return its value.
@@ -808,6 +947,80 @@ mod tests {
         fn drop(&mut self) {
             close();
         }
+    }
+
+    #[tokio::test]
+    async fn picture_downloader_builds_without_global_crypto_provider() {
+        assert!(picture_client("AM-picture-test", Proxy::Direct).is_ok());
+    }
+
+    #[test]
+    fn picture_formats_are_sniffed_not_trusted_from_headers() {
+        assert_eq!(picture_mime(b"\x89PNG\r\n\x1a\n"), Some("image/png"));
+        assert_eq!(picture_mime(b"\xff\xd8\xffx"), Some("image/jpeg"));
+        assert_eq!(picture_mime(b"GIF89ax"), Some("image/gif"));
+        assert_eq!(picture_mime(b"RIFFxxxxWEBP"), Some("image/webp"));
+        assert_eq!(picture_mime(b"<html>error</html>"), None);
+        assert_eq!(picture_mime(b"<svg>"), None);
+    }
+
+    #[tokio::test]
+    async fn browser_pictures_download_capture_and_reject_stale_indices() {
+        if std::env::var("AM_BROWSER").is_err() { return; }
+        use std::io::{Read, Write};
+        use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        use base64::Engine;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAAA8klEQVR4nO3QwREAEADAMOy/M1Ooh2SCXufYe3Dfeh3wC6MjRkeMjhgdMTpidMToiNERoyNGR4yOGB0xOmJ0xOiI0RGjI0ZHjI4YHTE6YnTE6IjREaMjRkeMjhgdMTpidMToiNERoyNGR4yOGB0xOmJ0xOiI0RGjI0ZHjI4YHTE6YnTE6IjREaMjRkeMjhgdMTpidMToiNERoyNGR4yOGB0xOmJ0xOiI0RGjI0ZHjI4YHTE6YnTE6IjREaMjRkeMjhgdMTpidMToiNERoyNGR4yOGB0xOmJ0xOiI0RGjI0ZHjI4YHTE6YnTE6IjREaMjRkcOn0ECxifZZXsAAAAASUVORK5CYII=").unwrap();
+        let stopped = Arc::new(AtomicBool::new(false));
+        struct Stop(Arc<AtomicBool>);
+        impl Drop for Stop { fn drop(&mut self) { self.0.store(true, Ordering::Relaxed); } }
+        let _stop = Stop(stopped.clone());
+        let requests = Arc::new(Mutex::new(Vec::<String>::new()));
+        let recorded = requests.clone();
+        let worker_png = png.clone();
+        std::thread::spawn(move || {
+            while !stopped.load(Ordering::Relaxed) {
+                let Ok((mut stream, _)) = listener.accept() else { std::thread::sleep(Duration::from_millis(5)); continue; };
+                stream.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+                let mut buf = [0u8; 16384];
+                let Ok(n) = stream.read(&mut buf) else { continue; };
+                let request = String::from_utf8_lossy(&buf[..n]).to_string();
+                recorded.lock().unwrap().push(request.clone());
+                let page = request.starts_with("GET /page ");
+                let blocked = request.starts_with("GET /blocked.png ") && !request.to_lowercase().contains("sec-fetch-dest: image");
+                let html = b"<title>Picture test</title><img src=/img.png alt=star><img src=/img.png width=16 height=16><img src=/blocked.png alt=blocked><p>comments stay visible in screenshots</p>";
+                let body = if page { html.as_slice() } else if blocked { b"denied" } else { worker_png.as_slice() };
+                let status = if blocked { "403 Forbidden" } else { "200 OK" };
+                let mime = if page { "text/html" } else { "image/png" };
+                let head = format!("HTTP/1.1 {status}\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nConnection: close\r\nSet-Cookie: picture=ok; Path=/\r\n\r\n", body.len());
+                let _ = stream.write_all(head.as_bytes()); let _ = stream.write_all(body);
+            }
+        });
+        let _serial = SERIAL.lock().await;
+        let _c = Closer;
+        let b = Browser::new(std::env::temp_dir().join(format!("am-pictures-{}", std::process::id())), true).with_proxy(Some(Proxy::Direct));
+        let url = format!("http://{address}/page");
+        open(&b, &url).await.unwrap();
+        let list = images(&b).await.unwrap();
+        assert!(list.contains("[1] 120×100 star") && list.contains("[2] 120×100 blocked") && !list.contains("[3]"), "{list}");
+        let original = picture(&b, Some(1), false, 1_000_000).await.unwrap();
+        assert!(!original.captured); assert_eq!(original.source, url);
+        assert_eq!(base64::engine::general_purpose::STANDARD.decode(original.data).unwrap(), png);
+        let last = requests.lock().unwrap().last().unwrap().to_lowercase();
+        assert!(last.contains(&format!("referer: {}", url.to_lowercase())) && last.contains("cookie: picture=ok"), "{last}");
+        let fallback = picture(&b, Some(2), false, 1_000_000).await.unwrap();
+        assert!(fallback.captured); assert_eq!(fallback.mime, "image/png");
+        assert!(picture(&b, Some(1), true, 1_000_000).await.unwrap().captured);
+        assert!(picture(&b, None, false, 1_000_000).await.unwrap().captured);
+        assert!(picture(&b, Some(1), false, 1).await.is_err());
+        assert!(picture(&b, Some(0), false, 1_000_000).await.is_err());
+        eval(&b, "document.images[0].src='/changed.png'").await.unwrap();
+        assert!(picture(&b, Some(1), false, 1_000_000).await.is_err());
+        eval(&b, "history.pushState({},'', '/different')").await.unwrap();
+        assert!(picture(&b, Some(2), false, 1_000_000).await.is_err());
     }
 
     /// Needs a Chromium: AM_BROWSER=/path/to/chrome AM_BROWSER_HEADLESS=1 cargo test -- browser

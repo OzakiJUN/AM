@@ -147,6 +147,8 @@ message ServerInfo {
   // none). The signed manifest is GET /api/v1/update/release.json (+ .sig),
   // the installer GET /api/v1/update/client (docs/release.md).
   string client_version = 10;
+  // Per-file upload limit (limits.max_upload_mb), in bytes.
+  int64 max_upload_bytes = 11;
 }
 
 // Who may rearrange the widgets on the server profile.

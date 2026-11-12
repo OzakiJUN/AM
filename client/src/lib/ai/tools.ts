@@ -7,6 +7,8 @@ import type { ComputerSettings, McpServer } from './persona';
 import { usePrefs } from '../prefs';
 import { DEFAULT_PROXY, looksBlocked, proxyFor, proxyServer } from './proxy';
 
+export interface BrowserPicture { data: string; mime: string; source: string; title: string; captured: boolean }
+
 export interface ToolResult {
   text: string;
   /** Screenshots (base64 PNG) for the model to look at. */
@@ -49,6 +51,7 @@ export interface SelfApi {
   draw(args: Record<string, unknown>): Promise<string>;
   /** use_helper: has the server's bot run a command here; the answer for the model. */
   helper(args: Record<string, unknown>): Promise<string>;
+  picture(keep: boolean, args: Record<string, unknown>, capture: (maxBytes: number, screenshot?: boolean) => Promise<BrowserPicture>): Promise<string>;
 }
 
 interface UINode { id: number; depth: number; role: string; name: string; value: string; enabled: boolean }
@@ -219,6 +222,15 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
       const url = name === 'browser_open' ? s(a.url) : searchUrl(s(a.query), s(a.site) || 'bing');
       const { r, note } = await viaProxy(url, a.proxy, (proxy) => rust<string>('agent_browser', { action: 'open', url, background: !!ctx.background, visible: !!ctx.visible, proxy }));
       return { text: note + r };
+    }
+    case 'browser_images':
+      return { text: await rust<string>('agent_browser', { action: 'images', background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() }) };
+    case 'send_picture':
+    case 'keep_picture': {
+      if (!ctx.self) return { text: '现在用不了这个工具' };
+      return { text: await ctx.self.picture(name === 'keep_picture', a, (maxBytes, screenshot) => rust<BrowserPicture>('agent_browser_picture', {
+        n: a.n ?? null, screenshot: screenshot || a.screenshot === true, maxBytes, background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy(),
+      })) };
     }
     case 'browser_read':
       return { text: await rust<string>('agent_browser', { action: 'read', background: !!ctx.background, visible: !!ctx.visible, proxy: keepProxy() }) };
