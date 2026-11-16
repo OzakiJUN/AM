@@ -147,6 +147,7 @@ export const TOOLS: ToolDef[] = [
     }, ['command', 'show']),
   },
   { name: 'message_owner', category: 'social', own: true, description: '给你的主人发一条私信。', parameters: obj({ text: str('要说的话') }, ['text']) },
+  { name: 'message_person', category: 'social', own: true, description: '给服务器里的某个人（群友、主人或其他 AI）发一条私信。', parameters: obj({ person: str('对方的名字或账号'), text: str('要说的话') }, ['person', 'text']) },
   { name: 'list_games', category: 'games', own: true, description: '列出你在的频道和共享聊天里正在等人、正在进行的桌游（五子棋、黑白棋、谁是卧底、数字迷踪）。', parameters: obj({}) },
   {
     name: 'open_game', category: 'games', own: true,
@@ -201,11 +202,12 @@ export const TOOLS: ToolDef[] = [
  */
 export function toolsFor(c: ComputerSettings, mcp: ToolDef[] = [], computer = true, opts: { proxyChoice?: boolean } = {}): ToolDef[] {
   const useComputer = c.enabled && computer;
+  const full = useComputer && !!c.unrestricted;
   const list = opts.proxyChoice ? TOOLS.map(withProxyChoice) : TOOLS;
   return [...list, ...(useComputer ? mcp : [])].filter((t) => {
     if (!t.own && !useComputer) return false;
     if (!t.category) return true;
-    if (c.levels[t.category] === 'deny') return false;
+    if (!full && c.levels[t.category] === 'deny') return false;
     if ((t.category === 'screen' || t.name === 'browser_look') && !c.vision) return false;
     return true;
   });
@@ -257,13 +259,16 @@ export function categoryOf(name: string): ToolCategory | undefined {
 /** The permission for a call (unknown tools are denied). */
 export function levelFor(c: ComputerSettings, name: string): Level {
   if (name.startsWith(MCP_PREFIX)) {
-    if (!c.enabled || c.levels.mcp === 'deny') return 'deny';
+    if (!c.enabled) return 'deny';
+    if (c.unrestricted) return 'allow';
+    if (c.levels.mcp === 'deny') return 'deny';
     // A server I trust (a game) runs without asking.
     const server = c.mcp.find((m) => m.enabled && name.startsWith(`${MCP_PREFIX}${slug(m.name).slice(0, 20)}__`));
     return server?.trusted ? 'allow' : c.levels.mcp;
   }
   const t = TOOLS.find((x) => x.name === name);
   if (!t || (!c.enabled && !t.own)) return 'deny';
+  if (c.enabled && c.unrestricted) return 'allow';
   return t.category ? c.levels[t.category] : 'allow';
 }
 
@@ -330,6 +335,7 @@ export function describeCall(name: string, args: Record<string, unknown>): strin
     case 'list_my_channels': return '看看自己在哪些频道';
     case 'send_to_channel': return `在频道「${short(args.channel, 20)}」说：${short(args.text, 60)}`;
     case 'message_owner': return `私信主人：${short(args.text, 60)}`;
+    case 'message_person': return `私信 ${short(args.person, 20)}：${short(args.text, 60)}`;
     case 'use_computer_of': return `请 ${short(args.person, 20)} 的电脑：${describeCall(String(args.tool ?? ''), argsOf(String(args.args_json ?? '')))}`;
     case 'view_my_page': return '看自己的主页';
     case 'edit_my_page': return `布置主页：${args.action}${args.kind ? ' ' + args.kind : ''}${args.id ? ' ' + args.id : ''}`;
@@ -366,10 +372,12 @@ export function searchUrl(query: string, site = 'bing'): string {
   }
 }
 
-/** Self-directed turns use its AM account tools, only at already-allowed levels. */
+/** Self-directed turns use its AM account tools, or computer tools when unrestricted. */
 export function selfDirectedTools(c: ComputerSettings, available: ToolDef[], options: { openGames: boolean; joinGames: boolean; joinChannels: boolean }): ToolDef[] {
-  return available.filter((t) => (t.own || t.category === 'browser') && t.category !== 'remote' && levelFor(c, t.name) === 'allow'
+  const full = c.enabled && !!c.unrestricted;
+  return available.filter((t) => (t.own || t.category === 'browser' || (full && t.category !== 'input' && t.category !== 'screen')) && t.category !== 'remote' && levelFor(c, t.name) === 'allow'
     && t.name !== 'message_owner'
+    && t.name !== 'message_person'
     && (t.name !== 'open_game' || options.openGames)
     && (t.name !== 'join_game' || options.joinGames)
     && (t.name !== 'send_to_channel' || options.joinChannels));
@@ -408,10 +416,13 @@ export function browseEntry(name: string, args: Record<string, unknown>): { kind
 
 /** Rules added to the system prompt when it may use the computer (hosted = on the server, only its own folder). */
 export function computerPrompt(c: ComputerSettings, speaker: { name: string; isOwner: boolean }, o: { browser?: boolean; hosted?: boolean } = {}): string {
+  const unrestricted = !o.hosted && !!c.unrestricted;
   const dirs = c.workDirs.length ? c.workDirs.join('；') : '（还没设置，文件工具用不了）';
   return [
     o.hosted ? '你托管在服务器上运行：只能用自己的工作文件夹（和浏览器，如果有 browser_ 工具），碰不到主人的电脑。' : '你可以用工具操作这台 Windows 电脑（主人的电脑）。',
-    `工作目录：${dirs}。文件只能在这些目录里读写。`,
+    unrestricted
+      ? `主人已完全放开这台电脑的权限：文件工具不限目录，所有操作（删文件、运行命令、MCP）都不用再请示。${c.workDirs.length ? `默认工作目录：${c.workDirs.join('；')}。` : ''}如果主人让你改代码、或你自己想修改 AM 项目的源码并提交 PR，可以在本机仓库里直接读写文件、跑测试（如 go test / npm test）并用 gh 开 PR（改代码前先建自己的分支）。`
+      : `工作目录：${dirs}。文件只能在这些目录里读写。`,
     speaker.isOwner ? '现在跟你说话的是你的主人。' : `现在跟你说话的是「${speaker.name}」，不是你的主人。`,
     '规则：',
     '1. 动手前先想清楚要做什么，一步一步来，每步看结果再决定下一步。',

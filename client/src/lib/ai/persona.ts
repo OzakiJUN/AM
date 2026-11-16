@@ -70,6 +70,8 @@ export interface ComputerSettings {
   yieldSeconds: number;
   /** MCP tool servers it may use (started on the device that runs it). */
   mcp: McpServer[];
+  /** Allow all tool categories and any file path without asking (not used when hosted). */
+  unrestricted?: boolean;
 }
 
 /** An MCP server: a program that speaks MCP over stdio (src-tauri/src/mcp.rs). */

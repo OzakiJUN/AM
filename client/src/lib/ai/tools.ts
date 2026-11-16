@@ -41,6 +41,7 @@ export interface SelfApi {
   channels(): string;
   sendToChannel(channel: string, text: string): Promise<string>;
   messageOwner(text: string): Promise<void>;
+  messagePerson(person: string, text: string): Promise<string>;
   /** Asks a person's computer to run a tool (they decide on their device). */
   remote(person: string, tool: string, argsJson: string): Promise<ToolResult>;
   /** Its own profile page (view_my_page / edit_my_page): the answer for the model. */
@@ -157,18 +158,19 @@ const n = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v
 
 export async function execTool(name: string, a: Record<string, unknown>, ctx: ToolCtx): Promise<ToolResult> {
   const roots = ctx.computer.workDirs;
+  const unrestricted = !!ctx.computer.unrestricted;
   switch (name) {
     case 'list_dir': {
-      const list = await rust<{ name: string; dir: boolean; size: number }[]>('agent_list_dir', { path: s(a.path), roots });
+      const list = await rust<{ name: string; dir: boolean; size: number }[]>('agent_list_dir', { path: s(a.path), roots, unrestricted });
       return { text: list.length ? list.map((e) => (e.dir ? `[文件夹] ${e.name}` : `${e.name}（${e.size} 字节）`)).join('\n') : '（空文件夹）' };
     }
     case 'read_file':
-      return { text: await rust<string>('agent_read_file', { path: s(a.path), roots, max: MAX_READ }) };
+      return { text: await rust<string>('agent_read_file', { path: s(a.path), roots, max: MAX_READ, unrestricted }) };
     case 'write_file':
-      await rust('agent_write_file', { path: s(a.path), roots, content: s(a.content), append: a.append === true });
+      await rust('agent_write_file', { path: s(a.path), roots, content: s(a.content), append: a.append === true, unrestricted });
       return { text: '写好了' };
     case 'delete':
-      await rust('agent_trash', { path: s(a.path), roots });
+      await rust('agent_trash', { path: s(a.path), roots, unrestricted });
       return { text: '已移到回收站' };
     case 'run_command': {
       const o = await rust<{ code: number | null; stdout: string; stderr: string; timed_out: boolean }>('agent_run', {
@@ -260,6 +262,7 @@ export async function execTool(name: string, a: Record<string, unknown>, ctx: To
     case 'list_my_channels':
     case 'send_to_channel':
     case 'message_owner':
+    case 'message_person':
       return { text: await ownTool(name, a, ctx) };
     case 'view_my_page':
     case 'edit_my_page':
@@ -324,6 +327,8 @@ async function ownTool(name: string, a: Record<string, unknown>, ctx: ToolCtx): 
       return me.channels();
     case 'send_to_channel':
       return me.sendToChannel(s(a.channel), s(a.text));
+    case 'message_person':
+      return me.messagePerson(s(a.person), s(a.text));
     default:
       await me.messageOwner(s(a.text));
       return '发给主人了';

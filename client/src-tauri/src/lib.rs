@@ -113,23 +113,23 @@ async fn ai_request(url: String, headers: Vec<(String, String)>, body: String, o
 // ---------- tools for AIs that operate this computer (agent.rs) ----------
 
 #[tauri::command]
-fn agent_list_dir(path: String, roots: Vec<String>) -> Res<Vec<agent::Entry>> {
-    agent::list_dir(&path, &roots)
+fn agent_list_dir(path: String, roots: Vec<String>, unrestricted: Option<bool>) -> Res<Vec<agent::Entry>> {
+    agent::list_dir(&path, &roots, unrestricted.unwrap_or(false))
 }
 
 #[tauri::command]
-fn agent_read_file(path: String, roots: Vec<String>, max: usize) -> Res<String> {
-    agent::read_file(&path, &roots, max)
+fn agent_read_file(path: String, roots: Vec<String>, max: usize, unrestricted: Option<bool>) -> Res<String> {
+    agent::read_file(&path, &roots, max, unrestricted.unwrap_or(false))
 }
 
 #[tauri::command]
-fn agent_write_file(path: String, roots: Vec<String>, content: String, append: bool) -> Res<()> {
-    agent::write_file(&path, &roots, &content, append)
+fn agent_write_file(path: String, roots: Vec<String>, content: String, append: bool, unrestricted: Option<bool>) -> Res<()> {
+    agent::write_file(&path, &roots, &content, append, unrestricted.unwrap_or(false))
 }
 
 #[tauri::command]
-fn agent_trash(path: String, roots: Vec<String>) -> Res<()> {
-    agent::trash(&path, &roots)
+fn agent_trash(path: String, roots: Vec<String>, unrestricted: Option<bool>) -> Res<()> {
+    agent::trash(&path, &roots, unrestricted.unwrap_or(false))
 }
 
 #[tauri::command]

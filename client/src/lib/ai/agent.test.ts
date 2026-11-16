@@ -143,3 +143,19 @@ for (const name of ['browser_images', 'send_picture', 'keep_picture']) {
   assert.ok(!toolsFor({ ...c, levels: { ...c.levels, browser: 'deny' } }).some(t => t.name === name));
   assert.ok(!toolsFor({ ...c, enabled: false }).some(t => t.name === name));
 }
+
+// Unrestricted mode allows all categories (including run_command, delete, mcp) and exposes computer tools in self-directed turns.
+{
+  const full = { ...c, enabled: true, unrestricted: true, levels: { ...c.levels, command: 'deny' as const, files_delete: 'ask' as const, mcp: 'deny' as const } };
+  assert.equal(levelFor(full, 'run_command'), 'allow');
+  assert.equal(levelFor(full, 'delete'), 'allow');
+  assert.equal(levelFor(full, 'mcp__srv__tool'), 'allow');
+  assert.ok(toolsFor(full).some(t => t.name === 'run_command'));
+  const selfFull = selfDirectedTools(full, toolsFor(full), choices);
+  assert.ok(selfFull.some(t => t.name === 'run_command') && selfFull.some(t => t.name === 'write_file'));
+  assert.ok(!selfFull.some(t => t.name === 'message_person'));
+  assert.match(computerPrompt(full, { name: '主人', isOwner: true }), /完全放开/);
+  assert.ok(toolsFor(c).some(t => t.name === 'message_person'));
+  assert.match(describeCall('message_person', { person: '小肥鱼', text: '在干嘛' }), /私信 小肥鱼/);
+}
+

@@ -1,6 +1,6 @@
 // Run with: npm test
 import assert from 'node:assert/strict';
-import { channelTurnIsDirected, addressed, namesOf, autoStatus, extractActions, pickSticker, replyDelay, timeNote, lunarDay, shareDue, splitBubbles, typingMs, gameRemark, FOLLOW_UP_SECONDS, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
+import { channelTurnIsDirected, addressed, aiDmAllowed, namesOf, autoStatus, channelTopicDue, extractActions, followUpDue, pickSticker, replyDelay, timeNote, lunarDay, shareDue, splitBubbles, typingMs, gameRemark, FOLLOW_UP_SECONDS, dayPlan, decide, batchDelay, shouldJoin, discussionText, defaultChannels, defaultGames, defaultProactive, proactive, defaultRoutine, dueEvents, isAsleep, isSkip, minutesOf, splitStatusTag, wantsToJoin, type Said } from './social.ts';
 
 const s = defaultChannels();
 const me = 'ai';
@@ -86,7 +86,7 @@ assert.equal(pr({ ownerOnline: false }), null);
 assert.equal(pr({ activityChanged: true, lastChat: T - H, random: 0.2 }), 'activity');
 assert.equal(pr({ lastChat: T - 4 * H, random: 0.05 }), 'topic');
 assert.equal(pr({ lastChat: T - 4 * H, random: 0.5 }), null);
-assert.equal(pr({ lastChat: T - 2 * H, random: 0.05 }), null); // not quiet long enough
+assert.equal(pr({ lastChat: T - 0.5 * H, random: 0.05 }), null); // not quiet long enough
 assert.equal(pr({ lastChat: T - 4 * H, random: 0.05, s: { ...defaultProactive(), topics: false } }), null);
 console.log('ai social ok');
 
@@ -107,7 +107,7 @@ assert.ok(follow([answer, question]));
 assert.ok(follow([msg('bob', 400000, { toMe: true }), answer, question])); // answer renews conversation
 assert.ok(!follow([answer, { ...question, senderId: 'carol' }]));
 assert.ok(!follow([answer, { ...question, toOthers: true }]));
-assert.ok(!follow([answer, { ...question, ai: true }]));
+assert.ok(follow([answer, { ...question, ai: true }]));
 assert.ok(!follow([answer, { ...question, text: '哈哈哈' }]));
 assert.ok(!follow([answer, question], 0));
 assert.ok(!follow([{ ...answer, time: now - 300001 }, question]));
@@ -187,3 +187,18 @@ const continued = { ...question, toMe: follow([answer, question]) };
 assert.equal(decide({ now, s: { ...s, mode: 'mention' }, recent: [answer, continued], me, mySends: Array(40).fill(now - 100), random: 0, random2: 0 }).act, 'reply');
 assert.equal(decideWith([question], 0, Array(30).fill(now - 1000)).act, 'no');
 assert.equal(decideWith([msg('other-ai', 0, { ai: true, toMe: true })], 0, Array(30).fill(now - 1000)).act, 'no');
+
+// Quiet channel auto-topic, AI-to-AI DM rate limits, and DM follow-up.
+assert.ok(channelTopicDue({ now, s, lastMessageAt: now - 35 * 60_000, topicSends: [], asleep: false, someoneAround: true, random: 0.1 }));
+assert.ok(!channelTopicDue({ now, s, lastMessageAt: now - 10 * 60_000, topicSends: [], asleep: false, someoneAround: true, random: 0.1 }));
+assert.ok(!channelTopicDue({ now, s, lastMessageAt: now - 35 * 60_000, topicSends: [now - 5000, now - 1000], asleep: false, someoneAround: true, random: 0.1 }));
+assert.ok(!channelTopicDue({ now, s, lastMessageAt: now - 35 * 60_000, topicSends: [], asleep: true, someoneAround: true, random: 0.1 }));
+
+assert.ok(aiDmAllowed({ now, sentTimes: [now - 1000, now - 2000] }));
+assert.ok(!aiDmAllowed({ now, sentTimes: Array(6).fill(now - 30_000) }), 'burst cooldown');
+assert.ok(!aiDmAllowed({ now, sentTimes: Array(16).fill(now - 20 * 60_000) }), 'hourly cap');
+
+assert.ok(followUpDue({ now, followUpMinutes: 5, lastMsgFromMe: true, lastMsgAt: now - 6 * 60_000, alreadyFollowedUp: false, asleep: false, online: true, random: 0.1 }));
+assert.ok(!followUpDue({ now, followUpMinutes: 5, lastMsgFromMe: false, lastMsgAt: now - 6 * 60_000, alreadyFollowedUp: false, asleep: false, online: true, random: 0.1 }));
+assert.ok(!followUpDue({ now, followUpMinutes: 5, lastMsgFromMe: true, lastMsgAt: now - 6 * 60_000, alreadyFollowedUp: true, asleep: false, online: true, random: 0.1 }));
+
