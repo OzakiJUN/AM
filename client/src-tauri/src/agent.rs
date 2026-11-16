@@ -27,8 +27,11 @@ fn real(p: &Path) -> R<PathBuf> {
     Ok(real(parent)?.join(name))
 }
 
-/// `path` resolved, if it is inside one of `roots`.
-pub fn inside(path: &str, roots: &[String]) -> R<PathBuf> {
+/// `path` resolved, if it is inside one of `roots` (or anywhere when `unrestricted`).
+pub fn inside(path: &str, roots: &[String], unrestricted: bool) -> R<PathBuf> {
+    if unrestricted {
+        return real(Path::new(path));
+    }
     if roots.is_empty() {
         return Err("还没有设置工作目录：主人要先在这个 AI 的设置里加一个".into());
     }
@@ -52,8 +55,8 @@ pub struct Entry {
     modified: u64,
 }
 
-pub fn list_dir(path: &str, roots: &[String]) -> R<Vec<Entry>> {
-    let p = inside(path, roots)?;
+pub fn list_dir(path: &str, roots: &[String], unrestricted: bool) -> R<Vec<Entry>> {
+    let p = inside(path, roots, unrestricted)?;
     let mut out = Vec::new();
     for e in std::fs::read_dir(&p).map_err(|e| format!("读不了目录：{e}"))?.flatten().take(MAX_LIST) {
         let meta = e.metadata().ok();
@@ -71,9 +74,9 @@ pub fn list_dir(path: &str, roots: &[String]) -> R<Vec<Entry>> {
 }
 
 /// Text of a file, at most `max` bytes (invalid UTF-8 replaced).
-pub fn read_file(path: &str, roots: &[String], max: usize) -> R<String> {
+pub fn read_file(path: &str, roots: &[String], max: usize, unrestricted: bool) -> R<String> {
     use std::io::Read;
-    let p = inside(path, roots)?;
+    let p = inside(path, roots, unrestricted)?;
     let mut f = std::fs::File::open(&p).map_err(|e| format!("打不开：{e}"))?;
     let mut buf = Vec::new();
     f.by_ref().take(max as u64 + 1).read_to_end(&mut buf).map_err(|e| format!("读不了：{e}"))?;
@@ -86,9 +89,9 @@ pub fn read_file(path: &str, roots: &[String], max: usize) -> R<String> {
     Ok(s)
 }
 
-pub fn write_file(path: &str, roots: &[String], content: &str, append: bool) -> R<()> {
+pub fn write_file(path: &str, roots: &[String], content: &str, append: bool, unrestricted: bool) -> R<()> {
     use std::io::Write;
-    let p = inside(path, roots)?;
+    let p = inside(path, roots, unrestricted)?;
     if let Some(dir) = p.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("建不了目录：{e}"))?;
     }
@@ -103,9 +106,9 @@ pub fn write_file(path: &str, roots: &[String], content: &str, append: bool) -> 
 }
 
 /// Moves a file or folder to the recycle bin (can be restored from there).
-pub fn trash(path: &str, roots: &[String]) -> R<()> {
-    let p = inside(path, roots)?;
-    if roots.iter().any(|r| std::fs::canonicalize(r).is_ok_and(|root| root == p)) {
+pub fn trash(path: &str, roots: &[String], unrestricted: bool) -> R<()> {
+    let p = inside(path, roots, unrestricted)?;
+    if !unrestricted && roots.iter().any(|r| std::fs::canonicalize(r).is_ok_and(|root| root == p)) {
         return Err("不能删除工作目录本身".into());
     }
     #[cfg(desktop)]
@@ -353,16 +356,19 @@ mod tests {
         std::fs::write(dir.join("secret.txt"), "x").unwrap();
         let roots = vec![inner.to_string_lossy().into_owned()];
         // Inside, also a file that does not exist yet.
-        assert!(inside(&inner.join("a.txt").to_string_lossy(), &roots).is_ok());
-        write_file(&inner.join("sub/b.txt").to_string_lossy(), &roots, "你好", false).unwrap();
-        assert_eq!(read_file(&inner.join("sub/b.txt").to_string_lossy(), &roots, 100).unwrap(), "你好");
-        assert!(read_file(&inner.join("sub/b.txt").to_string_lossy(), &roots, 3).unwrap().contains("太长"));
+        assert!(inside(&inner.join("a.txt").to_string_lossy(), &roots, false).is_ok());
+        write_file(&inner.join("sub/b.txt").to_string_lossy(), &roots, "你好", false, false).unwrap();
+        assert_eq!(read_file(&inner.join("sub/b.txt").to_string_lossy(), &roots, 100, false).unwrap(), "你好");
+        assert!(read_file(&inner.join("sub/b.txt").to_string_lossy(), &roots, 3, false).unwrap().contains("太长"));
         // Outside, also through "..".
-        assert!(inside(&dir.join("secret.txt").to_string_lossy(), &roots).is_err());
-        assert!(inside(&inner.join("../secret.txt").to_string_lossy(), &roots).is_err());
-        assert!(inside("relative.txt", &[]).is_err());
-        assert_eq!(list_dir(&inner.to_string_lossy(), &roots).unwrap().len(), 1);
-        assert!(trash(&inner.to_string_lossy(), &roots).is_err()); // not the work folder itself
+        assert!(inside(&dir.join("secret.txt").to_string_lossy(), &roots, false).is_err());
+        assert!(inside(&inner.join("../secret.txt").to_string_lossy(), &roots, false).is_err());
+        assert!(inside("relative.txt", &[], false).is_err());
+        // Unrestricted allows outside paths.
+        assert!(inside(&dir.join("secret.txt").to_string_lossy(), &roots, true).is_ok());
+        assert_eq!(read_file(&dir.join("secret.txt").to_string_lossy(), &[], 100, true).unwrap(), "x");
+        assert_eq!(list_dir(&inner.to_string_lossy(), &roots, false).unwrap().len(), 1);
+        assert!(trash(&inner.to_string_lossy(), &roots, false).is_err()); // not the work folder itself
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -46,5 +46,5 @@ export function hostedSettings(s: AISettings, workDir: string, browser = false):
   for (const c of NEVER) levels[c] = 'deny';
   if (!browser) levels.browser = 'deny';
   for (const c of FILES) levels[c] = 'allow';
-  return { ...s, computer: { ...s.computer, enabled: true, workDirs: [workDir], levels, mcp: [] } };
+  return { ...s, computer: { ...s.computer, enabled: true, unrestricted: false, workDirs: [workDir], levels, mcp: [] } };
 }

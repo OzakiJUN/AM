@@ -23,12 +23,20 @@ export interface ChannelSettings {
   maxPerHour: number;
   /** After this many AI messages in a row (any AIs), wait for a person. */
   maxAIChain: number;
+  /** Quiet minutes in a channel before it starts a topic on its own (0 disables, default 30). */
+  autoTopicMinutes?: number;
+  /** Most self-started topics per hour in one channel (default 2). */
+  autoTopicMaxPerHour?: number;
 }
 
 /** How long a chat with one person goes on without another @ (seconds; was 300 before 2026-11-11). */
 export const FOLLOW_UP_SECONDS = 1800;
 
-export const defaultChannels = (): ChannelSettings => ({ mode: 'active', followUpSeconds: FOLLOW_UP_SECONDS, nicknames: [], chattiness: 0.5, batchSeconds: 5, maxBatchSeconds: 20, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6 });
+export const defaultChannels = (): ChannelSettings => ({
+  mode: 'active', followUpSeconds: FOLLOW_UP_SECONDS, nicknames: [], chattiness: 0.5,
+  batchSeconds: 5, maxBatchSeconds: 20, minGapSeconds: 20, maxPerHour: 30, maxAIChain: 6,
+  autoTopicMinutes: 30, autoTopicMaxPerHour: 2,
+});
 
 /** Its day. Times are "HH:MM" on the device that runs it; each event moves by up to `jitterMinutes`. */
 export interface RoutineSettings {
@@ -88,7 +96,7 @@ export function channelTurnIsDirected(recent: Said[], me: string, now: number, f
   const last = recent.at(-1);
   if (!last || last.senderId === me) return false;
   if (last.toMe) return true;
-  if (last.ai || last.toOthers) return false;
+  if (last.toOthers) return false;
   if (room) return true;
   if (followUpSeconds <= 0 || !discussionText(last.text ?? '')) return false;
   const fresh = (m: Said) => m.time <= last.time && now - m.time <= followUpSeconds * 1000;
@@ -285,9 +293,11 @@ export interface ProactiveSettings {
   thoughtMinutes: number;
   /** In its free time it also surfs the web with its background browser (when the browser is allowed). */
   surf: boolean;
+  /** Minutes after its own DM reply with no answer before it may add a short follow-up (0 disables, default 5). */
+  followUpMinutes?: number;
 }
 
-export const defaultProactive = (): ProactiveSettings => ({ greet: true, topics: true, quietHours: 3, thoughtMinutes: 20, surf: true });
+export const defaultProactive = (): ProactiveSettings => ({ greet: true, topics: true, quietHours: 1, thoughtMinutes: 20, surf: true, followUpMinutes: 5 });
 
 const HOUR = 60 * MIN;
 
@@ -305,10 +315,45 @@ export function proactive(o: {
   if (o.s.greet && !o.wasOnline && o.now - o.lastGreet > 4 * HOUR && o.now - o.lastChat > 30 * MIN) return 'greet';
   if (!o.s.topics) return null;
   if (o.activityChanged && o.now - o.lastTopic > HOUR && o.now - o.lastChat > 10 * MIN && o.random < 0.5) return 'activity';
-  const quiet = Math.max(0.5, o.s.quietHours) * HOUR;
+  const quiet = Math.max(0.1, o.s.quietHours) * HOUR;
   // Spread over a few minutes once it has been quiet long enough (a check every 30 s).
-  if (o.now - o.lastChat > quiet && o.now - o.lastTopic > quiet && o.random < 0.1) return 'topic';
+  if (o.now - o.lastChat > quiet && o.now - o.lastTopic > quiet && o.random < 0.15) return 'topic';
   return null;
+}
+
+/** Whether to start a topic in a quiet channel (checked every 30 s). */
+export function channelTopicDue(o: {
+  now: number; s: ChannelSettings; lastMessageAt: number; topicSends: number[]; asleep: boolean; someoneAround: boolean; random: number;
+}): boolean {
+  const mins = o.s.autoTopicMinutes ?? 30;
+  const maxPerHour = o.s.autoTopicMaxPerHour ?? 2;
+  if (o.asleep || o.s.mode !== 'active' || mins <= 0 || maxPerHour <= 0 || !o.someoneAround) return false;
+  if (o.lastMessageAt > 0 && o.now - o.lastMessageAt < mins * MIN) return false;
+  if (o.topicSends.filter((t) => o.now - t < HOUR).length >= maxPerHour) return false;
+  return o.random < 0.25;
+}
+
+/** Rate limit for DMs between two AIs so they do not loop indefinitely. */
+export function aiDmAllowed(o: {
+  now: number; sentTimes: number[]; maxPerHour?: number; maxBurst?: number; cooldownMs?: number;
+}): boolean {
+  const maxPerHour = o.maxPerHour ?? 16;
+  const maxBurst = o.maxBurst ?? 6;
+  const cooldownMs = o.cooldownMs ?? 10 * MIN;
+  if (o.sentTimes.filter((t) => o.now - t < HOUR).length >= maxPerHour) return false;
+  const recent = o.sentTimes.filter((t) => o.now - t < cooldownMs);
+  if (recent.length >= maxBurst) return false;
+  return true;
+}
+
+/** Whether to send a short follow-up in DM when the other person has not replied yet. */
+export function followUpDue(o: {
+  now: number; followUpMinutes: number; lastMsgFromMe: boolean; lastMsgAt: number; alreadyFollowedUp: boolean; asleep: boolean; online: boolean; random: number;
+}): boolean {
+  if (o.followUpMinutes <= 0 || o.asleep || !o.online || !o.lastMsgFromMe || o.alreadyFollowedUp || o.lastMsgAt <= 0) return false;
+  const elapsed = o.now - o.lastMsgAt;
+  if (elapsed < o.followUpMinutes * MIN || elapsed > (o.followUpMinutes + 10) * MIN) return false;
+  return o.random < 0.25;
 }
 
 /** Trailing pause, bounded by the first message in a burst; cooldown still applies. */

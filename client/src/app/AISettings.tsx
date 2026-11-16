@@ -306,6 +306,35 @@ function ComputerTab({ serverId, aiId, hosting, draft, set, save }: TabProps & {
         </div>
         <Toggle label="让它操作电脑" checked={c.enabled} onChange={(on) => setC({ enabled: on })} />
       </div>
+      {c.enabled && (
+        <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 font-medium">
+              完全放开权限
+              <ShieldAlert size={14} className="text-amber-500" aria-label="高风险" />
+            </div>
+            <div className="text-[0.8rem] text-ink-soft dark:text-white/50">
+              不限工作目录、所有操作（运行命令、删文件、MCP）都直接允许，在群里和独处时也能读写代码、跑测试、用 gh 提 PR。（托管在服务器上时无效）
+            </div>
+          </div>
+          <Toggle
+            label="完全放开权限"
+            checked={!!c.unrestricted}
+            onChange={async (on) => {
+              if (on) {
+                const ok = await ask({
+                  title: '完全放开电脑权限？',
+                  text: '打开后它可以读写电脑上任意位置的文件、删文件、运行命令和所有 MCP 工具，不再弹窗确认。确定吗？',
+                  ok: '确定放开',
+                  danger: true,
+                });
+                if (ok === null) return;
+              }
+              setC({ unrestricted: on });
+            }}
+          />
+        </div>
+      )}
       {c.enabled && draft.whoCanChat === 'everyone' && (
         <p className="flex gap-2 rounded-xl bg-amber-50 p-2.5 text-[0.8rem] text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
           <ShieldAlert size={16} className="mt-0.5 shrink-0" />
@@ -654,12 +683,20 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
             <Toggle label="自己找话题" checked={draft.proactive.topics} onChange={(topics) => set({ proactive: { ...draft.proactive, topics } })} />
           </div>
           {draft.proactive.topics && (
-            <span className="flex items-center gap-1.5 px-1 text-[0.85rem] text-ink-soft dark:text-white/55">
-              没说话
-              <Input type="number" min={0.5} max={48} step={0.5} value={draft.proactive.quietHours} className="h-8 w-20" aria-label="多久没说话就找话题（小时）"
-                onChange={(e) => set({ proactive: { ...draft.proactive, quietHours: Math.max(0.5, Math.min(48, Number(e.target.value) || 3)) } })} />
-              小时后找你聊
-            </span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-[0.85rem] text-ink-soft dark:text-white/55">
+              <span className="flex items-center gap-1.5">
+                没说话
+                <Input type="number" min={0.1} max={48} step={0.1} value={draft.proactive.quietHours} className="h-8 w-20" aria-label="多久没说话就找话题（小时）"
+                  onChange={(e) => set({ proactive: { ...draft.proactive, quietHours: Math.max(0.1, Math.min(48, Number(e.target.value) || 1)) } })} />
+                小时后找你聊
+              </span>
+              <span className="flex items-center gap-1.5">
+                说完你没回，过
+                <Input type="number" min={0} max={60} value={draft.proactive.followUpMinutes ?? 5} className="h-8 w-16" aria-label="说完没回过几分钟追问（0关闭）"
+                  onChange={(e) => set({ proactive: { ...draft.proactive, followUpMinutes: Math.max(0, Math.min(60, Number(e.target.value) || 0)) } })} />
+                分钟补一句（0 关闭）
+              </span>
+            </div>
           )}
         </div>
       </Field>
@@ -708,6 +745,12 @@ function SocialTab({ serverId, aiId, draft, set, save }: TabProps & { serverId: 
         <Field label="每小时最多几句" hint="限制主动接话，真人点名或连续对话不受限">{num(ch.maxPerHour, 1, 200, (maxPerHour) => setCh({ maxPerHour }), '每小时最多几句')}</Field>
         <Field label="AI 连着说几句就停" hint="几个 AI 聊起来时，等真人说话">{num(ch.maxAIChain, 1, 50, (maxAIChain) => setCh({ maxAIChain }), 'AI 连着说几句就停')}</Field>
       </div>
+      {ch.mode === 'active' && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="冷场多久开话题（分钟）" hint="频道安静这么久且有人在线时主动开个话题，0 关闭">{num(ch.autoTopicMinutes ?? 30, 0, 180, (autoTopicMinutes) => setCh({ autoTopicMinutes }), '冷场多久开话题')}</Field>
+          <Field label="每小时最多开几次话题">{num(ch.autoTopicMaxPerHour ?? 2, 0, 10, (autoTopicMaxPerHour) => setCh({ autoTopicMaxPerHour }), '每小时最多开几次话题')}</Field>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
         <div className="min-w-0 flex-1">
